@@ -1,0 +1,16 @@
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests/browser',
+  timeout: 120000,
+  expect: { timeout: 15000 },
+  workers: 1,
+  use: {
+    baseURL: 'http://127.0.0.1:4173/barb/',
+    launchOptions: {
+      ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {}),
+      args: ['--enable-unsafe-swiftshader'],
+    },
+  },
+  webServer: { command: 'npm run preview -- --host 127.0.0.1', url: 'http://127.0.0.1:4173/barb/', reuseExistingServer: !process.env.CI },
+});

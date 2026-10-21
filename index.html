@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#102c2c" />
+    <meta name="description" content="BARB — 静かな湖を自由に巡る、3D Web釣りゲーム。" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <title>BARB — A moment on the water</title>
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="scene" aria-label="BARBの湖。ドラッグまたは矢印キーで船を操縦できます。" tabindex="0"></canvas>
+      <header class="masthead">
+        <a class="wordmark" href="./" aria-label="BARB ホーム">BARB<span>LAKE EXPLORER</span></a>
+        <div class="location"><span class="live-dot"></span> LAKE No. 01 <span class="location-name">静寂の湖</span></div>
+      </header>
+      <section class="lake-title" aria-label="現在地">
+        <p class="eyebrow">FIND YOUR STILLNESS</p>
+        <h1>水の上に、<br />余白を。</h1>
+        <p>風に揺れる森。まだ知らない湖岸。<br />今日は、どこへ向かおう。</p>
+      </section>
+      <div class="compass" aria-hidden="true"><span>N</span><div id="compass-needle">↑</div></div>
+      <div id="reticle" hidden aria-hidden="true">+</div>
+      <div class="bottom-bar">
+        <div class="telemetry"><span class="eyebrow" id="mode-label">EXPLORING</span><div><strong id="speed">0.0</strong><span class="unit">km/h</span></div><span id="motion-label">停船中</span></div>
+        <section class="action-panel" aria-label="船の操作">
+          <p id="hint">ドラッグして操船 · 離すと停船</p>
+          <button id="fish-button" type="button" disabled><span>釣りをする</span><span aria-hidden="true">↗</span></button>
+          <button id="return-button" type="button" hidden>操船に戻る <span aria-hidden="true">↩</span></button>
+          <p id="fishing-note" hidden>釣りの機能は、これから。今は湖の眺めをお楽しみください。</p>
+        </section>
+        <div class="edition"><span class="eyebrow">EARLY EXPLORATION</span><span>01 / A MOMENT ON THE WATER</span></div>
+      </div>
+      <div id="joystick" hidden aria-hidden="true"><span id="joystick-knob"></span></div>
+      <div id="status" class="status" role="status">湖を準備しています…</div>
+      <div id="error" class="error" role="alert" hidden></div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
