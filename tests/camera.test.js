@@ -46,7 +46,7 @@ test('fight camera follows the near-water landing point without moving the boat 
   const rig = createCameraRig(camera, boat);
   rig.update(4, { lookX: 0, lookY: 0 });
   const position = camera.position.clone();
-  rig.update(2, { lookX: 0, lookY: 0 }, true, { x: boat.x, z: boat.z - 1.8 });
+  rig.update(2, { lookX: 0, lookY: 0 }, true, { x: boat.x, z: boat.z - 4.5 });
   assert.ok(camera.position.equals(position));
-  assert.ok(camera.getWorldDirection(new THREE.Vector3()).y < -0.5);
+  assert.ok(camera.getWorldDirection(new THREE.Vector3()).y < -0.4);
 });

@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// Keep software WebGL responsive while retaining CSS viewport/touch behavior.
+test.use({ deviceScaleFactor: 0.5 });
+
 // Fixed RNG, real production build and real elapsed time. No state-forcing hooks.
 async function setup(page) {
   await page.addInitScript(() => { Math.random = () => 0.5; });
@@ -13,6 +16,16 @@ async function inputFor(page, touch) {
   return {
     down: async (x = 300, y = 420) => touch ? touchEvent('touchStart', x, y) : (await page.mouse.move(x, y), page.mouse.down()),
     move: async (x, y) => touch ? touchEvent('touchMove', x, y) : page.mouse.move(x, y),
+    tap: async () => {
+      const timestamp = Date.now() / 1000;
+      if (touch) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 300, y: 420 }], timestamp });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: timestamp + 0.03 });
+      } else {
+        await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 300, y: 420, button: 'left', buttons: 1, clickCount: 1, timestamp });
+        await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 300, y: 420, button: 'left', buttons: 0, clickCount: 1, timestamp: timestamp + 0.03 });
+      }
+    },
     flick: async () => {
       const timestamp = Date.now() / 1000;
       if (touch) {
@@ -41,17 +54,21 @@ async function cast(page, input) {
 async function hook(page, input) {
   // Poll faster than the one-second hook window.
   await expect.poll(() => phase(page).getAttribute('data-phase'), { intervals: [50], timeout: 25000 }).toBe('bite');
-  await input.down(); await input.up();
+  await input.tap();
   await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
 }
 async function land(page, input) {
   let held = false;
   for (let i = 0; i < 90; i++) {
-    if (await phase(page).getAttribute('data-phase') !== 'fight') break;
-    const tension = await page.locator('#line-tension').evaluate(el => el.value);
-    if (!held && tension < 0.45) { await input.down(); held = true; }
-    else if (held && tension > 0.76) { await input.up(); held = false; }
-    await page.waitForTimeout(180);
+    const snapshot = await page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
+    if (snapshot.phase !== 'fight') {
+      if (snapshot.phase === 'landing') await page.screenshot({ path: `test-results/landing-${page.viewportSize().width}.png` });
+      break;
+    }
+    const tension = snapshot.tension;
+    if (!held && tension < 0.3) { await input.down(); held = true; }
+    else if (held && tension > 0.58) { await input.up(); held = false; }
+    await page.waitForTimeout(100);
   }
   if (held) await input.up();
   await expect(page.locator('#catch-dialog')).toBeVisible();
@@ -91,7 +108,6 @@ for (const touch of [false, true]) {
     await expect(page.locator('#reel-state')).toHaveText('ルアーアクション');
     await hook(page, input);
     await expect(page.locator('#return-button')).toBeDisabled();
-    await page.screenshot({ path: `test-results/${touch ? 'mobile' : 'desktop'}-fight.png` });
     await land(page, input);
     await page.screenshot({ path: `test-results/${touch ? 'mobile' : 'desktop'}-catch.png` });
     await input.click(page.locator('#close-catch'));
