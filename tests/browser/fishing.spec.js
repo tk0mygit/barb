@@ -137,9 +137,16 @@ test('mouse: blur/lost capture reset aim, over-tension fails and retry works', a
     await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
   }
   await cast(page, input); await hook(page, input);
-  await input.down(); await page.waitForTimeout(500);
-  await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.dispatchEvent(new Event('focus')); });
-  const tension = await page.locator('#line-tension').evaluate(el => el.value);
+  await input.down();
+  await page.waitForFunction(() => document.querySelector('#line-tension').value >= 0.3);
+  // Sample before cancellation in the same browser turn: a slow automation
+  // round trip may otherwise observe tension already relaxed to zero.
+  const tension = await page.evaluate(() => {
+    const value = document.querySelector('#line-tension').value;
+    window.dispatchEvent(new Event('blur'));
+    window.dispatchEvent(new Event('focus'));
+    return value;
+  });
   await page.waitForTimeout(500);
   expect(await page.locator('#line-tension').evaluate(el => el.value)).toBeLessThan(tension);
   await input.up(); await input.down();
