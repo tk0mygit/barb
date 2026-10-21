@@ -88,7 +88,9 @@ test('missed hook, excess tension and prolonged slack fail, then allow retry', (
 
 test('controlled fights take 5–15s across fish sizes, land once, and retain structured catches', () => {
   for (const size of [0.01, 0.5, 0.99]) {
-    const f = hooked({ random: () => size, now: () => 1700000000000 });
+    // Wait roll, species roll (black bass), then size roll.
+    const rolls = [size, 0, size];
+    const f = hooked({ random: () => rolls.shift() ?? size, now: () => 1700000000000 });
     let elapsed = 0, holding = false;
     while (f.state.phase === PHASE.FIGHT && elapsed < 30) {
       if (f.state.tension < 0.4) holding = true;

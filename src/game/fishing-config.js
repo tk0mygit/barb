@@ -6,6 +6,8 @@ export const FISHING_CONFIG = Object.freeze({
   lureSpeed: 0.65, landingDistance: 4.5, landingSeconds: 1.1, failureSeconds: 1.5,
   tensionStart: 0.42, tensionRise: 0.24, tensionRelief: 0.42,
   slackThreshold: 0.12, slackGrace: 1.4, slackEscapeRate: 1.2, fightReelSeconds: 6.5,
+  // Bound retrieval duration while keeping the full resistance in tension.
+  reelResistanceMin: 0.8, reelResistanceMax: 1.25,
 });
 // Retain the Phase 2 import path for existing consumers.
 export { BLACK_BASS } from './fish-species.js';

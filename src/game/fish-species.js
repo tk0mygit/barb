@@ -3,7 +3,7 @@
 // Weight = referenceWeightKg * (length / referenceLengthCm) ** exponent, rounded to 0.01kg.
 // Resistance = baseResistance + (length - minLengthCm) / lengthScaleCm
 //              + surgeAmplitude * sin(seconds * surgeFrequency), in radians/second.
-// Only black-bass is catchable until species selection is implemented in a later phase.
+// All species can be encountered; lure/appearance balance lives in separate modules.
 function species(data) {
   return Object.freeze({ ...data, weight: Object.freeze(data.weight), fight: Object.freeze(data.fight) });
 }

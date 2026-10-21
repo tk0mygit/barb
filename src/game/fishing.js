@@ -1,5 +1,8 @@
-import { FISHING_CONFIG, BLACK_BASS } from './fishing-config.js';
-import { calculateFishWeightKg } from './fish-species.js';
+import { FISHING_CONFIG } from './fishing-config.js';
+import { calculateFishWeightKg, getFishSpecies } from './fish-species.js';
+import { DEFAULT_LURE_ID, getLure } from './lures.js';
+import { sampleFishSpecies } from './fish-encounters.js';
+import { fishResistance } from './fish-fight.js';
 
 export const PHASE = Object.freeze({ READY: 'ready', AIM: 'aim', CAST: 'cast', LURE: 'lure', BITE: 'bite', FIGHT: 'fight', LANDING: 'landing', RESULT: 'result', FAILED: 'failed' });
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -11,9 +14,9 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     phase: PHASE.READY, revision: 0, time: 0, reeling: false, distance: 0, tension: 0,
     origin: { x: 0, z: 0 }, target: { x: 0, z: 0 }, heading: 0, validCast: true,
     action: 0, message: '', catch: null, catches: [], biteRemaining: 0,
+    lureId: DEFAULT_LURE_ID, encounter: null,
   };
   let aimHeading = 0, biteBudget = 0, lureTime = 0, slackTime = 0, fightDistance = 0;
-  let fish = null;
   const exponential = () => -Math.log(Math.max(1e-9, 1 - random()));
   function transition(phase) {
     state.phase = phase;
@@ -21,7 +24,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     state.time = 0;
     state.reeling = false;
   }
-  function ready(message = '') { transition(PHASE.READY); state.message = message; state.catch = null; }
+  function ready(message = '') { transition(PHASE.READY); state.message = message; state.catch = null; state.encounter = null; }
   function fail(message) { transition(PHASE.FAILED); state.message = message; }
   function aim(dx = 0, dy = 0) {
     if (state.phase !== PHASE.AIM) return;
@@ -49,8 +52,11 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       lureTime += dt;
       if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - settings.lureSpeed * dt);
       if (state.distance <= settings.landingDistance) { ready('ルアーを回収しました'); return; }
-      biteBudget -= activeTime * (state.action > 0 ? settings.actionMultiplier : 1);
+      biteBudget -= activeTime * getLure(state.lureId).hitMultiplier * (state.action > 0 ? settings.actionMultiplier : 1);
       if (biteBudget <= 0 && lureTime >= settings.biteDelay) {
+        const species = sampleFishSpecies(state.lureId, random);
+        const lengthCm = Math.round((species.minLengthCm + random() * (species.maxLengthCm - species.minLengthCm)) * 10) / 10;
+        state.encounter = Object.freeze({ speciesId: species.id, lengthCm, weightKg: calculateFishWeightKg(species.id, lengthCm) });
         transition(PHASE.BITE);
         state.biteRemaining = settings.hookWindow;
       }
@@ -58,22 +64,27 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       state.biteRemaining = Math.max(0, settings.hookWindow - state.time);
       if (state.time >= settings.hookWindow) fail('アワセが遅れて魚が逃げました');
     } else if (state.phase === PHASE.FIGHT) {
-      const { baseResistance, lengthScaleCm, surgeAmplitude, surgeFrequency } = BLACK_BASS.fight;
-      const resistance = baseResistance + (fish.lengthCm - BLACK_BASS.minLengthCm) / lengthScaleCm + surgeAmplitude * Math.sin(state.time * surgeFrequency);
+      const fish = state.encounter;
+      const resistance = fishResistance(getFishSpecies(fish.speciesId), fish.lengthCm, state.time);
       state.tension = clamp(state.tension + dt * (state.reeling ? settings.tensionRise * resistance : -settings.tensionRelief), 0, 1);
       if (state.tension >= 1) { fail('テンションが高すぎてラインが切れました'); return; }
       slackTime = state.tension < settings.slackThreshold ? slackTime + dt : 0;
       if (slackTime > settings.slackGrace && random() < -Math.expm1(-settings.slackEscapeRate * dt)) { fail('ラインが緩み、魚が逃げました'); return; }
-      if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - fightDistance / (settings.fightReelSeconds * resistance) * dt);
+      const reelResistance = clamp(resistance, settings.reelResistanceMin, settings.reelResistanceMax);
+      if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - fightDistance / (settings.fightReelSeconds * reelResistance) * dt);
       if (state.distance <= settings.landingDistance) transition(PHASE.LANDING);
     } else if (state.phase === PHASE.LANDING && state.time >= settings.landingSeconds) {
-      state.catch = Object.freeze({ schemaVersion: 1, id: `catch-${now()}-${state.catches.length + 1}`, speciesId: BLACK_BASS.id, lengthCm: fish.lengthCm, weightKg: fish.weightKg, caughtAt: new Date(now()).toISOString(), disposition: 'unassigned' });
+      state.catch = Object.freeze({ schemaVersion: 1, id: `catch-${now()}-${state.catches.length + 1}`, ...state.encounter, caughtAt: new Date(now()).toISOString(), disposition: 'unassigned' });
       state.catches.push(state.catch);
       transition(PHASE.RESULT);
     } else if (state.phase === PHASE.FAILED && state.time >= settings.failureSeconds) ready(state.message);
   }
   return {
     state, settings,
+    selectLure(id) {
+      if (state.phase !== PHASE.READY || !getLure(id)) return false;
+      state.lureId = id; return true;
+    },
     canLeave: () => [PHASE.READY, PHASE.AIM, PHASE.FAILED].includes(state.phase),
     prepare(origin, heading) {
       if (state.phase !== PHASE.READY) return false;
@@ -94,8 +105,6 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     flick() { if (state.phase === PHASE.LURE) state.action = settings.actionSeconds; },
     hook() {
       if (state.phase !== PHASE.BITE || state.time >= settings.hookWindow) return false;
-      const lengthCm = Math.round((BLACK_BASS.minLengthCm + random() * (BLACK_BASS.maxLengthCm - BLACK_BASS.minLengthCm)) * 10) / 10;
-      fish = { lengthCm, weightKg: calculateFishWeightKg(BLACK_BASS.id, lengthCm) };
       state.tension = settings.tensionStart;
       fightDistance = state.distance - settings.landingDistance;
       slackTime = 0;

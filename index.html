@@ -27,6 +27,7 @@
         <section class="action-panel" aria-label="船の操作">
           <p id="hint">ドラッグして操船 · 離すと停船</p>
           <button id="fish-button" type="button" disabled><span>釣りをする</span><span aria-hidden="true">↗</span></button>
+          <div id="lure-picker" role="group" aria-label="ルアー選択（キャスト準備前のみ）" hidden></div>
           <button id="cast-button" type="button" hidden>キャスト準備 <span aria-hidden="true">↗</span></button>
           <button id="cancel-cast" type="button" hidden>準備をやめる</button>
           <button id="return-button" type="button" hidden>操船に戻る <span aria-hidden="true">↩</span></button>
@@ -47,7 +48,7 @@
       <dialog id="catch-dialog" aria-labelledby="catch-species">
         <p class="eyebrow">A MOMENT TO REMEMBER</p>
         <h2 id="catch-species"></h2>
-        <img id="catch-image" alt="ブラックバスの側面イラスト" width="640" height="280" />
+        <img id="catch-image" alt="" width="640" height="280" />
         <dl><div><dt>体長</dt><dd id="catch-length"></dd></div><div><dt>重量</dt><dd id="catch-weight"></dd></div></dl>
         <button id="close-catch" type="button">釣りを続ける <span aria-hidden="true">↗</span></button>
       </dialog>

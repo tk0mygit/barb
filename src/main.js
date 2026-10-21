@@ -55,6 +55,7 @@ try {
   }
   const hud = createHUD({ onFish: () => changeMode('fishing'), onReturn: () => changeMode('sailing') });
   const fishingHUD = createFishingHUD({
+    onSelectLure: id => { fishing.selectLure(id); },
     onPrepare: () => {
       controls.reset();
       const direction = camera.getWorldDirection(new THREE.Vector3());
