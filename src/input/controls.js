@@ -1,23 +1,32 @@
-export function createControls(canvas, joystick, knob) {
+export function createControls(canvas, joystick, knob, fishing = null) {
   const state = { steer: 0, throttle: 0, lookX: 0, lookY: 0 };
   const keys = new Set();
   let pointer = null;
   let origin = { x: 0, y: 0 };
   let previous = origin;
   let mode = 'sailing';
-  function reset() {
-    if (pointer !== null && canvas.hasPointerCapture(pointer)) canvas.releasePointerCapture(pointer);
+  let fishingGesture = false;
+  const canLook = () => !fishing || fishing.canLook();
+  function release() {
+    const previousPointer = pointer;
     pointer = null;
+    fishingGesture = false;
+    if (previousPointer !== null && canvas.hasPointerCapture(previousPointer)) canvas.releasePointerCapture(previousPointer);
     keys.clear();
     state.steer = state.throttle = state.lookX = state.lookY = 0;
     joystick.hidden = true;
   }
+  function reset() { release(); fishing?.input.cancel(); }
   canvas.addEventListener('pointerdown', event => {
     if (pointer !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
     pointer = event.pointerId;
     origin = previous = { x: event.clientX, y: event.clientY };
     canvas.setPointerCapture(pointer);
     canvas.focus({ preventScroll: true });
+    if (mode === 'fishing' && !canLook()) {
+      fishingGesture = true;
+      fishing.input.down(event.clientX, event.clientY, event.timeStamp);
+    }
     if (mode === 'sailing') {
       joystick.style.left = `${origin.x}px`;
       joystick.style.top = `${origin.y}px`;
@@ -27,10 +36,12 @@ export function createControls(canvas, joystick, knob) {
   });
   canvas.addEventListener('pointermove', event => {
     if (event.pointerId !== pointer) return;
-    if (mode === 'fishing') {
+    if (fishingGesture) {
+      fishing.input.move(event.clientX, event.clientY);
+    } else if (mode === 'fishing' && canLook()) {
       state.lookX += (event.clientX - previous.x) * 0.004;
       state.lookY += (event.clientY - previous.y) * 0.004;
-    } else {
+    } else if (mode === 'sailing') {
       const dx = event.clientX - origin.x;
       const dy = event.clientY - origin.y;
       const length = Math.hypot(dx, dy);
@@ -41,7 +52,12 @@ export function createControls(canvas, joystick, knob) {
     }
     previous = { x: event.clientX, y: event.clientY };
   });
-  for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  canvas.addEventListener('pointerup', event => {
+    if (event.pointerId !== pointer) return;
+    if (fishingGesture) fishing.input.up(event.timeStamp);
+    release();
+  });
+  for (const name of ['pointercancel', 'lostpointercapture']) {
     canvas.addEventListener(name, event => { if (event.pointerId === pointer) reset(); });
   }
   const supported = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'];
@@ -51,16 +67,19 @@ export function createControls(canvas, joystick, knob) {
   canvas.addEventListener('blur', reset);
   document.addEventListener('visibilitychange', reset);
   return {
+    reset,
     setMode(next) { reset(); mode = next; },
     read(dt) {
+      if (mode === 'fishing') fishing?.input.step(dt);
       if (pointer === null) {
         state.steer = Number(keys.has('ArrowRight') || keys.has('KeyD')) - Number(keys.has('ArrowLeft') || keys.has('KeyA'));
         state.throttle = Number(keys.has('ArrowUp') || keys.has('KeyW'));
-        if (mode === 'fishing') {
+        if (mode === 'fishing' && canLook()) {
           state.lookX += state.steer * dt;
           state.lookY += (Number(keys.has('ArrowDown') || keys.has('KeyS')) - state.throttle) * dt;
         }
       }
+      if (mode === 'fishing' && !canLook()) state.lookX = state.lookY = 0;
       const result = { ...state };
       state.lookX = state.lookY = 0;
       return result;

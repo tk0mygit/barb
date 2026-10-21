@@ -27,11 +27,30 @@
         <section class="action-panel" aria-label="船の操作">
           <p id="hint">ドラッグして操船 · 離すと停船</p>
           <button id="fish-button" type="button" disabled><span>釣りをする</span><span aria-hidden="true">↗</span></button>
+          <button id="cast-button" type="button" hidden>キャスト準備 <span aria-hidden="true">↗</span></button>
+          <button id="cancel-cast" type="button" hidden>準備をやめる</button>
           <button id="return-button" type="button" hidden>操船に戻る <span aria-hidden="true">↩</span></button>
-          <p id="fishing-note" hidden>釣りの機能は、これから。今は湖の眺めをお楽しみください。</p>
+          <p id="fishing-note" hidden></p>
         </section>
         <div class="edition"><span class="eyebrow">EARLY EXPLORATION</span><span>01 / A MOMENT ON THE WATER</span></div>
       </div>
+      <section id="fishing-panel" hidden aria-label="釣りの状況">
+        <p class="eyebrow">ON THE LINE</p>
+        <p id="fishing-state" role="status" aria-live="polite"></p>
+        <p id="line-distance"></p><p id="reel-state"></p>
+        <div id="fight-gauge" hidden>
+          <label for="line-tension">ラインテンション <span id="tension-value"></span></label>
+          <meter id="line-tension" min="0" max="1" low="0.18" high="0.78" optimum="0.5" value="0.42"></meter>
+          <p id="tension-warning"></p>
+        </div>
+      </section>
+      <dialog id="catch-dialog" aria-labelledby="catch-species">
+        <p class="eyebrow">A MOMENT TO REMEMBER</p>
+        <h2 id="catch-species"></h2>
+        <img id="catch-image" alt="ブラックバスの側面イラスト" width="640" height="280" />
+        <dl><div><dt>体長</dt><dd id="catch-length"></dd></div><div><dt>重量</dt><dd id="catch-weight"></dd></div></dl>
+        <button id="close-catch" type="button">釣りを続ける <span aria-hidden="true">↗</span></button>
+      </dialog>
       <div id="joystick" hidden aria-hidden="true"><span id="joystick-knob"></span></div>
       <div id="status" class="status" role="status">湖を準備しています…</div>
       <div id="error" class="error" role="alert" hidden></div>

@@ -10,7 +10,15 @@ export function createCameraRig(camera, boat) {
   camera.position.set(boat.x, 10, boat.z + 18);
   target.set(boat.x, 0.8, boat.z - 5);
   return {
-    update(dt, input) {
+    update(dt, input, locked = false, tracking = null) {
+      if (locked && boat.mode === previousMode) {
+        if (tracking) {
+          aim.set(tracking.x, 0.2, tracking.z);
+          target.lerp(aim, 1 - Math.exp(-dt * 4));
+          camera.lookAt(target);
+        }
+        return;
+      }
       if (boat.mode !== previousMode) { yaw = pitch = 0; previousMode = boat.mode; }
       if (boat.mode === 'fishing') {
         yaw += input.lookX;
