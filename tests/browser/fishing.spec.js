@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { FISH_SPECIES, getFishSpecies, calculateFishWeightKg } from '../../src/game/fish-species.js';
+import { getSpeciesProbabilities } from '../../src/game/fish-encounters.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
 test.use({ deviceScaleFactor: 0.5 });
 
-// Fixed RNG, real production build and real elapsed time. No state-forcing hooks.
+// Controlled RNG and the real production build. No state-forcing hooks.
 async function setup(page) {
-  await page.addInitScript(() => { Math.random = () => 0.5; });
+  await page.addInitScript(() => { Math.random = () => window.testRandomValue ?? 0.5; });
   await page.goto('./');
   await expect(page.locator('#status')).toBeHidden();
 }
@@ -46,6 +49,8 @@ async function inputFor(page, touch) {
 async function cast(page, input) {
   await input.click(page.locator('#cast-button'));
   await expect(phase(page)).toHaveAttribute('data-phase', 'aim');
+  await expect(page.locator('#lure-picker')).toBeHidden();
+  for (const button of await page.locator('#lure-picker button').all()) await expect(button).toBeDisabled();
   await input.down(); await input.move(300, 270);
   await expect(page.locator('#line-distance')).toContainText('着水予測 28.0 m');
   await input.up();
@@ -57,7 +62,24 @@ async function hook(page, input) {
   await input.tap();
   await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
 }
-async function land(page, input) {
+async function assertCatch(page, speciesId, size = 0.5) {
+  const species = getFishSpecies(speciesId);
+  const length = Math.round((species.minLengthCm + size * (species.maxLengthCm - species.minLengthCm)) * 10) / 10;
+  await expect(page.locator('#catch-dialog')).toBeVisible();
+  await expect(page.locator('#catch-species')).toHaveText(species.name);
+  await expect(page.locator('#catch-length')).toHaveText(`${length.toFixed(1)} cm`);
+  await expect(page.locator('#catch-weight')).toHaveText(`${calculateFishWeightKg(species.id, length).toFixed(2)} kg`);
+  await expect(page.locator('#catch-image')).toHaveAttribute('alt', `${species.name}の側面イラスト`);
+  // Compare the loaded SVG, not just its alt text; Vite may inline small assets.
+  const actual = await page.locator('#catch-image').evaluate(async img => {
+    await img.decode();
+    if (img.naturalWidth <= 0) throw new Error('Image did not load');
+    return (await fetch(img.currentSrc)).text();
+  });
+  const normalize = svg => svg.replaceAll('"', "'").replace(/>\s+</g, '><').replace(/\s+/g, ' ').trim();
+  expect(normalize(actual)).toBe(normalize(readFileSync(new URL(species.image), 'utf8')));
+}
+async function land(page, input, speciesId) {
   let held = false;
   for (let i = 0; i < 90; i++) {
     const snapshot = await page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
@@ -71,11 +93,7 @@ async function land(page, input) {
     await page.waitForTimeout(100);
   }
   if (held) await input.up();
-  await expect(page.locator('#catch-dialog')).toBeVisible();
-  await expect(page.locator('#catch-species')).toHaveText('ブラックバス');
-  await expect(page.locator('#catch-length')).toHaveText('40.0 cm');
-  await expect(page.locator('#catch-weight')).toHaveText('1.10 kg');
-  expect(await page.locator('#catch-image').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+  await assertCatch(page, speciesId);
 }
 
 for (const touch of [false, true]) {
@@ -87,11 +105,19 @@ for (const touch of [false, true]) {
     await setup(page);
     const input = await inputFor(page, touch);
     await input.click(page.locator('#fish-button'));
+    await expect(page.locator('#lure-picker button')).toHaveCount(4);
+    for (const id of ['minnow', 'spinnerbait', 'crankbait', 'worm']) {
+      await input.click(page.locator(`[data-lure-id="${id}"]`));
+      await expect(page.locator(`[data-lure-id="${id}"]`)).toHaveAttribute('aria-pressed', 'true');
+    }
+    const lureId = touch ? 'worm' : 'crankbait';
+    await input.click(page.locator(`[data-lure-id="${lureId}"]`));
     await page.waitForTimeout(1000);
     await input.click(page.locator('#cast-button'));
     await input.down(); await input.move(300, 300); await input.cancel();
     if (!touch) await page.mouse.up();
     await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
+    await expect(page.locator(`[data-lure-id="${lureId}"]`)).toHaveAttribute('aria-pressed', 'true');
     await cast(page, input);
     await expect(page.locator('#return-button')).toBeDisabled();
     await page.keyboard.press('Escape');
@@ -108,11 +134,13 @@ for (const touch of [false, true]) {
     await expect(page.locator('#reel-state')).toHaveText('ルアーアクション');
     await hook(page, input);
     await expect(page.locator('#return-button')).toBeDisabled();
-    await land(page, input);
+    await expect(page.locator('#lure-picker')).toBeHidden();
+    await land(page, input, touch ? 'bluegill' : 'rainbow-trout');
     await page.screenshot({ path: `test-results/${touch ? 'mobile' : 'desktop'}-catch.png` });
     await input.click(page.locator('#close-catch'));
     await expect(page.locator('#catch-dialog')).toBeHidden();
     await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
+    await expect(page.locator('#lure-picker')).toBeVisible();
     await cast(page, input);
     expect(errors).toEqual([]);
     await context.close();
@@ -160,6 +188,11 @@ test('mobile landscape: prepare/cancel and return controls remain reachable', as
   const context = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
   const page = await context.newPage(); await setup(page);
   await page.locator('#fish-button').tap();
+  for (const button of await page.locator('#lure-picker button').all()) {
+    const bounds = await button.boundingBox();
+    expect(bounds.y).toBeGreaterThan(0); expect(bounds.y + bounds.height).toBeLessThan(390);
+    await button.tap(); await expect(button).toHaveAttribute('aria-pressed', 'true');
+  }
   await page.locator('#cast-button').tap();
   await expect(phase(page)).toHaveAttribute('data-phase', 'aim');
   await page.locator('#cancel-cast').tap();
@@ -169,4 +202,50 @@ test('mobile landscape: prepare/cancel and return controls remain reachable', as
   await expect(page.locator('#motion-label')).toHaveText('停船中');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await context.close();
+});
+
+test('all 12 species: production cast, hook, fight, matching result image and recast', async ({ page }) => {
+  test.setTimeout(300000);
+  await page.setViewportSize({ width: 800, height: 600 });
+  await setup(page); await page.locator('#fish-button').click();
+  await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
+  // Advance one 250ms frame at a time (the production dt cap). This keeps the
+  // full state machine/render/UI live without 12 long wall-clock bite waits.
+  // Only clock and RNG are controlled; fish/state/catches are never injected.
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
+  const input = await inputFor(page, false);
+  const tick = () => page.clock.fastForward(250);
+  const snapshot = () => page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
+  for (const [index, species] of FISH_SPECIES.entries()) {
+    const lureId = ['minnow', 'crankbait', 'worm', 'spinnerbait'][index % 4];
+    const entries = getSpeciesProbabilities(lureId);
+    const selectedIndex = entries.findIndex(entry => entry.speciesId === species.id);
+    const roll = entries.slice(0, selectedIndex).reduce((sum, entry) => sum + entry.probability, 0) + entries[selectedIndex].probability / 2;
+    await page.evaluate(() => { window.testRandomValue = 0.1; });
+    await page.locator(`[data-lure-id="${lureId}"]`).click({ force: true });
+    await page.locator('#cast-button').click({ force: true }); await tick();
+    await input.down(450, 240); await input.move(450, 90); await input.up();
+    for (let i = 0; i < 4; i++) await tick();
+    expect((await snapshot()).phase).toBe('lure');
+    await page.evaluate(value => { window.testRandomValue = value; }, roll);
+    for (let i = 0; i < 24 && (await snapshot()).phase === 'lure'; i++) await tick();
+    expect((await snapshot()).phase).toBe('bite');
+    await input.tap(); await tick();
+    expect((await snapshot()).phase).toBe('fight');
+    let held = false;
+    for (let i = 0; i < 100; i++) {
+      const s = await snapshot();
+      if (s.phase !== 'fight') break;
+      if (!held && s.tension < 0.35) { await input.down(); held = true; }
+      else if (held && s.tension > 0.65) { await input.up(); held = false; }
+      await tick();
+    }
+    if (held) await input.up();
+    expect((await snapshot()).phase).toBe('landing');
+    for (let i = 0; i < 5; i++) await tick();
+    await assertCatch(page, species.id, roll);
+    await page.locator('#close-catch').click({ force: true }); await tick();
+    expect((await snapshot()).phase).toBe('ready');
+  }
 });

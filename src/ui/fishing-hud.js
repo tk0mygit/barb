@@ -1,5 +1,6 @@
 import { PHASE } from '../game/fishing.js';
-import { BLACK_BASS } from '../game/fishing-config.js';
+import { getFishSpecies } from '../game/fish-species.js';
+import { createLurePicker } from './lure-picker.js';
 
 const labels = { ready: 'キャスト前', aim: 'キャスト準備', cast: 'キャスト中', lure: 'アタリを待つ', bite: 'アタリ！ 今すぐタップ', fight: 'ファイト', landing: 'ランディング', result: '釣り上げました', failed: '魚が逃げました' };
 const hints = {
@@ -10,7 +11,7 @@ const hints = {
   fight: '長押しで引く · 高くなったら離す · 緩めすぎに注意',
   landing: 'もうすぐ、釣り上がります', failed: 'まもなく再挑戦できます', result: '',
 };
-export function createFishingHUD({ onPrepare, onCancel, onClose }) {
+export function createFishingHUD({ onPrepare, onCancel, onClose, onSelectLure }) {
   const panel = document.querySelector('#fishing-panel');
   const status = document.querySelector('#fishing-state');
   const prepare = document.querySelector('#cast-button');
@@ -20,20 +21,20 @@ export function createFishingHUD({ onPrepare, onCancel, onClose }) {
   const fight = document.querySelector('#fight-gauge');
   const dialog = document.querySelector('#catch-dialog');
   const close = document.querySelector('#close-catch');
+  const lurePicker = createLurePicker(document.querySelector('#lure-picker'), onSelectLure);
   let previous = null;
   prepare.addEventListener('click', onPrepare);
   cancel.addEventListener('click', onCancel);
   const closeResult = () => { dialog.close(); onClose(); };
   close.addEventListener('click', closeResult);
   dialog.addEventListener('cancel', event => { event.preventDefault(); closeResult(); });
-  document.querySelector('#catch-image').src = BLACK_BASS.image;
-  document.querySelector('#catch-species').textContent = BLACK_BASS.name;
   return {
     update(fishing, active) {
       const s = fishing.state;
       panel.hidden = !active;
       panel.dataset.phase = active ? s.phase : 'inactive';
       prepare.hidden = !active || s.phase !== PHASE.READY;
+      lurePicker.update(s.lureId, active && s.phase === PHASE.READY);
       cancel.hidden = !active || s.phase !== PHASE.AIM;
       if (!active) { previous = null; return; }
       document.querySelector('#return-button').disabled = !fishing.canLeave();
@@ -49,6 +50,11 @@ export function createFishingHUD({ onPrepare, onCancel, onClose }) {
       document.querySelector('#tension-warning').textContent = s.tension > 0.78 ? '離して緩める！' : s.tension < 0.18 ? '長押しで巻く！' : 'テンションを保つ';
       document.querySelector('#reel-state').textContent = s.phase === PHASE.LURE ? s.reeling ? '巻き取り中' : s.action > 0 ? 'ルアーアクション' : '待機中' : '';
       if (s.phase === PHASE.RESULT && !dialog.open) {
+        const species = getFishSpecies(s.catch.speciesId);
+        document.querySelector('#catch-species').textContent = species.name;
+        const image = document.querySelector('#catch-image');
+        image.src = species.image;
+        image.alt = `${species.name}の側面イラスト`;
         document.querySelector('#catch-length').textContent = `${s.catch.lengthCm.toFixed(1)} cm`;
         document.querySelector('#catch-weight').textContent = `${s.catch.weightKg.toFixed(2)} kg`;
         dialog.showModal(); close.focus();
