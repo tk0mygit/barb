@@ -56,3 +56,34 @@ button:disabled { opacity: 0.5; cursor: wait; }
 }
 @media (max-height: 500px) { .lake-title { display: none; } .masthead { top: 16px; } .bottom-bar { bottom: 16px; } .compass { top: 35%; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+#fishing-panel { position: absolute; z-index: 2; left: 42px; top: 25%; width: min(280px, 40vw); pointer-events: none; padding: 18px 22px; background: #123936d9; border-left: 2px solid #e0d5a9; border-radius: 3px; }
+#fishing-panel p { margin: 8px 0; font-size: 12px; }
+#fishing-panel #fishing-state { font-size: 18px; line-height: 1.5; }
+#fishing-panel.bite { background: #78532af2; border-color: #ffcf77; box-shadow: 0 0 0 5px #ffda7840; }
+#fight-gauge label { font-size: 11px; }
+#line-tension { width: 100%; height: 22px; display: block; }
+#tension-value { float: right; font-variant-numeric: tabular-nums; }
+#return-button { margin-top: 8px; }
+.fishing #return-button { background: #163d38b8; color: #eee9d7; min-height: 40px; padding: 10px 16px; }
+#catch-dialog { color: #f4f2e6; background: #173d38; border: 1px solid #e0d5a980; border-radius: 8px; padding: 28px; width: min(520px, 90vw); max-height: 90dvh; overflow-y: auto; text-align: center; }
+#catch-dialog::backdrop { background: #071f22c9; }
+#catch-dialog h2 { font-size: 24px; font-weight: 400; letter-spacing: 3px; }
+#catch-image { display: block; width: 100%; height: auto; background: #ced5b6; border-radius: 4px; }
+#catch-dialog dl { display: flex; justify-content: space-around; margin: 24px 0; }
+#catch-dialog dt { font-size: 11px; opacity: 0.7; }
+#catch-dialog dd { margin: 8px 0 0; font-size: 27px; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  #fishing-panel { left: 22px; top: 21%; padding: 12px 16px; width: min(260px, 75vw); }
+  #fishing-panel #fishing-state { font-size: 16px; }
+  .fishing .bottom-bar { grid-template-columns: 1fr; }
+  .fishing .telemetry, .fishing .compass { display: none; }
+  #catch-dialog { padding: 22px; }
+}
+@media (max-height: 500px) {
+  #fishing-panel { top: 100px; left: 22px; width: 230px; padding: 8px 16px; }
+  .fishing .bottom-bar { left: auto; width: min(300px, 46vw); grid-template-columns: 1fr; }
+  .fishing .telemetry, .fishing .edition, .fishing .compass { display: none; }
+  #catch-image { max-height: 100px; object-fit: contain; }
+  #catch-dialog { padding: 14px 24px; }
+  #catch-dialog h2, #catch-dialog dl { margin: 10px 0; }
+}

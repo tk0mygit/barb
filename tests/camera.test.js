@@ -29,3 +29,24 @@ test('dragging right in FPS turns right; pitch remains bounded', () => {
   rig.update(5, { lookX: 0, lookY: 100 });
   assert.ok(camera.getWorldDirection(direction).y > -0.7);
 });
+test('cast preparation freezes position and orientation, then look resumes', () => {
+  const boat = createBoatState(); enterFishing(boat);
+  const camera = new THREE.PerspectiveCamera();
+  const rig = createCameraRig(camera, boat);
+  rig.update(1, { lookX: 0.2, lookY: 0.1 });
+  const position = camera.position.clone(), quaternion = camera.quaternion.clone();
+  rig.update(1, { lookX: 10, lookY: 10 }, true);
+  assert.ok(camera.position.equals(position)); assert.ok(camera.quaternion.equals(quaternion));
+  rig.update(1, { lookX: 0.3, lookY: 0 }, false);
+  assert.ok(!camera.quaternion.equals(quaternion));
+});
+test('fight camera follows the near-water landing point without moving the boat viewpoint', () => {
+  const boat = createBoatState(); enterFishing(boat);
+  const camera = new THREE.PerspectiveCamera();
+  const rig = createCameraRig(camera, boat);
+  rig.update(4, { lookX: 0, lookY: 0 });
+  const position = camera.position.clone();
+  rig.update(2, { lookX: 0, lookY: 0 }, true, { x: boat.x, z: boat.z - 4.5 });
+  assert.ok(camera.position.equals(position));
+  assert.ok(camera.getWorldDirection(new THREE.Vector3()).y < -0.4);
+});
