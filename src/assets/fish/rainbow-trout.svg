@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280" role="img" aria-labelledby="title">
+ <title id="title">ニジマスの2D仮イラスト</title>
+ <defs><linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#91a5a1"/><stop offset="1" stop-color="#e2ddbe"/></linearGradient><clipPath id="silhouette"><path d="M160 138Q285 82 441 112L532 136 549 150Q422 207 266 179L160 157 81 190 96 147 81 107Z"/></clipPath></defs>
+ <ellipse cx="320" cy="245" rx="220" ry="9" fill="#173b32" opacity=".14"/>
+ <path d="M259 114 282 65 327 105M424 115 435 92 450 117M294 179 326 212 353 180" fill="#91a5a1" stroke="#425e47" stroke-width="3"/>
+ <path d="M160 138Q285 82 441 112L532 136 549 150Q422 207 266 179L160 157 81 190 96 147 81 107Z" fill="url(#body)" stroke="#425e47" stroke-width="3"/>
+ <g clip-path="url(#silhouette)"><path d="M177 147Q343 130 500 149" fill="none" stroke="#c97988" stroke-width="18" opacity=".8"/><ellipse cx="205" cy="125" rx="3" ry="3" fill="#554b37"/><ellipse cx="233" cy="129" rx="3" ry="3" fill="#554b37"/><ellipse cx="261" cy="133" rx="3" ry="3" fill="#554b37"/><ellipse cx="289" cy="125" rx="3" ry="3" fill="#554b37"/><ellipse cx="317" cy="129" rx="3" ry="3" fill="#554b37"/><ellipse cx="345" cy="133" rx="3" ry="3" fill="#554b37"/><ellipse cx="373" cy="125" rx="3" ry="3" fill="#554b37"/><ellipse cx="401" cy="129" rx="3" ry="3" fill="#554b37"/><ellipse cx="429" cy="133" rx="3" ry="3" fill="#554b37"/><ellipse cx="205" cy="157" rx="3" ry="3" fill="#554b37"/><ellipse cx="233" cy="161" rx="3" ry="3" fill="#554b37"/><ellipse cx="261" cy="165" rx="3" ry="3" fill="#554b37"/><ellipse cx="289" cy="157" rx="3" ry="3" fill="#554b37"/><ellipse cx="317" cy="161" rx="3" ry="3" fill="#554b37"/><ellipse cx="345" cy="165" rx="3" ry="3" fill="#554b37"/><ellipse cx="373" cy="157" rx="3" ry="3" fill="#554b37"/><ellipse cx="401" cy="161" rx="3" ry="3" fill="#554b37"/><ellipse cx="429" cy="165" rx="3" ry="3" fill="#554b37"/></g>
+ <circle cx="495" cy="136" r="8" fill="#e1d195"/><circle cx="497" cy="136" r="4" fill="#1b3530"/>
+ <path d="M465 126q-15 26 0 46" fill="none" stroke="#516b53" stroke-width="3"/>
+</svg>

@@ -1,4 +1,5 @@
 import { FISHING_CONFIG, BLACK_BASS } from './fishing-config.js';
+import { calculateFishWeightKg } from './fish-species.js';
 
 export const PHASE = Object.freeze({ READY: 'ready', AIM: 'aim', CAST: 'cast', LURE: 'lure', BITE: 'bite', FIGHT: 'fight', LANDING: 'landing', RESULT: 'result', FAILED: 'failed' });
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -57,7 +58,8 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       state.biteRemaining = Math.max(0, settings.hookWindow - state.time);
       if (state.time >= settings.hookWindow) fail('アワセが遅れて魚が逃げました');
     } else if (state.phase === PHASE.FIGHT) {
-      const resistance = 0.85 + (fish.lengthCm - BLACK_BASS.minLengthCm) / 100 + 0.15 * Math.sin(state.time * 2.4);
+      const { baseResistance, lengthScaleCm, surgeAmplitude, surgeFrequency } = BLACK_BASS.fight;
+      const resistance = baseResistance + (fish.lengthCm - BLACK_BASS.minLengthCm) / lengthScaleCm + surgeAmplitude * Math.sin(state.time * surgeFrequency);
       state.tension = clamp(state.tension + dt * (state.reeling ? settings.tensionRise * resistance : -settings.tensionRelief), 0, 1);
       if (state.tension >= 1) { fail('テンションが高すぎてラインが切れました'); return; }
       slackTime = state.tension < settings.slackThreshold ? slackTime + dt : 0;
@@ -93,7 +95,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     hook() {
       if (state.phase !== PHASE.BITE || state.time >= settings.hookWindow) return false;
       const lengthCm = Math.round((BLACK_BASS.minLengthCm + random() * (BLACK_BASS.maxLengthCm - BLACK_BASS.minLengthCm)) * 10) / 10;
-      fish = { lengthCm, weightKg: Math.round(1.1 * (lengthCm / 40) ** 3 * 100) / 100 };
+      fish = { lengthCm, weightKg: calculateFishWeightKg(BLACK_BASS.id, lengthCm) };
       state.tension = settings.tensionStart;
       fightDistance = state.distance - settings.landingDistance;
       slackTime = 0;

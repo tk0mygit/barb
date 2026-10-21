@@ -1,6 +1,5 @@
 import { PHASE } from '../game/fishing.js';
 import { BLACK_BASS } from '../game/fishing-config.js';
-import bassImage from '../assets/black-bass.svg';
 
 const labels = { ready: 'キャスト前', aim: 'キャスト準備', cast: 'キャスト中', lure: 'アタリを待つ', bite: 'アタリ！ 今すぐタップ', fight: 'ファイト', landing: 'ランディング', result: '釣り上げました', failed: '魚が逃げました' };
 const hints = {
@@ -27,7 +26,7 @@ export function createFishingHUD({ onPrepare, onCancel, onClose }) {
   const closeResult = () => { dialog.close(); onClose(); };
   close.addEventListener('click', closeResult);
   dialog.addEventListener('cancel', event => { event.preventDefault(); closeResult(); });
-  document.querySelector('#catch-image').src = bassImage;
+  document.querySelector('#catch-image').src = BLACK_BASS.image;
   document.querySelector('#catch-species').textContent = BLACK_BASS.name;
   return {
     update(fishing, active) {

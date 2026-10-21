@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280" role="img" aria-labelledby="title">
+ <title id="title">ノーザンパイクの2D仮イラスト</title>
+ <defs><linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#6d8155"/><stop offset="1" stop-color="#e2ddbe"/></linearGradient><clipPath id="silhouette"><path d="M133 139Q261 112 426 128L510 130 568 144 565 155 506 158Q324 184 135 158L67 189 82 149 66 112Z"/></clipPath></defs>
+ <ellipse cx="320" cy="245" rx="220" ry="9" fill="#173b32" opacity=".14"/>
+ <path d="M185 135 200 94 245 127M185 164 210 198 249 169" fill="#6d8155" stroke="#425e47" stroke-width="3"/>
+ <path d="M133 139Q261 112 426 128L510 130 568 144 565 155 506 158Q324 184 135 158L67 189 82 149 66 112Z" fill="url(#body)" stroke="#425e47" stroke-width="3"/>
+ <g clip-path="url(#silhouette)"><path d="M511 146h51" stroke="#304837" stroke-width="3"/><ellipse cx="205" cy="125" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="233" cy="129" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="261" cy="133" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="289" cy="125" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="317" cy="129" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="345" cy="133" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="373" cy="125" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="401" cy="129" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="429" cy="133" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="205" cy="157" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="233" cy="161" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="261" cy="165" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="289" cy="157" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="317" cy="161" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="345" cy="165" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="373" cy="157" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="401" cy="161" rx="5" ry="3" fill="#e4dca9"/><ellipse cx="429" cy="165" rx="5" ry="3" fill="#e4dca9"/></g>
+ <circle cx="493" cy="136" r="8" fill="#e1d195"/><circle cx="495" cy="136" r="4" fill="#1b3530"/>
+ <path d="M463 126q-15 26 0 46" fill="none" stroke="#516b53" stroke-width="3"/>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280" role="img" aria-labelledby="title">
+ <title id="title">ヨーロピアンパーチの2D仮イラスト</title>
+ <defs><linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8b9b52"/><stop offset="1" stop-color="#e2ddbe"/></linearGradient><clipPath id="silhouette"><path d="M170 139Q262 66 417 108L513 136 531 150Q412 215 259 185L170 157 85 193 99 148 84 105Z"/></clipPath></defs>
+ <ellipse cx="320" cy="245" rx="220" ry="9" fill="#173b32" opacity=".14"/>
+ <path d="M214 117 231 54 249 81 264 55 280 86 297 69 323 109M342 107 367 72 409 110M271 188 304 223 337 190" fill="#8b9b52" stroke="#425e47" stroke-width="3"/>
+ <path d="M170 139Q262 66 417 108L513 136 531 150Q412 215 259 185L170 157 85 193 99 148 84 105Z" fill="url(#body)" stroke="#425e47" stroke-width="3"/>
+ <g clip-path="url(#silhouette)"><path d="m230 122 16 46m39-59 16 70m40-68 15 65m39-57 12 43" stroke="#3d5139" stroke-width="12"/><path d="M271 188 304 223 337 190M390 184 430 207 421 174" fill="#c77444"/></g>
+ <circle cx="495" cy="136" r="8" fill="#e1d195"/><circle cx="497" cy="136" r="4" fill="#1b3530"/>
+ <path d="M465 126q-15 26 0 46" fill="none" stroke="#516b53" stroke-width="3"/>
+</svg>
