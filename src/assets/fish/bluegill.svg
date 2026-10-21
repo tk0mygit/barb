@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280" role="img" aria-labelledby="title">
+ <title id="title">ブルーギルの2D仮イラスト</title>
+ <defs><linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#688070"/><stop offset="1" stop-color="#e2ddbe"/></linearGradient><clipPath id="silhouette"><path d="M174 140C203 48 384 46 475 125L515 143 481 158C386 246 222 237 174 158L96 196 110 148 95 102Z"/></clipPath></defs>
+ <ellipse cx="320" cy="245" rx="220" ry="9" fill="#173b32" opacity=".14"/>
+ <path d="M205 108 224 57 246 74 260 45 278 67 300 47 343 81M233 198 266 238 325 215" fill="#688070" stroke="#425e47" stroke-width="3"/>
+ <path d="M174 140C203 48 384 46 475 125L515 143 481 158C386 246 222 237 174 158L96 196 110 148 95 102Z" fill="url(#body)" stroke="#425e47" stroke-width="3"/>
+ <g clip-path="url(#silhouette)"><path d="m246 98 4 91m46-102 4 116m45-114 4 105" stroke="#354d45" stroke-width="9" opacity=".6"/><ellipse cx="413" cy="151" rx="15" ry="19" fill="#203945"/><path d="M361 180Q385 206 413 179" stroke="#d59c55" stroke-width="17"/></g>
+ <circle cx="459" cy="136" r="8" fill="#e1d195"/><circle cx="461" cy="136" r="4" fill="#1b3530"/>
+ <path d="M429 126q-15 26 0 46" fill="none" stroke="#516b53" stroke-width="3"/>
+</svg>

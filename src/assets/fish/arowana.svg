@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280" role="img" aria-labelledby="title">
+ <title id="title">アロワナの2D仮イラスト</title>
+ <defs><linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#b7b8a0"/><stop offset="1" stop-color="#e2ddbe"/></linearGradient><clipPath id="silhouette"><path d="M110 137Q269 101 423 128L502 127 535 108 529 146Q491 196 403 190Q245 185 110 159L64 183 73 148 64 117Z"/></clipPath></defs>
+ <ellipse cx="320" cy="245" rx="220" ry="9" fill="#173b32" opacity=".14"/>
+ <path d="M140 135Q226 79 304 118L293 130M134 167Q236 220 323 185L309 174" fill="#b7b8a0" stroke="#425e47" stroke-width="3"/>
+ <path d="M110 137Q269 101 423 128L502 127 535 108 529 146Q491 196 403 190Q245 185 110 159L64 183 73 148 64 117Z" fill="url(#body)" stroke="#425e47" stroke-width="3"/>
+ <path d="m529 120 27-21m-27 25 34-9" stroke="#646e5a" stroke-width="3" fill="none"/><g clip-path="url(#silhouette)"><path d="M165 136q15 13 0 23m0-3q15 13 0 23" fill="none" stroke="#7c8b76" stroke-width="2"/><path d="M195 136q15 13 0 23m0-3q15 13 0 23" fill="none" stroke="#7c8b76" stroke-width="2"/><path d="M225 136q15 13 0 23m0-3q15 13 0 23" fill="none" stroke="#7c8b76" stroke-width="2"/><path d="M255 136q15 13 0 23m0-3q15 13 0 23" fill="none" stroke="#7c8b76" stroke-width="2"/><path d="M285 136q15 13 0 23m0-3q15 13 0 23" fill="none" stroke="#7c8b76" stroke-width="2"/><path d="M315 136q15 13 0 23m0-3q15 13 0 23" fill="none" stroke="#7c8b76" stroke-width="2"/><path d="M345 136q15 13 0 23m0-3q15 13 0 23" fill="none" stroke="#7c8b76" stroke-width="2"/><path d="M375 136q15 13 0 23m0-3q15 13 0 23" fill="none" stroke="#7c8b76" stroke-width="2"/><path d="M405 136q15 13 0 23m0-3q15 13 0 23" fill="none" stroke="#7c8b76" stroke-width="2"/><path d="M435 136q15 13 0 23m0-3q15 13 0 23" fill="none" stroke="#7c8b76" stroke-width="2"/></g>
+ <circle cx="496" cy="136" r="8" fill="#e1d195"/><circle cx="498" cy="136" r="4" fill="#1b3530"/>
+ <path d="M466 126q-15 26 0 46" fill="none" stroke="#516b53" stroke-width="3"/>
+</svg>

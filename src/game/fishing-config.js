@@ -1,4 +1,4 @@
-// Seconds, metres and normalized tension. All pacing/difficulty lives here.
+// Shared pacing in seconds/metres and normalized tension; species balance is in fish-species.js.
 export const FISHING_CONFIG = Object.freeze({
   castMin: 8, castMax: 32, castDragPixels: 180, castSpread: 0.7, flightSeconds: 0.8,
   biteDelay: 3, biteMean: 12, hookWindow: 1, actionSeconds: 1.2, actionMultiplier: 1.35,
@@ -7,5 +7,6 @@ export const FISHING_CONFIG = Object.freeze({
   tensionStart: 0.42, tensionRise: 0.24, tensionRelief: 0.42,
   slackThreshold: 0.12, slackGrace: 1.4, slackEscapeRate: 1.2, fightReelSeconds: 6.5,
 });
-export const BLACK_BASS = Object.freeze({ id: 'black-bass', name: 'ブラックバス', minLengthCm: 25, maxLengthCm: 55 });
+// Retain the Phase 2 import path for existing consumers.
+export { BLACK_BASS } from './fish-species.js';
 export const GESTURES = Object.freeze({ holdSeconds: 0.22, flickSeconds: 0.22, flickPixels: 24, tapPixels: 14 });

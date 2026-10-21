@@ -101,6 +101,7 @@ test('controlled fights take 5–15s across fish sizes, land once, and retain st
     f.step(10); assert.equal(f.state.catches.length, 1);
     const record = f.state.catch;
     assert.equal(record.speciesId, 'black-bass'); assert.equal(record.schemaVersion, 1);
+    if (size === 0.5) { assert.equal(record.lengthCm, 40); assert.equal(record.weightKg, 1.1); }
     assert.ok(record.lengthCm >= 25 && record.lengthCm <= 55 && record.weightKg > 0);
     f.closeResult(); assert.equal(f.state.phase, PHASE.READY);
     assert.equal(f.state.catches[0], record); assert.equal(f.state.catch, null);
