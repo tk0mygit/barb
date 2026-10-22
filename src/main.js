@@ -15,6 +15,8 @@ import { shoreRadius } from './world/config.js';
 import { getFishingSpotStatus } from './game/fishing-spots.js';
 import { createFishingSpotsView } from './rendering/fishing-spots.js';
 import { createFishingSpotsHUD } from './ui/fishing-spots-hud.js';
+import { estimateWaterDepth } from './world/depth.js';
+import { createGameClock } from './game/game-clock.js';
 
 const canvas = document.querySelector('#scene');
 function showError(message) {
@@ -37,7 +39,12 @@ try {
   const model = createBoatModel();
   scene.add(model);
   const lake = createLake(scene);
-  const fishing = createFishing({ isWater: (x, z) => Math.hypot(x, z) < shoreRadius(Math.atan2(z, x)) - 2, getBoatPosition: () => boat });
+  const gameClock = createGameClock();
+  const fishing = createFishing({
+    isWater: (x, z) => Math.hypot(x, z) < shoreRadius(Math.atan2(z, x)) - 2,
+    getBoatPosition: () => boat,
+    getEnvironment: position => ({ depthM: estimateWaterDepth(position), ...gameClock.state }),
+  });
   const spotsView = createFishingSpotsView(scene);
   const spotsHUD = createFishingSpotsHUD();
   const fishingInput = createFishingInput(fishing);
@@ -89,9 +96,13 @@ try {
   window.addEventListener('focus', () => { focused = true; previous = performance.now(); });
   document.addEventListener('visibilitychange', () => { previous = performance.now(); });
   renderer.setAnimationLoop(now => {
-    const dt = Math.min((now - previous) / 1000, 0.25);
+    const frameSeconds = Math.max(0, (now - previous) / 1000);
+    const dt = Math.min(frameSeconds, 0.25);
     previous = now;
     if (document.hidden || !focused) return;
+    // Clock tracks all active time, even on slow frames. Movement retains its
+    // existing safety cap; hidden/unfocused time is not caught up on resume.
+    gameClock.step(frameSeconds);
     elapsed += dt;
     const input = controls.read(dt);
     const phaseBefore = fishing.state.phase;
@@ -114,7 +125,7 @@ try {
     fishingView.update(fishing, boat.mode === 'fishing', elapsed);
     lake.update(elapsed, boat);
     hud.update(boat);
-    fishingHUD.update(fishing, boat.mode === 'fishing');
+    fishingHUD.update(fishing, boat.mode === 'fishing', gameClock.state);
     renderer.render(scene, camera);
     hud.ready();
   });
