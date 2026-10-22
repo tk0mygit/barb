@@ -1,6 +1,8 @@
 import { PHASE } from '../game/fishing.js';
 import { getFishSpecies } from '../game/fish-species.js';
 import { createLurePicker } from './lure-picker.js';
+import { calculateSalePrice } from '../game/fish-sales.js';
+import { formatMoney } from './sales-hud.js';
 
 const labels = { ready: 'キャスト前', aim: 'キャスト準備', cast: 'キャスト中', lure: 'アタリを待つ', bite: 'アタリ！ 今すぐタップ', fight: 'ファイト', landing: 'ランディング', result: '釣り上げました', failed: '魚が逃げました' };
 const hints = {
@@ -11,7 +13,7 @@ const hints = {
   fight: '長押しで引く · 高くなったら離す · 緩めすぎに注意',
   landing: 'もうすぐ、釣り上がります', failed: 'まもなく再挑戦できます', result: '',
 };
-export function createFishingHUD({ onPrepare, onCancel, onClose, onSelectLure }) {
+export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelectLure }) {
   const panel = document.querySelector('#fishing-panel');
   const status = document.querySelector('#fishing-state');
   const prepare = document.querySelector('#cast-button');
@@ -27,6 +29,10 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSelectLure })
   cancel.addEventListener('click', onCancel);
   const closeResult = () => { onClose(); dialog.close(); };
   close.addEventListener('click', closeResult);
+  document.querySelector('#sell-catch').addEventListener('click', () => {
+    if (onSell()) dialog.close();
+    else document.querySelector('#catch-sale-error').textContent = '売却できませんでした。保管して続けてください。';
+  });
   dialog.addEventListener('cancel', event => { event.preventDefault(); closeResult(); });
   // Also settle platform/programmatic dialog closes; the game operation is
   // idempotent, so repeated close/cancel/click events cannot store twice.
@@ -72,6 +78,8 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSelectLure })
         image.alt = `${species.name}の側面イラスト`;
         document.querySelector('#catch-length').textContent = `${s.catch.lengthCm.toFixed(1)} cm`;
         document.querySelector('#catch-weight').textContent = `${s.catch.weightKg.toFixed(2)} kg`;
+        document.querySelector('#catch-sale-price').textContent = `売却価格 ${formatMoney(calculateSalePrice(s.catch))}`;
+        document.querySelector('#catch-sale-error').textContent = '';
         dialog.showModal(); close.focus();
       } else if (s.phase !== PHASE.RESULT && dialog.open) dialog.close();
       previous = s.phase;
