@@ -57,10 +57,17 @@ async function cast(page, input) {
   await expect(phase(page)).toHaveAttribute('data-phase', 'lure');
 }
 async function hook(page, input) {
-  // Poll faster than the one-second hook window.
-  await expect.poll(() => phase(page).getAttribute('data-phase'), { intervals: [50], timeout: 25000 }).toBe('bite');
+  // Software WebGL/CDP round trips can exceed the one-second hook window.
+  // Advance the real game clock to the bite, then keep it still while sending
+  // native pointer input. Do not extend the game's window or force its state.
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
+  for (let i = 0; i < 120 && await phase(page).getAttribute('data-phase') !== 'bite'; i++) await page.clock.fastForward(250);
+  expect(await phase(page).getAttribute('data-phase')).toBe('bite');
   await input.tap();
+  await page.clock.fastForward(16);
   await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
+  await page.clock.resume();
 }
 async function assertCatch(page, speciesId, size = 0.5) {
   const species = getFishSpecies(speciesId);
