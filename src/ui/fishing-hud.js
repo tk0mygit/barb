@@ -29,7 +29,7 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSelectLure })
   close.addEventListener('click', closeResult);
   dialog.addEventListener('cancel', event => { event.preventDefault(); closeResult(); });
   return {
-    update(fishing, active) {
+    update(fishing, active, clock) {
       const s = fishing.state;
       panel.hidden = !active;
       panel.dataset.phase = active ? s.phase : 'inactive';
@@ -37,6 +37,15 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSelectLure })
       lurePicker.update(s.lureId, active && s.phase === PHASE.READY);
       cancel.hidden = !active || s.phase !== PHASE.AIM;
       if (!active) { previous = null; return; }
+      const environment = document.querySelector('#fishing-conditions');
+      const conditions = s.encounter?.conditions ?? ([PHASE.AIM, PHASE.LURE].includes(s.phase) ? fishing.getConditions() : null);
+      const timeOfDay = conditions?.timeOfDay ?? clock.timeOfDay;
+      const depthNames = { shallow: '浅瀬', mid: '中深度', deep: '深場' };
+      environment.dataset.timeOfDay = timeOfDay;
+      environment.dataset.depthM = conditions?.depthM ?? '';
+      environment.dataset.cycleProgress = clock.cycleProgress;
+      environment.textContent = `${s.encounter ? 'アタリ時：' : ''}${timeOfDay === 'day' ? '昼' : '夜'}の時間帯`
+        + (conditions?.depthM != null ? ` · 推定水深 ${conditions.depthM.toFixed(1)}m（${depthNames[conditions.depthBand]}）` : '');
       document.querySelector('#return-button').disabled = !fishing.canLeave();
       document.querySelector('#hint').textContent = hints[s.phase];
       document.querySelector('#fishing-note').textContent = s.message || (s.phase === PHASE.AIM ? '視点固定中 · 大きくドラッグすると遠投' : '');

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PHASE } from '../game/fishing.js';
+import { PHASE, getLurePosition } from '../game/fishing.js';
 
 export function createFishingView(scene) {
   const group = new THREE.Group();
@@ -21,8 +21,7 @@ export function createFishingView(scene) {
       const s = fishing.state;
       group.visible = active && ![PHASE.READY, PHASE.RESULT, PHASE.FAILED].includes(s.phase);
       if (!group.visible) return;
-      let x = s.origin.x + Math.sin(s.heading) * s.distance;
-      let z = s.origin.z - Math.cos(s.heading) * s.distance;
+      let { x, z } = getLurePosition(s);
       let y = 0.15 + Math.sin(elapsed * 7) * 0.035;
       if (s.phase === PHASE.CAST) {
         const t = Math.min(1, s.time / fishing.settings.flightSeconds);

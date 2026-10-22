@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { FISH_SPECIES, getFishSpecies, calculateFishWeightKg } from '../../src/game/fish-species.js';
-import { getSpeciesProbabilities } from '../../src/game/fish-encounters.js';
+import { getSpeciesProbabilities, sampleFishSpecies } from '../../src/game/fish-encounters.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
 test.use({ deviceScaleFactor: 0.5 });
@@ -135,7 +135,8 @@ for (const touch of [false, true]) {
     await hook(page, input);
     await expect(page.locator('#return-button')).toBeDisabled();
     await expect(page.locator('#lure-picker')).toBeHidden();
-    await land(page, input, touch ? 'bluegill' : 'rainbow-trout');
+    const conditions = await page.locator('#fishing-conditions').evaluate(el => ({ depthM: Number(el.dataset.depthM), timeOfDay: el.dataset.timeOfDay }));
+    await land(page, input, sampleFishSpecies(lureId, () => 0.5, conditions).id);
     await page.screenshot({ path: `test-results/${touch ? 'mobile' : 'desktop'}-catch.png` });
     await input.click(page.locator('#close-catch'));
     await expect(page.locator('#catch-dialog')).toBeHidden();
@@ -218,8 +219,15 @@ test('all 12 species: production cast, hook, fight, matching result image and re
   const tick = () => page.clock.fastForward(250);
   const snapshot = () => page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
   for (const [index, species] of FISH_SPECIES.entries()) {
+    // Start alternating day/night phases through elapsed time, so a rollover
+    // cannot change the probability interval in the middle of this cast.
+    const timeOfDay = index % 2 ? 'night' : 'day';
+    const progress = Number(await page.locator('#fishing-conditions').getAttribute('data-cycle-progress'));
+    const targetProgress = index % 2 ? 0.5 : 0;
+    await page.clock.fastForward(Math.ceil(((targetProgress - progress + 1) % 1) * 360000) + 250);
+    await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-time-of-day', timeOfDay);
     const lureId = ['minnow', 'crankbait', 'worm', 'spinnerbait'][index % 4];
-    const entries = getSpeciesProbabilities(lureId);
+    const entries = getSpeciesProbabilities(lureId, { depthM: 12, timeOfDay });
     const selectedIndex = entries.findIndex(entry => entry.speciesId === species.id);
     const roll = entries.slice(0, selectedIndex).reduce((sum, entry) => sum + entry.probability, 0) + entries[selectedIndex].probability / 2;
     await page.evaluate(() => { window.testRandomValue = 0.1; });
@@ -228,6 +236,7 @@ test('all 12 species: production cast, hook, fight, matching result image and re
     await input.down(450, 240); await input.move(450, 90); await input.up();
     for (let i = 0; i < 4; i++) await tick();
     expect((await snapshot()).phase).toBe('lure');
+    await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-depth-m', '12');
     await page.evaluate(value => { window.testRandomValue = value; }, roll);
     for (let i = 0; i < 24 && (await snapshot()).phase === 'lure'; i++) await tick();
     expect((await snapshot()).phase).toBe('bite');
