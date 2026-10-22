@@ -33,6 +33,12 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .edition { display: grid; gap: 12px; justify-items: end; padding-bottom: 3px; opacity: 0.65; }
 .edition > span:last-child { font-size: 8px; letter-spacing: 1.3px; }
 #reticle { left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: 0.7; font-size: 20px; font-weight: 200; }
+#spot-status { position: absolute; z-index: 2; top: 96px; right: 42px; max-width: calc(100vw - 44px); padding: 9px 13px; background: #123936d9; border-left: 2px solid #e0d5a970; pointer-events: none; }
+#spot-name { display: block; font-size: 13px; font-weight: 500; letter-spacing: 1px; }
+#spot-effect { display: block; margin-top: 5px; font-size: 10px; }
+#spot-status[data-active="true"] { border-color: #f2c96c; }
+@media (max-width: 640px) { #spot-status { top: 90px; right: 22px; } }
+@media (max-height: 500px) { #spot-status { top: 68px; right: 42px; } }
 #fishing-note { font-size: 10px; line-height: 1.8; margin: 12px 0 0; opacity: 0.8; }
 .fishing .lake-title { opacity: 0; }
 #joystick { position: fixed; z-index: 2; pointer-events: none; width: 100px; height: 100px; margin: -50px; border: 1px solid #ffffff80; border-radius: 50%; background: #ffffff12; }

@@ -12,6 +12,9 @@ import { createFishingView } from './rendering/fishing.js';
 import { createFishingHUD } from './ui/fishing-hud.js';
 import { createFishingAudio } from './ui/fishing-audio.js';
 import { shoreRadius } from './world/config.js';
+import { getFishingSpotStatus } from './game/fishing-spots.js';
+import { createFishingSpotsView } from './rendering/fishing-spots.js';
+import { createFishingSpotsHUD } from './ui/fishing-spots-hud.js';
 
 const canvas = document.querySelector('#scene');
 function showError(message) {
@@ -34,7 +37,9 @@ try {
   const model = createBoatModel();
   scene.add(model);
   const lake = createLake(scene);
-  const fishing = createFishing({ isWater: (x, z) => Math.hypot(x, z) < shoreRadius(Math.atan2(z, x)) - 2 });
+  const fishing = createFishing({ isWater: (x, z) => Math.hypot(x, z) < shoreRadius(Math.atan2(z, x)) - 2, getBoatPosition: () => boat });
+  const spotsView = createFishingSpotsView(scene);
+  const spotsHUD = createFishingSpotsHUD();
   const fishingInput = createFishingInput(fishing);
   const controls = createControls(canvas, document.querySelector('#joystick'), document.querySelector('#joystick-knob'), {
     input: fishingInput, canLook: () => fishing.state.phase === PHASE.READY,
@@ -95,6 +100,9 @@ try {
     // Substeps preserve real-time braking on slow devices without large collision steps.
     const steps = Math.max(1, Math.ceil(dt / 0.05));
     for (let i = 0; i < steps; i++) stepBoat(boat, input, dt / steps);
+    const spotStatus = getFishingSpotStatus(boat);
+    spotsView.update(spotStatus.active?.id);
+    spotsHUD.update(spotStatus);
     model.position.set(boat.x, Math.sin(elapsed * 1.5) * 0.045, boat.z);
     model.rotation.set(Math.sin(elapsed * 1.3) * 0.008, -boat.heading, Math.cos(elapsed * 1.4) * 0.014);
     // Three.js local -Z forward rotates with a negative yaw for our heading convention.
