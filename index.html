@@ -13,7 +13,10 @@
       <canvas id="scene" aria-label="BARBの湖。ドラッグまたは矢印キーで船を操縦できます。" tabindex="0"></canvas>
       <header class="masthead">
         <a class="wordmark" href="./" aria-label="BARB ホーム">BARB<span>LAKE EXPLORER</span></a>
-        <div class="location"><span class="live-dot"></span> LAKE No. 01 <span class="location-name">静寂の湖</span></div>
+        <div class="header-tools">
+          <div class="location"><span class="live-dot"></span> LAKE No. 01 <span class="location-name">静寂の湖</span></div>
+          <button id="menu-button" type="button" aria-label="メニューを開く" aria-haspopup="dialog" aria-controls="collection-dialog" aria-expanded="false" disabled>≡</button>
+        </div>
       </header>
       <section class="lake-title" aria-label="現在地">
         <p class="eyebrow">FIND YOUR STILLNESS</p>
@@ -54,7 +57,17 @@
         <h2 id="catch-species"></h2>
         <img id="catch-image" alt="" width="640" height="280" />
         <dl><div><dt>体長</dt><dd id="catch-length"></dd></div><div><dt>重量</dt><dd id="catch-weight"></dd></div></dl>
-        <button id="close-catch" type="button">釣りを続ける <span aria-hidden="true">↗</span></button>
+        <button id="close-catch" type="button">保管して続ける <span aria-hidden="true">↗</span></button>
+        <p class="session-notice">記録はこのセッションのみ。再読み込みで失われます。<br />Escで閉じた場合も保管します。</p>
+      </dialog>
+      <dialog id="collection-dialog" aria-labelledby="collection-title" aria-describedby="collection-notice">
+        <header class="collection-header">
+          <button id="collection-back" type="button" aria-label="前の一覧に戻る" hidden>←</button>
+          <h2 id="collection-title" tabindex="-1">湖の記録</h2>
+          <button id="collection-close" type="button" aria-label="閉じてゲームに戻る">×</button>
+        </header>
+        <p id="collection-notice" class="session-notice">ゲームは一時停止中です。記録は再読み込みで失われます。</p>
+        <div id="collection-content"></div>
       </dialog>
       <div id="joystick" hidden aria-hidden="true"><span id="joystick-knob"></span></div>
       <div id="status" class="status" role="status">湖を準備しています…</div>

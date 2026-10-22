@@ -106,7 +106,7 @@ test('controlled fights take 5–15s across fish sizes, land once, and retain st
     if (size === 0.5) { assert.equal(record.lengthCm, 40); assert.equal(record.weightKg, 1.1); }
     assert.ok(record.lengthCm >= 25 && record.lengthCm <= 55 && record.weightKg > 0);
     f.closeResult(); assert.equal(f.state.phase, PHASE.READY);
-    assert.equal(f.state.catches[0], record); assert.equal(f.state.catch, null);
+    assert.deepEqual(f.state.catches[0], { ...record, disposition: 'stored' }); assert.equal(f.state.catch, null);
     cast(f);
   }
 });

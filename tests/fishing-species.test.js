@@ -159,7 +159,7 @@ test('all 12 species land with all four lures at minimum/mid/maximum sizes at 30
       assert.ok(Object.isFrozen(record));
       f.step(10); assert.equal(f.state.catches.length, 1);
       f.closeResult(); assert.equal(f.state.encounter, null); assert.equal(f.state.catch, null);
-      assert.equal(f.state.catches[0], record); cast(f);
+      assert.deepEqual(f.state.catches[0], { ...record, disposition: 'stored' }); cast(f);
     }
     t.diagnostic(`${species.id}: fight ${Math.min(...durations).toFixed(2)}–${Math.max(...durations).toFixed(2)}s`);
   }

@@ -25,9 +25,12 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSelectLure })
   let previous = null;
   prepare.addEventListener('click', onPrepare);
   cancel.addEventListener('click', onCancel);
-  const closeResult = () => { dialog.close(); onClose(); };
+  const closeResult = () => { onClose(); dialog.close(); };
   close.addEventListener('click', closeResult);
   dialog.addEventListener('cancel', event => { event.preventDefault(); closeResult(); });
+  // Also settle platform/programmatic dialog closes; the game operation is
+  // idempotent, so repeated close/cancel/click events cannot store twice.
+  dialog.addEventListener('close', onClose);
   return {
     update(fishing, active, clock) {
       const s = fishing.state;
