@@ -1,5 +1,5 @@
 // Costs are for reaching this level; performance values are relative to Lv.1,
-// never compounded. Fishing uses rod values; reel integration is a later phase.
+// never compounded. Fishing captures both equipment rows once per cast.
 export const EQUIPMENT_LEVELS = Object.freeze({
   rod: Object.freeze([
     { level: 1, cost: 0, castDistanceBonusM: 0, tensionMultiplier: 1.00 },
