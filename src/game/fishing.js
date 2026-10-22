@@ -28,6 +28,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
   let aimHeading = 0, biteBudget = 0, lureTime = 0, slackTime = 0, fightDistance = 0;
   // Immutable shared row, captured once per cast; collection remains authoritative.
   let rodPerformance = getEquipmentLevel('rod', 1);
+  let reelPerformance = getEquipmentLevel('reel', 1);
   const exponential = () => -Math.log(Math.max(1e-9, 1 - random()));
   function getConditions() {
     if (!getEnvironment) return null; // legacy standalone callers stay neutral
@@ -66,7 +67,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     } else if (state.phase === PHASE.LURE) {
       const activeTime = Math.max(0, lureTime + dt - settings.biteDelay) - Math.max(0, lureTime - settings.biteDelay);
       lureTime += dt;
-      if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - settings.lureSpeed * dt);
+      if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - settings.lureSpeed * reelPerformance.reelSpeedMultiplier * dt);
       if (state.distance <= settings.landingDistance) { ready('ルアーを回収しました'); return; }
       // The boat stays still while fishing today; the callback also supports
       // live position changes without ever consulting the lure's target.
@@ -86,12 +87,12 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     } else if (state.phase === PHASE.FIGHT) {
       const fish = state.encounter;
       const resistance = fishResistance(getFishSpecies(fish.speciesId), fish.lengthCm, state.time);
-      state.tension = clamp(state.tension + dt * (state.reeling ? settings.tensionRise * resistance * rodPerformance.tensionMultiplier : -settings.tensionRelief), 0, 1);
+      state.tension = clamp(state.tension + dt * (state.reeling ? settings.tensionRise * resistance * rodPerformance.tensionMultiplier : -settings.tensionRelief * reelPerformance.tensionReliefMultiplier), 0, 1);
       if (state.tension >= 1) { fail('テンションが高すぎてラインが切れました'); return; }
       slackTime = state.tension < settings.slackThreshold ? slackTime + dt : 0;
       if (slackTime > settings.slackGrace && random() < -Math.expm1(-settings.slackEscapeRate * dt)) { fail('ラインが緩み、魚が逃げました'); return; }
       const reelResistance = clamp(resistance, settings.reelResistanceMin, settings.reelResistanceMax);
-      if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - fightDistance / (settings.fightReelSeconds * reelResistance) * dt);
+      if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - fightDistance / (settings.fightReelSeconds * reelResistance) * reelPerformance.reelSpeedMultiplier * dt);
       if (state.distance <= settings.landingDistance) transition(PHASE.LANDING);
     } else if (state.phase === PHASE.LANDING && state.time >= settings.landingSeconds) {
       state.catch = collection.register(Object.freeze({ schemaVersion: 1, id: `catch-${now()}-${state.catches.length + 1}`, ...state.encounter, caughtAt: new Date(now()).toISOString(), disposition: 'unassigned' }));
@@ -108,6 +109,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     prepare(origin, heading) {
       if (state.phase !== PHASE.READY) return false;
       rodPerformance = getEquipmentLevel('rod', collection.equipment?.rodLevel) ?? getEquipmentLevel('rod', 1);
+      reelPerformance = getEquipmentLevel('reel', collection.equipment?.reelLevel) ?? getEquipmentLevel('reel', 1);
       state.origin = { x: origin.x, z: origin.z };
       aimHeading = heading;
       state.message = '';

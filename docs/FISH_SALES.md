@@ -41,7 +41,7 @@ JavaScriptの浮動小数点誤差で `90 * 1.15` が103.499999…になるた�
 ## 財布・将来の保存
 
 `collection.wallet` は `{ balance: 0, lifetimeSales: 0 }` から開始します。両方を売却額だけ加算し、履歴と同時に確定します。画面はbalanceを表示し、将来の累計売却額10,000の実績はlifetimeSalesを参照できます。
-[Phase 3C-1A](EQUIPMENT_UPGRADES.md)の装備購入APIはbalanceだけを減らし、lifetimeSalesを維持します。購入UIと釣り性能への反映は未実装です。
+[Phase 3C-1A](EQUIPMENT_UPGRADES.md)の装備購入APIはbalanceだけを減らし、lifetimeSalesを維持します。購入UIは未実装です。ロッド・リール性能はPhase 3C-1B／1Cで釣りへ反映しています。
 `collection.snapshot` は既存の `schemaVersion: 1`、`catches`、`storedIds`、`encyclopedia` に `wallet` を追加したJSON化可能な読み取り専用データです。売却済みの個体もcatchesに残り、storedIdsからは除外されます。既存の釣果スキーマを変更せず追加項目で拡張しています。
 Phase 3C-1Aでは同じスナップショットにequipment（ロッド・リールのレベル）を追加しています。
 スナップショットは取得時点の値なので、売却・購入後は再取得してください。保存・復元APIや独自の暫定セーブは追加していません。
