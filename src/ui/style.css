@@ -143,3 +143,25 @@ button.fish-card:hover { background: #335e4c; }
   #collection-notice { margin: 6px 0; }
   #catch-dialog .session-notice { margin-bottom: 0; }
 }
+
+.wallet { display: grid; gap: 4px; text-align: right; min-width: 0; max-width: 38vw; }
+.wallet span { font-size: 10px; opacity: 0.8; }
+.wallet strong { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#sale-notice { position: absolute; z-index: 3; top: 100px; left: 50%; transform: translateX(-50%); width: min(360px, calc(100vw - 44px)); padding: 12px 16px; background: #173d38ed; border: 1px solid #e0d5a980; border-radius: 4px; font-size: 12px; line-height: 1.8; white-space: pre-line; pointer-events: none; }
+#collection-wallet { margin: 0 0 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+#collection-sale-notice { margin: 0 0 10px; font-size: 12px; line-height: 1.7; white-space: pre-line; padding: 8px 12px; background: #254c40; border-left: 2px solid #e0d5a9; }
+#collection-notice, #collection-wallet, #collection-sale-notice { flex-shrink: 0; }
+.catch-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.catch-actions button { justify-content: center; padding: 12px 8px; letter-spacing: 0; }
+#catch-sale-price { font-variant-numeric: tabular-nums; }
+#catch-sale-error:empty { display: none; }
+.sell-stored { min-height: 44px; padding: 8px 14px; font-size: 12px; letter-spacing: 1px; }
+.stored-price { font-size: 12px; }
+#sell-all:disabled { cursor: default; }
+.sale-confirm-summary { line-height: 1.8; font-variant-numeric: tabular-nums; }
+@media (max-height: 500px) {
+  #sale-notice { top: 76px; }
+  #collection-sale-notice { font-size: 11px; padding: 4px 8px; margin-bottom: 6px; }
+  #collection-wallet { margin-bottom: 4px; }
+  #catch-sale-price { margin: 8px 0; }
+}

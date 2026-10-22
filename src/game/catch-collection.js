@@ -1,4 +1,5 @@
 import { FISH_SPECIES, getFishSpecies } from './fish-species.js';
+import { calculateSalePrice, addMoney } from './fish-sales.js';
 
 // Copy mutable data, but preserve already deeply frozen encounter snapshots.
 function immutable(value) {
@@ -9,9 +10,10 @@ function immutable(value) {
 }
 
 // Session data only. History is authoritative; storage is a disposition view.
-// Discovery is recorded on capture, before any storage/future sale decision.
-export function createCatchCollection() {
+// Discovery is recorded on capture, before any storage/sale decision.
+export function createCatchCollection({ now = Date.now } = {}) {
   let catches = Object.freeze([]);
+  let wallet = Object.freeze({ balance: 0, lifetimeSales: 0 });
   const indices = new Map();
   const statistics = new Map();
   const encyclopedia = () => Object.freeze(FISH_SPECIES.map(({ id }) => Object.freeze({
@@ -19,12 +21,52 @@ export function createCatchCollection() {
     maxLengthCm: statistics.get(id)?.maxLengthCm ?? null,
   })));
   const stored = () => Object.freeze(catches.filter(record => record.disposition === 'stored'));
+  function quote(ids, disposition) {
+    if (!Array.isArray(ids) || !ids.length || new Set(ids).size !== ids.length) return null;
+    const records = ids.map(id => catches[indices.get(id)]);
+    if (records.some(record => !record || record.disposition !== disposition)) return null;
+    try {
+      const prices = records.map(calculateSalePrice);
+      const total = prices.reduce(addMoney, 0);
+      return { records, prices, total };
+    } catch (error) {
+      if (error instanceof RangeError) return null;
+      throw error;
+    }
+  }
+  function sell(ids, disposition) {
+    const sale = quote(ids, disposition);
+    if (!sale) return null;
+    // Validate every price, both balances and the timestamp before replacing
+    // any record. No callbacks/await between the state changes: all or nothing.
+    let nextWallet, soldAt;
+    try {
+      nextWallet = Object.freeze({ balance: addMoney(wallet.balance, sale.total), lifetimeSales: addMoney(wallet.lifetimeSales, sale.total) });
+      soldAt = new Date(now()).toISOString();
+    } catch (error) {
+      if (error instanceof RangeError) return null;
+      throw error;
+    }
+    const replacements = new Map(sale.records.map((record, index) => [record.id,
+      Object.freeze({ ...record, disposition: 'sold', salePrice: sale.prices[index], soldAt })]));
+    const nextCatches = Object.freeze(catches.map(record => replacements.get(record.id) ?? record));
+    const receipt = Object.freeze({ ids: Object.freeze([...ids]), count: ids.length, total: sale.total, soldAt });
+    catches = nextCatches; wallet = nextWallet;
+    return receipt;
+  }
   return {
     get catches() { return catches; },
     get stored() { return stored(); },
     get encyclopedia() { return encyclopedia(); },
+    get wallet() { return wallet; },
     get snapshot() {
-      return Object.freeze({ schemaVersion: 1, catches, storedIds: Object.freeze(stored().map(record => record.id)), encyclopedia: encyclopedia() });
+      return Object.freeze({ schemaVersion: 1, catches, storedIds: Object.freeze(stored().map(record => record.id)), encyclopedia: encyclopedia(), wallet });
+    },
+    sellUnassigned(id) { return sell([id], 'unassigned'); },
+    sellStored(ids) { return sell(ids, 'stored'); },
+    quoteStored() {
+      const ids = stored().map(record => record.id), sale = quote(ids, 'stored');
+      return sale ? Object.freeze({ ids: Object.freeze(ids), count: ids.length, total: sale.total }) : null;
     },
     register(record) {
       if (indices.has(record?.id)) return catches[indices.get(record.id)];

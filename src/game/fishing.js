@@ -131,6 +131,12 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       if (!collection.store(state.catch.id)) return false;
       ready(); return true;
     },
+    sellResult() {
+      if (state.phase !== PHASE.RESULT) return null;
+      const receipt = collection.sellUnassigned(state.catch.id);
+      if (receipt) ready();
+      return receipt;
+    },
     reset() { if (this.canLeave()) ready(); },
     step(dt) {
       // Keep probability and failure boundaries stable across frame rates.

@@ -1,4 +1,6 @@
 import { FISH_SPECIES, getFishSpecies } from '../game/fish-species.js';
+import { calculateSalePrice } from '../game/fish-sales.js';
+import { formatMoney } from './sales-hud.js';
 
 const silhouette = new URL('../assets/fish/unknown.svg', import.meta.url).href;
 const dates = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeStyle: 'medium' });
@@ -16,15 +18,16 @@ function fishImage(src, name) {
 
 // One native modal owns menu, grid, detail and storage. No nested dialogs;
 // undiscovered species never contribute their name, asset or details to DOM.
-export function createCollectionMenu({ collection, canOpen, onOpenChange }) {
+export function createCollectionMenu({ collection, canOpen, onOpenChange, onSale }) {
   const trigger = document.querySelector('#menu-button');
   const dialog = document.querySelector('#collection-dialog');
   const title = document.querySelector('#collection-title');
   const content = document.querySelector('#collection-content');
   const back = document.querySelector('#collection-back');
   const close = document.querySelector('#collection-close');
-  let active = false, screen = 'menu';
+  let active = false, screen = 'menu', pendingSale = null;
   function render(next = 'menu', speciesId) {
+    if (next !== 'confirm-sale') pendingSale = null;
     screen = next;
     content.replaceChildren(); content.scrollTop = 0;
     back.hidden = next === 'menu';
@@ -68,7 +71,15 @@ export function createCollectionMenu({ collection, canOpen, onOpenChange }) {
       title.textContent = '保管魚';
       const records = collection.stored;
       content.append(element('p', `${records.length}匹を保管中 · 容量制限なし`, 'collection-summary'));
-      if (!records.length) content.append(element('p', '保管魚はまだいません。釣り上げた魚を保管すると、ここに表示されます。', 'collection-empty'));
+      const quote = collection.quoteStored();
+      const sellAll = element('button', quote ? `すべて売却（${quote.count}匹 · ${formatMoney(quote.total)}）` : 'すべて売却');
+      sellAll.type = 'button'; sellAll.id = 'sell-all'; sellAll.disabled = !quote;
+      sellAll.addEventListener('click', () => {
+        pendingSale = collection.quoteStored();
+        if (pendingSale) { render('confirm-sale'); title.focus(); }
+      });
+      content.append(sellAll);
+      if (!records.length) content.append(element('p', '保管中の魚はいません。釣り上げた魚を保管すると、ここに表示されます。', 'collection-empty'));
       const list = element('div', undefined, 'stored-list');
       // Newest first, with full stable IDs so identical fish remain distinct.
       for (const record of [...records].reverse()) {
@@ -77,14 +88,41 @@ export function createCollectionMenu({ collection, canOpen, onOpenChange }) {
         const info = element('div');
         const time = element('time', dates.format(new Date(record.caughtAt))); time.dateTime = record.caughtAt;
         info.append(element('h3', fish.name), element('p', `${record.lengthCm.toFixed(1)} cm · ${record.weightKg.toFixed(2)} kg`), time, element('small', `個体ID ${record.id}`));
+        info.append(element('p', `売却価格 ${formatMoney(calculateSalePrice(record))}`, 'stored-price'));
+        const sell = element('button', 'この魚を売却'); sell.type = 'button'; sell.className = 'sell-stored';
+        sell.addEventListener('click', () => {
+          // A stale/detached button cannot sell another fish or re-sell this ID.
+          completeSale(collection.sellStored([record.id]));
+        });
+        info.append(sell);
         row.append(fishImage(fish.image, fish.name), info); list.append(row);
       }
       content.append(list);
+    } else if (next === 'confirm-sale') {
+      if (!pendingSale) { render('storage'); return; }
+      title.textContent = '保管魚をすべて売却';
+      content.append(element('p', `${pendingSale.count}匹を ${formatMoney(pendingSale.total)} で売却します。`, 'sale-confirm-summary'),
+        element('p', '売却しても図鑑と捕獲履歴は残ります。'));
+      const confirm = element('button', '売却を確定'); confirm.type = 'button'; confirm.id = 'confirm-sale';
+      const displayedQuote = pendingSale;
+      confirm.addEventListener('click', () => {
+        if (pendingSale !== displayedQuote) return;
+        pendingSale = null;
+        completeSale(collection.sellStored(displayedQuote.ids));
+      });
+      const cancel = element('button', 'キャンセル'); cancel.type = 'button'; cancel.id = 'cancel-sale';
+      cancel.addEventListener('click', () => { render('storage'); title.focus(); });
+      content.append(confirm, cancel);
     }
+  }
+  function completeSale(receipt) {
+    render('storage'); title.focus();
+    if (receipt) onSale(receipt);
+    else { const message = element('p', '売却できませんでした。保管魚と所持金をご確認ください。'); message.setAttribute('role', 'alert'); content.prepend(message); }
   }
   function finishClose() {
     if (!active) return;
-    active = false; trigger.setAttribute('aria-expanded', 'false'); onOpenChange(false);
+    active = false; pendingSale = null; trigger.setAttribute('aria-expanded', 'false'); onOpenChange(false);
   }
   function dismiss() { dialog.close(); finishClose(); }
   trigger.addEventListener('click', () => {
@@ -92,7 +130,7 @@ export function createCollectionMenu({ collection, canOpen, onOpenChange }) {
     active = true; onOpenChange(true); render();
     trigger.setAttribute('aria-expanded', 'true'); dialog.showModal(); close.focus();
   });
-  back.addEventListener('click', () => { render(screen === 'detail' ? 'encyclopedia' : 'menu'); title.focus(); });
+  back.addEventListener('click', () => { render(screen === 'detail' ? 'encyclopedia' : screen === 'confirm-sale' ? 'storage' : 'menu'); title.focus(); });
   close.addEventListener('click', dismiss);
   dialog.addEventListener('cancel', event => { event.preventDefault(); dismiss(); });
   dialog.addEventListener('close', () => { if (!dialog.open) finishClose(); });

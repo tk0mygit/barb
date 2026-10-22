@@ -18,6 +18,7 @@ import { createFishingSpotsHUD } from './ui/fishing-spots-hud.js';
 import { estimateWaterDepth } from './world/depth.js';
 import { createGameClock } from './game/game-clock.js';
 import { createCollectionMenu } from './ui/collection-menu.js';
+import { createSalesHUD } from './ui/sales-hud.js';
 
 const canvas = document.querySelector('#scene');
 function showError(message) {
@@ -47,6 +48,7 @@ try {
     getEnvironment: position => ({ depthM: estimateWaterDepth(position), ...gameClock.state }),
   });
   const spotsView = createFishingSpotsView(scene);
+  const salesHUD = createSalesHUD(fishing.collection);
   const spotsHUD = createFishingSpotsHUD();
   const fishingInput = createFishingInput(fishing);
   const controls = createControls(canvas, document.querySelector('#joystick'), document.querySelector('#joystick-knob'), {
@@ -70,6 +72,7 @@ try {
   const fishingHUD = createFishingHUD({
     onSelectLure: id => { fishing.selectLure(id); },
     onPrepare: () => {
+      salesHUD.hideNotice();
       controls.reset();
       const direction = camera.getWorldDirection(new THREE.Vector3());
       fishing.prepare(boat, Math.atan2(direction.x, -direction.z));
@@ -77,9 +80,15 @@ try {
     },
     onCancel: () => { controls.reset(); canvas.focus({ preventScroll: true }); },
     onClose: () => { if (fishing.closeResult()) canvas.focus({ preventScroll: true }); },
+    onSell: () => {
+      const receipt = fishing.sellResult();
+      if (receipt) { salesHUD.notify(receipt); canvas.focus({ preventScroll: true }); }
+      return receipt;
+    },
   });
   const collectionMenu = createCollectionMenu({
     collection: fishing.collection,
+    onSale: receipt => salesHUD.notify(receipt),
     canOpen: () => fishing.state.phase !== PHASE.RESULT && !document.querySelector('#catch-dialog').open,
     onOpenChange: open => {
       controls.setEnabled(!open);
