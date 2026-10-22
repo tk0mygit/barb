@@ -5,6 +5,7 @@ import { sampleFishSpecies, normalizeEncounterConditions } from './fish-encounte
 import { fishResistance } from './fish-fight.js';
 import { getFishingSpotStatus } from './fishing-spots.js';
 import { createCatchCollection } from './catch-collection.js';
+import { getEquipmentLevel } from './equipment.js';
 
 export const PHASE = Object.freeze({ READY: 'ready', AIM: 'aim', CAST: 'cast', LURE: 'lure', BITE: 'bite', FIGHT: 'fight', LANDING: 'landing', RESULT: 'result', FAILED: 'failed' });
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -25,6 +26,8 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     lureId: DEFAULT_LURE_ID, encounter: null,
   };
   let aimHeading = 0, biteBudget = 0, lureTime = 0, slackTime = 0, fightDistance = 0;
+  // Immutable shared row, captured once per cast; collection remains authoritative.
+  let rodPerformance = getEquipmentLevel('rod', 1);
   const exponential = () => -Math.log(Math.max(1e-9, 1 - random()));
   function getConditions() {
     if (!getEnvironment) return null; // legacy standalone callers stay neutral
@@ -42,7 +45,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
   function aim(dx = 0, dy = 0) {
     if (state.phase !== PHASE.AIM) return;
     state.heading = aimHeading + clamp(dx / settings.castDragPixels, -1, 1) * settings.castSpread;
-    const requested = settings.castMin + (settings.castMax - settings.castMin) * clamp(Math.hypot(dx, dy) / settings.castDragPixels, 0, 1);
+    const requested = settings.castMin + (settings.castMax + rodPerformance.castDistanceBonusM - settings.castMin) * clamp(Math.hypot(dx, dy) / settings.castDragPixels, 0, 1);
     // Check the whole cast ray, so a lure cannot cross land into another inlet.
     let distance = 0;
     for (let d = 0.25; d <= requested; d += 0.25) {
@@ -83,7 +86,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     } else if (state.phase === PHASE.FIGHT) {
       const fish = state.encounter;
       const resistance = fishResistance(getFishSpecies(fish.speciesId), fish.lengthCm, state.time);
-      state.tension = clamp(state.tension + dt * (state.reeling ? settings.tensionRise * resistance : -settings.tensionRelief), 0, 1);
+      state.tension = clamp(state.tension + dt * (state.reeling ? settings.tensionRise * resistance * rodPerformance.tensionMultiplier : -settings.tensionRelief), 0, 1);
       if (state.tension >= 1) { fail('テンションが高すぎてラインが切れました'); return; }
       slackTime = state.tension < settings.slackThreshold ? slackTime + dt : 0;
       if (slackTime > settings.slackGrace && random() < -Math.expm1(-settings.slackEscapeRate * dt)) { fail('ラインが緩み、魚が逃げました'); return; }
@@ -104,6 +107,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     canLeave: () => [PHASE.READY, PHASE.AIM, PHASE.FAILED].includes(state.phase),
     prepare(origin, heading) {
       if (state.phase !== PHASE.READY) return false;
+      rodPerformance = getEquipmentLevel('rod', collection.equipment?.rodLevel) ?? getEquipmentLevel('rod', 1);
       state.origin = { x: origin.x, z: origin.z };
       aimHeading = heading;
       state.message = '';
