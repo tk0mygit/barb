@@ -3,12 +3,13 @@ import { calculateFishWeightKg, getFishSpecies } from './fish-species.js';
 import { DEFAULT_LURE_ID, getLure } from './lures.js';
 import { sampleFishSpecies } from './fish-encounters.js';
 import { fishResistance } from './fish-fight.js';
+import { getFishingSpotStatus } from './fishing-spots.js';
 
 export const PHASE = Object.freeze({ READY: 'ready', AIM: 'aim', CAST: 'cast', LURE: 'lure', BITE: 'bite', FIGHT: 'fight', LANDING: 'landing', RESULT: 'result', FAILED: 'failed' });
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 // No DOM, Three.js or input events: callers supply world queries and randomness.
-export function createFishing({ config = {}, random = Math.random, isWater = () => true, now = Date.now } = {}) {
+export function createFishing({ config = {}, random = Math.random, isWater = () => true, now = Date.now, getBoatPosition } = {}) {
   const settings = { ...FISHING_CONFIG, ...config };
   const state = {
     phase: PHASE.READY, revision: 0, time: 0, reeling: false, distance: 0, tension: 0,
@@ -52,7 +53,10 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       lureTime += dt;
       if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - settings.lureSpeed * dt);
       if (state.distance <= settings.landingDistance) { ready('ルアーを回収しました'); return; }
-      biteBudget -= activeTime * getLure(state.lureId).hitMultiplier * (state.action > 0 ? settings.actionMultiplier : 1);
+      // The boat stays still while fishing today; the callback also supports
+      // live position changes without ever consulting the lure's target.
+      const spotMultiplier = getFishingSpotStatus(getBoatPosition?.() ?? state.origin).hitMultiplier;
+      biteBudget -= activeTime * getLure(state.lureId).hitMultiplier * spotMultiplier * (state.action > 0 ? settings.actionMultiplier : 1);
       if (biteBudget <= 0 && lureTime >= settings.biteDelay) {
         const species = sampleFishSpecies(state.lureId, random);
         const lengthCm = Math.round((species.minLengthCm + random() * (species.maxLengthCm - species.minLengthCm)) * 10) / 10;
