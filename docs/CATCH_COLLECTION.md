@@ -30,7 +30,9 @@ Phase 3B-2では「売却して続ける」も選べます。売却成功後のc
 | `catches` | 未処理個体も含む全捕獲履歴。現在のdispositionを含む読み取り専用配列 |
 | `stored` | dispositionがstoredの個体のみ。売却済み個体を除外 |
 | `encyclopedia` | 固定順のspeciesId・count・maxLengthCm。未発見の最大値はnull |
-| `snapshot` | schemaVersion・catches・storedIds・encyclopedia・walletをまとめたJSON化可能な読み取り用スナップショット |
+| `equipment` | ロッド・リールの現在レベル（Phase 3C-1A、読み取り専用） |
+| `getUpgradeStatus(kind)` / `purchaseUpgrade(kind, expectedCurrentLevel)` | [装備強化](EQUIPMENT_UPGRADES.md)の照会・購入API |
+| `snapshot` | schemaVersion・catches・storedIds・encyclopedia・wallet・equipmentをまとめたJSON化可能な読み取り用スナップショット |
 
 釣果の `schemaVersion: 1`、個体ID・魚種ID・体長cm・重量kg・捕獲日時・環境条件 `conditions` は維持します。
 `state.catches` は同じ捕獲履歴を返すgetter、`state.catch` は釣果画面で扱う現在の個体です。
@@ -44,7 +46,7 @@ Phase 3B-2では「売却して続ける」も選べます。売却成功後のc
 履歴・保管状態と統計を分離しているため、売却済みに変更しても図鑑の発見・累計・最大値を維持できます。
 価格計算と売却の検証・一括更新の詳細は [魚の売却と所持金](FISH_SALES.md) を参照してください。削除APIはありません。
 
-保存機能を追加するときは `snapshot` の単位で履歴・保管・図鑑・所持金・累計売却額を扱えます。
+保存機能を追加するときは `snapshot` の単位で履歴・保管・図鑑・所持金・累計売却額・装備レベルを扱えます。
 履歴が基準データで、storedIdsと図鑑統計は履歴から照合・再構築可能な派生値です。復元APIや移行処理は後続Phaseで設計します。
 
 ## メニューとゲーム進行
