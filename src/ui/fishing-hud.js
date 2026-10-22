@@ -30,10 +30,13 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSelectLure })
   dialog.addEventListener('cancel', event => { event.preventDefault(); closeResult(); });
   // Also settle platform/programmatic dialog closes; the game operation is
   // idempotent, so repeated close/cancel/click events cannot store twice.
-  dialog.addEventListener('close', onClose);
+  dialog.addEventListener('close', () => { if (!dialog.open) onClose(); });
   return {
     update(fishing, active, clock) {
       const s = fishing.state;
+      // A native close event can arrive after the next animation frame. Settle
+      // that result before rendering instead of reopening the closed dialog.
+      if (active && previous === PHASE.RESULT && s.phase === PHASE.RESULT && !dialog.open) onClose();
       panel.hidden = !active;
       panel.dataset.phase = active ? s.phase : 'inactive';
       prepare.hidden = !active || s.phase !== PHASE.READY;

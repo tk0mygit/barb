@@ -95,6 +95,6 @@ export function createCollectionMenu({ collection, canOpen, onOpenChange }) {
   back.addEventListener('click', () => { render(screen === 'detail' ? 'encyclopedia' : 'menu'); title.focus(); });
   close.addEventListener('click', dismiss);
   dialog.addEventListener('cancel', event => { event.preventDefault(); dismiss(); });
-  dialog.addEventListener('close', finishClose);
+  dialog.addEventListener('close', () => { if (!dialog.open) finishClose(); });
   return { get isOpen() { return active; }, update() { trigger.disabled = !canOpen(); } };
 }
