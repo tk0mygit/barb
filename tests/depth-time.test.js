@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { createCatchCollection } from '../src/game/catch-collection.js';
 import assert from 'node:assert/strict';
 import { DEPTH_CONFIG, estimateWaterDepth, getDepthBand } from '../src/world/depth.js';
 import { shoreRadius, randomGenerator } from '../src/world/config.js';
@@ -135,13 +136,18 @@ function land(f) {
 }
 
 test('all 12 fish can be caught in every depth, time and lure combination; conditions persist to catch', () => {
-  for (const lure of LURES) for (const environment of conditions) {
+  for (const rodLevel of [1, 5]) for (const lure of LURES) for (const environment of conditions) {
     let cumulative = 0;
     for (const entry of getSpeciesProbabilities(lure.id, environment)) {
       const rolls = [0, cumulative + entry.probability / 2, 0.5];
       cumulative += entry.probability;
       let current = environment;
-      const f = createFishing({ random: () => rolls.shift() ?? 0.5, getEnvironment: () => current });
+      const f = createFishing({ random: () => rolls.shift() ?? 0.5, getEnvironment: () => current, collection: createCatchCollection() });
+      if (rodLevel === 5) {
+        f.collection.register({ schemaVersion: 1, id: 'fund', speciesId: 'black-bass', lengthCm: 50, weightKg: 100, caughtAt: '2026-01-01T00:00:00Z' });
+        f.collection.sellUnassigned('fund');
+        for (let level = 1; level < 5; level++) assert.ok(f.collection.purchaseUpgrade('rod', level));
+      }
       f.selectLure(lure.id); cast(f); bite(f);
       assert.equal(f.state.encounter.speciesId, entry.speciesId);
       const snapshot = f.state.encounter.conditions;

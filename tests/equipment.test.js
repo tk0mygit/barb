@@ -188,9 +188,9 @@ test('purchases preserve capture/storage/sale records and statistics; all sale p
   assert.deepEqual(JSON.parse(JSON.stringify(collection.snapshot)), collection.snapshot);
 });
 
-test('Lv.5 data remains disconnected from fishing performance in this phase', () => {
+test('Lv.5 reel remains disconnected from fishing performance', () => {
   const collection = createCatchCollection(); fund(collection, 13000);
-  for (const kind of ['rod', 'reel']) for (let level = 1; level < 5; level++) collection.purchaseUpgrade(kind, level);
+  for (let level = 1; level < 5; level++) collection.purchaseUpgrade('reel', level);
   const upgraded = createFishing({ collection, random: () => 0.5 });
   const baseline = createFishing({ random: () => 0.5 });
   assert.deepEqual(upgraded.settings, baseline.settings);

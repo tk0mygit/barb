@@ -1,5 +1,5 @@
 // Costs are for reaching this level; performance values are relative to Lv.1,
-// never compounded. Phase 3C-1A exposes data only, without fishing integration.
+// never compounded. Fishing uses rod values; reel integration is a later phase.
 export const EQUIPMENT_LEVELS = Object.freeze({
   rod: Object.freeze([
     { level: 1, cost: 0, castDistanceBonusM: 0, tensionMultiplier: 1.00 },
