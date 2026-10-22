@@ -1,5 +1,6 @@
 import { FISH_SPECIES, getFishSpecies } from './fish-species.js';
 import { calculateSalePrice, addMoney } from './fish-sales.js';
+import { getEquipmentLevel, getNextEquipmentLevel } from './equipment.js';
 
 // Copy mutable data, but preserve already deeply frozen encounter snapshots.
 function immutable(value) {
@@ -14,6 +15,7 @@ function immutable(value) {
 export function createCatchCollection({ now = Date.now } = {}) {
   let catches = Object.freeze([]);
   let wallet = Object.freeze({ balance: 0, lifetimeSales: 0 });
+  let equipment = Object.freeze({ rodLevel: 1, reelLevel: 1 });
   const indices = new Map();
   const statistics = new Map();
   const encyclopedia = () => Object.freeze(FISH_SPECIES.map(({ id }) => Object.freeze({
@@ -21,6 +23,32 @@ export function createCatchCollection({ now = Date.now } = {}) {
     maxLengthCm: statistics.get(id)?.maxLengthCm ?? null,
   })));
   const stored = () => Object.freeze(catches.filter(record => record.disposition === 'stored'));
+  function getUpgradeStatus(kind) {
+    if (kind !== 'rod' && kind !== 'reel') return null;
+    const currentLevel = equipment[`${kind}Level`];
+    const next = getNextEquipmentLevel(kind, currentLevel);
+    const reason = !next ? 'max-level'
+      : !Number.isSafeInteger(next.cost) || next.cost < 0 ? 'invalid-cost'
+      : !Number.isSafeInteger(wallet.balance) || wallet.balance < 0 ? 'invalid-balance'
+      : wallet.balance < next.cost ? 'insufficient-funds' : null;
+    return Object.freeze({ kind, currentLevel, next, canPurchase: reason === null, reason });
+  }
+  function purchaseUpgrade(kind, expectedCurrentLevel) {
+    // Validate the caller's old level, then read the price from our own table.
+    // A repeated/stale request cannot buy another level or supply its own price.
+    if (!getEquipmentLevel(kind, expectedCurrentLevel)) return null;
+    const status = getUpgradeStatus(kind);
+    if (!status?.canPurchase || status.currentLevel !== expectedCurrentLevel) return null;
+    const { level, cost } = status.next;
+    const balance = wallet.balance - cost;
+    if (!Number.isSafeInteger(balance) || balance < 0) return null;
+    const nextWallet = Object.freeze({ ...wallet, balance });
+    const nextEquipment = Object.freeze({ ...equipment, [`${kind}Level`]: level });
+    const receipt = Object.freeze({ kind, previousLevel: expectedCurrentLevel, level, cost });
+    // No callbacks/await between validation and committing both replacements.
+    wallet = nextWallet; equipment = nextEquipment;
+    return receipt;
+  }
   function quote(ids, disposition) {
     if (!Array.isArray(ids) || !ids.length || new Set(ids).size !== ids.length) return null;
     const records = ids.map(id => catches[indices.get(id)]);
@@ -59,8 +87,11 @@ export function createCatchCollection({ now = Date.now } = {}) {
     get stored() { return stored(); },
     get encyclopedia() { return encyclopedia(); },
     get wallet() { return wallet; },
+    get equipment() { return equipment; },
+    getUpgradeStatus,
+    purchaseUpgrade,
     get snapshot() {
-      return Object.freeze({ schemaVersion: 1, catches, storedIds: Object.freeze(stored().map(record => record.id)), encyclopedia: encyclopedia(), wallet });
+      return Object.freeze({ schemaVersion: 1, catches, storedIds: Object.freeze(stored().map(record => record.id)), encyclopedia: encyclopedia(), wallet, equipment });
     },
     sellUnassigned(id) { return sell([id], 'unassigned'); },
     sellStored(ids) { return sell(ids, 'stored'); },
