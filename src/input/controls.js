@@ -6,6 +6,7 @@ export function createControls(canvas, joystick, knob, fishing = null) {
   let previous = origin;
   let mode = 'sailing';
   let fishingGesture = false;
+  let enabled = true;
   const canLook = () => !fishing || fishing.canLook();
   function release() {
     const previousPointer = pointer;
@@ -18,7 +19,7 @@ export function createControls(canvas, joystick, knob, fishing = null) {
   }
   function reset() { release(); fishing?.input.cancel(); }
   canvas.addEventListener('pointerdown', event => {
-    if (pointer !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    if (!enabled || pointer !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
     pointer = event.pointerId;
     origin = previous = { x: event.clientX, y: event.clientY };
     canvas.setPointerCapture(pointer);
@@ -61,15 +62,17 @@ export function createControls(canvas, joystick, knob, fishing = null) {
     canvas.addEventListener(name, event => { if (event.pointerId === pointer) reset(); });
   }
   const supported = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'];
-  canvas.addEventListener('keydown', event => { if (supported.includes(event.code)) { event.preventDefault(); keys.add(event.code); } });
+  canvas.addEventListener('keydown', event => { if (enabled && supported.includes(event.code)) { event.preventDefault(); keys.add(event.code); } });
   window.addEventListener('keyup', event => keys.delete(event.code));
   window.addEventListener('blur', reset);
   canvas.addEventListener('blur', reset);
   document.addEventListener('visibilitychange', reset);
   return {
     reset,
+    setEnabled(next) { reset(); enabled = next; },
     setMode(next) { reset(); mode = next; },
     read(dt) {
+      if (!enabled) return { steer: 0, throttle: 0, lookX: 0, lookY: 0 };
       if (mode === 'fishing') fishing?.input.step(dt);
       if (pointer === null) {
         state.steer = Number(keys.has('ArrowRight') || keys.has('KeyD')) - Number(keys.has('ArrowLeft') || keys.has('KeyA'));

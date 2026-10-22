@@ -17,6 +17,7 @@ import { createFishingSpotsView } from './rendering/fishing-spots.js';
 import { createFishingSpotsHUD } from './ui/fishing-spots-hud.js';
 import { estimateWaterDepth } from './world/depth.js';
 import { createGameClock } from './game/game-clock.js';
+import { createCollectionMenu } from './ui/collection-menu.js';
 
 const canvas = document.querySelector('#scene');
 function showError(message) {
@@ -75,9 +76,19 @@ try {
       canvas.focus({ preventScroll: true });
     },
     onCancel: () => { controls.reset(); canvas.focus({ preventScroll: true }); },
-    onClose: () => { fishing.closeResult(); canvas.focus({ preventScroll: true }); },
+    onClose: () => { if (fishing.closeResult()) canvas.focus({ preventScroll: true }); },
+  });
+  const collectionMenu = createCollectionMenu({
+    collection: fishing.collection,
+    canOpen: () => fishing.state.phase !== PHASE.RESULT && !document.querySelector('#catch-dialog').open,
+    onOpenChange: open => {
+      controls.setEnabled(!open);
+      previous = performance.now();
+      if (!open) canvas.focus({ preventScroll: true });
+    },
   });
   window.addEventListener('keydown', event => {
+    if (collectionMenu.isOpen || event.defaultPrevented) return;
     if (event.code !== 'Escape' || boat.mode !== 'fishing' || fishing.state.phase === PHASE.RESULT) return;
     if (fishing.state.phase === PHASE.AIM) controls.reset();
     else changeMode('sailing');
@@ -87,6 +98,8 @@ try {
     renderer.setSize(width, height);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    // Orientation can change while the menu pauses animation updates.
+    renderer.render(scene, camera);
   }
   window.addEventListener('resize', resize);
   resize();
@@ -99,7 +112,7 @@ try {
     const frameSeconds = Math.max(0, (now - previous) / 1000);
     const dt = Math.min(frameSeconds, 0.25);
     previous = now;
-    if (document.hidden || !focused) return;
+    if (document.hidden || !focused || collectionMenu.isOpen) return;
     // Clock tracks all active time, even on slow frames. Movement retains its
     // existing safety cap; hidden/unfocused time is not caught up on resume.
     gameClock.step(frameSeconds);
@@ -126,6 +139,7 @@ try {
     lake.update(elapsed, boat);
     hud.update(boat);
     fishingHUD.update(fishing, boat.mode === 'fishing', gameClock.state);
+    collectionMenu.update();
     renderer.render(scene, camera);
     hud.ready();
   });

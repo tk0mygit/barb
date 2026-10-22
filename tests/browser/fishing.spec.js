@@ -98,6 +98,7 @@ async function land(page, input, speciesId) {
 
 for (const touch of [false, true]) {
   test(`${touch ? 'touch' : 'mouse'}: cancellation, missed hook, retry, flick, fight and catch result`, async ({ browser }) => {
+    test.setTimeout(150000);
     const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1280, height: 800 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage();
     const errors = [];
@@ -137,11 +138,36 @@ for (const touch of [false, true]) {
     await expect(page.locator('#lure-picker')).toBeHidden();
     const conditions = await page.locator('#fishing-conditions').evaluate(el => ({ depthM: Number(el.dataset.depthM), timeOfDay: el.dataset.timeOfDay }));
     await land(page, input, sampleFishSpecies(lureId, () => 0.5, conditions).id);
+    const caughtName = await page.locator('#catch-species').textContent();
+    const caughtLength = await page.locator('#catch-length').textContent();
+    const caughtWeight = await page.locator('#catch-weight').textContent();
+    await expect(page.locator('#menu-button')).toBeDisabled();
+    await page.locator('#menu-button').evaluate(button => button.dispatchEvent(new MouseEvent('click')));
+    await expect(page.locator('#collection-dialog')).toBeHidden();
     await page.screenshot({ path: `test-results/${touch ? 'mobile' : 'desktop'}-catch.png` });
-    await input.click(page.locator('#close-catch'));
+    if (touch) await input.click(page.locator('#close-catch')); else await page.keyboard.press('Escape');
     await expect(page.locator('#catch-dialog')).toBeHidden();
     await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
     await expect(page.locator('#lure-picker')).toBeVisible();
+    await input.click(page.locator('#menu-button'));
+    await input.click(page.locator('[data-view="encyclopedia"]'));
+    await expect(page.locator('button.fish-card')).toHaveCount(1);
+    await input.click(page.locator('button.fish-card'));
+    await expect(page.locator('#collection-title')).toHaveText(caughtName);
+    await expect(page.locator('.fish-detail')).toContainText('1匹');
+    await expect(page.locator('.fish-detail')).toContainText(caughtLength);
+    const fish = FISH_SPECIES.find(item => item.name === caughtName);
+    await expect(page.locator('.fish-description')).toHaveText(fish.description);
+    await expect(page.locator('.fish-detail')).toContainText(`${fish.basePricePerKg} 通貨/kg`);
+    await input.click(page.locator('#collection-back')); await input.click(page.locator('#collection-back'));
+    await input.click(page.locator('[data-view="storage"]'));
+    await expect(page.locator('.stored-fish')).toHaveCount(1);
+    await expect(page.locator('.stored-fish')).toContainText(caughtName);
+    await expect(page.locator('.stored-fish')).toContainText(caughtLength);
+    await expect(page.locator('.stored-fish')).toContainText(caughtWeight);
+    await expect(page.locator('.stored-fish time')).toHaveAttribute('datetime', /T/);
+    await page.screenshot({ path: `test-results/${touch ? 'mobile' : 'desktop'}-storage.png` });
+    await input.click(page.locator('#collection-close'));
     await cast(page, input);
     expect(errors).toEqual([]);
     await context.close();
@@ -254,7 +280,26 @@ test('all 12 species: production cast, hook, fight, matching result image and re
     expect((await snapshot()).phase).toBe('landing');
     for (let i = 0; i < 5; i++) await tick();
     await assertCatch(page, species.id, roll);
-    await page.locator('#close-catch').click({ force: true }); await tick();
+    if (index === 0) await page.locator('#catch-dialog').evaluate(dialog => dialog.close());
+    else await page.locator('#close-catch').click({ force: true });
+    await tick();
     expect((await snapshot()).phase).toBe('ready');
   }
+  await page.locator('#menu-button').click({ force: true });
+  await page.locator('[data-view="encyclopedia"]').click({ force: true });
+  expect(await page.locator('.fish-card > span').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
+  await expect(page.locator('button.fish-card')).toHaveCount(12);
+  await page.screenshot({ path: 'test-results/encyclopedia-discovered.png', animations: 'disabled' });
+  await page.locator('#collection-back').click({ force: true });
+  await page.locator('[data-view="storage"]').click({ force: true });
+  await expect(page.locator('.stored-fish')).toHaveCount(12);
+  expect(new Set(await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId))).size).toBe(12);
+  const scroll = await page.locator('#collection-content').evaluate(el => { el.scrollTop = el.scrollHeight; return { top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight }; });
+  expect(scroll.height).toBeGreaterThan(scroll.client); expect(scroll.top).toBeGreaterThan(0);
+  await page.locator('#collection-close').click({ force: true });
+  await page.clock.resume(); await page.reload(); await expect(page.locator('#status')).toBeHidden();
+  await page.locator('#menu-button').click(); await page.locator('[data-view="storage"]').click();
+  await expect(page.locator('.stored-fish')).toHaveCount(0);
+  await page.locator('#collection-back').click(); await page.locator('[data-view="encyclopedia"]').click();
+  expect(await page.locator('.fish-card > span').allTextContents()).toEqual(Array(12).fill('？？？'));
 });

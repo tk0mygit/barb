@@ -4,6 +4,7 @@ import { DEFAULT_LURE_ID, getLure } from './lures.js';
 import { sampleFishSpecies, normalizeEncounterConditions } from './fish-encounters.js';
 import { fishResistance } from './fish-fight.js';
 import { getFishingSpotStatus } from './fishing-spots.js';
+import { createCatchCollection } from './catch-collection.js';
 
 export const PHASE = Object.freeze({ READY: 'ready', AIM: 'aim', CAST: 'cast', LURE: 'lure', BITE: 'bite', FIGHT: 'fight', LANDING: 'landing', RESULT: 'result', FAILED: 'failed' });
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -15,12 +16,12 @@ export function getLurePosition(state) {
 }
 
 // No DOM, Three.js or input events: callers supply world queries and randomness.
-export function createFishing({ config = {}, random = Math.random, isWater = () => true, now = Date.now, getBoatPosition, getEnvironment } = {}) {
+export function createFishing({ config = {}, random = Math.random, isWater = () => true, now = Date.now, getBoatPosition, getEnvironment, collection = createCatchCollection() } = {}) {
   const settings = { ...FISHING_CONFIG, ...config };
   const state = {
     phase: PHASE.READY, revision: 0, time: 0, reeling: false, distance: 0, tension: 0,
     origin: { x: 0, z: 0 }, target: { x: 0, z: 0 }, heading: 0, validCast: true,
-    action: 0, message: '', catch: null, catches: [], biteRemaining: 0,
+    action: 0, message: '', catch: null, get catches() { return collection.catches; }, biteRemaining: 0,
     lureId: DEFAULT_LURE_ID, encounter: null,
   };
   let aimHeading = 0, biteBudget = 0, lureTime = 0, slackTime = 0, fightDistance = 0;
@@ -90,13 +91,12 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - fightDistance / (settings.fightReelSeconds * reelResistance) * dt);
       if (state.distance <= settings.landingDistance) transition(PHASE.LANDING);
     } else if (state.phase === PHASE.LANDING && state.time >= settings.landingSeconds) {
-      state.catch = Object.freeze({ schemaVersion: 1, id: `catch-${now()}-${state.catches.length + 1}`, ...state.encounter, caughtAt: new Date(now()).toISOString(), disposition: 'unassigned' });
-      state.catches.push(state.catch);
+      state.catch = collection.register(Object.freeze({ schemaVersion: 1, id: `catch-${now()}-${state.catches.length + 1}`, ...state.encounter, caughtAt: new Date(now()).toISOString(), disposition: 'unassigned' }));
       transition(PHASE.RESULT);
     } else if (state.phase === PHASE.FAILED && state.time >= settings.failureSeconds) ready(state.message);
   }
   return {
-    state, settings, getConditions,
+    state, settings, getConditions, collection,
     selectLure(id) {
       if (state.phase !== PHASE.READY || !getLure(id)) return false;
       state.lureId = id; return true;
@@ -126,7 +126,11 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       slackTime = 0;
       transition(PHASE.FIGHT); return true;
     },
-    closeResult() { if (state.phase === PHASE.RESULT) ready(); },
+    closeResult() {
+      if (state.phase !== PHASE.RESULT) return false;
+      if (!collection.store(state.catch.id)) return false;
+      ready(); return true;
+    },
     reset() { if (this.canLeave()) ready(); },
     step(dt) {
       // Keep probability and failure boundaries stable across frame rates.

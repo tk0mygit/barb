@@ -97,3 +97,49 @@ button:disabled { opacity: 0.5; cursor: wait; }
   #catch-dialog { padding: 14px 24px; }
   #catch-dialog h2, #catch-dialog dl { margin: 10px 0; }
 }
+
+/* Collection screens retain the lake palette; only the content area scrolls. */
+.header-tools { display: flex; align-items: center; gap: 22px; }
+#menu-button { width: 48px; min-height: 48px; padding: 0; justify-content: center; font-size: 30px; line-height: 1; background: #163d38dc; color: #eee9d7; }
+.session-notice { font-size: 11px; line-height: 1.8; opacity: 0.8; }
+#collection-dialog { color: #f4f2e6; background: #173d38; border: 1px solid #e0d5a980; border-radius: 8px; padding: 24px; width: min(820px, 94vw); height: min(740px, 90dvh); max-height: 90dvh; overflow: hidden; }
+#collection-dialog[open] { display: flex; flex-direction: column; }
+#collection-dialog::backdrop { background: #071f22c9; }
+.collection-header { display: flex; gap: 14px; align-items: center; flex-shrink: 0; }
+.collection-header h2 { font-size: clamp(17px, 3vw, 24px); font-weight: 400; letter-spacing: 1px; margin: 0; flex: 1; }
+.collection-header button { width: 44px; min-height: 44px; padding: 0; justify-content: center; font-size: 23px; flex-shrink: 0; }
+#collection-content { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; min-height: 0; padding: 4px 6px 14px; }
+#collection-content > button { margin: 16px 0; }
+.collection-summary { font-size: 12px; margin: 8px 0 18px; letter-spacing: 1px; }
+.collection-empty { padding: 30px 6px; line-height: 2; opacity: 0.8; }
+.fish-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fish-card { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: start; gap: 9px; padding: 12px; border: 1px solid #eee9d745; border-radius: 4px; text-align: center; color: #f4f2e6; background: #214a40; font-size: 12px; letter-spacing: 0; }
+button.fish-card:hover { background: #335e4c; }
+.fish-card img, .fish-detail img, .stored-fish img { width: 100%; height: auto; object-fit: contain; background: #ced5b6; border-radius: 3px; }
+.fish-card small { font-size: 10px; opacity: 0.8; }
+.fish-detail { max-width: 580px; margin: auto; }
+.fish-detail img { max-height: 220px; }
+.fish-description { font-size: 14px; line-height: 2; }
+.fish-detail dl { display: grid; gap: 14px; }
+.fish-detail dl > div { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; border-bottom: 1px solid #eee9d730; padding-bottom: 10px; }
+.fish-detail dt { font-size: 13px; opacity: 0.8; }
+.fish-detail dd { margin: 0; font-variant-numeric: tabular-nums; }
+.stored-list { display: grid; gap: 14px; }
+.stored-fish { display: grid; grid-template-columns: minmax(90px, 30%) minmax(0, 1fr); gap: 16px; align-items: center; border-bottom: 1px solid #eee9d730; padding: 0 0 14px; }
+.stored-fish h3 { margin: 0; font-size: 15px; font-weight: 400; }
+.stored-fish p { margin: 8px 0; font-variant-numeric: tabular-nums; }
+.stored-fish time, .stored-fish small { display: block; font-size: 10px; line-height: 1.8; opacity: 0.8; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .header-tools { gap: 12px; }
+  .header-tools .location { display: none; }
+  #collection-dialog { padding: 16px 12px; }
+  .fish-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .fish-card { padding: 8px; }
+  .stored-fish { gap: 10px; }
+  .stored-fish h3, .stored-fish p { font-size: 13px; }
+}
+@media (max-height: 500px) {
+  #collection-dialog { padding: 12px 16px; height: 94dvh; max-height: 94dvh; }
+  #collection-notice { margin: 6px 0; }
+  #catch-dialog .session-notice { margin-bottom: 0; }
+}
