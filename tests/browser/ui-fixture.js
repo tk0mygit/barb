@@ -16,11 +16,16 @@ export async function openUIFixture(page) {
         import { createFishing } from './src/game/fishing.js';
         import { createCollectionMenu } from './src/ui/collection-menu.js';
         import { createSalesHUD } from './src/ui/sales-hud.js';
+        import { createAchievements } from './src/game/achievements.js';
+        import { createAchievementNotice } from './src/ui/achievement-notice.js';
         const collection = createCatchCollection();
         const fishing = createFishing({ collection });
         const salesHUD = createSalesHUD(collection);
-        const fixture = window.fixture = { collection, fishing, salesHUD, allowed: true };
-        fixture.menu = createCollectionMenu({ collection, canOpen: () => true,
+        const achievements = createAchievements({ collection });
+        const achievementNotice = createAchievementNotice();
+        achievements.subscribe(awards => achievementNotice.notify(awards));
+        const fixture = window.fixture = { collection, fishing, salesHUD, achievements, achievementNotice, allowed: true };
+        fixture.menu = createCollectionMenu({ collection, achievements, canOpen: () => true,
           canPurchase: () => fixture.allowed,
           onOpenChange: () => { fishing.cancelInput(); salesHUD.update(); },
           onSale: receipt => salesHUD.notify(receipt), onUpgrade: () => salesHUD.update() });

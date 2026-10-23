@@ -18,6 +18,14 @@ export function createCatchCollection({ now = Date.now } = {}) {
   let equipment = Object.freeze({ rodLevel: 1, reelLevel: 1 });
   const indices = new Map();
   const statistics = new Map();
+  const listeners = new Set();
+  function changed() {
+    // State is already committed. A presentation failure must not undo a catch,
+    // sale or purchase, or prevent the remaining subscribers from observing it.
+    for (const listener of listeners) {
+      try { listener(); } catch (error) { console.error('Collection subscriber failed', error); }
+    }
+  }
   const encyclopedia = () => Object.freeze(FISH_SPECIES.map(({ id }) => Object.freeze({
     speciesId: id, count: statistics.get(id)?.count ?? 0,
     maxLengthCm: statistics.get(id)?.maxLengthCm ?? null,
@@ -47,6 +55,7 @@ export function createCatchCollection({ now = Date.now } = {}) {
     const receipt = Object.freeze({ kind, previousLevel: expectedCurrentLevel, level, cost });
     // No callbacks/await between validation and committing both replacements.
     wallet = nextWallet; equipment = nextEquipment;
+    changed();
     return receipt;
   }
   function quote(ids, disposition) {
@@ -80,6 +89,7 @@ export function createCatchCollection({ now = Date.now } = {}) {
     const nextCatches = Object.freeze(catches.map(record => replacements.get(record.id) ?? record));
     const receipt = Object.freeze({ ids: Object.freeze([...ids]), count: ids.length, total: sale.total, soldAt });
     catches = nextCatches; wallet = nextWallet;
+    changed();
     return receipt;
   }
   return {
@@ -88,6 +98,7 @@ export function createCatchCollection({ now = Date.now } = {}) {
     get encyclopedia() { return encyclopedia(); },
     get wallet() { return wallet; },
     get equipment() { return equipment; },
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     getUpgradeStatus,
     purchaseUpgrade,
     get snapshot() {
@@ -112,6 +123,7 @@ export function createCatchCollection({ now = Date.now } = {}) {
       const previous = statistics.get(captured.speciesId);
       statistics.set(captured.speciesId, { count: (previous?.count ?? 0) + 1,
         maxLengthCm: Math.max(previous?.maxLengthCm ?? 0, captured.lengthCm) });
+      changed();
       return captured;
     },
     store(id) {
@@ -122,6 +134,7 @@ export function createCatchCollection({ now = Date.now } = {}) {
       if (record.disposition !== 'unassigned') return null;
       const retained = Object.freeze({ ...record, disposition: 'stored' });
       catches = Object.freeze(catches.map((item, i) => i === index ? retained : item));
+      changed();
       return retained;
     },
   };

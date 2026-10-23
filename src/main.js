@@ -19,6 +19,8 @@ import { estimateWaterDepth } from './world/depth.js';
 import { createGameClock } from './game/game-clock.js';
 import { createCollectionMenu } from './ui/collection-menu.js';
 import { createSalesHUD } from './ui/sales-hud.js';
+import { createAchievements } from './game/achievements.js';
+import { createAchievementNotice } from './ui/achievement-notice.js';
 
 const canvas = document.querySelector('#scene');
 function showError(message) {
@@ -49,6 +51,9 @@ try {
   });
   const spotsView = createFishingSpotsView(scene);
   const salesHUD = createSalesHUD(fishing.collection);
+  const achievementNotice = createAchievementNotice();
+  const achievements = createAchievements({ collection: fishing.collection });
+  achievements.subscribe(awards => achievementNotice.notify(awards));
   const spotsHUD = createFishingSpotsHUD();
   const fishingInput = createFishingInput(fishing);
   const controls = createControls(canvas, document.querySelector('#joystick'), document.querySelector('#joystick-knob'), {
@@ -87,12 +92,14 @@ try {
   });
   const collectionMenu = createCollectionMenu({
     collection: fishing.collection,
+    achievements,
     onSale: receipt => salesHUD.notify(receipt),
     onUpgrade: () => salesHUD.update(),
     canPurchase: () => boat.mode === 'sailing' || (boat.mode === 'fishing' && fishing.state.phase === PHASE.READY),
     canOpen: () => fishing.state.phase !== PHASE.RESULT && !document.querySelector('#catch-dialog').open,
     onOpenChange: open => {
       salesHUD.update();
+      achievementNotice.update();
       controls.setEnabled(!open);
       previous = performance.now();
       if (!open) canvas.focus({ preventScroll: true });

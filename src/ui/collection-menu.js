@@ -2,6 +2,7 @@ import { FISH_SPECIES, getFishSpecies } from '../game/fish-species.js';
 import { calculateSalePrice } from '../game/fish-sales.js';
 import { formatMoney } from './sales-hud.js';
 import { EQUIPMENT_NAMES, UPGRADE_GUIDANCE, renderEquipment, renderUpgradeConfirmation } from './equipment-view.js';
+import { renderAchievements } from './achievements-view.js';
 
 const silhouette = new URL('../assets/fish/unknown.svg', import.meta.url).href;
 const dates = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeStyle: 'medium' });
@@ -19,7 +20,7 @@ function fishImage(src, name) {
 
 // One native modal owns menu, grid, detail and storage. No nested dialogs;
 // undiscovered species never contribute their name, asset or details to DOM.
-export function createCollectionMenu({ collection, canOpen, canPurchase, onOpenChange, onSale, onUpgrade }) {
+export function createCollectionMenu({ collection, achievements, canOpen, canPurchase, onOpenChange, onSale, onUpgrade }) {
   const trigger = document.querySelector('#menu-button');
   const dialog = document.querySelector('#collection-dialog');
   const title = document.querySelector('#collection-title');
@@ -38,7 +39,7 @@ export function createCollectionMenu({ collection, canOpen, canPurchase, onOpenC
     back.hidden = next === 'menu';
     if (next === 'menu') {
       title.textContent = '湖の記録';
-      for (const [view, label] of [['encyclopedia', '魚図鑑'], ['storage', '保管魚'], ['equipment', '装備強化']]) {
+      for (const [view, label] of [['encyclopedia', '魚図鑑'], ['storage', '保管魚'], ['equipment', '装備強化'], ['achievements', '実績']]) {
         const button = element('button', label); button.type = 'button'; button.dataset.view = view;
         button.addEventListener('click', () => { render(view); title.focus(); }); content.append(button);
       }
@@ -103,6 +104,9 @@ export function createCollectionMenu({ collection, canOpen, canPurchase, onOpenC
         row.append(fishImage(fish.image, fish.name), info); list.append(row);
       }
       content.append(list);
+    } else if (next === 'achievements') {
+      title.textContent = '実績';
+      renderAchievements(content, achievements);
     } else if (next === 'equipment') {
       title.textContent = '装備強化';
       renderEquipment(content, collection, purchaseAllowed(), kind => {
@@ -178,5 +182,10 @@ export function createCollectionMenu({ collection, canOpen, canPurchase, onOpenC
   close.addEventListener('click', dismiss);
   dialog.addEventListener('cancel', event => { event.preventDefault(); dismiss(); });
   dialog.addEventListener('close', () => { if (!dialog.open) finishClose(); });
+  collection.subscribe(() => {
+    if (!active || !dialog.open || screen !== 'achievements') return;
+    const scrollTop = content.scrollTop;
+    render('achievements'); content.scrollTop = scrollTop;
+  });
   return { get isOpen() { return active; }, update() { trigger.disabled = !canOpen(); } };
 }

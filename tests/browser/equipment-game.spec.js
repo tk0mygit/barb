@@ -88,6 +88,12 @@ for (const touch of [false, true]) {
       }
     }
     await cast(); await land();
+    // Reach achievements through a real cast/hook/fight/landing on the shipped
+    // build. Capture unlocks before the sale/storage decision.
+    await expect(page.locator('#achievement-notice')).toContainText('初めての一匹');
+    expect(await page.locator('#achievement-notice').evaluate(el => el.parentElement.id)).toBe('catch-dialog');
+    await page.clock.fastForward(3500);
+    await expect(page.locator('#achievement-notice')).toBeHidden();
     await click(page.locator('#sell-catch')); await tick(); expect(await phase()).toBe('ready');
     const income = parseInt((await page.locator('#wallet-balance').textContent()).replaceAll(',', ''));
     expect(income).toBeGreaterThanOrEqual(600);
@@ -95,6 +101,14 @@ for (const touch of [false, true]) {
     await click(page.locator('[data-upgrade="rod"]')); await click(page.locator('#confirm-upgrade'));
     rodLevel = 2;
     await expect(page.locator('[data-equipment="rod"] h3')).toHaveText('ロッド · Lv.2');
+    await expect(page.locator('#achievement-notice')).toContainText('初強化');
+    await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
+    await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 10');
+    await expect(page.locator('[data-achievement-id="normal-first-catch"].achievement-card')).toHaveAttribute('data-unlocked', 'true');
+    const pausedProgress = await page.locator('#fishing-conditions').getAttribute('data-cycle-progress');
+    await page.clock.fastForward(60000);
+    await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-cycle-progress', pausedProgress);
+    await expect(page.locator('#achievement-notice')).toBeHidden();
     await closeMenu(); await tick();
     await cast(true); await land(true);
     await click(page.locator('#close-catch')); await tick();
@@ -115,6 +129,8 @@ for (const touch of [false, true]) {
     await expect(page.locator('[data-equipment="rod"] h3')).toHaveText('ロッド · Lv.1');
     await expect(page.locator('[data-equipment="reel"] h3')).toHaveText('リール · Lv.1');
     await expect(page.locator('#wallet-balance')).toHaveText('0 通貨');
+    await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
+    await expect(page.locator('.achievement-summary')).toHaveText('解除済み 0 / 10');
     expect(errors).toEqual([]); await context.close();
   });
 }
