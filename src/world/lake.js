@@ -3,10 +3,14 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { createTerrain } from './terrain.js';
 import { createWater } from './water.js';
 import { createEnvironmentParameters, INITIAL_DAY_CLOCK, sampleDayNight } from './day-night.js';
+import { sampleNightFog } from './night-fog.js';
+
+const hazeDensity = 0.0018, nightFogDensity = 0.0052;
 
 export function createLake(scene) {
   scene.background = new THREE.Color('#b9d1cd');
-  scene.fog = new THREE.FogExp2('#b9ccc3', 0.0018);
+  scene.fog = new THREE.FogExp2('#b9ccc3', hazeDensity);
+  const nightFogColor = new THREE.Color('#53646f');
   const ambient = new THREE.HemisphereLight('#dfede9', '#5e6f4b', 2.4);
   scene.add(ambient);
   const sunlight = new THREE.DirectionalLight('#fff0cd', 3.2);
@@ -31,13 +35,20 @@ export function createLake(scene) {
   Object.assign(sky.material.uniforms, {
     skyDaylight: { value: 1 }, nightTop: { value: new THREE.Color('#080f25') },
     nightHorizon: { value: new THREE.Color('#283e50') },
+    nightFogStrength: { value: 0 }, nightFogColor: { value: new THREE.Color() },
   });
   sky.material.fragmentShader = `uniform float skyDaylight;
     uniform vec3 nightTop;
     uniform vec3 nightHorizon;
+    uniform float nightFogStrength;
+    uniform vec3 nightFogColor;
     ${sky.material.fragmentShader}`.replace('gl_FragColor = vec4( texColor, 1.0 );', `
       vec3 nightColor = mix(nightHorizon, nightTop, smoothstep(0.0, 0.65, direction.y));
-      gl_FragColor = vec4(mix(nightColor, texColor, skyDaylight), 1.0);`);
+      gl_FragColor = vec4(mix(nightColor, texColor, skyDaylight), 1.0);`)
+    .replace('#include <colorspace_fragment>', `#include <colorspace_fragment>
+      // Meet the scene fog at the horizon in the same output color space.
+      gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(nightFogColor, 1.0)).rgb,
+        nightFogStrength * (1.0 - smoothstep(0.0, 0.25, direction.y)));`);
   const moon = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 12),
     new THREE.MeshBasicMaterial({ color: '#d9e3ee', transparent: true, fog: false, depthWrite: false }));
   moon.name = 'moon';
@@ -46,10 +57,12 @@ export function createLake(scene) {
   const water = createWater(scene.fog);
   scene.add(water.mesh);
   const environment = createEnvironmentParameters();
+  const nightFog = {};
   const sunDirection = new THREE.Vector3(), moonDirection = new THREE.Vector3();
   return {
     update(time, boat, clock = INITIAL_DAY_CLOCK) {
       sampleDayNight(clock, environment);
+      sampleNightFog(clock, nightFog);
       ambient.color.fromArray(environment.ambientSky);
       ambient.groundColor.fromArray(environment.ambientGround);
       ambient.intensity = environment.ambientIntensity;
@@ -69,7 +82,10 @@ export function createLake(scene) {
       sky.material.uniforms.skyDaylight.value = environment.skyDaylight;
       sky.material.uniforms.nightTop.value.fromArray(environment.skyTop);
       sky.material.uniforms.nightHorizon.value.fromArray(environment.horizon);
-      scene.fog.color.fromArray(environment.horizon);
+      scene.fog.color.fromArray(environment.horizon).lerp(nightFogColor, nightFog.intensity * 0.45);
+      scene.fog.density = hazeDensity + (nightFogDensity - hazeDensity) * nightFog.intensity;
+      sky.material.uniforms.nightFogStrength.value = nightFog.intensity;
+      sky.material.uniforms.nightFogColor.value.copy(scene.fog.color);
       scene.background.copy(scene.fog.color);
       moon.position.copy(moonDirection).multiplyScalar(900);
       moon.position.x += boat.x; moon.position.z += boat.z;

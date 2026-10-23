@@ -1,129 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
-import { createCatchCollection } from '../../src/game/catch-collection.js';
-import { createAchievements } from '../../src/game/achievements.js';
-import { createBoatState } from '../../src/game/boat.js';
-import { createGameClock } from '../../src/game/game-clock.js';
-import { createSaveData } from '../../src/game/save-data.js';
-import { sampleDayNight } from '../../src/world/day-night.js';
+import { tick, read, setup, assertEnvironment, observeControls, activateControl } from './day-night-fixture.js';
 
 test.use({ deviceScaleFactor: 0.5 });
-const now = new Date('2026-10-23T00:00:00Z');
-const tick = page => page.clock.fastForward(250);
-const read = page => page.evaluate(() => window.lightingProbe.last);
-
-async function observeControls(page) {
-  await page.evaluate(() => {
-    window.controlProbe = { events: [], actions: [] };
-    for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'lostpointercapture', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click']) {
-      window.addEventListener(type, event => {
-        const record = {
-          type, target: event.target.closest('button')?.id ?? event.target.id,
-          x: event.clientX ?? event.changedTouches?.[0]?.clientX, y: event.clientY ?? event.changedTouches?.[0]?.clientY, trusted: event.isTrusted,
-          mode: document.body.classList.contains('fishing') ? 'fishing' : 'sailing',
-        };
-        window.controlProbe.events.push(record);
-        queueMicrotask(() => { record.prevented = event.defaultPrevented; });
-      }, true);
-    }
-  });
-}
-
-async function activateControl(page, id, touch) {
-  const button = page.locator(`#${id}`);
-  await expect(button).toBeVisible();
-  await expect(button).toBeEnabled();
-  const before = await button.evaluate(button => {
-    const bounds = button.getBoundingClientRect();
-    const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
-    const snapshot = { id: button.id, hidden: button.hidden, disabled: button.disabled, bounds: bounds.toJSON(),
-      hit: hit?.closest('button')?.id ?? hit?.id, boatSpeed: window.lightingProbe.last.boatSpeed,
-      motion: document.querySelector('#motion-label').textContent, eventCount: window.controlProbe.events.length };
-    window.controlProbe.actions.push(snapshot);
-    return snapshot;
-  });
-  expect(before.hit).toBe(id);
-  // Keep Playwright's stability/receives-events checks and send one input only.
-  if (touch) await button.tap();
-  else await button.click();
-  await page.evaluate(start => {
-    window.controlProbe.actions.at(-1).eventsAfterInput = window.controlProbe.events.slice(start);
-  }, before.eventCount);
-  // Never retry input or infer activation from a completed protocol command.
-  await expect.poll(() => page.evaluate(start => window.controlProbe.events.slice(start)
-    .filter(event => event.type === 'click').map(event => ({ target: event.target, trusted: event.trusted })), before.eventCount))
-    .toEqual([{ target: id, trusted: true }]);
-  const events = await page.evaluate(start => window.controlProbe.events.slice(start), before.eventCount);
-  expect(events.filter(event => event.type === 'pointerdown').map(event => event.target)).toEqual([id]);
-}
-
-async function setup(page, elapsedSeconds, { freeze = true } = {}) {
-  const collection = createCatchCollection();
-  const data = createSaveData({ collection, achievements: createAchievements({ collection }),
-    boat: createBoatState({ x: 10, z: 20, heading: 0 }),
-    clock: createGameClock(undefined, { elapsedSeconds }) });
-  // Observe the actual production renderer via Three.js's existing devtools
-  // event. No production debug API, source rewrite or forced game state.
-  await page.addInitScript(data => {
-    if (!sessionStorage.getItem('lighting-seeded')) {
-      localStorage.setItem('barb.save.v1.slotA', JSON.stringify({ storageVersion: 1, generation: 1, data }));
-      sessionStorage.setItem('lighting-seeded', 'yes');
-    }
-    Math.random = () => 0.5;
-    window.lightingProbe = { first: null, last: null, renders: 0 };
-    window.__THREE_DEVTOOLS__ = new EventTarget();
-    window.__THREE_DEVTOOLS__.addEventListener('observe', ({ detail: renderer }) => {
-      if (!renderer.isWebGLRenderer) return;
-      const render = renderer.render;
-      renderer.render = function(scene, camera) {
-        const ambient = scene.children.find(o => o.isHemisphereLight);
-        const [sun, moonlight] = scene.children.filter(o => o.isDirectionalLight);
-        const sky = scene.children.find(o => o.isSky), moon = scene.getObjectByName('moon');
-        const water = scene.getObjectByName('lake-water').material.uniforms;
-        const snapshot = {
-          ambient: ambient.intensity, sun: sun.intensity, moon: moonlight.intensity,
-          sky: sky.material.uniforms.skyDaylight.value, fog: scene.fog.color.toArray(),
-          deep: water.deepColor.value.toArray(), reflection: water.reflectionColor.value.toArray(),
-          sunDirection: water.sunDirection.value.toArray(), moonDirection: water.moonDirection.value.toArray(),
-          sunHighlight: water.sunHighlight.value, moonHighlight: water.moonHighlight.value,
-          moonOpacity: moon.material.opacity, moonVisible: moon.visible,
-          waterTime: water.time.value, boat: water.boatPosition.value.toArray(), boatSpeed: water.boatSpeed.value,
-          shadows: scene.children.filter(o => o.isLight && o.castShadow).length,
-        };
-        const result = render.call(this, scene, camera);
-        const probe = window.lightingProbe;
-        probe.first ??= snapshot; probe.last = snapshot; probe.renders++;
-        probe.camera = camera.quaternion.toArray();
-        probe.cameraHeight = camera.position.y;
-        probe.moonScreen = moon.position.clone().project(camera).toArray();
-        probe.performance = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
-          geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures,
-          programs: renderer.info.programs.length };
-        return result;
-      };
-    });
-  }, data);
-  if (freeze) {
-    await page.clock.install({ time: now });
-    await page.clock.pauseAt(new Date(+now + 1000));
-  }
-  await page.goto('./');
-  if (freeze) await tick(page);
-  await expect(page.locator('#status')).toBeHidden();
-  await expect(page.locator('#error')).toBeHidden();
-}
-
-function assertEnvironment(actual, elapsedSeconds) {
-  const clock = createGameClock(undefined, { elapsedSeconds }).state;
-  const expected = sampleDayNight(clock);
-  for (const [field, parameter] of Object.entries({ ambient: 'ambientIntensity', sun: 'sunIntensity', moon: 'moonIntensity',
-    sky: 'skyDaylight', fog: 'horizon', deep: 'waterDeep', reflection: 'waterReflection', sunDirection: 'sunDirection',
-    moonDirection: 'moonDirection', sunHighlight: 'sunHighlight', moonHighlight: 'moonHighlight', moonOpacity: 'moonOpacity' })) {
-    if (Array.isArray(expected[parameter])) expected[parameter].forEach((v, i) => expect(actual[field][i]).toBeCloseTo(v, 7));
-    else expect(actual[field]).toBeCloseTo(expected[parameter], 7);
-  }
-  expect(actual.shadows).toBe(1);
-}
 
 for (const [seconds, label] of [[0, 'sunrise'], [90, 'day'], [175, 'dusk'], [180, 'night-boundary'],
   [270, 'night'], [350, 'morning'], [360, 'cycle-boundary'], [36270, 'later-night']]) {
@@ -167,7 +46,9 @@ test('lighting crosses both clock boundaries, handles long frames and freezes wi
     for (const key of ['fog', 'deep', 'sunDirection']) before[key].forEach((v, i) => expect(Math.abs(v - after[key][i])).toBeLessThan(0.01));
   }
   await page.clock.fastForward(360000 * 20 + 270000);
-  assertEnvironment(await read(page), await seconds());
+  // Fog varies by cumulative night index, unlike the periodic lighting.
+  const elapsedSeconds = async () => 360 * 21 + await seconds();
+  assertEnvironment(await read(page), await elapsedSeconds());
   expect((await read(page)).waterTime).toBeLessThan(3); // simulation keeps its existing dt cap
   for (const reason of ['menu', 'blur', 'hidden']) {
     if (reason === 'menu') await page.locator('#menu-button').click({ force: true });
@@ -182,7 +63,8 @@ test('lighting crosses both clock boundaries, handles long frames and freezes wi
     expect(await seconds()).toBe(clockBefore);
     expect(await page.evaluate(() => window.lightingProbe.renders)).toBe(renders);
     // resize() can render while paused; it must retain the same night scene.
-    await page.setViewportSize({ width: 600, height: 800 });
+    await page.setViewportSize(reason === 'blur' ? { width: 800, height: 600 } : { width: 600, height: 800 });
+    await expect.poll(() => page.evaluate(() => window.lightingProbe.renders)).toBeGreaterThan(renders);
     expect(await read(page)).toEqual(before);
     if (reason === 'menu') await page.locator('#collection-close').click({ force: true });
     else await page.evaluate(reason => {
@@ -191,7 +73,7 @@ test('lighting crosses both clock boundaries, handles long frames and freezes wi
     }, reason);
     await tick(page);
     expect(await seconds() - clockBefore).toBeCloseTo(0.25, 2);
-    assertEnvironment(await read(page), await seconds());
+    assertEnvironment(await read(page), await elapsedSeconds());
   }
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   const saved = await page.evaluate(() => ['barb.save.v1.slotA', 'barb.save.v1.slotB'].map(k => JSON.parse(localStorage.getItem(k))).filter(Boolean).sort((a, b) => b.generation - a.generation)[0].data);

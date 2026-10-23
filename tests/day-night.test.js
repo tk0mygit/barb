@@ -85,7 +85,7 @@ test('restored clock sets lights, sky, moon and water before any render; resourc
   assert.equal(sun.castShadow, true); assert.equal(moonlight.castShadow, false);
   assert.equal(moon.visible, true); assert.equal(sky.material.uniforms.skyDaylight.value, 0);
   close(water.material.uniforms.deepColor.value.toArray(), env.waterDeep);
-  assert.equal(water.material.uniforms.fogColor.value, scene.fog.color);
+  close(water.material.uniforms.fogColor.value.toArray(), scene.fog.color.toArray());
   close(moonlight.position.clone().sub(moonlight.target.position).normalize().toArray(), env.moonDirection);
   close(water.material.uniforms.moonDirection.value.toArray(), env.moonDirection);
   const resources = [];

@@ -18,7 +18,7 @@ const palette = {
   waterReflection: [[0.04, 0.07, 0.12], [0.61, 0.75, 0.71], [0.38, 0.32, 0.30]],
 };
 
-export const INITIAL_DAY_CLOCK = Object.freeze({ cycleSeconds: 0, timeOfDay: 'day', phaseProgress: 0 });
+export const INITIAL_DAY_CLOCK = Object.freeze({ elapsedSeconds: 0, cycleSeconds: 0, timeOfDay: 'day', phaseProgress: 0 });
 
 export function createEnvironmentParameters() {
   return { ...Object.fromEntries(Object.keys(palette).map(key => [key, [0, 0, 0]])),
