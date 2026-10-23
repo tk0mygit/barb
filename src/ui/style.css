@@ -159,6 +159,23 @@ button.fish-card:hover { background: #335e4c; }
 .stored-price { font-size: 12px; }
 #sell-all:disabled { cursor: default; }
 .sale-confirm-summary { line-height: 1.8; font-variant-numeric: tabular-nums; }
+.equipment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.equipment-card { min-width: 0; padding: 16px; border: 1px solid #eee9d745; border-radius: 4px; background: #214a40; }
+.equipment-card h3 { margin: 0 0 16px; font-size: 18px; font-weight: 400; }
+.equipment-stats { margin: 0; font-size: 13px; line-height: 1.8; font-variant-numeric: tabular-nums; }
+.equipment-stats > div { border-bottom: 1px solid #eee9d730; padding: 10px 0; }
+.equipment-stats dt { color: #e0d5a9; }
+.equipment-stats dd { margin: 0; }
+.equipment-delta { color: #d2e6b5; }
+.upgrade-guidance, .upgrade-state, .upgrade-price, .upgrade-confirm-level, .upgrade-message { font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.equipment-card button { justify-content: center; padding: 12px 8px; letter-spacing: 1px; }
+.equipment-card button:disabled { cursor: default; transform: none; }
+.upgrade-actions { display: grid; gap: 12px; margin-top: 24px; }
+.upgrade-actions button { justify-content: center; }
+@media (max-width: 640px) {
+  .equipment-grid { grid-template-columns: 1fr; gap: 12px; }
+  .equipment-card { padding: 12px; }
+}
 @media (max-height: 500px) {
   #sale-notice { top: 76px; }
   #collection-sale-notice { font-size: 11px; padding: 4px 8px; margin-bottom: 6px; }

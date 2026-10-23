@@ -72,7 +72,6 @@ try {
   const fishingHUD = createFishingHUD({
     onSelectLure: id => { fishing.selectLure(id); },
     onPrepare: () => {
-      salesHUD.hideNotice();
       controls.reset();
       const direction = camera.getWorldDirection(new THREE.Vector3());
       fishing.prepare(boat, Math.atan2(direction.x, -direction.z));
@@ -89,8 +88,11 @@ try {
   const collectionMenu = createCollectionMenu({
     collection: fishing.collection,
     onSale: receipt => salesHUD.notify(receipt),
+    onUpgrade: () => salesHUD.update(),
+    canPurchase: () => boat.mode === 'sailing' || (boat.mode === 'fishing' && fishing.state.phase === PHASE.READY),
     canOpen: () => fishing.state.phase !== PHASE.RESULT && !document.querySelector('#catch-dialog').open,
     onOpenChange: open => {
+      salesHUD.update();
       controls.setEnabled(!open);
       previous = performance.now();
       if (!open) canvas.focus({ preventScroll: true });

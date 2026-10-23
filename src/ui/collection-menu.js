@@ -1,6 +1,7 @@
 import { FISH_SPECIES, getFishSpecies } from '../game/fish-species.js';
 import { calculateSalePrice } from '../game/fish-sales.js';
 import { formatMoney } from './sales-hud.js';
+import { EQUIPMENT_NAMES, UPGRADE_GUIDANCE, renderEquipment, renderUpgradeConfirmation } from './equipment-view.js';
 
 const silhouette = new URL('../assets/fish/unknown.svg', import.meta.url).href;
 const dates = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeStyle: 'medium' });
@@ -18,22 +19,26 @@ function fishImage(src, name) {
 
 // One native modal owns menu, grid, detail and storage. No nested dialogs;
 // undiscovered species never contribute their name, asset or details to DOM.
-export function createCollectionMenu({ collection, canOpen, onOpenChange, onSale }) {
+export function createCollectionMenu({ collection, canOpen, canPurchase, onOpenChange, onSale, onUpgrade }) {
   const trigger = document.querySelector('#menu-button');
   const dialog = document.querySelector('#collection-dialog');
   const title = document.querySelector('#collection-title');
   const content = document.querySelector('#collection-content');
   const back = document.querySelector('#collection-back');
   const close = document.querySelector('#collection-close');
-  let active = false, screen = 'menu', pendingSale = null;
+  let active = false, screen = 'menu', pendingSale = null, pendingUpgrade = null;
+  let purchaseAllowedAtOpen = false;
+  let purchaseAllowedOnPress = null;
+  const purchaseAllowed = () => purchaseAllowedAtOpen && canPurchase();
   function render(next = 'menu', speciesId) {
     if (next !== 'confirm-sale') pendingSale = null;
+    if (next !== 'confirm-upgrade') pendingUpgrade = null;
     screen = next;
     content.replaceChildren(); content.scrollTop = 0;
     back.hidden = next === 'menu';
     if (next === 'menu') {
       title.textContent = '湖の記録';
-      for (const [view, label] of [['encyclopedia', '魚図鑑'], ['storage', '保管魚']]) {
+      for (const [view, label] of [['encyclopedia', '魚図鑑'], ['storage', '保管魚'], ['equipment', '装備強化']]) {
         const button = element('button', label); button.type = 'button'; button.dataset.view = view;
         button.addEventListener('click', () => { render(view); title.focus(); }); content.append(button);
       }
@@ -98,6 +103,30 @@ export function createCollectionMenu({ collection, canOpen, onOpenChange, onSale
         row.append(fishImage(fish.image, fish.name), info); list.append(row);
       }
       content.append(list);
+    } else if (next === 'equipment') {
+      title.textContent = '装備強化';
+      renderEquipment(content, collection, purchaseAllowed(), kind => {
+        if (!active || !dialog.open || screen !== 'equipment' || !purchaseAllowed()) return;
+        const status = collection.getUpgradeStatus(kind);
+        if (!status?.canPurchase) { completeUpgrade(null); return; }
+        pendingUpgrade = status;
+        render('confirm-upgrade'); title.focus();
+      });
+    } else if (next === 'confirm-upgrade') {
+      if (!pendingUpgrade) { render('equipment'); return; }
+      title.textContent = '装備強化の購入確認';
+      const displayedQuote = pendingUpgrade;
+      renderUpgradeConfirmation(content, displayedQuote, () => {
+        if (!active || !dialog.open || screen !== 'confirm-upgrade' || pendingUpgrade !== displayedQuote) return;
+        // Consume the confirmation before any callbacks; detached/queued events
+        // cannot purchase twice or act on a later confirmation.
+        pendingUpgrade = null;
+        const allowed = purchaseAllowed();
+        const latest = collection.getUpgradeStatus(displayedQuote.kind);
+        const receipt = allowed && latest?.canPurchase && latest.currentLevel === displayedQuote.currentLevel
+          ? collection.purchaseUpgrade(displayedQuote.kind, displayedQuote.currentLevel) : null;
+        completeUpgrade(receipt, allowed ? undefined : UPGRADE_GUIDANCE);
+      }, () => { render('equipment'); title.focus(); });
     } else if (next === 'confirm-sale') {
       if (!pendingSale) { render('storage'); return; }
       title.textContent = '保管魚をすべて売却';
@@ -115,6 +144,12 @@ export function createCollectionMenu({ collection, canOpen, onOpenChange, onSale
       content.append(confirm, cancel);
     }
   }
+  function completeUpgrade(receipt, error = '購入できませんでした。最新の所持金と装備をご確認ください。') {
+    onUpgrade(); // The shared HUD owns both wallet displays, even on failure.
+    render('equipment'); title.focus();
+    const message = element('p', receipt ? `${EQUIPMENT_NAMES[receipt.kind]}をLv.${receipt.level}に強化しました。` : error, 'upgrade-message');
+    message.setAttribute('role', receipt ? 'status' : 'alert'); content.prepend(message);
+  }
   function completeSale(receipt) {
     render('storage'); title.focus();
     if (receipt) onSale(receipt);
@@ -122,15 +157,24 @@ export function createCollectionMenu({ collection, canOpen, onOpenChange, onSale
   }
   function finishClose() {
     if (!active) return;
-    active = false; pendingSale = null; trigger.setAttribute('aria-expanded', 'false'); onOpenChange(false);
+    active = false; pendingSale = null; pendingUpgrade = null; purchaseAllowedAtOpen = false;
+    trigger.setAttribute('aria-expanded', 'false'); onOpenChange(false);
   }
   function dismiss() { dialog.close(); finishClose(); }
+  // Pointer focus blurs the canvas and cancels AIM before click fires.
+  trigger.addEventListener('pointerdown', () => { purchaseAllowedOnPress = canPurchase(); });
+  for (const event of ['pointercancel', 'blur']) trigger.addEventListener(event, () => { purchaseAllowedOnPress = null; });
   trigger.addEventListener('click', () => {
+    const allowedOnPress = purchaseAllowedOnPress;
+    purchaseAllowedOnPress = null;
     if (active || !canOpen()) return;
+    // Opening the menu cancels AIM through the existing input reset. Keep that
+    // menu visit read-only if it originated in a prohibited phase.
+    purchaseAllowedAtOpen = (allowedOnPress ?? true) && canPurchase();
     active = true; onOpenChange(true); render();
     trigger.setAttribute('aria-expanded', 'true'); dialog.showModal(); close.focus();
   });
-  back.addEventListener('click', () => { render(screen === 'detail' ? 'encyclopedia' : screen === 'confirm-sale' ? 'storage' : 'menu'); title.focus(); });
+  back.addEventListener('click', () => { render(screen === 'detail' ? 'encyclopedia' : screen === 'confirm-sale' ? 'storage' : screen === 'confirm-upgrade' ? 'equipment' : 'menu'); title.focus(); });
   close.addEventListener('click', dismiss);
   dialog.addEventListener('cancel', event => { event.preventDefault(); dismiss(); });
   dialog.addEventListener('close', () => { if (!dialog.open) finishClose(); });
