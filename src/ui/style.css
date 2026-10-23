@@ -182,3 +182,37 @@ button.fish-card:hover { background: #335e4c; }
   #collection-wallet { margin-bottom: 4px; }
   #catch-sale-price { margin: 8px 0; }
 }
+
+.achievement-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.achievement-card { min-width: 0; padding: 16px; border: 1px solid #eee9d745; border-radius: 4px; background: #1a403b; overflow-wrap: anywhere; }
+.achievement-card[data-unlocked="true"] { border-color: #d2e6b5; background: #2b5040; }
+.achievement-card h3 { margin: 10px 0; font-size: 17px; font-weight: 500; }
+.achievement-card p { font-size: 12px; line-height: 1.8; margin: 8px 0; }
+.achievement-state { font-size: 11px; color: #d8d7ca; }
+.achievement-card[data-unlocked="true"] .achievement-state { color: #e5f4c9; }
+.achievement-progress { font-variant-numeric: tabular-nums; }
+.achievement-card time { font-size: 10px; line-height: 1.8; opacity: 0.8; }
+#achievement-notice { pointer-events: none; padding: 8px 14px; border: 1px solid #d2e6b580; border-radius: 4px; color: #f4f2e6; background: #254c40f5; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }
+#achievement-notice * { pointer-events: none; }
+#achievement-notice span, #achievement-notice strong { display: block; }
+#achievement-notice span { font-size: 10px; color: #d2e6b5; letter-spacing: 2px; }
+#achievement-notice strong { font-size: 13px; font-weight: 500; }
+#app > #achievement-notice { position: fixed; z-index: 4; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: 230px; max-width: calc(100vw - 44px); }
+dialog > #achievement-notice { position: static; flex-shrink: 0; margin: 8px 0; }
+@media (max-width: 1100px) {
+  #app:has(> #achievement-notice:not([hidden])) .location { display: none; }
+}
+@media (max-width: 640px) and (min-height: 501px) {
+  .achievement-list { grid-template-columns: 1fr; }
+  .achievement-card { padding: 12px; }
+  #app > #achievement-notice { top: max(80px, calc(env(safe-area-inset-top) + 56px)); padding: 4px 12px; }
+  #app:has(> #achievement-notice:not([hidden])) > #sale-notice { top: 130px; }
+}
+@media (max-width: 640px) and (min-height: 501px) and (max-height: 640px) {
+  /* Keep the strip between the masthead and fishing HUD on short portraits. */
+  #app > #achievement-notice { top: 77px; padding: 3px 10px; display: flex; justify-content: center; align-items: center; gap: 8px; }
+}
+@media (max-height: 500px) {
+  #achievement-notice { padding: 4px 12px; }
+  dialog > #achievement-notice { margin: 4px 0; }
+}
