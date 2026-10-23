@@ -12,7 +12,52 @@ const now = new Date('2026-10-23T00:00:00Z');
 const tick = page => page.clock.fastForward(250);
 const read = page => page.evaluate(() => window.lightingProbe.last);
 
-async function setup(page, elapsedSeconds) {
+async function observeControls(page) {
+  await page.evaluate(() => {
+    window.controlProbe = { events: [], actions: [] };
+    for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'lostpointercapture', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click']) {
+      window.addEventListener(type, event => {
+        const record = {
+          type, target: event.target.closest('button')?.id ?? event.target.id,
+          x: event.clientX ?? event.changedTouches?.[0]?.clientX, y: event.clientY ?? event.changedTouches?.[0]?.clientY, trusted: event.isTrusted,
+          mode: document.body.classList.contains('fishing') ? 'fishing' : 'sailing',
+        };
+        window.controlProbe.events.push(record);
+        queueMicrotask(() => { record.prevented = event.defaultPrevented; });
+      }, true);
+    }
+  });
+}
+
+async function activateControl(page, id, touch) {
+  const button = page.locator(`#${id}`);
+  await expect(button).toBeVisible();
+  await expect(button).toBeEnabled();
+  const before = await button.evaluate(button => {
+    const bounds = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    const snapshot = { id: button.id, hidden: button.hidden, disabled: button.disabled, bounds: bounds.toJSON(),
+      hit: hit?.closest('button')?.id ?? hit?.id, boatSpeed: window.lightingProbe.last.boatSpeed,
+      motion: document.querySelector('#motion-label').textContent, eventCount: window.controlProbe.events.length };
+    window.controlProbe.actions.push(snapshot);
+    return snapshot;
+  });
+  expect(before.hit).toBe(id);
+  // Keep Playwright's stability/receives-events checks and send one input only.
+  if (touch) await button.tap();
+  else await button.click();
+  await page.evaluate(start => {
+    window.controlProbe.actions.at(-1).eventsAfterInput = window.controlProbe.events.slice(start);
+  }, before.eventCount);
+  // Never retry input or infer activation from a completed protocol command.
+  await expect.poll(() => page.evaluate(start => window.controlProbe.events.slice(start)
+    .filter(event => event.type === 'click').map(event => ({ target: event.target, trusted: event.trusted })), before.eventCount))
+    .toEqual([{ target: id, trusted: true }]);
+  const events = await page.evaluate(start => window.controlProbe.events.slice(start), before.eventCount);
+  expect(events.filter(event => event.type === 'pointerdown').map(event => event.target)).toEqual([id]);
+}
+
+async function setup(page, elapsedSeconds, { freeze = true } = {}) {
   const collection = createCatchCollection();
   const data = createSaveData({ collection, achievements: createAchievements({ collection }),
     boat: createBoatState({ x: 10, z: 20, heading: 0 }),
@@ -42,13 +87,14 @@ async function setup(page, elapsedSeconds) {
           sunDirection: water.sunDirection.value.toArray(), moonDirection: water.moonDirection.value.toArray(),
           sunHighlight: water.sunHighlight.value, moonHighlight: water.moonHighlight.value,
           moonOpacity: moon.material.opacity, moonVisible: moon.visible,
-          waterTime: water.time.value, boat: water.boatPosition.value.toArray(),
+          waterTime: water.time.value, boat: water.boatPosition.value.toArray(), boatSpeed: water.boatSpeed.value,
           shadows: scene.children.filter(o => o.isLight && o.castShadow).length,
         };
         const result = render.call(this, scene, camera);
         const probe = window.lightingProbe;
         probe.first ??= snapshot; probe.last = snapshot; probe.renders++;
         probe.camera = camera.quaternion.toArray();
+        probe.cameraHeight = camera.position.y;
         probe.moonScreen = moon.position.clone().project(camera).toArray();
         probe.performance = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
           geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures,
@@ -57,10 +103,12 @@ async function setup(page, elapsedSeconds) {
       };
     });
   }, data);
-  await page.clock.install({ time: now });
-  await page.clock.pauseAt(new Date(+now + 1000));
+  if (freeze) {
+    await page.clock.install({ time: now });
+    await page.clock.pauseAt(new Date(+now + 1000));
+  }
   await page.goto('./');
-  await tick(page);
+  if (freeze) await tick(page);
   await expect(page.locator('#status')).toBeHidden();
   await expect(page.locator('#error')).toBeHidden();
 }
@@ -160,59 +208,80 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
     const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await setup(page, 270);
-    const click = locator => touch ? locator.tap({ force: true }) : locator.click({ force: true });
-    // Landscape controls occupy the right half; start gestures on clear canvas.
-    const cdp = await context.newCDPSession(page), x = width * (width > height && touch ? 0.35 : 0.6), y = height * 0.55;
-    const down = async () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }) : (await page.mouse.move(x, y), page.mouse.down());
-    const move = dy => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y + dy }] }) : page.mouse.move(x, y + dy);
-    const up = () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : page.mouse.up();
-    const initial = await read(page);
-    await down(); await move(-80); for (let i = 0; i < 4; i++) await tick(page);
-    await expect(page.locator('#motion-label')).toHaveText('航行中');
-    await up(); for (let i = 0; i < 12; i++) await tick(page);
-    await expect(page.locator('#motion-label')).toHaveText('停船中');
-    expect((await read(page)).boat).not.toEqual(initial.boat);
-    await click(page.locator('#fish-button')); for (let i = 0; i < 8; i++) await tick(page);
-    await expect(page.locator('#reticle')).toBeVisible();
-    await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-time-of-day', 'night');
-    const cameraBefore = await page.evaluate(() => window.lightingProbe.camera);
-    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y).id, [x, y])).toBe('scene');
-    await down(); await move(-60); await tick(page); await up(); await tick(page);
-    expect(await page.evaluate(() => window.lightingProbe.camera)).not.toEqual(cameraBefore);
-    for (const id of ['menu-button', 'cast-button', 'return-button']) {
-      const bounds = await page.locator(`#${id}`).boundingBox();
-      expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.y).toBeGreaterThanOrEqual(0);
-      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width); expect(bounds.y + bounds.height).toBeLessThanOrEqual(height);
+    // Boundary tests freeze rAF; operation regressions use the real timeline.
+    // Do not compress seconds between native gestures with a mocked JS clock.
+    await setup(page, 270, { freeze: false });
+    await observeControls(page);
+    try {
+      // Landscape controls occupy the right half; start gestures on clear canvas.
+      const cdp = await context.newCDPSession(page), x = width * (width > height && touch ? 0.35 : 0.6), y = height * 0.55;
+      const down = async () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }) : (await page.mouse.move(x, y), page.mouse.down());
+      const move = (dy, dx = 0) => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + dx, y: y + dy }] }) : page.mouse.move(x + dx, y + dy);
+      const up = () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : page.mouse.up();
+      const initial = await read(page);
+      await down(); await move(-80);
+      await expect(page.locator('#motion-label')).toHaveText('航行中');
+      await expect.poll(async () => (await read(page)).boatSpeed).toBeGreaterThan(2);
+      await up();
+      await expect(page.locator('#motion-label')).toHaveText('停船中');
+      expect((await read(page)).boatSpeed).toBe(0);
+      await expect(page.locator('#joystick')).toBeHidden();
+      expect((await read(page)).boat).not.toEqual(initial.boat);
+      await activateControl(page, 'fish-button', touch);
+      await expect(page.locator('#motion-label')).toHaveText('釣り視点');
+      await expect(page.locator('body')).toHaveClass('fishing');
+      await expect(page.locator('#reticle')).toBeVisible();
+      await expect(page.locator('#fish-button')).toBeHidden();
+      await expect(page.locator('#fish-button')).toBeDisabled();
+      await expect(page.locator('#fishing-panel')).toBeVisible();
+      await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'ready');
+      await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-time-of-day', 'night');
+      await expect.poll(() => page.evaluate(() => window.lightingProbe.cameraHeight)).toBeCloseTo(2.15, 1);
+      const cameraBefore = await page.evaluate(() => window.lightingProbe.camera);
+      expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y).id, [x, y])).toBe('scene');
+      await down(); await move(-60, 100); await up();
+      await expect.poll(() => page.evaluate(() => window.lightingProbe.camera)).not.toEqual(cameraBefore);
+      for (const id of ['menu-button', 'cast-button', 'return-button']) {
+        const bounds = await page.locator(`#${id}`).boundingBox();
+        expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.y).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width); expect(bounds.y + bounds.height).toBeLessThanOrEqual(height);
+      }
+      const path = testInfo.outputPath('moon-fishing.png');
+      await expect.poll(() => page.evaluate(() => window.lightingProbe.moonScreen.slice(0, 2).every(v => Math.abs(v) < 1))).toBe(true);
+      const moonScreen = await page.evaluate(() => window.lightingProbe.moonScreen);
+      expect(Math.abs(moonScreen[0])).toBeLessThan(1); expect(Math.abs(moonScreen[1])).toBeLessThan(1);
+      await page.screenshot({ path }); await testInfo.attach('moon-fishing', { path, contentType: 'image/png' });
+      const memoryBefore = await page.evaluate(() => window.lightingProbe.performance);
+      await activateControl(page, 'cast-button', touch);
+      await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'aim');
+      expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y).id, [x, y])).toBe('scene');
+      await down(); await move(-120); await up();
+      await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'lure');
+      await down();
+      await expect(page.locator('#reel-state')).toHaveText('巻き取り中');
+      await up();
+      await expect(page.locator('#reel-state')).toHaveText('待機中');
+      const { lighting, cycleProgress } = await page.evaluate(() => ({ lighting: window.lightingProbe.last,
+        cycleProgress: Number(document.querySelector('#fishing-conditions').dataset.cycleProgress) }));
+      assertEnvironment(lighting, cycleProgress * 360);
+      const performance = await page.evaluate(() => window.lightingProbe.performance);
+      expect(performance.geometries).toBeLessThanOrEqual(memoryBefore.geometries + 1);
+      expect(performance.calls).toBeLessThan(40);
+      const counts = testInfo.outputPath('render-counts.json');
+      await writeFile(counts, JSON.stringify({ beforeCast: memoryBefore, duringLure: performance }, null, 2));
+      await testInfo.attach('render-counts', { path: counts, contentType: 'application/json' });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(errors).toEqual([]);
+    } finally {
+      const controlsPath = testInfo.outputPath('control-events.json');
+      await writeFile(controlsPath, JSON.stringify(await page.evaluate(() => ({
+        ...window.controlProbe, lighting: window.lightingProbe.last,
+        motion: document.querySelector('#motion-label').textContent,
+        reticleHidden: document.querySelector('#reticle').hidden,
+        fishingPhase: document.querySelector('#fishing-panel').dataset.phase,
+      })), null, 2));
+      await testInfo.attach('control-events', { path: controlsPath, contentType: 'application/json' });
+      await context.close();
     }
-    const path = testInfo.outputPath('moon-fishing.png');
-    const moonScreen = await page.evaluate(() => window.lightingProbe.moonScreen);
-    expect(Math.abs(moonScreen[0])).toBeLessThan(1); expect(Math.abs(moonScreen[1])).toBeLessThan(1);
-    await page.screenshot({ path }); await testInfo.attach('moon-fishing', { path, contentType: 'image/png' });
-    const memoryBefore = await page.evaluate(() => window.lightingProbe.performance);
-    await click(page.locator('#cast-button')); await tick(page);
-    // Chromium can suppress the compatibility click following an emulated
-    // touch drag. Retry the native tap if preparation has not started.
-    if (touch && await page.locator('#fishing-panel').getAttribute('data-phase') === 'ready') {
-      await click(page.locator('#cast-button')); await tick(page);
-    }
-    await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'aim');
-    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y).id, [x, y])).toBe('scene');
-    await down(); await move(-120); await up(); for (let i = 0; i < 4; i++) await tick(page);
-    await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'lure');
-    await down(); await tick(page); await tick(page);
-    await expect(page.locator('#reel-state')).toHaveText('巻き取り中');
-    await up(); await tick(page);
-    await expect(page.locator('#reel-state')).toHaveText('待機中');
-    const progress = Number(await page.locator('#fishing-conditions').getAttribute('data-cycle-progress'));
-    assertEnvironment(await read(page), progress * 360);
-    const performance = await page.evaluate(() => window.lightingProbe.performance);
-    expect(performance.geometries).toBeLessThanOrEqual(memoryBefore.geometries + 1);
-    expect(performance.calls).toBeLessThan(40);
-    const counts = testInfo.outputPath('render-counts.json');
-    await writeFile(counts, JSON.stringify({ beforeCast: memoryBefore, duringLure: performance }, null, 2));
-    await testInfo.attach('render-counts', { path: counts, contentType: 'application/json' });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    expect(errors).toEqual([]); await context.close();
   });
 }
