@@ -1,3 +1,5 @@
+import { objectFields, arrayData, timestamp, requireValid } from './save-validation.js';
+
 // Stable public IDs. Definitions are shared by evaluation and presentation.
 export const NORMAL_ACHIEVEMENTS = Object.freeze([
   { id: 'normal-first-catch', name: '初めての一匹', description: '魚を初めて1匹釣り上げる。', metric: 'catches', target: 1 },
@@ -12,19 +14,44 @@ export const NORMAL_ACHIEVEMENTS = Object.freeze([
   { id: 'normal-equipment-max', name: '最大強化', description: 'ロッドとリールの両方をLv.5にする。', metric: 'equipment-max', target: 5 },
 ].map(Object.freeze));
 
-// No DOM/renderer, independent counters, persistence or restore format.
-export function createAchievements({ collection, now = Date.now }) {
-  const unlocked = new Map(), listeners = new Set();
+function achievementValues(collection) {
+  const { rodLevel, reelLevel } = collection.equipment;
+  return {
+    catches: collection.catches.length,
+    species: new Set(collection.catches.map(record => record.speciesId)).size,
+    length: collection.catches.reduce((max, record) => Math.max(max, record.lengthCm), 0),
+    sales: collection.wallet.lifetimeSales,
+    'first-upgrade': Math.max(rodLevel, reelLevel),
+    'equipment-max': Math.min(rodLevel, reelLevel),
+  };
+}
+
+export function validateAchievementData(value, collection) {
+  objectFields(value, ['unlocked'], [], 'achievements');
+  arrayData(value.unlocked, NORMAL_ACHIEVEMENTS.length, 'achievements.unlocked');
+  const ids = new Set();
+  const unlocked = value.unlocked.map((record, i) => {
+    const path = `achievements.unlocked[${i}]`;
+    objectFields(record, ['id', 'unlockedAt'], [], path);
+    requireValid(NORMAL_ACHIEVEMENTS.some(definition => definition.id === record.id) && !ids.has(record.id), `${path}.id`);
+    timestamp(record.unlockedAt, `${path}.unlockedAt`); ids.add(record.id);
+    return Object.freeze({ id: record.id, unlockedAt: record.unlockedAt });
+  });
+  // All conditions are monotonic. Missing earned awards or impossible unlocked
+  // awards indicate corruption; never manufacture historical timestamps.
+  const values = achievementValues(collection);
+  for (const definition of NORMAL_ACHIEVEMENTS) requireValid(ids.has(definition.id)
+    === (values[definition.metric] >= definition.target), `achievements.${definition.id}`);
+  return Object.freeze({ unlocked: Object.freeze(unlocked) });
+}
+
+// No DOM/renderer or independent progress counters.
+export function createAchievements({ collection, now = Date.now, initialData }) {
+  const restored = initialData === undefined ? [] : validateAchievementData(initialData, collection).unlocked;
+  const unlocked = new Map(restored.map(record => [record.id, record.unlockedAt])), listeners = new Set();
   function entries() {
     const { rodLevel, reelLevel } = collection.equipment;
-    const values = {
-      catches: collection.catches.length,
-      species: collection.encyclopedia.filter(entry => entry.count > 0).length,
-      length: collection.catches.reduce((max, record) => Math.max(max, record.lengthCm), 0),
-      sales: collection.wallet.lifetimeSales,
-      'first-upgrade': Math.max(rodLevel, reelLevel),
-      'equipment-max': Math.min(rodLevel, reelLevel),
-    };
+    const values = achievementValues(collection);
     return Object.freeze(NORMAL_ACHIEVEMENTS.map(definition => Object.freeze({
       ...definition,
       progress: Object.freeze({ value: values[definition.metric], target: definition.target,
@@ -46,8 +73,9 @@ export function createAchievements({ collection, now = Date.now }) {
     }
     return awards;
   }
-  const unsubscribe = collection.subscribe(evaluate);
+  // Seed the complete restore history before the first evaluation or listener.
   evaluate();
+  const unsubscribe = collection.subscribe(evaluate);
   return Object.freeze({
     evaluate,
     get entries() { return entries(); },

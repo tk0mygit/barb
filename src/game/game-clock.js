@@ -2,11 +2,12 @@ export const GAME_CLOCK_CONFIG = Object.freeze({ daySeconds: 180, nightSeconds: 
 
 // Active elapsed time only; caller supplies monotonic frame deltas and pause
 // state. No wall-clock reads, rendering dependencies or per-frame time rounding.
-export function createGameClock(config = GAME_CLOCK_CONFIG) {
+export function createGameClock(config = GAME_CLOCK_CONFIG, { elapsedSeconds: initialSeconds = 0 } = {}) {
   const { daySeconds, nightSeconds } = { ...GAME_CLOCK_CONFIG, ...config };
   const cycleDuration = daySeconds + nightSeconds;
   if (![daySeconds, nightSeconds, cycleDuration].every(n => Number.isFinite(n) && n > 0)) throw new RangeError('Clock durations must be finite positive seconds');
-  let elapsedSeconds = 0, compensation = 0;
+  if (!Number.isFinite(initialSeconds) || initialSeconds < 0) throw new RangeError('Elapsed seconds must be finite and non-negative');
+  let elapsedSeconds = initialSeconds, compensation = 0;
   return {
     step(dt, paused = false) {
       if (paused || !Number.isFinite(dt) || dt <= 0) return;

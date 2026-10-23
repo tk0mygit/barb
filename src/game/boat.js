@@ -1,8 +1,15 @@
 import { LAKE, shoreRadius } from '../world/config.js';
 
 export const STOP_SPEED = 0.12;
-export function createBoatState() {
-  return { x: 0, z: 30, heading: 0, speed: 0, mode: 'sailing' };
+export function isNavigableBoatPosition(position) {
+  if (!Number.isFinite(position?.x) || !Number.isFinite(position?.z)) return false;
+  const limit = shoreRadius(Math.atan2(position.z, position.x)) - LAKE.boatMargin;
+  // stepBoat's radial projection can round a few ulps beyond its own limit.
+  return Math.hypot(position.x, position.z) <= limit + 16 * Number.EPSILON * limit;
+}
+export function createBoatState(position = { x: 0, z: 30, heading: 0 }) {
+  if (!isNavigableBoatPosition(position) || !Number.isFinite(position.heading)) throw new RangeError('Invalid boat position or heading');
+  return { x: position.x, z: position.z, heading: position.heading, speed: 0, mode: 'sailing' };
 }
 export function isStopped(boat) { return Math.abs(boat.speed) < STOP_SPEED; }
 export function enterFishing(boat) {
