@@ -3,6 +3,7 @@ import { calculateSalePrice } from '../game/fish-sales.js';
 import { formatMoney } from './sales-hud.js';
 import { EQUIPMENT_NAMES, UPGRADE_GUIDANCE, renderEquipment, renderUpgradeConfirmation } from './equipment-view.js';
 import { renderAchievements } from './achievements-view.js';
+import { renderSoundSettings } from './sound-settings.js';
 
 const silhouette = new URL('../assets/fish/unknown.svg', import.meta.url).href;
 const dates = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeStyle: 'medium' });
@@ -20,7 +21,7 @@ function fishImage(src, name) {
 
 // One native modal owns menu, grid, detail and storage. No nested dialogs;
 // undiscovered species never contribute their name, asset or details to DOM.
-export function createCollectionMenu({ collection, achievements, canOpen, canPurchase, onOpenChange, onSale, onUpgrade }) {
+export function createCollectionMenu({ collection, achievements, canOpen, canPurchase, onOpenChange, onSale, onUpgrade, ambientAudio }) {
   const trigger = document.querySelector('#menu-button');
   const dialog = document.querySelector('#collection-dialog');
   const title = document.querySelector('#collection-title');
@@ -31,7 +32,9 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
   let purchaseAllowedAtOpen = false;
   let purchaseAllowedOnPress = null;
   const purchaseAllowed = () => purchaseAllowedAtOpen && canPurchase();
+  let disposeSoundSettings;
   function render(next = 'menu', speciesId) {
+    disposeSoundSettings?.(); disposeSoundSettings = null;
     if (next !== 'confirm-sale') pendingSale = null;
     if (next !== 'confirm-upgrade') pendingUpgrade = null;
     screen = next;
@@ -39,7 +42,9 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
     back.hidden = next === 'menu';
     if (next === 'menu') {
       title.textContent = '湖の記録';
-      for (const [view, label] of [['encyclopedia', '魚図鑑'], ['storage', '保管魚'], ['equipment', '装備強化'], ['achievements', '実績']]) {
+      const views = [['encyclopedia', '魚図鑑'], ['storage', '保管魚'], ['equipment', '装備強化'], ['achievements', '実績']];
+      if (ambientAudio) views.push(['sound', 'サウンド設定']);
+      for (const [view, label] of views) {
         const button = element('button', label); button.type = 'button'; button.dataset.view = view;
         button.addEventListener('click', () => { render(view); title.focus(); }); content.append(button);
       }
@@ -104,6 +109,9 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
         row.append(fishImage(fish.image, fish.name), info); list.append(row);
       }
       content.append(list);
+    } else if (next === 'sound') {
+      title.textContent = 'サウンド設定';
+      disposeSoundSettings = renderSoundSettings(content, ambientAudio);
     } else if (next === 'achievements') {
       title.textContent = '実績';
       renderAchievements(content, achievements);
@@ -161,6 +169,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
   }
   function finishClose() {
     if (!active) return;
+    disposeSoundSettings?.(); disposeSoundSettings = null;
     active = false; pendingSale = null; pendingUpgrade = null; purchaseAllowedAtOpen = false;
     trigger.setAttribute('aria-expanded', 'false'); onOpenChange(false);
   }

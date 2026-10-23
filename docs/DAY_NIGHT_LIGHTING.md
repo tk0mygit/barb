@@ -26,7 +26,7 @@
 
 `src/world/night-fog.js`は描画・DOMに依存しない関数を提供します。
 `hasNightFog(nightIndex)`で夜番号から発生有無を求め、`sampleNightFog(gameClock.state, target?)`で
-`nightIndex`（0始まり）、`isFoggyNight`、`intensity`（0〜1）を取得します。後続の自然音も同じ結果を参照できます。音声は追加していません。
+`nightIndex`（0始まり）、`isFoggyNight`、`intensity`（0〜1）を取得します。Phase 4B-2の音響ミックスも同じ結果を参照します。詳細は[音響システム](AUDIO_SYSTEM.md)を参照してください。
 
 夜番号は共有時計の`floor(elapsedSeconds / 360)`です。番号の十進文字列をFNV-1aでハッシュし、
 MurmurHash3の32bit最終混合で分布を均します。符号なし32bit値を2^32で割り、0.3未満なら霧の夜です。
@@ -79,4 +79,4 @@ GitHub Actionsの`browser-test-results`成果物から確認できます。生�
 ソフトウェアWebGLの計測は実機のFPS保証ではありません。スマートフォン実機・Safari／WebKitの検証は未実施です。
 月はテクスチャなしの簡易表現で、水面反射は既存のFresnel＋ハイライトによる近似です。
 霧は均一な距離霧と空の水平線補間による控えめな近似です。局所的な霧の塊や体積散乱は追加していません。
-音・新しい天候は後続の対象です。
+音はPhase 4B-2で追加しています。新しい天候は後続の対象です。
