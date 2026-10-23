@@ -4,6 +4,17 @@ import * as THREE from 'three';
 import { createCameraRig } from '../src/rendering/camera.js';
 import { createBoatState, enterFishing } from '../src/game/boat.js';
 
+test('camera starts at the saved position and heading before the first update', () => {
+  const boat = createBoatState({ x: 42, z: -12, heading: Math.PI / 2 });
+  const camera = new THREE.PerspectiveCamera();
+  createCameraRig(camera, boat);
+  assert.ok(Math.abs(camera.position.x - 24) < 1e-10);
+  assert.ok(Math.abs(camera.position.z + 12) < 1e-10);
+  const direction = camera.getWorldDirection(new THREE.Vector3());
+  assert.ok(direction.x > 0.9);
+  assert.ok(Math.abs(direction.z) < 1e-10);
+});
+
 test('camera trails the boat and converges smoothly to eye level', () => {
   const boat = createBoatState();
   const camera = new THREE.PerspectiveCamera();

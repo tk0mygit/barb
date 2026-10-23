@@ -172,13 +172,21 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: notice pa
     document.querySelector('#scene').addEventListener('pointerdown', () => window.canvasPresses++);
     fixture.fund(300, true);
   });
-  expect(await page.evaluate(() => {
-    const a = document.querySelector('#achievement-notice').getBoundingClientRect();
-    return ['.masthead', '#fishing-panel', '#sale-notice', '#cast-button'].every(selector => {
-      const b = document.querySelector(selector).getBoundingClientRect();
-      return a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom;
-    });
-  })).toBe(true);
+  // Compact save labels must keep the notification gap, including the longest
+  // warning/backup message while the full explanation remains in the menus.
+  for (const savePhase of ['dirty', 'failed', 'protected', 'conflict']) {
+    await page.evaluate(async savePhase => {
+      const { createSaveStatus } = await import('./src/ui/save-status.js');
+      createSaveStatus().update({ phase: savePhase, code: null, savedAt: null, restoredFromBackup: true });
+    }, savePhase);
+    expect(await page.evaluate(() => {
+      const a = document.querySelector('#achievement-notice').getBoundingClientRect();
+      return ['.masthead', '#fishing-panel', '#sale-notice', '#cast-button'].every(selector => {
+        const b = document.querySelector(selector).getBoundingClientRect();
+        return a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom;
+      });
+    })).toBe(true);
+  }
   const box = await notice(page).boundingBox();
   const x = box.x + box.width / 2, y = box.y + box.height / 2;
   expect(await notice(page).evaluate(el => getComputedStyle(el).pointerEvents)).toBe('none');

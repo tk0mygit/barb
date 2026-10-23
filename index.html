@@ -15,7 +15,7 @@
         <a class="wordmark" href="./" aria-label="BARB ホーム">BARB<span>LAKE EXPLORER</span></a>
         <div class="header-tools">
           <div class="location"><span class="live-dot"></span> LAKE No. 01 <span class="location-name">静寂の湖</span></div>
-          <div class="wallet"><span>所持金</span><strong id="wallet-balance">0 通貨</strong></div>
+          <div class="wallet"><span>所持金</span><strong id="wallet-balance">0 通貨</strong><small id="save-status" class="save-status" role="status" aria-live="polite">保存を確認中…</small></div>
           <button id="menu-button" type="button" aria-label="メニューを開く" aria-haspopup="dialog" aria-controls="collection-dialog" aria-expanded="false" disabled>≡</button>
         </div>
       </header>
@@ -66,7 +66,8 @@
           <button id="close-catch" type="button">保管して続ける <span aria-hidden="true">↗</span></button>
         </div>
         <p id="catch-sale-error" role="alert"></p>
-        <p class="session-notice">記録・所持金は再読み込みで失われます。<br />Escで閉じた場合も保管します。</p>
+        <p id="catch-save-status" class="save-status" role="status" aria-live="polite"></p>
+        <p class="session-notice">保存状態は上の表示をご確認ください。<br />Escで閉じた場合も保管します。</p>
       </dialog>
       <dialog id="collection-dialog" aria-labelledby="collection-title" aria-describedby="collection-notice">
         <header class="collection-header">
@@ -74,7 +75,8 @@
           <h2 id="collection-title" tabindex="-1">湖の記録</h2>
           <button id="collection-close" type="button" aria-label="閉じてゲームに戻る">×</button>
         </header>
-        <p id="collection-notice" class="session-notice">ゲームは一時停止中です。記録・所持金・装備強化・実績は再読み込みで失われます。</p>
+        <p id="collection-notice" class="session-notice">ゲームは一時停止中です。変更はこのブラウザに自動保存を試みます。保存状態をご確認ください。</p>
+        <p id="collection-save-status" class="save-status" role="status" aria-live="polite"></p>
         <p id="collection-wallet"></p>
         <p id="collection-sale-notice" role="status" hidden></p>
         <div id="collection-content"></div>

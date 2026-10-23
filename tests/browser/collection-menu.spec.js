@@ -11,7 +11,7 @@ for (const touch of [false, true]) {
     const click = locator => touch ? locator.tap({ force: true }) : locator.click({ force: true });
     await click(page.locator('#menu-button'));
     await expect(page.locator('#collection-dialog')).toBeVisible();
-    await expect(page.locator('#collection-notice')).toContainText('再読み込みで失われます');
+    await expect(page.locator('#collection-notice')).toContainText('ゲームは一時停止中');
     await click(page.locator('[data-view="encyclopedia"]'));
     const cards = page.locator('.fish-card');
     await expect(cards).toHaveCount(12);

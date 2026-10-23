@@ -126,7 +126,7 @@ for (const touch of [false, true]) {
     await click(page.locator('#collection-close')); await tick();
     expect(await phase()).toBe('ready');
     await page.clock.resume(); await page.reload(); await expect(page.locator('#status')).toBeHidden();
-    await expect(page.locator('#wallet-balance')).toHaveText(money(0));
+    await expect(page.locator('#wallet-balance')).toHaveText(money(balance));
     expect(errors).toEqual([]); await context.close();
   });
 }
