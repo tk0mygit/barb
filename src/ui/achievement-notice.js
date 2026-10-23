@@ -9,15 +9,20 @@ export function createAchievementNotice() {
   const queue = [], seen = new Set();
   const duration = 3500;
   let expiresAt = 0, timeout = null;
-  function syncHost() {
-    const host = collectionDialog.open ? collectionDialog : catchDialog.open ? catchDialog : app;
+  function syncHost(event) {
+    // beforetoggle fires before the native open attribute changes. Move the
+    // notice in that same turn so the first visible layout is already final;
+    // moving it on the later toggle task can move a button under a pending tap.
+    const changing = event?.type === 'beforetoggle' ? event : null;
+    const isOpen = dialog => changing?.target === dialog ? changing.newState === 'open' : dialog.open;
+    const host = isOpen(collectionDialog) ? collectionDialog : isOpen(catchDialog) ? catchDialog : app;
     if (notice.parentElement === host) return;
     if (host === collectionDialog) host.insertBefore(notice, document.querySelector('#collection-content'));
     else host.prepend(notice);
   }
-  function update() {
+  function update(event) {
     clearTimeout(timeout); timeout = null;
-    syncHost();
+    syncHost(event);
     const now = Date.now();
     if (expiresAt && now >= expiresAt) { queue.shift(); expiresAt = 0; }
     // An already displayed award expires in the background. Pending awards
@@ -36,6 +41,7 @@ export function createAchievementNotice() {
     if (expiresAt) timeout = setTimeout(update, Math.max(0, expiresAt - now));
   }
   for (const dialog of [collectionDialog, catchDialog]) {
+    dialog.addEventListener('beforetoggle', update);
     dialog.addEventListener('toggle', update); dialog.addEventListener('close', update);
   }
   document.addEventListener('visibilitychange', update);

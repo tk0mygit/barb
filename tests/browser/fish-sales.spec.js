@@ -51,7 +51,16 @@ for (const touch of [false, true]) {
       await expect(page.locator('#sell-catch')).toBeVisible(); await expect(page.locator('#close-catch')).toBeVisible();
       return { price, name, length };
     }
-    const openStorage = async () => { await click(page.locator('#menu-button')); await click(page.locator('[data-view="storage"]')); };
+    const openStorage = async () => {
+      await click(page.locator('#menu-button'));
+      await expect(page.locator('#collection-dialog')).toBeVisible();
+      await expect(page.locator('#collection-title')).toHaveText('湖の記録');
+      await click(page.locator('[data-view="storage"]'));
+      // Zero rows alone also passes on the wrong screen. Confirm navigation
+      // before checking storage counts or the bulk-sale button's state.
+      await expect(page.locator('#collection-title')).toHaveText('保管魚');
+      await expect(page.locator('#sell-all')).toBeVisible();
+    };
     const assertMoney = async value => {
       await expect(page.locator('#wallet-balance')).toHaveText(money(value));
       await expect(page.locator('#collection-wallet')).toHaveText(`所持金 ${money(value)}`);
