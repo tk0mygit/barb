@@ -126,11 +126,11 @@ for (const touch of [false, true]) {
     await expect(page.locator('[data-equipment="reel"] h3')).toHaveText('リール · Lv.2');
     await closeMenu(); await page.clock.resume(); await page.reload();
     await expect(page.locator('#status')).toBeHidden(); await openEquipment();
-    await expect(page.locator('[data-equipment="rod"] h3')).toHaveText('ロッド · Lv.1');
-    await expect(page.locator('[data-equipment="reel"] h3')).toHaveText('リール · Lv.1');
-    await expect(page.locator('#wallet-balance')).toHaveText('0 通貨');
+    await expect(page.locator('[data-equipment="rod"] h3')).toHaveText('ロッド · Lv.2');
+    await expect(page.locator('[data-equipment="reel"] h3')).toHaveText('リール · Lv.2');
+    await expect(page.locator('#wallet-balance')).toHaveText(money);
     await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
-    await expect(page.locator('.achievement-summary')).toHaveText('解除済み 0 / 10');
+    await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 10');
     expect(errors).toEqual([]); await context.close();
   });
 }

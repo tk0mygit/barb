@@ -306,7 +306,7 @@ test('all 12 species: production cast, hook, fight, matching result image and re
   await page.locator('#collection-close').click({ force: true });
   await page.clock.resume(); await page.reload(); await expect(page.locator('#status')).toBeHidden();
   await page.locator('#menu-button').click(); await page.locator('[data-view="storage"]').click();
-  await expect(page.locator('.stored-fish')).toHaveCount(0);
+  await expect(page.locator('.stored-fish')).toHaveCount(12);
   await page.locator('#collection-back').click(); await page.locator('[data-view="encyclopedia"]').click();
-  expect(await page.locator('.fish-card > span').allTextContents()).toEqual(Array(12).fill('？？？'));
+  expect(await page.locator('.fish-card > span').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
 });

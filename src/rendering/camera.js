@@ -7,8 +7,9 @@ export function createCameraRig(camera, boat) {
   let yaw = 0;
   let pitch = 0;
   let previousMode = boat.mode;
-  camera.position.set(boat.x, 10, boat.z + 18);
-  target.set(boat.x, 0.8, boat.z - 5);
+  camera.position.set(boat.x - Math.sin(boat.heading) * 18, 8.5, boat.z + Math.cos(boat.heading) * 18);
+  target.set(boat.x + Math.sin(boat.heading) * 18, 2.5, boat.z - Math.cos(boat.heading) * 18);
+  camera.lookAt(target);
   return {
     update(dt, input, locked = false, tracking = null) {
       if (locked && boat.mode === previousMode) {
