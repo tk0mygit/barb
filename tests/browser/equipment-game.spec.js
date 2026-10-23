@@ -1,0 +1,120 @@
+import { test, expect } from '@playwright/test';
+
+for (const touch of [false, true]) {
+  test(`${touch ? 'touch' : 'mouse'}: real sales fund READY/sailing purchases; active fishing remains read-only`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 800, height: 600 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+    const page = await context.newPage(), errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.addInitScript(() => { Math.random = () => window.testRandomValue ?? 0.1; });
+    await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
+    const click = locator => touch ? locator.tap({ force: true }) : locator.click({ force: true });
+    await click(page.locator('#fish-button'));
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+    await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
+    const tick = () => page.clock.fastForward(250);
+    const phase = () => page.locator('#fishing-panel').getAttribute('data-phase');
+    const cdp = await context.newCDPSession(page), x = touch ? 300 : 500, y = touch ? 420 : 350;
+    const down = async () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }) : (await page.mouse.move(x, y), page.mouse.down());
+    const up = () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : page.mouse.up();
+    let rodLevel = 1;
+    const openEquipment = async () => {
+      // Chromium's emulated drag can suppress the immediately following tap's
+      // compatibility click. Match the existing collection test's DOM opening
+      // for this CAST snapshot; purchases and the other menu visits use touch.
+      const touchAfterDrag = touch && await phase() === 'cast';
+      await click(page.locator('#menu-button'));
+      if (touchAfterDrag) await page.locator('#menu-button').evaluate(button => button.click());
+      await expect(page.locator('#collection-dialog')).toBeVisible();
+      await click(page.locator('[data-view="equipment"]'));
+    };
+    const closeMenu = () => click(page.locator('#collection-close'));
+    async function readOnly() {
+      const balance = await page.locator('#wallet-balance').textContent();
+      await openEquipment();
+      await expect(page.locator('#upgrade-guidance')).toHaveText('操船中、またはキャスト前に強化できます');
+      for (const kind of ['rod', 'reel']) {
+        await expect(page.locator(`[data-upgrade="${kind}"]`)).toBeDisabled();
+        await page.locator(`[data-upgrade="${kind}"]`).dispatchEvent('click');
+      }
+      await expect(page.locator('#confirm-upgrade')).toHaveCount(0);
+      const progress = await page.locator('#fishing-conditions').getAttribute('data-cycle-progress');
+      await page.clock.fastForward(6000);
+      await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-cycle-progress', progress);
+      await expect(page.locator('#wallet-balance')).toHaveText(balance);
+      await closeMenu();
+    }
+    async function cast(checkStates = false) {
+      await page.evaluate(() => { window.testRandomValue = 0.1; });
+      await click(page.locator('#cast-button')); await tick();
+      if (checkStates) {
+        expect(await phase()).toBe('aim'); await readOnly(); await tick();
+        expect(await phase()).toBe('ready'); // existing preparation cancellation
+        await click(page.locator('#cast-button')); await tick();
+      }
+      await down();
+      if (touch) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - 180 }] });
+      else await page.mouse.move(x, y - 180);
+      await tick();
+      await expect(page.locator('#line-distance')).toHaveText(`着水予測 ${(32 + 2 * (rodLevel - 1)).toFixed(1)} m`);
+      await up(); await tick(); expect(await phase()).toBe('cast');
+      if (checkStates) await readOnly();
+      for (let i = 0; i < 4 && await phase() === 'cast'; i++) await tick();
+      expect(await phase()).toBe('lure');
+      if (checkStates) await readOnly();
+      await page.evaluate(() => { window.testRandomValue = 0.99; });
+      for (let i = 0; i < 32 && await phase() !== 'bite'; i++) await tick();
+      expect(await phase()).toBe('bite');
+      if (checkStates) await readOnly();
+    }
+    async function land(checkStates = false) {
+      await down(); await up(); await tick(); expect(await phase()).toBe('fight');
+      if (checkStates) await readOnly();
+      let held = false;
+      for (let i = 0; i < 140 && await phase() === 'fight'; i++) {
+        const tension = await page.locator('#line-tension').evaluate(el => el.value);
+        if (!held && tension < 0.35) { await down(); held = true; }
+        else if (held && tension > 0.65) { await up(); held = false; }
+        await tick();
+      }
+      if (held) await up();
+      expect(await phase()).toBe('landing');
+      if (checkStates) await readOnly();
+      for (let i = 0; i < 5; i++) await tick();
+      await expect(page.locator('#catch-dialog')).toBeVisible();
+      if (checkStates) {
+        await expect(page.locator('#menu-button')).toBeDisabled();
+        await page.locator('#menu-button').dispatchEvent('click');
+        await expect(page.locator('#collection-dialog')).toBeHidden();
+      }
+    }
+    await cast(); await land();
+    await click(page.locator('#sell-catch')); await tick(); expect(await phase()).toBe('ready');
+    const income = parseInt((await page.locator('#wallet-balance').textContent()).replaceAll(',', ''));
+    expect(income).toBeGreaterThanOrEqual(600);
+    await openEquipment(); await expect(page.locator('[data-upgrade="rod"]')).toBeEnabled();
+    await click(page.locator('[data-upgrade="rod"]')); await click(page.locator('#confirm-upgrade'));
+    rodLevel = 2;
+    await expect(page.locator('[data-equipment="rod"] h3')).toHaveText('ロッド · Lv.2');
+    await closeMenu(); await tick();
+    await cast(true); await land(true);
+    await click(page.locator('#close-catch')); await tick();
+    // A missed hook reaches FAILED, which is also read-only.
+    await cast();
+    for (let i = 0; i < 5 && await phase() === 'bite'; i++) await tick();
+    expect(await phase()).toBe('failed');
+    await readOnly(); for (let i = 0; i < 8 && await phase() !== 'ready'; i++) await tick();
+    await click(page.locator('#return-button')); await tick();
+    await openEquipment(); await expect(page.locator('[data-upgrade="reel"]')).toBeEnabled();
+    await click(page.locator('[data-upgrade="reel"]')); await click(page.locator('#confirm-upgrade'));
+    const money = `${(income - 600).toLocaleString('ja-JP')} 通貨`;
+    await expect(page.locator('#wallet-balance')).toHaveText(money);
+    await expect(page.locator('#collection-wallet')).toHaveText(`所持金 ${money}`);
+    await expect(page.locator('[data-equipment="reel"] h3')).toHaveText('リール · Lv.2');
+    await closeMenu(); await page.clock.resume(); await page.reload();
+    await expect(page.locator('#status')).toBeHidden(); await openEquipment();
+    await expect(page.locator('[data-equipment="rod"] h3')).toHaveText('ロッド · Lv.1');
+    await expect(page.locator('[data-equipment="reel"] h3')).toHaveText('リール · Lv.1');
+    await expect(page.locator('#wallet-balance')).toHaveText('0 通貨');
+    expect(errors).toEqual([]); await context.close();
+  });
+}
