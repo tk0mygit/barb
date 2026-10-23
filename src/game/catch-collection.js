@@ -1,6 +1,7 @@
 import { FISH_SPECIES, getFishSpecies } from './fish-species.js';
 import { calculateSalePrice, addMoney } from './fish-sales.js';
 import { getEquipmentLevel, getNextEquipmentLevel } from './equipment.js';
+import { validateCollectionData } from './save-validation.js';
 
 // Copy mutable data, but preserve already deeply frozen encounter snapshots.
 function immutable(value) {
@@ -10,14 +11,24 @@ function immutable(value) {
   return Object.freeze(Array.isArray(value) ? entries.map(([, item]) => item) : Object.fromEntries(entries));
 }
 
-// Session data only. History is authoritative; storage is a disposition view.
+// History is authoritative; storage is a disposition view.
 // Discovery is recorded on capture, before any storage/sale decision.
-export function createCatchCollection({ now = Date.now } = {}) {
-  let catches = Object.freeze([]);
-  let wallet = Object.freeze({ balance: 0, lifetimeSales: 0 });
-  let equipment = Object.freeze({ rodLevel: 1, reelLevel: 1 });
+export function createCatchCollection({ now = Date.now, initialData } = {}) {
+  const restored = initialData === undefined ? null : validateCollectionData(initialData);
+  // RESULT is never resumed. Rescue every undecided catch into storage.
+  let catches = restored ? Object.freeze(restored.catches.map(record => record.disposition === 'unassigned'
+    ? Object.freeze({ ...record, disposition: 'stored' }) : record)) : Object.freeze([]);
+  let wallet = restored?.wallet ?? Object.freeze({ balance: 0, lifetimeSales: 0 });
+  let equipment = restored?.equipment ?? Object.freeze({ rodLevel: 1, reelLevel: 1 });
   const indices = new Map();
   const statistics = new Map();
+  // Build in one pass, without register()/store(), callbacks or quadratic copies.
+  for (const [index, record] of catches.entries()) {
+    indices.set(record.id, index);
+    const previous = statistics.get(record.speciesId);
+    statistics.set(record.speciesId, { count: (previous?.count ?? 0) + 1,
+      maxLengthCm: Math.max(previous?.maxLengthCm ?? 0, record.lengthCm) });
+  }
   const listeners = new Set();
   function changed() {
     // State is already committed. A presentation failure must not undo a catch,
@@ -93,6 +104,7 @@ export function createCatchCollection({ now = Date.now } = {}) {
     return receipt;
   }
   return {
+    has(id) { return indices.has(id); },
     get catches() { return catches; },
     get stored() { return stored(); },
     get encyclopedia() { return encyclopedia(); },

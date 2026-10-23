@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 // Exercise the production UI modules against the real document/domain APIs.
 // Routes exist only in Playwright; the shipped game has no state-setting hooks.
-export async function openUIFixture(page) {
+export async function openUIFixture(page, saveData = null) {
   await page.route('**/barb/src/**', route => {
     const path = new URL(route.request().url()).pathname.replace('/barb/', '../../');
     const contentType = path.endsWith('.css') ? 'text/css' : path.endsWith('.svg') ? 'image/svg+xml' : 'text/javascript';
@@ -18,13 +18,15 @@ export async function openUIFixture(page) {
         import { createSalesHUD } from './src/ui/sales-hud.js';
         import { createAchievements } from './src/game/achievements.js';
         import { createAchievementNotice } from './src/ui/achievement-notice.js';
-        const collection = createCatchCollection();
-        const fishing = createFishing({ collection });
+        import { restoreSaveData } from './src/game/save-data.js';
+        const restored = ${saveData === null ? 'null' : `restoreSaveData(${JSON.stringify(saveData).replace(/</g, '\\u003c')})`};
+        const collection = restored?.collection ?? createCatchCollection();
+        const fishing = restored?.fishing ?? createFishing({ collection });
         const salesHUD = createSalesHUD(collection);
-        const achievements = createAchievements({ collection });
+        const achievements = restored?.achievements ?? createAchievements({ collection });
         const achievementNotice = createAchievementNotice();
         achievements.subscribe(awards => achievementNotice.notify(awards));
-        const fixture = window.fixture = { collection, fishing, salesHUD, achievements, achievementNotice, allowed: true };
+        const fixture = window.fixture = { collection, fishing, salesHUD, achievements, achievementNotice, restored, allowed: true };
         fixture.menu = createCollectionMenu({ collection, achievements, canOpen: () => true,
           canPurchase: () => fixture.allowed,
           onOpenChange: () => { fishing.cancelInput(); salesHUD.update(); },
