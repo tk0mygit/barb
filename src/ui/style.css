@@ -144,11 +144,11 @@ button.fish-card:hover { background: #335e4c; }
   #catch-dialog .session-notice { margin-bottom: 0; }
 }
 
-.wallet { display: grid; gap: 4px; text-align: right; min-width: 0; max-width: 38vw; }
+.wallet { display: grid; gap: 2px; text-align: right; min-width: 0; max-width: 38vw; }
 .wallet span { font-size: 10px; opacity: 0.8; }
 .wallet strong { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .save-status { font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; color: #d2e6b5; }
-.wallet .save-status { font-size: 9px; line-height: 1.4; }
+.wallet .save-status { font-size: 9px; line-height: 1.4; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .save-status[data-phase="dirty"] { color: #e0d5a9; }
 .save-status:is([data-phase="failed"], [data-phase="unavailable"], [data-phase="protected"], [data-phase="conflict"]) { color: #ffcf9c; }
 #collection-save-status { flex-shrink: 0; margin: 0 0 8px; }
