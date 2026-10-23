@@ -133,7 +133,9 @@ try {
   hud.update(boat);
   fishingHUD.update(fishing, false, gameClock.state);
   collectionMenu.update();
-  lake.update(0, boat);
+  // resize() renders synchronously, before the animation loop. Apply the saved
+  // clock here too so a night restore never flashes the daytime environment.
+  lake.update(0, boat, gameClock.state);
   window.addEventListener('keydown', event => {
     if (collectionMenu.isOpen || event.defaultPrevented) return;
     if (event.code !== 'Escape' || boat.mode !== 'fishing' || fishing.state.phase === PHASE.RESULT) return;
@@ -171,6 +173,7 @@ try {
     // Clock tracks all active time, even on slow frames. Movement retains its
     // existing safety cap; hidden/unfocused time is not caught up on resume.
     gameClock.step(frameSeconds);
+    const clockState = gameClock.state;
     elapsed += dt;
     const input = controls.read(dt);
     const phaseBefore = fishing.state.phase;
@@ -192,9 +195,9 @@ try {
     } : null;
     rig.update(dt, input, boat.mode === 'fishing' && fishing.state.phase !== PHASE.READY, tracking);
     fishingView.update(fishing, boat.mode === 'fishing', elapsed);
-    lake.update(elapsed, boat);
+    lake.update(elapsed, boat, clockState);
     hud.update(boat);
-    fishingHUD.update(fishing, boat.mode === 'fishing', gameClock.state);
+    fishingHUD.update(fishing, boat.mode === 'fishing', clockState);
     collectionMenu.update();
     renderer.render(scene, camera);
     hud.ready();

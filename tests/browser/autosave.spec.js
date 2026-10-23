@@ -257,11 +257,23 @@ test('localStorage access denial keeps the game playable and reports unavailable
 });
 
 test('another tab save stops the older session before it can overwrite new progress', async ({ page, context }) => {
-  await seed(page, [envelope(1, fixtureData()), null]); await ready(page);
+  await seed(page, [envelope(1, fixtureData()), null]);
+  // Keep the original tab's periodic save from winning while the second tab
+  // compiles WebGL on slow/software GPUs. Freeze on the blank page, before any
+  // game timers exist; a single explicit frame then makes progress dirty.
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
+  await page.goto('./'); await page.clock.fastForward(250);
+  await expect(page.locator('#status')).toBeHidden();
+  await expect(page.locator('#error')).toBeHidden();
   const other = await context.newPage();
-  await ready(other);
+  await other.goto('./');
+  // Playwright's clock controls the whole context, including the new tab.
+  await page.clock.fastForward(250);
+  await expect(other.locator('#status')).toBeHidden();
+  await expect(other.locator('#error')).toBeHidden();
   // Real lifecycle autosave in the second page sends a native storage event.
-  await checkpoint(other);
+  expect((await checkpoint(other)).generation).toBe(2);
   await expect(page.locator('#save-status')).toHaveAttribute('data-phase', 'conflict');
   const fresh = await slots(other);
   await checkpoint(page);

@@ -56,18 +56,18 @@ async function cast(page, input) {
   await input.up();
   await expect(phase(page)).toHaveAttribute('data-phase', 'lure');
 }
-async function hook(page, input) {
+async function hook(page, input, keepPaused = false) {
   // Software WebGL/CDP round trips can exceed the one-second hook window.
   // Advance the real game clock to the bite, then keep it still while sending
   // native pointer input. Do not extend the game's window or force its state.
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
+  await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
   for (let i = 0; i < 120 && await phase(page).getAttribute('data-phase') !== 'bite'; i++) await page.clock.fastForward(250);
   expect(await phase(page).getAttribute('data-phase')).toBe('bite');
   await input.tap();
   await page.clock.fastForward(16);
   await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
-  await page.clock.resume();
+  if (!keepPaused) await page.clock.resume();
 }
 async function assertCatch(page, speciesId, size = 0.5) {
   const species = getFishSpecies(speciesId);
@@ -88,7 +88,7 @@ async function assertCatch(page, speciesId, size = 0.5) {
 }
 async function land(page, input, speciesId) {
   let held = false;
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 140; i++) {
     const snapshot = await page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
     if (snapshot.phase !== 'fight') {
       if (snapshot.phase === 'landing') await page.screenshot({ path: `test-results/landing-${page.viewportSize().width}.png` });
@@ -97,16 +97,18 @@ async function land(page, input, speciesId) {
     const tension = snapshot.tension;
     if (!held && tension < 0.3) { await input.down(); held = true; }
     else if (held && tension > 0.58) { await input.up(); held = false; }
-    await page.waitForTimeout(100);
+    await page.clock.fastForward(250);
   }
   if (held) await input.up();
+  for (let i = 0; i < 5; i++) await page.clock.fastForward(250);
   await assertCatch(page, speciesId);
+  await page.clock.resume();
 }
 
 for (const touch of [false, true]) {
   test(`${touch ? 'touch' : 'mouse'}: cancellation, missed hook, retry, flick, fight and catch result`, async ({ browser }) => {
-    test.setTimeout(150000);
-    const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1280, height: 800 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+    test.setTimeout(360000);
+    const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -134,13 +136,25 @@ for (const touch of [false, true]) {
     await expect(page.locator('#reel-state')).toHaveText('巻き取り中');
     await input.cancel(); if (!touch) await page.mouse.up();
     await expect(page.locator('#reel-state')).toHaveText('待機中');
-    await expect(phase(page)).toHaveAttribute('data-phase', 'failed', { timeout: 25000 });
+    // Bite/fight time is simulation time. Real-time waits can expire before
+    // the dt-capped simulation progresses on a slow software GPU.
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+    await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
+    for (let i = 0; i < 160 && await phase(page).getAttribute('data-phase') !== 'failed'; i++) await page.clock.fastForward(250);
+    await expect(phase(page)).toHaveAttribute('data-phase', 'failed');
+    for (let i = 0; i < 12 && await phase(page).getAttribute('data-phase') !== 'ready'; i++) await page.clock.fastForward(250);
     await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
+    await page.clock.resume();
     await expect(page.locator('#fishing-note')).toContainText('アワセ');
     await cast(page, input);
+    // Installed Playwright clocks also virtualize Event.timeStamp. Keep time
+    // still across the short native flick, then render its action explicitly.
+    const flickPause = await page.evaluate(() => Date.now() + 60000);
+    await page.clock.pauseAt(new Date(flickPause));
     await input.flick();
+    await page.clock.fastForward(16);
     await expect(page.locator('#reel-state')).toHaveText('ルアーアクション');
-    await hook(page, input);
+    await hook(page, input, true);
     await expect(page.locator('#return-button')).toBeDisabled();
     await expect(page.locator('#lure-picker')).toBeHidden();
     const conditions = await page.locator('#fishing-conditions').evaluate(el => ({ depthM: Number(el.dataset.depthM), timeOfDay: el.dataset.timeOfDay }));
@@ -239,7 +253,8 @@ test('mobile landscape: prepare/cancel and return controls remain reachable', as
 });
 
 test('all 12 species: production cast, hook, fight, matching result image and recast', async ({ page }) => {
-  test.setTimeout(300000);
+  // Twelve complete fights render hundreds of frames on software WebGL.
+  test.setTimeout(600000);
   await page.setViewportSize({ width: 800, height: 600 });
   await setup(page); await page.locator('#fish-button').click();
   await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
@@ -247,7 +262,7 @@ test('all 12 species: production cast, hook, fight, matching result image and re
   // full state machine/render/UI live without 12 long wall-clock bite waits.
   // Only clock and RNG are controlled; fish/state/catches are never injected.
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
+  await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
   const input = await inputFor(page, false);
   const tick = () => page.clock.fastForward(250);
   const snapshot = () => page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));

@@ -16,7 +16,8 @@ for (const touch of [false, true]) {
     const click = locator => touch ? locator.tap({ force: true }) : locator.click({ force: true });
     await click(page.locator('#fish-button'));
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-    await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
+    // GPU/CDP work can outlast a one-second pause deadline on software WebGL.
+    await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
     const tick = () => page.clock.fastForward(250);
     const phase = () => page.locator('#fishing-panel').getAttribute('data-phase');
     const cdp = await context.newCDPSession(page), x = touch ? 300 : 500, y = touch ? 420 : 350;

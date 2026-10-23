@@ -39,7 +39,9 @@ for (const touch of [false, true]) {
     await expect(page.locator('#collection-dialog')).toBeHidden();
     await click(page.locator('#fish-button'));
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-    await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
+    // Leave headroom for GPU/CDP latency between installing and pausing. The
+    // fast-forward still uses the production simulation's single-frame cap.
+    await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
     const tick = () => page.clock.fastForward(250);
     const phase = page.locator('#fishing-panel');
     // Opening from aim cancels preparation, so no stale release casts on resume.
@@ -102,7 +104,7 @@ test('menu freezes a moving boat and releases held steering before resume', asyn
   await page.setViewportSize({ width: 800, height: 600 });
   await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
+  await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
   const tick = () => page.clock.fastForward(250);
   await page.locator('#scene').focus(); await page.keyboard.down('KeyW'); await page.keyboard.down('KeyD');
   for (let i = 0; i < 8; i++) await tick();
