@@ -4,12 +4,22 @@ export const AUDIO_LOOP_SECONDS = 24;
 const RATE = 22050;
 const TAU = Math.PI * 2;
 const sine = phase => Math.sin(TAU * phase);
-function tone(data, start, duration, frequency, level) {
+function tone(data, start, duration, frequency, level, wrap = false) {
   const from = Math.round(start * RATE), count = Math.round(duration * RATE);
-  for (let i = 0; i < count && from + i < data.length; i++) {
-    const t = i / RATE, progress = i / count;
-    const envelope = Math.sin(Math.PI * progress) ** 2;
-    data[from + i] += level * envelope * (0.88 * sine(frequency * t) + 0.12 * sine(2 * frequency * t));
+  // Rotate the oscillators instead of evaluating three trig functions per
+  // sample. This is the same sine² envelope and 88/12 harmonic balance.
+  const step = TAU * frequency / RATE, envelopeStep = TAU / count;
+  const sinStep = Math.sin(step), cosStep = Math.cos(step);
+  const sinEnvelopeStep = Math.sin(envelopeStep), cosEnvelopeStep = Math.cos(envelopeStep);
+  let sinTone = 0, cosTone = 1, sinEnvelope = 0, cosEnvelope = 1;
+  for (let i = 0; i < count && (wrap || from + i < data.length); i++) {
+    const envelope = (1 - cosEnvelope) * 0.5;
+    const index = wrap ? (from + i + data.length) % data.length : from + i;
+    data[index] += level * envelope * sinTone * (0.88 + 0.24 * cosTone);
+    const nextSinTone = sinTone * cosStep + cosTone * sinStep;
+    cosTone = cosTone * cosStep - sinTone * sinStep; sinTone = nextSinTone;
+    const nextSinEnvelope = sinEnvelope * cosEnvelopeStep + cosEnvelope * sinEnvelopeStep;
+    cosEnvelope = cosEnvelope * cosEnvelopeStep - sinEnvelope * sinEnvelopeStep; sinEnvelope = nextSinEnvelope;
   }
 }
 export function createGeneratedBuffers(context) {
@@ -24,9 +34,16 @@ export function createGeneratedBuffers(context) {
       notes.forEach((frequency, i) => { if (frequency) tone(data, i * 3, 2.8, frequency, 0.075); });
       const roots = mode === 'day' ? [130.81, 146.83, 164.81, 146.83] : [65.41, 73.42, 87.31, 73.42];
       roots.forEach((root, i) => {
-        tone(data, i * 6, 6, root, 0.035);
-        tone(data, i * 6, 6, root * 1.5, 0.018);
+        // Keep chord centres and melody, but overlap the quiet chord edges.
+        // Equal per-note energy avoids raising the whole BGM to fill valleys.
+        const energyScale = Math.sqrt(6 / 8);
+        tone(data, i * 6 - 1, 8, root, 0.035 * energyScale, true);
+        tone(data, i * 6 - 1, 8, root * 1.5, 0.018 * energyScale, true);
       });
+      // Preserve exact wrap-sample continuity; the very small correction fades
+      // over 10ms, without silencing the accompaniment at the loop boundary.
+      const offset = data.at(-1) - data[0], seam = Math.round(RATE * 0.01);
+      for (let i = 0; i < seam; i++) data[i] += offset * (1 - i / seam);
     } else {
       let seed = 0x42415242, low = 0, water = 0;
       for (let i = 0; i < data.length; i++) {

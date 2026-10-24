@@ -2,16 +2,23 @@ import { createGeneratedBuffers } from './generated-sources.js';
 
 export const AMBIENT_GAIN = 0.3;
 export const AUDIO_FADE_SECONDS = 0.08;
-function ramp(parameter, target, now) {
-  if (typeof parameter.cancelAndHoldAtTime === 'function') parameter.cancelAndHoldAtTime(now);
-  else { parameter.cancelScheduledValues(now); parameter.setValueAtTime(parameter.value, now); }
-  parameter.linearRampToValueAtTime(target, now + AUDIO_FADE_SECONDS);
-}
-
 // Owns a single bank of three loops. Pause fades then releases nodes. A rapid
 // resume cancels that one pending release and reuses the same bank.
 export function createAmbientPlayer({ makeBuffers = createGeneratedBuffers, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
   let context, buffers, master, voices = [], releaseTimer, targets = {}, dropBuffers = false;
+  const ramps = new Map();
+  function ramp(parameter, target, now) {
+    // Anchor the known linear envelope on the audio clock. AudioParam.value
+    // can still contain the intrinsic default before the first render. Explicit
+    // anchors also avoid browser-specific hold/cancel behavior during retargets.
+    const previous = ramps.get(parameter);
+    const progress = previous ? Math.max(0, Math.min(1, (now - previous.start) / AUDIO_FADE_SECONDS)) : 0;
+    const from = previous ? previous.from + (previous.target - previous.from) * progress : 0;
+    parameter.cancelScheduledValues(now);
+    parameter.setValueAtTime(from, now);
+    parameter.linearRampToValueAtTime(target, now + AUDIO_FADE_SECONDS);
+    ramps.set(parameter, { from, target, start: now });
+  }
   function release() {
     if (releaseTimer !== undefined) clearTimer(releaseTimer);
     releaseTimer = undefined;
@@ -20,7 +27,7 @@ export function createAmbientPlayer({ makeBuffers = createGeneratedBuffers, setT
       source.disconnect(); gain?.disconnect(); source.buffer = null;
     }
     voices = [];
-    master?.disconnect(); master = null; targets = {};
+    master?.disconnect(); master = null; targets = {}; ramps.clear();
     if (dropBuffers) buffers = null;
   }
   return {

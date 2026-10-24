@@ -1,10 +1,17 @@
-export function fakeContext() {
+export function deferred() {
+  let resolve, reject;
+  const promise = new Promise((done, fail) => { resolve = done; reject = fail; });
+  return { promise, resolve, reject };
+}
+
+export function fakeContext({ deferResume = false } = {}) {
   const context = new EventTarget();
   const parameters = [];
   const parameter = () => {
     const value = { value: 0, events: [], cancelAndHoldAtTime(time) { this.events.push(['hold', time]); },
       cancelScheduledValues(time) { this.events.push(['cancel', time]); },
       setValueAtTime(v, t) { this.value = v; this.events.push(['set', v, t]); },
+      setTargetAtTime(v, t, constant) { this.value = v; this.events.push(['target', v, t, constant]); },
       linearRampToValueAtTime(v, t) { this.value = v; this.events.push(['linear', v, t]); },
       exponentialRampToValueAtTime(v, t) { this.value = v; this.events.push(['exponential', v, t]); } };
     parameters.push(value); return value;
@@ -16,8 +23,13 @@ export function fakeContext() {
       disconnect() { this.connections = []; this.disconnected = true; } };
     nodes.push(value); return value;
   };
-  Object.assign(context, { state: 'suspended', currentTime: 1, nodes, parameters, resumes: 0, destination: {},
-    resume() { this.resumes++; this.change('running'); return Promise.resolve(); },
+  Object.assign(context, { state: 'suspended', currentTime: 1, nodes, parameters, resumes: 0, destination: {}, deferResume, resumeAttempts: [],
+    resume() {
+      this.resumes++;
+      const attempt = deferred(); this.resumeAttempts.push(attempt);
+      if (!this.deferResume) { this.change('running'); attempt.resolve(); }
+      return attempt.promise;
+    },
     close() { this.change('closed'); return Promise.resolve(); },
     change(state) { this.state = state; this.dispatchEvent(new Event('statechange')); },
     createGain() { return Object.assign(node('gain'), { gain: parameter() }); },
