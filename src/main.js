@@ -86,8 +86,25 @@ try {
   audioSession = createAudioSession();
   const ambientAudio = environmentAudio = createAmbientAudio({ session: audioSession, clock: gameClock });
   const audio = createFishingAudio({ session: audioSession });
-  const unlockAudio = event => { if (event.isTrusted) ambientAudio.unlock(); };
+  const unlockAudio = event => {
+    if (!event.isTrusted || document.hidden || navigator.userActivation?.isActive === false) return;
+    // A visible, trusted interaction also recovers a stale mobile blur reason
+    // when the browser omitted window.focus after opening/restoring the page.
+    if (!focused) {
+      focused = true; previous = performance.now(); ambientAudio.setPaused('blur', false);
+    }
+    if (event.type === 'keydown' && (event.repeat || event.key === 'Escape')) return;
+    if (event.type === 'pointerdown' && event.pointerType !== 'mouse') return;
+    if (event.type === 'pointerup' && event.pointerType === 'mouse') return;
+    // These controls own their click request; do not change/hide the retry
+    // control between pointerdown and the click that actually activates it.
+    if (event.target.closest?.('#ambient-toggle, #ambient-retry')) return;
+    ambientAudio.unlock();
+  };
   document.addEventListener('pointerdown', unlockAudio, { passive: true });
+  document.addEventListener('pointerup', unlockAudio, { passive: true });
+  if (!window.PointerEvent) document.addEventListener('touchend', unlockAudio, { passive: true });
+  document.addEventListener('click', unlockAudio);
   document.addEventListener('keydown', unlockAudio);
   const rig = createCameraRig(camera, boat);
   function changeMode(mode) {

@@ -23,7 +23,9 @@ export function createAmbientAudio({ session, clock, preferencesStore = createAu
     else if (session.status === 'unsupported') playback = 'unsupported';
     else if (failed || session.status === 'blocked') playback = 'blocked';
     else if (session.status === 'interrupted') playback = 'interrupted';
+    else if (session.status === 'starting') playback = 'starting';
     else if (session.status !== 'ready') playback = 'waiting';
+    else if (session.context?.state !== 'running') playback = 'interrupted';
     else if (pauses.size) playback = 'paused';
     else if (!preferences.volume) playback = 'muted';
     else playback = 'playing';

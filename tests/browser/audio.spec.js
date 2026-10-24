@@ -1,6 +1,6 @@
 import { test, expect } from './diagnostics-fixture.js';
 import { setup, tick } from './day-night-fixture.js';
-import { installAudioProbe, audioSnapshot, soundScreen } from './audio-fixture.js';
+import { installAudioProbe, audioSnapshot, attachAudioDiagnostics, soundScreen } from './audio-fixture.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 import { sampleAudioMix } from '../../src/audio/audio-mix.js';
 
@@ -158,15 +158,156 @@ for (const scenario of ['invalid', 'read-denied', 'write-denied', 'unsupported']
   });
 }
 
-test('native Chromium AudioContext unlock and looping sources work through the production UI', async ({ page }) => {
-  await page.addInitScript(installAudioProbe, { native: true }); await setup(page, 90, { freeze: false });
-  expect(await page.evaluate(() => window.audioProbe.contexts.length)).toBe(0);
-  await soundScreen(page); await page.locator('#ambient-toggle').click(); await close(page);
-  await expect.poll(() => page.evaluate(() => window.audioProbe.nodes.length)).toBe(3);
-  expect(await page.evaluate(() => ({ contexts: window.audioProbe.contexts.length, state: window.audioProbe.contexts[0].state,
-    loops: window.audioProbe.nodes.every(n => n.loop && n.buffer?.duration === 24) })))
-    .toEqual({ contexts: 1, state: 'running', loops: true });
-});
+for (const touch of [false, true]) {
+  test(`${touch ? 'touch' : 'mouse'}: pending resume is retried by a real button click; late results cannot replace running playback`, async ({ createContext }, info) => {
+    const context = await createContext({ viewport: { width: 390, height: 844 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+    const page = await context.newPage();
+    await prefs(page, enabled); await page.addInitScript(installAudioProbe, { pending: true }); await setup(page, 90);
+    const activate = locator => touch ? locator.tap() : locator.click();
+    try {
+      await soundScreen(page, touch);
+      await expect(page.locator('#ambient-status')).toContainText('音声を開始しています');
+      await expect(page.locator('#ambient-retry')).toBeVisible();
+      const waiting = await audioSnapshot(page);
+      expect(waiting.states).toEqual(['suspended']); expect(waiting.sources).toBe(0);
+      expect(waiting.attempts.length).toBeGreaterThan(1);
+      expect(waiting.attempts.every(attempt => attempt.status === 'pending' && attempt.active)).toBe(true);
+      // A preference change must not allow an old completion to resurrect OFF.
+      await activate(page.locator('#ambient-toggle'));
+      await expect(page.locator('#ambient-status')).toHaveText('OFF');
+      await page.evaluate(() => window.audioProbe.attempts[0].resolve());
+      await expect(page.locator('#ambient-status')).toHaveText('OFF');
+      expect((await audioSnapshot(page)).sources).toBe(0);
+      await activate(page.locator('#ambient-toggle'));
+      await expect(page.locator('#ambient-status')).toContainText('音声を開始しています');
+      const pendingResumes = (await audioSnapshot(page)).resumes;
+      await activate(page.locator('#ambient-retry'));
+      await expect(page.locator('#ambient-status')).toContainText('音声を開始しています');
+      await expect(page.locator('#ambient-retry')).toBeVisible();
+      expect((await audioSnapshot(page)).resumes).toBe(pendingResumes + 1);
+      const oldAttempts = (await audioSnapshot(page)).attempts.filter(attempt => attempt.status === 'pending').map(attempt => attempt.id);
+      const beforeRetry = (await audioSnapshot(page)).resumes;
+      await page.evaluate(() => { window.audioProbe.pending = false; });
+      await activate(page.locator('#ambient-retry'));
+      await expect(page.locator('#ambient-status')).toContainText('一時停止中');
+      const retried = await audioSnapshot(page);
+      expect(retried.resumes).toBe(beforeRetry + 1); expect(retried.states).toEqual(['running']);
+      expect(await page.evaluate(() => window.audioProbe.events.some(event => event.type === 'click' && event.target === 'ambient-retry' && event.trusted))).toBe(true);
+      await page.evaluate(ids => ids.forEach((id, index) => {
+        const attempt = window.audioProbe.attempts[id];
+        if (index % 2) attempt.resolve(); else attempt.reject();
+      }), oldAttempts);
+      await expect(page.locator('#ambient-status')).toContainText('一時停止中');
+      await activate(page.locator('#collection-close')); await tick(page);
+      const playing = await audioSnapshot(page);
+      expect(playing.gains).toEqual({ day: 1, night: 0, nature: 0 });
+      expect(playing.states).toEqual(['running']); expect(playing.startedSources).toBe(3);
+      expect(playing.gainNodes).toBe(4); expect(playing.destinationConnected).toBe(true);
+      expect(playing.totalSources).toBe(3); expect(playing.buffers).toBe(3);
+      await soundScreen(page, touch);
+      await expect(page.locator('#ambient-status')).toContainText('一時停止中');
+      await expect(page.locator('#ambient-retry')).toBeHidden();
+    } finally { await attachAudioDiagnostics(page, info); }
+  });
+
+  test(`${touch ? 'touch' : 'mouse'}: a visible trusted interaction clears stale startup blur without a focus event`, async ({ createContext }, info) => {
+    const context = await createContext({ viewport: { width: 390, height: 844 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+    const page = await context.newPage();
+    await prefs(page, enabled); await page.addInitScript(installAudioProbe, {});
+    await page.addInitScript(() => {
+      Object.defineProperty(document, 'hasFocus', { configurable: true, value: () => false });
+      // Model the missing window-focus notification reported by some mobile hosts.
+      window.addEventListener('focus', event => { if (event.target === window) event.stopImmediatePropagation(); }, true);
+    });
+    const startup = setup(page, 90);
+    try {
+      await page.waitForURL('**/barb/');
+      await expect(page.locator('#fish-button')).toBeEnabled();
+      expect((await audioSnapshot(page)).contexts).toBe(0);
+      const clock = () => page.evaluate(() => window.lightingProbe.last.mistTime);
+      const before = await clock();
+      await page.clock.fastForward(600000); expect(await clock()).toBe(before);
+      // The first game update also dismisses the startup overlay, so perform
+      // this real input before setup's normal ready assertion can complete.
+      if (touch) await page.locator('#fish-button').tap(); else await page.locator('#fish-button').click();
+      await tick(page); await startup;
+      expect(await clock()).toBeGreaterThan(before); expect(await clock()).toBeLessThan(before + 1);
+      await soundScreen(page, touch);
+      await expect(page.locator('#ambient-status')).toContainText('一時停止中');
+      const menuClock = await clock();
+      await page.clock.fastForward(600000); expect(await clock()).toBe(menuClock);
+      if (touch) await page.locator('#collection-close').tap(); else await close(page);
+      await tick(page); const playing = await audioSnapshot(page);
+      expect(playing.gains).toEqual({ day: 1, night: 0, nature: 0 });
+      expect(playing.states).toEqual(['running']); expect(playing.startedSources).toBe(3);
+      expect(playing.resumes).toBe(1);
+      expect(await clock()).toBeGreaterThan(menuClock); expect(await clock()).toBeLessThan(menuClock + 1);
+    } finally { await attachAudioDiagnostics(page, info); }
+  });
+
+  test(`native Chromium ${touch ? 'touch' : 'mouse'}: activation event order and the complete production output graph`, async ({ createContext }, info) => {
+    const context = await createContext({ viewport: { width: 390, height: 844 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+    const page = await context.newPage();
+    await page.addInitScript(installAudioProbe, { native: true });
+    const cdp = await context.newCDPSession(page);
+    const inspect = async fn => {
+      const { result, exceptionDetails } = await cdp.send('Runtime.evaluate', {
+        expression: `(${fn.toString()})()`, returnByValue: true, userGesture: false,
+      });
+      if (exceptionDetails) throw Error(exceptionDetails.text);
+      return result.value;
+    };
+    try {
+      // Playwright page.evaluate grants a synthetic user gesture. This case
+      // avoids the shared setup's evaluations and inspects through CDP without
+      // activation until the first native input.
+      await page.goto('./');
+      await expect.poll(() => inspect(() => document.querySelector('#status').hidden)).toBe(true);
+      // Trace/readiness tooling can activate Chromium's page. Wait for its
+      // actual transient-activation expiry without invoking page.evaluate.
+      await expect.poll(() => inspect(() => ({ contexts: window.audioProbe.contexts.length, active: navigator.userActivation.isActive })))
+        .toEqual({ contexts: 0, active: false });
+      const button = await inspect(() => {
+        const button = document.querySelector('#menu-button'), box = button.getBoundingClientRect();
+        const x = box.x + box.width / 2, y = box.y + box.height / 2;
+        return { x, y, enabled: !button.disabled, visible: box.width > 0 && box.height > 0,
+          hit: document.elementFromPoint(x, y)?.closest('button')?.id };
+      });
+      expect(button.enabled).toBe(true); expect(button.visible).toBe(true); expect(button.hit).toBe('menu-button');
+      if (touch) await page.touchscreen.tap(button.x, button.y); else await page.mouse.click(button.x, button.y);
+      if (touch) await page.locator('[data-view="sound"]').tap(); else await page.locator('[data-view="sound"]').click();
+      if (touch) await page.locator('#ambient-toggle').tap(); else await page.locator('#ambient-toggle').click();
+      await expect(page.locator('#ambient-status')).toContainText('一時停止中');
+      if (touch) await page.locator('#collection-close').tap(); else await close(page);
+      await expect.poll(async () => {
+        const output = await audioSnapshot(page);
+        return { states: output.states, sources: output.startedSources, gains: output.gainNodes, destination: output.destinationConnected,
+          masterPositive: output.master > 0 };
+      }).toEqual({ states: ['running'], sources: 3, gains: 4, destination: true, masterPositive: true });
+      const output = await audioSnapshot(page);
+      expect(output.contexts).toBe(1); expect(output.buffers).toBe(3);
+      expect(output.attempts.every(attempt => attempt.active && attempt.status === 'resolved')).toBe(true);
+      const construction = await page.evaluate(() => window.audioProbe.events.find(event => event.type === 'context-created'));
+      expect(construction.active).toBe(true);
+      const firstInput = output.attempts[0]?.input ?? construction.input;
+      expect(['pointerdown', 'click', 'pointerup']).toContain(firstInput);
+      const menuEvents = await page.evaluate(() => window.audioProbe.events.filter(event => event.target === 'menu-button'));
+      const order = menuEvents.map(event => event.type);
+      expect(order.indexOf('pointerdown')).toBeLessThan(order.indexOf('pointerup'));
+      expect(order.indexOf('pointerup')).toBeLessThan(order.indexOf('click'));
+      if (touch) {
+        expect(order.indexOf('touchstart')).toBeGreaterThan(order.indexOf('pointerdown'));
+        expect(order.indexOf('touchend')).toBeGreaterThan(order.indexOf('pointerup'));
+        expect(menuEvents.find(event => event.type === 'pointerdown').active).toBe(false);
+        expect(menuEvents.find(event => event.type === 'pointerup').active).toBe(true);
+        expect(['pointerup', 'click']).toContain(firstInput);
+      } else {
+        expect(menuEvents.find(event => event.type === 'pointerdown').active).toBe(true);
+      }
+      expect(await page.evaluate(() => window.audioProbe.nodes.filter(n => n.audioProbeType === 'source').every(n => n.loop && n.started && n.buffer?.duration === 24))).toBe(true);
+    } finally { await attachAudioDiagnostics(page, info); }
+  });
+}
 
 for (const fail of [false, true]) {
   test(`bite notification retains timing and hook input with ambient ON (audio failure=${fail})`, async ({ page }) => {

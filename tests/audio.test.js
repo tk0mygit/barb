@@ -5,7 +5,7 @@ import { sampleNightFog, FOG_TYPE } from '../src/world/night-fog.js';
 import { sampleAudioMix } from '../src/audio/audio-mix.js';
 import { createAudioSession } from '../src/audio/audio-session.js';
 import { createAmbientAudio } from '../src/audio/ambient-audio.js';
-import { createAmbientPlayer, AMBIENT_GAIN } from '../src/audio/ambient-player.js';
+import { createAmbientPlayer, AMBIENT_GAIN, AUDIO_FADE_SECONDS } from '../src/audio/ambient-player.js';
 import { createGeneratedBuffers } from '../src/audio/generated-sources.js';
 import { createFishingAudio } from '../src/ui/fishing-audio.js';
 import { fakeContext, fakeTimers } from './helpers/audio-fakes.js';
@@ -79,7 +79,13 @@ test('one bounded bank, smooth volume/fades, release on pause/off and no backlog
   }
   assert.equal(generations, 1);
   const master = context.nodes[0]; near(master.gain.value, AMBIENT_GAIN * 0.7);
-  assert.ok(master.gain.events.some(e => e[0] === 'hold'));
+  assert.deepEqual(master.gain.events[0], ['set', 0, context.currentTime]);
+  for (let i = 0; i < master.gain.events.length; i++) {
+    if (master.gain.events[i][0] !== 'linear') continue;
+    const anchor = master.gain.events[i - 1];
+    assert.equal(anchor[0], 'set');
+    near(master.gain.events[i][2] - anchor[2], AUDIO_FADE_SECONDS);
+  }
   player.stop(); timers.flush();
   assert.ok(context.nodes.every(n => n.disconnected));
   assert.ok(context.nodes.filter(n => n.type === 'source').every(n => n.stopped && n.buffer === null));
@@ -92,6 +98,33 @@ test('one bounded bank, smooth volume/fades, release on pause/off and no backlog
   }
   context.change('suspended'); player.stop(); assert.equal(timers.timers.size, 0);
   player.dispose(); assert.ok(context.nodes.every(n => n.disconnected));
+});
+
+test('gain retargeting follows the audio clock through irregular volume, pause and resume changes', () => {
+  const context = fakeContext(); context.change('running');
+  const timers = fakeTimers(), player = createAmbientPlayer({ ...timers, makeBuffers: () => buffers });
+  const mix = sampleAudioMix(at(90));
+  player.play(context, mix, 40, 90);
+  const master = context.nodes[0].gain;
+  const expectRamp = (from, to, time) => {
+    const [cancel, anchor, end] = master.events.slice(-3);
+    assert.deepEqual(cancel, ['cancel', time]);
+    assert.equal(anchor[0], 'set'); near(anchor[1], from); near(anchor[2], time);
+    assert.equal(end[0], 'linear'); near(end[1], to); near(end[2], time + AUDIO_FADE_SECONDS);
+  };
+  expectRamp(0, 0.12, 1);
+  // An intrinsic/default AudioParam value must never replace the in-flight envelope.
+  master.value = 1;
+  context.currentTime = 1.04; player.play(context, mix, 80, 90);
+  expectRamp(0.06, 0.24, 1.04);
+  context.currentTime = 1.06; player.stop();
+  expectRamp(0.105, 0, 1.06);
+  context.currentTime = 1.08; player.play(context, mix, 40, 90);
+  expectRamp(0.07875, 0.12, 1.08); assert.equal(timers.timers.size, 0);
+  context.currentTime = 1.5; player.play(context, mix, 60, 90);
+  expectRamp(0.12, 0.18, 1.5);
+  assert.equal(context.nodes.filter(node => node.type === 'source').length, 3);
+  player.dispose();
 });
 
 test('partial source failure releases every allocated node', () => {
