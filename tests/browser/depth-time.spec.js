@@ -4,12 +4,16 @@ test('active clock crosses day/night boundaries, pauses with visibility/focus, a
   test.setTimeout(180000);
   await page.setViewportSize({ width: 800, height: 600 });
   await page.addInitScript(() => { Math.random = () => 0.5; });
-  await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
-  await page.locator('#fish-button').click();
+  // Freeze the clock before startup; shader compilation may take longer than
+  // one real second, so installing/pauseAt after navigation can target the past.
+  const now = new Date('2026-01-01T00:00:00Z');
+  await page.clock.install({ time: now });
+  await page.clock.pauseAt(new Date(+now + 1000));
+  await page.goto('./'); await page.clock.fastForward(250);
+  await expect(page.locator('#status')).toBeHidden();
+  await page.locator('#fish-button').click(); await page.clock.fastForward(250);
   const display = page.locator('#fishing-conditions');
   await expect(display).toHaveAttribute('data-time-of-day', 'day');
-  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
   const tick = () => page.clock.fastForward(250);
   const progress = async () => Number(await display.getAttribute('data-cycle-progress'));
   await page.clock.fastForward(Math.floor((0.5 - await progress()) * 360000) - 100);
