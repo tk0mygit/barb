@@ -7,12 +7,12 @@ test.use({ deviceScaleFactor: 0.5 });
 const reviewImages = [];
 test.afterAll(async ({}, testInfo) => {
   if (!reviewImages.length) return;
-  const figures = await Promise.all(reviewImages.map(async ({ label, path, counts }) =>
-    `<figure><figcaption>${label}${counts ? ' — ' + JSON.stringify(counts) : ''}</figcaption><img src="data:image/png;base64,${(await readFile(path)).toString('base64')}"></figure>`));
+  const figures = await Promise.all(reviewImages.map(async ({ label, path, counts, stats }) =>
+    `<figure><figcaption>${label}${counts ? ' — ' + JSON.stringify(counts) : ''}${stats ? ' — RGB max Δ ' + stats.maximumRGB.join('/') + '; Δ≥6: ' + stats.distinguishable + ' px; water Δ&lt;2: ' + (stats.quietWaterFraction * 100).toFixed(1) + '%; boat Δ: ' + stats.boatMaximum : ''}</figcaption><img src="data:image/png;base64,${(await readFile(path)).toString('base64')}"></figure>`));
   const path = testInfo.outputPath('fog-review.html');
   await writeFile(path, `<!doctype html><meta charset="utf-8"><title>BARB fog review</title>
     <style>body{background:#15222b;color:#eee;font:16px system-ui;margin:24px}figure{margin:24px 0}img{max-width:100%;height:auto}figcaption{margin-bottom:8px}</style>
-    <h1>Phase 4B-1,2 Update</h1><p>Production build; matched boat (10,20), heading 0, night phase 90s. CLEAR / FOG ≈30,50,70% / DENSE 95%. Layer pair hides only the three mist meshes in the test observer. Dense controls use real PC/touch input.</p>${figures.join('')}`);
+    <h1>Phase 4B-1,2 Update</h1><p>Production build; matched boat (10,20), heading 0, night phase 90s. CLEAR / FOG ≈30,50,70% / DENSE 95%. Layer pairs hide only the three mist meshes in the test observer. Pixel statistics supplement visual review; inspect local wisps, open water, boat visibility and smooth boundaries. Dense controls use real PC/touch input.</p>${figures.join('')}`);
   await testInfo.attach('fog-review-gallery', { path, contentType: 'text/html' });
 });
 
@@ -47,7 +47,7 @@ for (const [index, label] of [[0, 'clear'], [8301, 'fog-30'], [3971, 'fog-50'], 
       const fog = profile.targetFogAmount > 0;
       expect(actual).toEqual({ calls: 30 + (fog ? 3 : 0), triangles: 220228 + (fog ? 6144 : 0),
         geometries: 23 + (fog ? 1 : 0), textures: 3, programs: 12 + (fog ? 1 : 0) });
-      if (label === 'fog-50') {
+      if (fog) {
         const pair = await page.evaluate(async () => {
           const pair = window.lightingProbe.captureMistPair();
           const pixels = async data => {
@@ -57,21 +57,39 @@ for (const [index, label] of [[0, 'clear'], [8301, 'fog-30'], [3971, 'fog-50'], 
             return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
           };
           const a = await pixels(pair.withMist), b = await pixels(pair.withoutMist);
-          let changed = 0, maximum = 0;
+          let changed = 0, distinguishable = 0, waterPixels = 0, quietWater = 0, boatMaximum = 0, skyMaximum = 0;
+          const maximumRGB = [0, 0, 0], sumWaterRGB = [0, 0, 0];
           for (let i = 0; i < a.length; i += 4) {
-            const delta = Math.max(...[0, 1, 2].map(c => Math.abs(a[i + c] - b[i + c])));
-            if (delta > 0) changed++; maximum = Math.max(maximum, delta);
+            const r = Math.abs(a[i] - b[i]), g = Math.abs(a[i + 1] - b[i + 1]), blue = Math.abs(a[i + 2] - b[i + 2]);
+            const delta = Math.max(r, g, blue), pixel = i / 4, x = pixel % 1000, y = Math.floor(pixel / 1000);
+            maximumRGB[0] = Math.max(maximumRGB[0], r); maximumRGB[1] = Math.max(maximumRGB[1], g); maximumRGB[2] = Math.max(maximumRGB[2], blue);
+            if (delta > 0) changed++;
+            if (delta >= 6) distinguishable++;
+            if (y >= 325) { waterPixels++; if (delta < 2) quietWater++; sumWaterRGB[0] += r; sumWaterRGB[1] += g; sumWaterRGB[2] += blue; }
+            if (x >= 440 && x < 560 && y >= 470 && y < 585) boatMaximum = Math.max(boatMaximum, delta);
+            if (y < 250) skyMaximum = Math.max(skyMaximum, delta);
           }
-          return { ...pair, changed, maximum };
+          return { ...pair, regionsXYWH: { water: [0, 325, 1000, 375], boat: [440, 470, 120, 115], sky: [0, 0, 1000, 250] }, changed, distinguishable, maximumRGB, waterMeanRGB: sumWaterRGB.map(v => v / waterPixels), quietWaterFraction: quietWater / waterPixels, boatMaximum, skyMaximum };
         });
-        expect(pair.changed).toBeGreaterThan(1000); expect(pair.maximum).toBeGreaterThan(1);
+        expect(pair.changed).toBeGreaterThan(1000);
+        expect(pair.boatMaximum).toBe(0); expect(pair.skyMaximum).toBe(0);
+        if (label === 'fog-50') {
+          // Catch the reviewed 3/255 regression while retaining open water.
+          // These guards supplement the attached images and human review.
+          expect(pair.maximumRGB.every(value => value >= 8)).toBe(true);
+          expect(pair.distinguishable).toBeGreaterThan(2000);
+          expect(pair.quietWaterFraction).toBeGreaterThan(0.5);
+        }
+        const { withMist, withoutMist, ...stats } = pair;
         for (const name of ['withMist', 'withoutMist']) {
           const path = testInfo.outputPath(`surface-${name}.png`);
           await writeFile(path, Buffer.from(pair[name].split(',')[1], 'base64'));
           await testInfo.attach(`surface-${name}`, { path, contentType: 'image/png' });
-          reviewImages.push({ label: `surface-${name}`, path });
+          reviewImages.push({ label: `${label}: surface-${name}`, path, stats: name === 'withMist' ? stats : undefined });
         }
-        await testInfo.attach('surface-pixel-difference', { body: JSON.stringify({ changed: pair.changed, maximum: pair.maximum }), contentType: 'application/json' });
+        const statsPath = testInfo.outputPath('surface-pixel-difference.json');
+        await writeFile(statsPath, JSON.stringify(stats, null, 2));
+        await testInfo.attach(`${label}-surface-pixel-difference`, { path: statsPath, contentType: 'application/json' });
       }
 
       const colors = await page.evaluate(() => ({ water: window.lightingProbe.uploadedWaterFog, scene: window.lightingProbe.outputFog }));
@@ -161,6 +179,8 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
       const down = async () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }) : (await page.mouse.move(x, y), page.mouse.down());
       const move = (dy, dx = 0) => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + dx, y: y + dy }] }) : page.mouse.move(x + dx, y + dy);
       const up = () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : page.mouse.up();
+      const freezeView = () => page.evaluate(() => window.dispatchEvent(new Event('blur')));
+      const resumeView = () => page.evaluate(() => window.dispatchEvent(new Event('focus')));
       const initialBoat = (await read(page)).boat;
       await down(); await move(-80);
       await expect(page.locator('#motion-label')).toHaveText('航行中');
@@ -168,9 +188,13 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
       await up();
       await expect(page.locator('#motion-label')).toHaveText('停船中');
       expect((await read(page)).boat).not.toEqual(initialBoat);
+      // Native input stays live. Freeze only read-only image/DOM inspection so
+      // software rendering does not queue frames during CDP round trips.
+      await freezeView();
       let path = testInfo.outputPath('fog-sailing.png');
       await page.screenshot({ path }); await testInfo.attach('fog-sailing', { path, contentType: 'image/png' });
       reviewImages.push({ label: `dense TPS ${width}×${height}`, path });
+      await resumeView();
       await activateControl(page, 'fish-button', touch);
       await expect(page.locator('#reticle')).toBeVisible();
       await expect.poll(() => page.evaluate(() => window.lightingProbe.cameraHeight)).toBeCloseTo(2.15, 1);
@@ -178,8 +202,11 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
       await down(); await move(-30, 70);
       await expect.poll(() => page.evaluate(() => window.lightingProbe.camera)).not.toEqual(beforeLook);
       await up();
-      for (const id of ['menu-button', 'cast-button', 'return-button']) {
-        const box = await page.locator(`#${id}`).boundingBox();
+      await freezeView();
+      const buttonBoxes = await page.locator('#menu-button, #cast-button, #return-button').evaluateAll(buttons =>
+        buttons.map(button => button.getBoundingClientRect().toJSON()));
+      expect(buttonBoxes).toHaveLength(3);
+      for (const box of buttonBoxes) {
         expect(box.x).toBeGreaterThanOrEqual(0); expect(box.y).toBeGreaterThanOrEqual(0);
         expect(box.x + box.width).toBeLessThanOrEqual(width); expect(box.y + box.height).toBeLessThanOrEqual(height);
       }
@@ -187,14 +214,16 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
       await page.screenshot({ path }); await testInfo.attach('fog-fishing', { path, contentType: 'image/png' });
       reviewImages.push({ label: `dense FPS ${width}×${height}`, path });
       await attachCounts(page, testInfo, 'fog-fishing');
+      await resumeView();
       await activateControl(page, 'cast-button', touch);
       await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'aim');
       await down(); await move(-120); await up();
       await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'lure');
       await down(); await expect(page.locator('#reel-state')).toHaveText('巻き取り中');
       await up(); await expect(page.locator('#reel-state')).toHaveText('待機中');
-      expect((await read(page)).fogStrength).toBe(0.95);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const final = await page.evaluate(() => ({ fogStrength: window.lightingProbe.last.fogStrength,
+        fits: document.documentElement.scrollWidth <= innerWidth }));
+      expect(final.fogStrength).toBe(0.95); expect(final.fits).toBe(true);
       expect(errors).toEqual([]);
     } finally { await context.close(); }
   });

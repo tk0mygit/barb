@@ -106,7 +106,7 @@ test('surface wisps and fog reuse geometry/uniforms, align water/sky, obscure th
   assert.equal(mist.children.length, 3);
   assert.equal(new Set(mist.children.map(o => o.geometry)).size, 1);
   assert.equal(new Set(mist.children.map(o => o.material)).size, 1);
-  const material = mist.children[0].material, uniforms = material.uniforms, color = uniforms.fogTint.value;
+  const material = mist.children[0].material, uniforms = material.uniforms, color = uniforms.fogTint.value, drift = uniforms.fogDrift.value;
   assert.equal(material.forceSinglePass, true); assert.equal(material.depthWrite, false); assert.equal(material.depthTest, true); assert.equal(material.transparent, true);
   assert.ok(water.material.fragmentShader.indexOf('#include <fog_fragment>') > water.material.fragmentShader.indexOf('#include <colorspace_fragment>'));
   for (const seconds of [90, 270, 540, 546, 552, 630, 714, 720, 2790, 3150, 360 * 100000 + 270]) {
@@ -118,6 +118,9 @@ test('surface wisps and fog reuse geometry/uniforms, align water/sky, obscure th
     assert.deepEqual(water.material.uniforms.fogColor.value.toArray(), expected.toArray());
     assert.deepEqual(sky.material.uniforms.nightFogColor.value.toArray(), expected.toArray());
     assert.equal(mist.visible, fog.effectiveFogAmount > 0); assert.equal(uniforms.fogTint.value, color);
+    assert.equal(uniforms.fogDrift.value, drift);
+    near(drift.x, Math.sin((seconds % 3600) * 2 * Math.PI / 3600) * 34);
+    near(drift.y, Math.cos((seconds % 3600) * 2 * Math.PI / 3600) * 22);
     assert.equal(uniforms.fogTime.value, seconds % 3600); assert.equal(uniforms.fogAmount.value, fog.effectiveFogAmount);
     near(scene.getObjectByName('moon').material.opacity, env.moonOpacity * (1 - fog.effectiveFogAmount) ** 2);
     assert.equal(scene.children.find(o => o.isHemisphereLight).intensity, env.ambientIntensity);

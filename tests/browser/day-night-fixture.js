@@ -32,8 +32,7 @@ export async function observeControls(page) {
 
 export async function activateControl(page, id, touch) {
   const button = page.locator(`#${id}`);
-  await expect(button).toBeVisible();
-  await expect(button).toBeEnabled();
+  await Promise.all([expect(button).toBeVisible(), expect(button).toBeEnabled()]);
   const before = await button.evaluate(button => {
     const bounds = button.getBoundingClientRect();
     const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
@@ -47,15 +46,16 @@ export async function activateControl(page, id, touch) {
   // Keep Playwright's stability/receives-events checks and send one input only.
   if (touch) await button.tap();
   else await button.click();
-  await page.evaluate(start => {
-    window.controlProbe.actions.at(-1).eventsAfterInput = window.controlProbe.events.slice(start);
-  }, before.eventCount);
-  // Never retry input or infer activation from a completed protocol command.
-  await expect.poll(() => page.evaluate(start => window.controlProbe.events.slice(start)
-    .filter(event => event.type === 'click').map(event => ({ target: event.target, trusted: event.trusted })), before.eventCount))
-    .toEqual([{ target: id, trusted: true }]);
-  const events = await page.evaluate(start => window.controlProbe.events.slice(start), before.eventCount);
-  expect(events.filter(event => event.type === 'pointerdown').map(event => event.target)).toEqual([id]);
+  // Read the completed event sequence once per poll. This retains both
+  // assertions without extra CDP round trips while software WebGL is active.
+  await expect.poll(() => page.evaluate(start => {
+    const events = window.controlProbe.events.slice(start);
+    window.controlProbe.actions.at(-1).eventsAfterInput = events;
+    return {
+      clicks: events.filter(event => event.type === 'click').map(event => ({ target: event.target, trusted: event.trusted })),
+      pointerTargets: events.filter(event => event.type === 'pointerdown').map(event => event.target),
+    };
+  }, before.eventCount)).toEqual({ clicks: [{ target: id, trusted: true }], pointerTargets: [id] });
 }
 
 export async function setup(page, elapsedSeconds, { freeze = true } = {}) {

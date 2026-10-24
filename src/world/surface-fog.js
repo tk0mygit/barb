@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export const SURFACE_FOG_CONFIG = Object.freeze({ heights: Object.freeze([0.28, 0.72, 1.16]), size: 400, segments: 32, periodSeconds: 3600 });
+export const SURFACE_FOG_CONFIG = Object.freeze({ heights: Object.freeze([0.28, 0.85, 1.42]), size: 400, segments: 32, periodSeconds: 3600 });
 
 // Three low, gently deformed sheets share one geometry/material. Depth testing
 // clips against boats/shore; soft world-space density has no billboard edges.
@@ -9,7 +9,7 @@ export function createSurfaceFog() {
   const geometry = new THREE.PlaneGeometry(SURFACE_FOG_CONFIG.size, SURFACE_FOG_CONFIG.size, SURFACE_FOG_CONFIG.segments, SURFACE_FOG_CONFIG.segments);
   const material = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, depthTest: true, side: THREE.DoubleSide, forceSinglePass: true, toneMapped: false,
-    uniforms: { fogTime: { value: 0 }, fogAmount: { value: 0 }, fogTint: { value: new THREE.Color() }, boatPosition: { value: new THREE.Vector2() } },
+    uniforms: { fogTime: { value: 0 }, fogDrift: { value: new THREE.Vector2() }, fogAmount: { value: 0 }, fogTint: { value: new THREE.Color() }, boatPosition: { value: new THREE.Vector2() } },
     vertexShader: `
       uniform float fogTime;
       varying vec3 world;
@@ -23,6 +23,7 @@ export function createSurfaceFog() {
     fragmentShader: `
       uniform float fogTime;
       uniform float fogAmount;
+      uniform vec2 fogDrift;
       uniform vec3 fogTint;
       uniform vec2 boatPosition;
       varying vec3 world;
@@ -32,18 +33,21 @@ export function createSurfaceFog() {
         return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
       }
       void main() {
-        float phase = fogTime * 0.00174532925;
-        vec2 drift = vec2(sin(phase), cos(phase)) * vec2(34.0, 22.0);
-        vec2 p = world.xz + drift;
-        float broad = noise(p * 0.055 + world.y * 0.37);
-        float wisps = noise(p * vec2(0.11, 0.28) + broad * 1.8);
-        float cloud = smoothstep(0.35, 0.72, broad * 0.55 + wisps * 0.45);
-        float nearBoat = smoothstep(4.5, 9.0, length(world.xz - boatPosition));
+        float nearBoat = smoothstep(5.5, 11.0, length(world.xz - boatPosition));
         float edge = 1.0 - smoothstep(164.0, 194.0, length(world.xz));
-        // Keep surface scattering faint: the calibrated distance fog supplies
-        // the visibility loss, while these localized wisps reveal its height.
-        float alpha = cloud * nearBoat * edge * fogAmount * 0.06;
-        gl_FragColor = vec4(fogTint, alpha);
+        // Fade out before distant sheets compress into subpixel horizon bands.
+        float localRange = 1.0 - smoothstep(18.0, 52.0, length(world.xz - cameraPosition.xz));
+        float support = nearBoat * edge * localRange;
+        if (support <= 0.0) discard;
+        vec2 p = world.xz + fogDrift;
+        float broad = noise(p * vec2(0.045, 0.055) + world.y * vec2(2.3, 1.1));
+        float wisps = noise(p * vec2(0.10, 0.28) + broad * 1.8 + world.y * vec2(-1.7, 2.9));
+        float cloud = smoothstep(0.43, 0.70, broad) * smoothstep(0.40, 0.68, wisps);
+        // Open gaps between broad patches and narrow strands preserve locality.
+        // Bound the surface veil in dense fog; distance fog owns attenuation.
+        float alpha = cloud * support * min(fogAmount, 0.7) * 0.45;
+        vec3 mistTint = fogTint * 1.45 + vec3(0.008, 0.010, 0.012);
+        gl_FragColor = vec4(mistTint, alpha);
         #include <colorspace_fragment>
       }`,
   });
@@ -56,7 +60,11 @@ export function createSurfaceFog() {
     group,
     update(clock, boat, amount, color) {
       group.visible = amount > 0;
-      material.uniforms.fogTime.value = clock.elapsedSeconds % SURFACE_FOG_CONFIG.periodSeconds;
+      const time = clock.elapsedSeconds % SURFACE_FOG_CONFIG.periodSeconds;
+      material.uniforms.fogTime.value = time;
+      // Identical wind for all fragments/layers; compute once per clock sample.
+      const phase = time * (2 * Math.PI / SURFACE_FOG_CONFIG.periodSeconds);
+      material.uniforms.fogDrift.value.set(Math.sin(phase) * 34, Math.cos(phase) * 22);
       material.uniforms.fogAmount.value = amount;
       material.uniforms.fogTint.value.copy(color);
       material.uniforms.boatPosition.value.set(boat.x, boat.z);
