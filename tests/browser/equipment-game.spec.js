@@ -5,12 +5,21 @@ for (const touch of [false, true]) {
     const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 800, height: 600 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.addInitScript(() => { Math.random = () => window.testRandomValue ?? 0.1; });
+    await page.addInitScript(() => {
+      // This is a transaction/input regression, not an image comparison.
+      // Bound the software WebGL backbuffer without changing CSS viewport,
+      // touch coordinates, simulation steps or the UI screenshot resolution.
+      Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 0.25 });
+      Math.random = () => window.testRandomValue ?? 0.1;
+    });
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
     await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
     const click = locator => touch ? locator.tap({ force: true }) : locator.click({ force: true });
     await click(page.locator('#fish-button'));
-    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-    await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
+    const frozenTime = new Date(await page.evaluate(() => Date.now()));
+    await page.clock.setFixedTime(frozenTime);
+    await page.clock.pauseAt(frozenTime);
+    await page.clock.setSystemTime(frozenTime);
     const tick = () => page.clock.fastForward(250);
     const phase = () => page.locator('#fishing-panel').getAttribute('data-phase');
     const cdp = await context.newCDPSession(page), x = touch ? 300 : 500, y = touch ? 420 : 350;
