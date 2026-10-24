@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
 import { installPausedClock } from './clock-fixture.js';
 
 test('active clock crosses day/night boundaries, pauses with visibility/focus, and lure depth changes on retrieval', async ({ page }) => {

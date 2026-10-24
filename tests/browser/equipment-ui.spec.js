@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
 import { openUIFixture } from './ui-fixture.js';
 
 const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
@@ -13,8 +13,8 @@ async function assertBalance(page, balance) {
 }
 
 for (const touch of [false, true]) {
-  test(`${touch ? 'touch' : 'mouse'}: equipment levels, exact prices, purchases and next-cast performance`, async ({ browser }) => {
-    const context = await browser.newContext({ viewport: touch ? { width: 320, height: 568 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch });
+  test(`${touch ? 'touch' : 'mouse'}: equipment levels, exact prices, purchases and next-cast performance`, async ({ createContext }) => {
+    const context = await createContext({ viewport: touch ? { width: 320, height: 568 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await openUIFixture(page);
@@ -84,7 +84,7 @@ for (const touch of [false, true]) {
     expect(await page.locator('#collection-content').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     await click(page.locator('#collection-close'));
     await openEquipment(page, click); await assertBalance(page, 0);
-    expect(errors).toEqual([]); await context.close();
+    expect(errors).toEqual([]);
   });
 }
 

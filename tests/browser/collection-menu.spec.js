@@ -1,9 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
 import { FISH_SPECIES } from '../../src/game/fish-species.js';
 
 for (const touch of [false, true]) {
-  test(`${touch ? 'touch' : 'mouse'}: undiscovered grid, empty storage, pause and safe input resume`, async ({ browser }) => {
-    const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+  test(`${touch ? 'touch' : 'mouse'}: undiscovered grid, empty storage, pause and safe input resume`, async ({ createContext }) => {
+    const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => { Math.random = () => 0.5; });
@@ -96,7 +96,7 @@ for (const touch of [false, true]) {
     expect(await page.locator('#line-tension').evaluate(el => el.value)).toBe(tension);
     await click(page.locator('#collection-close')); await tick();
     expect(Number(await page.locator('#line-tension').evaluate(el => el.value))).toBeLessThan(Number(tension));
-    expect(errors).toEqual([]); await context.close();
+    expect(errors).toEqual([]);
   });
 }
 

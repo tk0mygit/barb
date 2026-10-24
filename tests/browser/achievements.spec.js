@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
 import { installPausedClock } from './clock-fixture.js';
 import { openUIFixture } from './ui-fixture.js';
 import { NORMAL_ACHIEVEMENTS } from '../../src/game/achievements.js';
@@ -10,8 +10,8 @@ async function openAchievements(page, click = locator => locator.click()) {
   await click(page.locator('[data-view="achievements"]'));
 }
 
-for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: ten achievements, live progress, sales and upgrades in the shared menu`, async ({ browser }) => {
-  const context = await browser.newContext({ viewport: touch ? { width: 320, height: 568 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch });
+for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: ten achievements, live progress, sales and upgrades in the shared menu`, async ({ createContext }) => {
+  const context = await createContext({ viewport: touch ? { width: 320, height: 568 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch });
   const page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await installPausedClock(page); await openUIFixture(page);
@@ -111,7 +111,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: ten achie
   await page.clock.resume(); await page.reload(); await page.waitForFunction(() => Boolean(window.fixture));
   await openAchievements(page, click); await expect(page.locator('.achievement-summary')).toHaveText('解除済み 0 / 10');
   await expect(notice(page)).toBeHidden();
-  expect(errors).toEqual([]); await context.close();
+  expect(errors).toEqual([]);
 });
 
 test('simultaneous awards queue exactly once and expire without frames, including across menu visits', async ({ page }) => {
@@ -156,8 +156,8 @@ test('throttled background timer expires the visible award and preserves pending
   await page.clock.fastForward(1); await expect(notice(page)).toBeHidden();
 });
 
-for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: notice passes pointer input through to the canvas`, async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 320, height: 568 }, hasTouch: touch, isMobile: touch });
+for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: notice passes pointer input through to the canvas`, async ({ createContext }) => {
+  const context = await createContext({ viewport: { width: 320, height: 568 }, hasTouch: touch, isMobile: touch });
   const page = await context.newPage(); await installPausedClock(page); await openUIFixture(page);
   await page.evaluate(async () => {
     const { createFishingHUD } = await import('./src/ui/fishing-hud.js');
@@ -190,5 +190,4 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: notice pa
   expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y).id, { x, y })).toBe('scene');
   if (touch) await page.touchscreen.tap(x, y); else await page.mouse.click(x, y);
   expect(await page.evaluate(() => window.canvasPresses)).toBe(1);
-  await context.close();
 });

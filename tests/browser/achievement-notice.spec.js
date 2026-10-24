@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
 import { installPausedClock } from './clock-fixture.js';
 import { openUIFixture } from './ui-fixture.js';
 
@@ -9,8 +9,8 @@ const layouts = [
 ];
 
 for (const { name, viewport, touch } of layouts) {
-  test(`${name}: hidden notice has no box; one award passes input and expires at 3.5 seconds`, async ({ browser }) => {
-    const context = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch });
+  test(`${name}: hidden notice has no box; one award passes input and expires at 3.5 seconds`, async ({ createContext }) => {
+    const context = await createContext({ viewport, hasTouch: touch, isMobile: touch });
     const page = await context.newPage();
     await installPausedClock(page);
     await openUIFixture(page);
@@ -45,11 +45,10 @@ for (const { name, viewport, touch } of layouts) {
     await expectNoBox();
     await click(page.locator('#collection-close')); await expect(page.locator('#collection-dialog')).toBeHidden();
     expect(await notice.evaluate(el => el.parentElement.id)).toBe('app'); await expectNoBox();
-    await context.close();
   });
 
-  test(`${name}: notice host is settled before modal buttons can be targeted`, async ({ browser }) => {
-    const context = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch });
+  test(`${name}: notice host is settled before modal buttons can be targeted`, async ({ createContext }) => {
+    const context = await createContext({ viewport, hasTouch: touch, isMobile: touch });
     const page = await context.newPage();
     await installPausedClock(page);
     await openUIFixture(page);
@@ -86,6 +85,5 @@ for (const { name, viewport, touch } of layouts) {
     await expect(page.locator('.stored-fish')).toHaveCount(0);
     await expect(page.locator('#achievement-notice')).toContainText('初めての一匹');
     expect(await page.evaluate(() => fixture.achievements.unlockedCount)).toBe(1);
-    await context.close();
   });
 }

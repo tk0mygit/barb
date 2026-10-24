@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
+import { activateButton } from './input-fixture.js';
 
 test('desktop: renders, sails, stops, switches perspective and returns', async ({ page }) => {
   const errors = [];
@@ -35,8 +36,8 @@ test('desktop: renders, sails, stops, switches perspective and returns', async (
   expect(errors).toEqual([]);
 });
 
-test('mobile: touch drag, cancellation and mode controls fit the viewport', async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+test('mobile: touch drag, cancellation and mode controls fit the viewport', async ({ createContext }) => {
+  const context = await createContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -56,5 +57,24 @@ test('mobile: touch drag, cancellation and mode controls fit the viewport', asyn
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/mobile-lake.png' });
   expect(errors).toEqual([]);
-  await context.close();
+});
+
+test('touch: a canvas drag leaves the first menu tap actionable', async ({ createContext }) => {
+  const context = await createContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 0.5 });
+  const page = await context.newPage();
+  await page.goto('./');
+  await expect(page.locator('#status')).toBeHidden();
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 220, y: 510 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 245, y: 410 }] });
+  await expect(page.locator('#motion-label')).toHaveText('航行中');
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(page.locator('#joystick')).toBeHidden();
+  await activateButton(page.locator('#menu-button'), true);
+  await expect(page.locator('#collection-dialog')).toBeVisible();
+  const events = await page.evaluate(() => window.e2eDiagnostics.events.filter(event => event.target === 'menu-button'
+    && ['pointerdown', 'pointerup', 'click'].includes(event.type)).map(({ type, trusted }) => ({ type, trusted })));
+  expect(events).toEqual(['pointerdown', 'pointerup', 'click'].map(type => ({ type, trusted: true })));
+  await activateButton(page.locator('#collection-close'), true);
+  await expect(page.locator('#collection-dialog')).toBeHidden();
 });

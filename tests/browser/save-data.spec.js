@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
 import { openUIFixture } from './ui-fixture.js';
 import { createCatchCollection } from '../../src/game/catch-collection.js';
 import { createAchievements } from '../../src/game/achievements.js';
@@ -21,8 +21,8 @@ function savedSession() {
   return createSaveData({ collection, achievements, boat, clock });
 }
 
-for (const touch of [false, true]) test(`restored domain renders menus silently, rescues fish and notifies only new awards (${touch ? 'touch' : 'mouse'})`, async ({ browser }) => {
-  const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 }, hasTouch: touch });
+for (const touch of [false, true]) test(`restored domain renders menus silently, rescues fish and notifies only new awards (${touch ? 'touch' : 'mouse'})`, async ({ createContext }) => {
+  const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 }, hasTouch: touch });
   const page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));
   const click = locator => touch ? locator.tap() : locator.click();
@@ -48,5 +48,5 @@ for (const touch of [false, true]) test(`restored domain renders menus silently,
   });
   await expect(notice).toContainText('累計10匹');
   expect(await page.evaluate(() => fixture.achievements.snapshot.unlocked.find(item => item.id === 'normal-first-catch').unlockedAt)).toBe('1970-01-01T00:00:01.000Z');
-  expect(errors).toEqual([]); await context.close();
+  expect(errors).toEqual([]);
 });

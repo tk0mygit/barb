@@ -1,11 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
 import { FISHING_SPOTS } from '../../src/world/fishing-spots.js';
 import { createBoatState } from '../../src/game/boat.js';
 
 for (const touch of [false, true]) {
-  test(`${touch ? 'touch' : 'mouse'}: sail to all three spots, see effects, fish inside and leave the range`, async ({ browser }) => {
+  test(`${touch ? 'touch' : 'mouse'}: sail to all three spots, see effects, fish inside and leave the range`, async ({ createContext }) => {
     test.setTimeout(240000);
-    const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+    const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => { Math.random = () => 0.5; });
@@ -96,6 +96,5 @@ for (const touch of [false, true]) {
     expect(sawApproach).toBe(true); expect(sawExit).toBe(true);
     await expect(page.locator('#spot-status')).toBeHidden();
     expect(errors).toEqual([]);
-    await context.close();
   });
 }
