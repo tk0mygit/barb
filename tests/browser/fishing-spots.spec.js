@@ -9,10 +9,14 @@ for (const touch of [false, true]) {
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => { Math.random = () => 0.5; });
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
     await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
     await expect(page.locator('#spot-status')).toBeHidden();
-    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-    await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
+    // No +1s protocol deadline: keep wall time fixed while pausing timers.
+    const frozenTime = new Date(await page.evaluate(() => Date.now()));
+    await page.clock.setFixedTime(frozenTime);
+    await page.clock.pauseAt(frozenTime);
+    await page.clock.setSystemTime(frozenTime);
     const cdp = await context.newCDPSession(page);
     const x = touch ? 195 : 500, y = touch ? 450 : 350;
     const down = async () => touch

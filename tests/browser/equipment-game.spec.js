@@ -20,6 +20,7 @@ for (const touch of [false, true]) {
     await page.clock.setFixedTime(frozenTime);
     await page.clock.pauseAt(frozenTime);
     await page.clock.setSystemTime(frozenTime);
+    await page.clock.runFor(16); // Render the fishing controls after the mode click.
     const tick = () => page.clock.fastForward(250);
     const phase = () => page.locator('#fishing-panel').getAttribute('data-phase');
     const cdp = await context.newCDPSession(page), x = touch ? 300 : 500, y = touch ? 420 : 350;

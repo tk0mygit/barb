@@ -68,6 +68,8 @@ async function pauseClock(page) {
   await page.clock.setFixedTime(now);
   await page.clock.pauseAt(now);
   await page.clock.setSystemTime(now);
+  // Flush the mode-change frame before addressing controls rendered by rAF.
+  await page.clock.runFor(16);
 }
 async function castAndHook(page, input) {
   const tick = () => page.clock.fastForward(250);
