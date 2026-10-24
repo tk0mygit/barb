@@ -8,12 +8,40 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: pages-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build:
+    name: ci-required
     runs-on: ubuntu-latest
     steps:
+      - name: Record validation scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          VALIDATION_REF: ${{ github.ref }}
+          VALIDATION_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HEAD_BRANCH: ${{ github.head_ref || github.ref_name }}
+          BASE_BRANCH: ${{ github.base_ref || github.ref_name }}
+        run: |
+          {
+            printf '### CI validation plan\n\n'
+            printf -- '- Event: `%s`\n' "$EVENT_NAME"
+            printf -- '- HEAD branch / SHA: `%s` / `%s`\n' "$HEAD_BRANCH" "$HEAD_SHA"
+            printf -- '- Base branch: `%s`\n' "$BASE_BRANCH"
+            printf -- '- Validation ref / SHA: `%s` / `%s`\n' "$VALIDATION_REF" "$VALIDATION_SHA"
+            printf -- '- Unit tests / build: 実行予定\n'
+            if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "workflow_dispatch" ]]; then
+              printf -- '- E2E: 全件実行予定（結果は各stepを参照）\n'
+            else
+              printf -- '- E2E: 未実行（設計による省略）\n'
+            fi
+            if [[ "$EVENT_NAME" == "push" && "$VALIDATION_REF" == "refs/heads/main" ]]; then
+              printf -- '- Pages: 単体テスト・ビルド成功後にデプロイ予定\n'
+            else
+              printf -- '- Pages: デプロイ対象外\n'
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -22,22 +50,26 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Set up Chromium
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+        run: npx playwright install --with-deps chromium
+      - name: Run full E2E suite
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+        run: npm run test:e2e
       - name: Upload browser failure diagnostics
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
         with:
           name: browser-test-results
           path: test-results/
           if-no-files-found: ignore
           retention-days: 14
       - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           path: dist
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     permissions:
