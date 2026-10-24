@@ -11,6 +11,8 @@ import { createFishingInput } from './input/fishing.js';
 import { createFishingView } from './rendering/fishing.js';
 import { createFishingHUD } from './ui/fishing-hud.js';
 import { createFishingAudio } from './ui/fishing-audio.js';
+import { createAudioSession } from './audio/audio-session.js';
+import { createAmbientAudio } from './audio/ambient-audio.js';
 import { shoreRadius } from './world/config.js';
 import { getFishingSpotStatus } from './game/fishing-spots.js';
 import { createFishingSpotsView } from './rendering/fishing-spots.js';
@@ -34,7 +36,7 @@ function showError(message) {
   document.querySelector('#fish-button').disabled = true;
   document.querySelector('#menu-button').disabled = true;
 }
-let autosave;
+let autosave, environmentAudio, audioSession;
 try {
   // Choose one complete domain before anything subscribes or renders. Storage
   // remains read-only until the scene, controls and every HUD are ready.
@@ -81,8 +83,12 @@ try {
   });
   controls.setEnabled(false);
   const fishingView = createFishingView(scene);
-  const audio = createFishingAudio();
-  document.addEventListener('pointerdown', () => audio.unlock(), { passive: true });
+  audioSession = createAudioSession();
+  const ambientAudio = environmentAudio = createAmbientAudio({ session: audioSession, clock: gameClock });
+  const audio = createFishingAudio({ session: audioSession });
+  const unlockAudio = event => { if (event.isTrusted) ambientAudio.unlock(); };
+  document.addEventListener('pointerdown', unlockAudio, { passive: true });
+  document.addEventListener('keydown', unlockAudio);
   const rig = createCameraRig(camera, boat);
   function changeMode(mode) {
     if (mode === 'fishing') { if (!enterFishing(boat)) return; }
@@ -112,6 +118,7 @@ try {
     },
   });
   const collectionMenu = createCollectionMenu({
+    ambientAudio,
     collection,
     achievements,
     onSale: receipt => salesHUD.notify(receipt),
@@ -119,6 +126,7 @@ try {
     canPurchase: () => boat.mode === 'sailing' || (boat.mode === 'fishing' && fishing.state.phase === PHASE.READY),
     canOpen: () => fishing.state.phase !== PHASE.RESULT && !document.querySelector('#catch-dialog').open,
     onOpenChange: open => {
+      ambientAudio.setPaused('menu', open);
       salesHUD.update();
       achievementNotice.update();
       controls.setEnabled(!open);
@@ -153,15 +161,21 @@ try {
   window.addEventListener('resize', resize);
   resize();
   let previous = performance.now(), elapsed = 0;
-  let focused = true;
-  window.addEventListener('blur', () => { focused = false; });
-  window.addEventListener('focus', () => { focused = true; previous = performance.now(); });
+  let focused = document.hasFocus();
+  ambientAudio.setPaused('blur', !focused);
+  ambientAudio.setPaused('hidden', document.hidden);
+  window.addEventListener('blur', () => { focused = false; ambientAudio.setPaused('blur', true); });
+  window.addEventListener('focus', () => { focused = true; previous = performance.now(); ambientAudio.setPaused('blur', false); });
   document.addEventListener('visibilitychange', () => {
+    ambientAudio.setPaused('hidden', document.hidden);
     previous = performance.now();
     if (document.hidden) autosave.flush();
   });
-  window.addEventListener('pagehide', () => autosave.flush());
-  window.addEventListener('pageshow', () => autosave.checkForExternalChanges());
+  window.addEventListener('pagehide', () => { ambientAudio.setPaused('page', true); autosave.flush(); });
+  window.addEventListener('pageshow', () => {
+    previous = performance.now();
+    ambientAudio.setPaused('page', false); autosave.checkForExternalChanges();
+  });
   window.addEventListener('storage', event => {
     if (event.key === null || SAVE_STORAGE_KEYS.includes(event.key)) autosave.checkForExternalChanges();
   });
@@ -174,6 +188,7 @@ try {
     // existing safety cap; hidden/unfocused time is not caught up on resume.
     gameClock.step(frameSeconds);
     const clockState = gameClock.state;
+    ambientAudio.update();
     elapsed += dt;
     const input = controls.read(dt);
     const phaseBefore = fishing.state.phase;
@@ -206,6 +221,7 @@ try {
     event.preventDefault();
     controls.setEnabled(false);
     renderer.setAnimationLoop(null);
+    ambientAudio.dispose(); audioSession.dispose();
     autosave.dispose();
     showError('描画が中断されました。ページを再読み込みしてください。');
   });
@@ -214,6 +230,7 @@ try {
   autosave.start();
   controls.setEnabled(true);
 } catch (error) {
+  environmentAudio?.dispose(); audioSession?.dispose();
   autosave?.dispose();
   console.error(error);
   showError('3D表示を開始できませんでした。WebGL 2対応のブラウザで、ハードウェアアクセラレーションを有効にしてください。');

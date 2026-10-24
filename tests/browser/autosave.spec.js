@@ -5,6 +5,10 @@ import { createBoatState } from '../../src/game/boat.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 import { createSaveData } from '../../src/game/save-data.js';
 
+// Match the other production-game E2E fixtures: retain CSS viewport/touch
+// coordinates while bounding software WebGL pixel work on the test runner.
+test.use({ deviceScaleFactor: 0.5 });
+
 const KEYS = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
 const envelope = (generation, data) => JSON.stringify({ storageVersion: 1, generation, data });
 const phase = page => page.locator('#fishing-panel').getAttribute('data-phase');
@@ -55,10 +59,17 @@ async function gameInput(page, touch) {
     up: () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : page.mouse.up(),
   };
 }
-async function pauseClock(page, install = false) {
-  if (install) await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-  const now = await page.evaluate(() => Date.now());
-  await page.clock.pauseAt(new Date(now + 1000));
+async function pauseClock(page) {
+  const now = new Date(await page.evaluate(() => Date.now()));
+  // Freeze wall time before the next protocol round trip. Under software
+  // WebGL load, sampling Date.now() then targeting +1s can already be in the
+  // past when pauseAt reaches the page. No timing margin or longer wait is
+  // needed; restore advancing wall time after the timers are paused.
+  await page.clock.setFixedTime(now);
+  await page.clock.pauseAt(now);
+  await page.clock.setSystemTime(now);
+  // Flush the mode-change frame before addressing controls rendered by rAF.
+  await page.clock.runFor(16);
 }
 async function castAndHook(page, input) {
   const tick = () => page.clock.fastForward(250);
@@ -106,10 +117,13 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: real capt
   const page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => { Math.random = () => window.testRandomValue ?? 0.1; });
+  // Install before autosave captures Date.now/performance and starts timers.
+  // Replacing the monotonic origin after startup invalidates its rate limit.
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
   await ready(page);
   const input = await gameInput(page, touch);
   await input.click(page.locator('#fish-button'));
-  await pauseClock(page, true);
+  await pauseClock(page);
   await castAndHook(page, input); await land(page, input);
   // Capture is saved while RESULT is open, together with its earned award.
   await page.clock.fastForward(1000);
@@ -187,10 +201,11 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: real capt
 });
 
 test('reload during a real fight resumes safely in sailing mode and READY', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
   await page.addInitScript(() => { Math.random = () => window.testRandomValue ?? 0.1; });
   await ready(page);
   const input = await gameInput(page, false);
-  await input.click(page.locator('#fish-button')); await pauseClock(page, true);
+  await input.click(page.locator('#fish-button')); await pauseClock(page);
   await castAndHook(page, input);
   await checkpoint(page);
   await page.clock.resume(); await page.reload();

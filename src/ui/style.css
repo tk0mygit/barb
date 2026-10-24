@@ -221,3 +221,11 @@ dialog > #achievement-notice { position: static; flex-shrink: 0; margin: 8px 0; 
   #achievement-notice { padding: 4px 12px; }
   dialog > #achievement-notice { margin: 4px 0; }
 }
+
+.sound-settings { max-width: 540px; line-height: 1.7; overflow-wrap: anywhere; }
+.sound-settings button { margin: 16px 0; justify-content: center; letter-spacing: 0; }
+.sound-settings label { display: block; margin-top: 20px; }
+.sound-settings input[type="range"] { display: block; width: 100%; min-height: 48px; margin: 0; accent-color: #eee9d7; touch-action: pan-y; }
+.sound-settings input:focus-visible { outline: 2px solid #f2c96c; outline-offset: 2px; }
+.sound-settings output { display: block; text-align: right; }
+#audio-preferences-status { font-size: 12px; color: #ded8be; }

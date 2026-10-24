@@ -92,7 +92,9 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
     page.on('pageerror', e => errors.push(e.message));
     // Boundary tests freeze rAF; operation regressions use the real timeline.
     // Do not compress seconds between native gestures with a mocked JS clock.
-    await setup(page, 270, { freeze: false });
+    // Start early enough that the entire real-time operation test stays at
+    // night, including slow software WebGL runs (the test budget is 120s).
+    await setup(page, 210, { freeze: false });
     await observeControls(page);
     try {
       // Landscape controls occupy the right half; start gestures on clear canvas.
@@ -129,6 +131,22 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
         expect(bounds.x + bounds.width).toBeLessThanOrEqual(width); expect(bounds.y + bounds.height).toBeLessThanOrEqual(height);
       }
       const path = testInfo.outputPath('moon-fishing.png');
+      // The moon moves on the live shared clock. Follow it with ordinary
+      // captured drags instead of assuming a fixed look still frames it after
+      // all protocol round trips. No game state or input timestamps are forced.
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const screen = await page.evaluate(() => window.lightingProbe.moonScreen);
+        if (screen.slice(0, 2).every(v => Math.abs(v) < 0.6)) break;
+        const dx = Math.abs(screen[0]) < 0.35 ? 0 : Math.sign(screen[0]) * Math.min(width * 0.2, 80);
+        const dy = Math.abs(screen[1]) < 0.35 ? 0 : -Math.sign(screen[1]) * Math.min(height * 0.12, 45);
+        await down(); await move(dy, dx);
+        const movedAt = await page.evaluate(() => window.lightingProbe.renders);
+        // Wait for an actual frame after movement before releasing capture;
+        // pointerup clears any look delta that has not yet been consumed.
+        await expect.poll(() => page.evaluate(() => window.lightingProbe.renders)).toBeGreaterThan(movedAt);
+        await up();
+      }
+      await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-time-of-day', 'night');
       await expect.poll(() => page.evaluate(() => window.lightingProbe.moonScreen.slice(0, 2).every(v => Math.abs(v) < 1))).toBe(true);
       const moonScreen = await page.evaluate(() => window.lightingProbe.moonScreen);
       expect(Math.abs(moonScreen[0])).toBeLessThan(1); expect(Math.abs(moonScreen[1])).toBeLessThan(1);
