@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { installPausedClock } from './clock-fixture.js';
 import { openUIFixture } from './ui-fixture.js';
 
 async function assertNotices(page, visible) {
@@ -8,9 +9,8 @@ async function assertNotices(page, visible) {
   }
 }
 test.beforeEach(async ({ page }) => {
+  await installPausedClock(page);
   await openUIFixture(page);
-  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
 });
 
 test('both notices expire at 5 seconds without animation frames or hiding the wallet', async ({ page }) => {

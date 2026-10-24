@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { installPausedClock } from './clock-fixture.js';
 import { Color } from 'three';
 import { sampleNightFog, getNightFogDensity } from '../../src/world/night-fog.js';
 import { createCatchCollection } from '../../src/game/catch-collection.js';
@@ -132,8 +133,7 @@ export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
     });
   }, data);
   if (freeze) {
-    await page.clock.install({ time: now });
-    await page.clock.pauseAt(new Date(+now + 1000));
+    await installPausedClock(page, now);
   }
   await page.goto('./');
   if (freeze) await tick(page);

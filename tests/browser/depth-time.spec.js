@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { installPausedClock } from './clock-fixture.js';
 
 test('active clock crosses day/night boundaries, pauses with visibility/focus, and lure depth changes on retrieval', async ({ page }) => {
   test.setTimeout(180000);
@@ -7,8 +8,7 @@ test('active clock crosses day/night boundaries, pauses with visibility/focus, a
   // Freeze the clock before startup; shader compilation may take longer than
   // one real second, so installing/pauseAt after navigation can target the past.
   const now = new Date('2026-01-01T00:00:00Z');
-  await page.clock.install({ time: now });
-  await page.clock.pauseAt(new Date(+now + 1000));
+  await installPausedClock(page, now);
   await page.goto('./'); await page.clock.fastForward(250);
   await expect(page.locator('#status')).toBeHidden();
   await page.locator('#fish-button').click(); await page.clock.fastForward(250);
