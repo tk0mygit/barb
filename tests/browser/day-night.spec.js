@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
-import { Quaternion, Vector3 } from 'three';
 import { tick, read, setup, assertEnvironment, observeControls, activateControl } from './day-night-fixture.js';
 
 test.use({ deviceScaleFactor: 0.5 });
@@ -135,22 +134,16 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
       // The moon moves on the live shared clock. Follow it with ordinary
       // captured drags instead of assuming a fixed look still frames it after
       // all protocol round trips. No game state or input timestamps are forced.
-      const forward = rotation => new Vector3(0, 0, -1).applyQuaternion(new Quaternion().fromArray(rotation));
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const view = await page.evaluate(() => ({ rotation: window.lightingProbe.camera,
-          direction: window.lightingProbe.last.moonDirection, screen: window.lightingProbe.moonScreen }));
-        if (view.screen.slice(0, 2).every(v => Math.abs(v) < 0.6)) break;
-        const current = forward(view.rotation), moon = new Vector3().fromArray(view.direction);
-        const yaw = Math.atan2(current.x, -current.z), pitch = Math.asin(current.y);
-        const difference = Math.atan2(moon.x, -moon.z) - yaw;
-        const turn = Math.atan2(Math.sin(difference), Math.cos(difference));
-        const dx = Math.max(-width * 0.3, Math.min(width * 0.3, turn / 0.004));
-        const dy = Math.max(-height * 0.25, Math.min(height * 0.25, (pitch - Math.asin(moon.y)) / 0.004));
-        const nextYaw = yaw + dx * 0.004, nextPitch = pitch - dy * 0.004;
-        const expected = new Vector3(Math.sin(nextYaw) * Math.cos(nextPitch), Math.sin(nextPitch), -Math.cos(nextYaw) * Math.cos(nextPitch));
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const screen = await page.evaluate(() => window.lightingProbe.moonScreen);
+        if (screen.slice(0, 2).every(v => Math.abs(v) < 0.6)) break;
+        const dx = Math.abs(screen[0]) < 0.35 ? 0 : Math.sign(screen[0]) * Math.min(width * 0.2, 80);
+        const dy = Math.abs(screen[1]) < 0.35 ? 0 : -Math.sign(screen[1]) * Math.min(height * 0.12, 45);
         await down(); await move(dy, dx);
-        // Keep the pointer held until a real frame consumes its movement.
-        await expect.poll(async () => forward(await page.evaluate(() => window.lightingProbe.camera)).angleTo(expected)).toBeLessThan(0.08);
+        const movedAt = await page.evaluate(() => window.lightingProbe.renders);
+        // Wait for an actual frame after movement before releasing capture;
+        // pointerup clears any look delta that has not yet been consumed.
+        await expect.poll(() => page.evaluate(() => window.lightingProbe.renders)).toBeGreaterThan(movedAt);
         await up();
       }
       await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-time-of-day', 'night');
