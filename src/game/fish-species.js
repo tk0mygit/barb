@@ -4,9 +4,7 @@
 // Resistance = baseResistance + (length - minLengthCm) / lengthScaleCm
 //              + surgeAmplitude * sin(seconds * surgeFrequency), in radians/second.
 // All species can be encountered; lure/appearance balance lives in separate modules.
-function species(data) {
-  return Object.freeze({ ...data, weight: Object.freeze(data.weight), fight: Object.freeze(data.fight) });
-}
+import { defineFishSpecies as species, createFishSpeciesRegistry } from './fish-species-registry.js';
 
 // Keep the existing ID, display name and Phase 2 balance for compatibility.
 export const BLACK_BASS = species({
@@ -20,7 +18,7 @@ export const BLACK_BASS = species({
 });
 
 // Stable specification order, suitable for a future encyclopedia. Add records here.
-export const FISH_SPECIES = Object.freeze([
+const registry = createFishSpeciesRegistry([
   BLACK_BASS,
   species({
     id: 'smallmouth-bass', name: 'スモールマウスバス', minLengthCm: 20, maxLengthCm: 50,
@@ -111,10 +109,10 @@ export const FISH_SPECIES = Object.freeze([
     image: new URL('../assets/fish/arowana.svg', import.meta.url).href,
   }),
 ]);
+export const FISH_SPECIES = registry.species;
 
-const speciesById = new Map(FISH_SPECIES.map(fish => [fish.id, fish]));
 // Unknown IDs deliberately return undefined; never silently substitute another fish.
-export function getFishSpecies(id) { return speciesById.get(id); }
+export function getFishSpecies(id) { return registry.get(id); }
 
 export function calculateFishWeightKg(id, lengthCm) {
   const fish = getFishSpecies(id);

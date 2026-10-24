@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { FISH_SPECIES, BLACK_BASS, getFishSpecies, calculateFishWeightKg } from '../src/game/fish-species.js';
 import { BLACK_BASS as legacyBass } from '../src/game/fishing-config.js';
+import { validateFishImage } from '../scripts/lib/fish-image-validation.js';
 
 const expectedIds = ['black-bass', 'smallmouth-bass', 'bluegill', 'rainbow-trout', 'brown-trout', 'iwana', 'northern-pike', 'european-perch', 'walleye', 'catfish', 'alligator-gar', 'arowana'];
 
@@ -45,20 +46,16 @@ test('length, mass, resistance and price data stay within the provisional game e
   }
 });
 
-test('each species references its own existing lightweight local SVG', () => {
+test('each species references its own validated local SVG or transparent PNG', () => {
   assert.equal(new Set(FISH_SPECIES.map(fish => fish.image)).size, 12);
   const contents = new Set();
   for (const fish of FISH_SPECIES) {
     const url = new URL(fish.image);
     assert.equal(url.protocol, 'file:');
-    assert.ok(url.pathname.endsWith('.svg'));
-    const svg = readFileSync(url, 'utf8');
-    assert.match(svg, /<svg\s[^>]*xmlns="http:\/\/www.w3.org\/2000\/svg"/);
-    assert.match(svg, /viewBox="0 0 640 280"/);
-    assert.match(svg, /<\/svg>/);
-    assert.doesNotMatch(svg, /<script|<foreignObject|(?:href|src)\s*=|\bon\w+\s*=/i);
-    assert.ok(Buffer.byteLength(svg) < 10000);
-    contents.add(svg);
+    const bytes = readFileSync(url);
+    const image = validateFishImage(url.pathname, bytes);
+    assert.ok(image.width > 0 && image.height > 0);
+    contents.add(bytes.toString('base64'));
   }
   assert.equal(contents.size, 12);
 });

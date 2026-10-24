@@ -78,7 +78,8 @@ button:disabled { opacity: 0.5; cursor: wait; }
 #catch-dialog { color: #f4f2e6; background: #173d38; border: 1px solid #e0d5a980; border-radius: 8px; padding: 28px; width: min(520px, 90vw); max-height: 90dvh; overflow-y: auto; text-align: center; }
 #catch-dialog::backdrop { background: #071f22c9; }
 #catch-dialog h2 { font-size: 24px; font-weight: 400; letter-spacing: 3px; }
-#catch-image { display: block; width: 100%; height: auto; background: #ced5b6; border-radius: 4px; }
+.fish-image-frame { position: relative; display: block; width: 100%; aspect-ratio: 640 / 280; overflow: hidden; background: #ced5b6; border-radius: 4px; }
+.fish-image-frame > img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
 #catch-dialog dl { display: flex; justify-content: space-around; margin: 24px 0; }
 #catch-dialog dt { font-size: 11px; opacity: 0.7; }
 #catch-dialog dd { margin: 8px 0 0; font-size: 27px; font-variant-numeric: tabular-nums; }
@@ -93,7 +94,7 @@ button:disabled { opacity: 0.5; cursor: wait; }
   #fishing-panel { top: 100px; left: 22px; width: 230px; padding: 8px 16px; }
   .fishing .bottom-bar { left: auto; width: min(300px, 46vw); grid-template-columns: 1fr; }
   .fishing .telemetry, .fishing .edition, .fishing .compass { display: none; }
-  #catch-image { max-height: 100px; object-fit: contain; }
+  #catch-dialog .fish-image-frame { height: 100px; aspect-ratio: auto; }
   #catch-dialog { padding: 14px 24px; }
   #catch-dialog h2, #catch-dialog dl { margin: 10px 0; }
 }
@@ -115,10 +116,10 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .fish-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .fish-card { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: start; gap: 9px; padding: 12px; border: 1px solid #eee9d745; border-radius: 4px; text-align: center; color: #f4f2e6; background: #214a40; font-size: 12px; letter-spacing: 0; }
 button.fish-card:hover { background: #335e4c; }
-.fish-card img, .fish-detail img, .stored-fish img { width: 100%; height: auto; object-fit: contain; background: #ced5b6; border-radius: 3px; }
+.fish-card .fish-image-frame, .fish-detail .fish-image-frame, .stored-fish .fish-image-frame { border-radius: 3px; flex-shrink: 0; }
 .fish-card small { font-size: 10px; opacity: 0.8; }
 .fish-detail { max-width: 580px; margin: auto; }
-.fish-detail img { max-height: 220px; }
+.fish-detail .fish-image-frame { max-height: 220px; }
 .fish-description { font-size: 14px; line-height: 2; }
 .fish-detail dl { display: grid; gap: 14px; }
 .fish-detail dl > div { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; border-bottom: 1px solid #eee9d730; padding-bottom: 10px; }

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { FISH_SPECIES, getFishSpecies, calculateFishWeightKg } from '../../src/game/fish-species.js';
 import { getSpeciesProbabilities, sampleFishSpecies } from '../../src/game/fish-encounters.js';
 import { installPausedClock } from './clock-fixture.js';
+import { validateFishImage } from '../../scripts/lib/fish-image-validation.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
 test.use({ deviceScaleFactor: 0.5 });
@@ -85,14 +86,19 @@ async function assertCatch(page, speciesId, size = 0.5) {
   await expect(page.locator('#catch-length')).toHaveText(`${length.toFixed(1)} cm`);
   await expect(page.locator('#catch-weight')).toHaveText(`${calculateFishWeightKg(species.id, length).toFixed(2)} kg`);
   await expect(page.locator('#catch-image')).toHaveAttribute('alt', `${species.name}の側面イラスト`);
-  // Compare the loaded SVG, not just its alt text; Vite may inline small assets.
+  const expectedBytes = readFileSync(new URL(species.image));
+  const expectedImage = validateFishImage(new URL(species.image).pathname, expectedBytes);
+  // Compare actual bytes/content and decoded dimensions; Vite may inline assets.
   const actual = await page.locator('#catch-image').evaluate(async img => {
     await img.decode();
     if (img.naturalWidth <= 0) throw new Error('Image did not load');
-    return (await fetch(img.currentSrc)).text();
+    return { bytes: [...new Uint8Array(await (await fetch(img.currentSrc)).arrayBuffer())], width: img.naturalWidth, height: img.naturalHeight };
   });
-  const normalize = svg => svg.replaceAll('"', "'").replace(/>\s+</g, '><').replace(/\s+/g, ' ').trim();
-  expect(normalize(actual)).toBe(normalize(readFileSync(new URL(species.image), 'utf8')));
+  expect(actual.width / actual.height).toBeCloseTo(expectedImage.width / expectedImage.height, 2);
+  if (expectedImage.format === 'svg') {
+    const normalize = svg => svg.replaceAll('"', "'").replace(/>\s+</g, '><').replace(/\s+/g, ' ').trim();
+    expect(normalize(Buffer.from(actual.bytes).toString('utf8'))).toBe(normalize(expectedBytes.toString('utf8')));
+  } else expect(Buffer.from(actual.bytes)).toEqual(expectedBytes);
 }
 async function land(page, input, speciesId) {
   let held = false;

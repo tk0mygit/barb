@@ -15,8 +15,10 @@ function element(tag, text, className) {
 }
 function fishImage(src, name) {
   const image = element('img');
-  image.src = src; image.alt = name; image.width = 640; image.height = 280;
-  image.loading = 'lazy'; return image;
+  image.src = src; image.alt = name;
+  image.loading = 'lazy';
+  const frame = element('span', undefined, 'fish-image-frame');
+  frame.append(image); return frame;
 }
 
 // One native modal owns menu, grid, detail and storage. No nested dialogs;
