@@ -3,5 +3,6 @@ dist/
 .playwright/
 playwright-report/
 test-results/
+.ci/
 *.local
 .DS_Store

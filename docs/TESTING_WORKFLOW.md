@@ -1,72 +1,179 @@
 # BARBの検証・失敗調査
 
-Codexは原因調査、実装、単体テスト、ビルド、必要な関連E2EとPR作成を担当する。
-GitHub ActionsはPR作成・更新時に `npm ci`、`npm test`、`npm run build`、
-Chromiumセットアップ、`npm run test:e2e` を実行する。全件E2Eの実行場所と最終確認担当をCI・PMへ移すもので、
-全件検証を廃止するものではない。
+Codexは原因調査、実装、単体テスト、ビルド、必要な局所E2EとPR作成を担当する。
+PRのGitHub Actionsは全PRで `npm ci`、`npm test`、`npm run build` を実行したうえで、
+変更リスクに応じてE2Eを選択する。判定が不明なら全件検証へ倒す。
+CodexはPRへ検証結果・未実行項目・未解決事項を記録し、URLの報告後は終了する。
+CI完了待機・継続ポーリング・ローカル全件E2Eは行わない。
 
-CodexはPRに局所検証結果、未実行項目、未解決の原因を記載し、URLの報告後は終了する。
-CI完了を待機・継続監視しない。PMが最新HEADのCIと差分を確認し、失敗時は同じPRの
-Codexスレッドで追加修正を指示する。最新HEADの `ci-required`（全件E2Eを含む）の成功と
-PMレビューを満たしてから、ユーザーだけがマージする。そのmainへのpushを受けて
-GitHub Actionsが自動デプロイする。再実行でのみ通ったケースは解決扱いにせず、
-最初の失敗の診断を残し、原因が確認できた範囲と仮説を分ける。
+PMが最新HEADの `ci-required`、分類の妥当性、実際のE2E実行結果、差分を確認し、
+現在のmainとの統合可能性を判断する。ユーザーだけがマージする。そのmain pushを受けて
+GitHub Actionsが自動デプロイする。失敗時は同じPRのCodexスレッドで修正を指示する。
+再実行でのみ通ったケースは解決扱いにせず、最初の診断を残し、確認済みの原因と仮説を分ける。
 
-## P3-Aのイベント別CI
+## P3-Bのイベント別CI
 
-P3-Aではマージ後の重複だけを削減する。文書のみのPRも全件E2Eの対象で、
-L0／L1／L2の選択実行とscheduleはまだ導入しない。
-
-| イベント | 共通検証 | Chromium・全件E2E | Pages |
+| イベント | 共通検証 | Chromium・E2E | Pages |
 | --- | --- | --- | --- |
-| main宛ての `pull_request` | `npm ci` → 単体テスト → ビルド | 全件実行 | デプロイしない |
+| main宛ての `pull_request` | `npm ci` → 単体テスト → ビルド | L0／L1／L2に従う | デプロイしない |
 | mainへの `push` | `npm ci` → 単体テスト → ビルド | 未実行（設計による省略） | 成功後にアップロード・デプロイ |
-| `workflow_dispatch`（main指定を含む） | `npm ci` → 単体テスト → ビルド | 全件実行 | デプロイしない |
+| `workflow_dispatch`（main指定を含む） | `npm ci` → 単体テスト → ビルド | 必ず全件 | デプロイしない |
+| 将来の `schedule`（未有効化） | `npm ci` → 単体テスト → ビルド | mainを必ず全件 | デプロイしない |
 
-PR・手動実行の診断成果物は引き続き `browser-test-results` として14日間保持する。
-main pushではChromiumセットアップも全件E2Eも行わず、そのrunがマージ後のmainから
-ビルドした `dist` を公開する。PRのビルド成果物や過去のテスト成功は流用しない。
-
-検証ジョブ `build` の表示名は `ci-required` に固定する。PRではジョブ全体の条件や
-pathsフィルターを設けず、単体テスト・ビルド・全件E2Eを同じジョブで順に実行する。
-失敗の無視や集約用の成功ジョブは設けない。診断アップロードが成功しても先行する失敗は
-残り、中断は中断として扱う。更新されたHEADは別runで検証するため、古いHEADの成功を
-新しいHEADの成功として扱わない。必須チェックとしての登録などブランチ保護の変更は、
-Codexが無断で行わない。
-
-Pagesアップロードと `deploy` ジョブの条件はともに
-`github.event_name == 'push' && github.ref == 'refs/heads/main'` とする。
-アップロードは通常の成功条件を維持し、`deploy` は `needs: build` に依存するため、
-単体テスト・ビルド・アップロードの失敗時や中断時には公開しない。手動実行はmainでも
-デプロイ対象外となり、将来scheduleを追加してもこの条件では公開されない。
+P3-Aのマージ後の重複削減を維持する。main pushはChromiumもE2Eも起動せず、そのrunが
+マージ後のmainから生成した `dist` を公開する。PR成果物や過去のテスト成功は流用しない。
+Pagesアップロードと `deploy` の条件はともに
+`github.event_name == 'push' && github.ref == 'refs/heads/main'`。
+アップロードは通常の成功条件を保ち、`deploy` は `needs: build` に依存する。
+検証の失敗・中断時、PR、手動検証、将来の定期検証では公開しない。
 
 concurrencyはワークフロー名・イベント名・refごとに分離する。同じPRの更新では古いrunを
-キャンセルするが、mainへのpushと同じrefの手動検証は互いにキャンセルしない。
-将来のscheduleも別イベントのグループになる。
+中断するが、PR・main push・手動検証・将来の定期検証は互いにキャンセルしない。
+中断されたrunは最新HEADの成功条件を満たさない。
 
-`Record validation scope` はログとJob Summaryにイベント、HEADブランチ・SHA、
-対象ブランチ、検証ref・SHAを記録する。PRの検証ref・SHAはcheckoutするマージ用ref・SHAで、
-PRのHEAD SHAと区別する。表示は実行予定であり、実際の成否は各stepとジョブで確認する。
-main pushのE2Eは成功と表現せず「未実行（設計による省略）」と明記する。
+## リスク分類と選択範囲
 
-PMはPRの最新HEADで全件CIと差分を確認する。ユーザーによるマージ後は、mainのrunで
-Chromium・E2Eが実際にスキップされ、単体テスト・ビルド・Pagesアップロード・デプロイが
-成功したことを確認する。P3-Aのマージ・デプロイ確認後にP3-Bへ進み、選択E2Eと
-定期全件E2Eの追加に合わせて運用文書を再更新する。
+| レベル | 判定 | 実行するE2E |
+| --- | --- | --- |
+| L0 | 登録済みのREADME・説明文書だけ | 未実行。単体テスト・ビルドは必須 |
+| L1 | 対応表で影響範囲を明示した局所変更だけ | PCスモーク＋タッチスモーク＋関連specの和集合 |
+| L2 | 高リスク・未知・分類不能、差分取得や選択結果の不整合 | 全件 |
+
+L0の初期許可対象は `README.md` と `docs/` 直下の説明文書
+`SAVE_DATA.md`、`FISH_SPECIES.md`、`FISH_SALES.md`、`FISHING_SPOTS.md`、
+`FISHING_BALANCE.md`、`EQUIPMENT_UPGRADES.md`、`DEPTH_AND_TIME.md`、
+`DAY_NIGHT_LIGHTING.md`、`CATCH_COLLECTION.md`、`AUDIO_SYSTEM.md`、`ACHIEVEMENTS.md`。
+新規・未知の文書は運用ルールを含む可能性があるため、確認して許可対象へ追加するまでL2とする。
+文書と実装の混在は厳しい側を採用する。複数のL1実装変更は関連specの和集合を実行するが、
+複数領域のspecだけを変更した場合は保守的にL2とする。分類対象に未登録のspecや、
+既存specの削除もL2。個別specの限定変更をL1にするときも、変更されたspec自身を必ず含める。
+導入後1〜2週間は保守的に運用し、実測・依存関係の確認なしにL1を拡大しない。
+
+`AGENTS.md`、`docs/TESTING_WORKFLOW.md`、GitHub Actions、選択スクリプトとそのテスト、
+Playwright設定、共通fixture、ビルド設定・依存関係・lockfileはL2。
+`src/main.js`、入力、ゲーム時計・状態遷移、セーブ・復元・検証、共通描画・環境、
+`src/audio/audio-session.js` など共有音声ライフサイクル、複数機能を横断する変更もL2。
+未知パス・影響範囲が曖昧なUI変更をL0／L1に推定しない。P3-BのPR自身もL2となる。
+
+### L1対応表
+
+対応表は `scripts/ci-risk.js` が唯一の判定元。独立した出力・表示処理に限定し、
+ゲーム状態・入力・時計・セーブの変更へ自動拡張しない。
+
+| 変更ファイル | 関連spec（すべて `tests/browser/`） |
+| --- | --- |
+| `src/audio/generated-sources.js`、`src/audio/ambient-player.js` | `audio.spec.js`、`audio-gain.spec.js` |
+| `src/ui/sound-settings.js` | `audio.spec.js`、`collection-menu.spec.js` |
+| `src/ui/achievements-view.js` | `achievements.spec.js`、`achievement-notice.spec.js`、`collection-menu.spec.js` |
+| `src/ui/equipment-view.js` | `equipment-ui.spec.js`、`equipment-game.spec.js`、`collection-menu.spec.js` |
+
+音源と環境音プレイヤーは音声の生成・再生の境界、設定UIと表示UIは各機能のDOM表示の
+境界として選択する。設定・表示UIが共通メニューへ接続するため `collection-menu.spec.js` も含める。
+実績・装備のゲーム状態側や共通音声制御へ変更が広がればL2となる。
+`src/ui/sales-hud.js` と `src/ui/achievement-notice.js` も、状態・入力や通知の連携を保守的に
+扱いL2のままとする。既知の個別specだけの変更はその対応領域のspecも選択する。
+
+L1には常に `tests/browser/smoke-pc.spec.js` と `tests/browser/smoke-touch.spec.js` を加える。
+本番ビルド上でアプリ起動・UIの操作可能性・重大なconsole/page errorの不在を確認し、
+PCはマウス操船・停船・釣り視点への基本遷移、タッチはモバイル相当のviewportで
+操船・タッチ終了とキャンセル・主要UIのタップを確認する。既存の `game.spec.js` や
+他specのassertionは維持し、この共通スモークによって既存検証を置き換えない。
+
+### 差分取得と実行の安全性
+
+PRのbase SHA・head SHA、実際にcheckoutした検証ref・SHAを照合して記録する。
+PRの変更集合は全履歴を取得したGitの差分で求め、追加・変更・削除・リネームを扱う。
+リネームは旧パスと新パスの両方を分類する。NUL区切りでパスを扱い、空白・改行・
+特殊文字を含む名前で判定を分割しない。差分取得エラー、空の異常結果、履歴不足、
+SHA不整合はL2へ倒し、不完全なファイル集合からL0／L1を返さない。
+
+specがディスクに存在することと、Playwrightが実際にテストを収集することは別に検証する。
+L1の関連specが空・欠落、PC／タッチスモークが欠落、収集件数が0、実行結果が不足する場合は
+全件へフォールバックするか明示的に失敗する。選択したテストの失敗・中断・未実行を
+成功へ変換しない。L2も全件の収集・実行結果を確認する。
+
+検証ジョブ `build` の表示名は `ci-required` に固定し、PRのjob全体をスキップする
+pathsフィルターは設けない。共通検証と選択E2Eは同じジョブで順に実行する。
+`continue-on-error` や成功だけを返す集約jobを設けず、診断アップロードが成功しても
+先行する失敗は残す。途中の失敗や中断、必要な検証がskippedになった状態では成功しない。
+Playwrightの `workers: 1`、共通診断fixture、Clock・描画負荷対策を維持する。
+
+## Job SummaryとPRへの記録
+
+Job SummaryにはPR番号、PR HEAD SHA、base SHA、実際の検証ref・SHA、選択レベルと理由、
+変更ファイル、選択spec、PC／タッチスモーク、E2E実行の有無を記録する。
+検証計画と実行結果は分けて表示し、最終的な成功・失敗・中断を確認する。
+L0は「E2E未実行（L0設計）」と記録する。L1の未選択specは未実行であり、成功とは書かない。
+job自体が中断されたときはActionsのcancelled表示も確認する。
+
+PR本文は作成者・PMがSummaryを確認して更新する。自動編集専用のGitHub書き込み権限は追加しない。
+最低限、次を本文へ記録する。
+
+```text
+分類: L0 / L1 / L2
+根拠・変更領域:
+PR HEAD / base / 検証SHA:
+共通検証の結果:
+選択E2E・PC/タッチスモーク:
+実行結果（未選択・未実行を区別）:
+未検証・未解決事項:
+```
+
+## 手動全件E2Eと定期実行の承認待ち
+
+手動検証はGitHubの **Actions → Build and deploy BARB → Run workflow** から対象ブランチを
+選んで起動する。mainを指定しても全件E2Eを実行し、Pagesへデプロイしない。
+L0／L1へ強制変更して全件要求を弱める入力は用意しない。
+
+定期全件E2Eはmainを対象とし、手動検証と同じく全件・デプロイなしで扱う準備をしている。
+**cronは未有効化。実行頻度・時刻・タイムゾーンはユーザー承認待ち。**
+1日1回は提案であり、承認された設定ではない。承認後の専用変更でscheduleを有効化する。
+承認前に日時を推定して定期実行を開始しない。
+
+有効化後はPR検証・main pushと相互キャンセルしないことを確認する。失敗時はActionsログと
+14日保持の診断成果物を残し、PMが調査して影響する後続PRのマージ可否を判断する。
+未解決の重大な共通回帰が判明したら、影響範囲を把握するまで後続マージを保留する。
+日次失敗を成功扱いにせず、通知はGitHub標準のActions通知・Watch設定を優先する。
+外部サービス接続・追加権限・自動投稿は無断で導入しない。
+
+## mainの最新性とブランチ保護
+
+2026-10-24のP3-B着手時に、mainは
+`c1a56143b526f3da26144957ad614bb0ac339576`、`protected: false`、Rulesetは未設定と再確認した。
+保護が有効だと仮定せず、Codexは設定を変更しない。PMはマージ直前に次を確認する。
+
+1. PRの最新HEADに対する `ci-required` が成功し、分類と必要な実行範囲が正しい。
+2. PRが現在のmainと統合可能であり、Summaryのbase・検証SHAが対象の組合せを示している。
+3. mainが進んで検証済みの組合せが古くなった場合は、必要に応じてブランチ更新と再検証を要求する。
+4. CIレベル・分類結果・選択ルールが変わった場合は最新HEADで再検証する。
+5. 古いHEADや未検証の統合状態を成功済みとせず、PMが差分・診断品質もレビューする。
+
+`ci-required` をGitHubの必須チェックに設定する案は次のとおり。実施はユーザーが判断する。
+
+1. リポジトリの **Settings → Branches → Add branch protection rule** を開く。
+2. Branch name patternを `main` にする。
+3. **Require status checks to pass before merging** を有効にし、チェック一覧から
+   `ci-required` を選択する。表示されない場合は、この名前のcheckが作成された後に再確認する。
+4. **Require branches to be up to date before merging** を有効にし、main更新後の再検証を要求する。
+5. 適用対象・bypass権限をPMが確認して保存し、mainに適用されたことを確認する。
+   Rulesetsを使う場合は **Settings → Rules → Rulesets → New branch ruleset** でmainを対象にし、
+   有効なルールへ同じ必須チェックと最新性の要件を設定する。
+
+設定UIや保存が利用プラン・権限で制限される場合は、その制限をPRへ記録し、
+PMの最新HEAD確認・手動マージ判断を継続する。保護未設定のまま強制力があるとは記載しない。
+PR本文にもGUI手順と確認した設定状態を記載する。
 
 ### CIでの確認と時間計測
 
-PRでは文書のみの変更でも全件E2Eが起動し、単体テスト・ビルド・E2Eの失敗や中断を
-`ci-required` が成功扱いしないことを確認する。手動実行はmain指定でも単体テスト・ビルド・
-全件E2Eを行い、Pagesアップロードとdeployがスキップされることを確認する。
+P3-BのPR自身はCI選択ロジックを変更するためL2となり、全件E2Eが起動することをPMが確認する。
+以降のL0はE2E未実行、L1は両スモークと関連spec、L2は全件が実行されたことを確認する。
+手動検証はmainでも全件・公開なし、main pushはChromium・E2E省略とビルド・公開を確認する。
+必要な検証の失敗・中断が `ci-required` の成功にならないことも確認する。
 
-変更前後それぞれの成功したPR runと対応するmain push runについて、run ID・attempt・
-HEAD SHA・イベントを記録し、Actionsのjob／stepの開始・終了時刻から共通検証、Chromium、
-E2E、アップロード、deployの所要時間を比較する。失敗・再実行・キャンセル・待ち時間は
-別記し、比較条件を揃える。全件E2Eは従来どおりPRで維持されていることも確認する。
-公開までの時間はPR承認（承認機能を使わない場合はPM承認記録）・マージ・deploy完了の
-各時刻を記録し、人によるマージ待ちとmain push後の処理時間を区別して比較する。
-Codexはこの計測のためにCI完了待機や継続ポーリングを行わない。
+所要時間を比較するときはrun ID・attempt・HEAD SHA・イベント・レベル・選択specを記録し、
+共通検証、Chromium、E2E、アップロード、deployのstep開始・終了時刻を比較する。
+失敗・再実行・中断・待ち時間は別記し、条件を揃える。公開までの時間はPM承認・マージ・
+deploy完了を分けて記録する。Codexは計測のためのCI完了待機・継続監視を行わない。
 
 ## 局所検証
 
@@ -75,10 +182,17 @@ npm ci
 npm test
 npm run build
 npx playwright install chromium
+npx playwright test tests/browser/smoke-pc.spec.js tests/browser/smoke-touch.spec.js --reporter=line
 npx playwright test tests/browser/equipment-game.spec.js --grep 'touch:' --reporter=line
 npx playwright test tests/browser/fishing.spec.js --grep 'mouse: blur/lost capture' --reporter=line
 npx playwright test tests/browser/day-night.spec.js --grep 'night sailing' --reporter=line
 ```
+
+選択ロジックの単体テストは `npm test` に含む。局所スモークは上記の2specだけで実行する。
+`node scripts/ci-risk.js --output .ci/plan.json` はActionsのイベント情報から検証計画を生成する
+CI用コマンドで、`node scripts/ci-e2e.js` がその計画に従って収集・実行を確認する。
+模擬差分・失敗・欠落・イベント条件は選択ロジックと実行基盤の単体テストで検証する。
+ローカルで全件を起動するためにCI用コマンドを使わない。
 
 必要なケースを選ぶ。複数の調査結果を残す場合は
 `--output=test-results/local-equipment` など実行ごとに別の出力先を指定する。

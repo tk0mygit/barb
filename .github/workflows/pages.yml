@@ -5,6 +5,8 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  # schedule is intentionally disabled pending user approval of frequency/time.
+  # The classifier and E2E runner already require full E2E for schedule events.
 permissions:
   contents: read
 concurrency:
@@ -15,59 +17,64 @@ jobs:
     name: ci-required
     runs-on: ubuntu-latest
     steps:
-      - name: Record validation scope
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          VALIDATION_REF: ${{ github.ref }}
-          VALIDATION_SHA: ${{ github.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          HEAD_BRANCH: ${{ github.head_ref || github.ref_name }}
-          BASE_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: |
-          {
-            printf '### CI validation plan\n\n'
-            printf -- '- Event: `%s`\n' "$EVENT_NAME"
-            printf -- '- HEAD branch / SHA: `%s` / `%s`\n' "$HEAD_BRANCH" "$HEAD_SHA"
-            printf -- '- Base branch: `%s`\n' "$BASE_BRANCH"
-            printf -- '- Validation ref / SHA: `%s` / `%s`\n' "$VALIDATION_REF" "$VALIDATION_SHA"
-            printf -- '- Unit tests / build: 実行予定\n'
-            if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "workflow_dispatch" ]]; then
-              printf -- '- E2E: 全件実行予定（結果は各stepを参照）\n'
-            else
-              printf -- '- E2E: 未実行（設計による省略）\n'
-            fi
-            if [[ "$EVENT_NAME" == "push" && "$VALIDATION_REF" == "refs/heads/main" ]]; then
-              printf -- '- Pages: 単体テスト・ビルド成功後にデプロイ予定\n'
-            else
-              printf -- '- Pages: デプロイ対象外\n'
-            fi
-          } | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v4
+        id: checkout
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
+        id: node
         with:
           node-version: 24
           cache: npm
+      - name: Classify complete PR diff
+        id: classify
+        run: node scripts/ci-risk.js --output .ci/plan.json
+      - name: Record validation plan
+        id: plan
+        run: node scripts/ci-summary.js plan
       - run: npm ci
+        id: install
       - run: npm test
+        id: unit
       - run: npm run build
+        id: build
       - name: Set up Chromium
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+        id: chromium
+        if: steps.classify.outputs.run_e2e == 'true'
         run: npx playwright install --with-deps chromium
-      - name: Run full E2E suite
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-        run: npm run test:e2e
-      - name: Upload browser failure diagnostics
+      - name: Validate selection and run required E2E
+        id: e2e
+        # Also runs for L0: rechecks the plan and records explicit non-execution.
+        run: node scripts/ci-e2e.js
+      - name: Upload browser failure diagnostics and validation records
+        id: diagnostics
         uses: actions/upload-artifact@v4
-        if: always() && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+        if: always()
         with:
           name: browser-test-results
-          path: test-results/
+          path: |
+            test-results/
+            .ci/
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14
       - uses: actions/upload-pages-artifact@v3
+        id: pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           path: dist
+      - name: Verify required outcomes and record result
+        if: always()
+        env:
+          CI_STEPS: ${{ toJSON(steps) }}
+          CI_JOB_STATUS: ${{ job.status }}
+        run: |
+          if test -f scripts/ci-summary.js; then
+            node scripts/ci-summary.js result
+          else
+            printf '### CI validation result\n\n検証失敗・中断。E2E成功は確認できません。\n' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
