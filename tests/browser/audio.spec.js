@@ -245,6 +245,66 @@ for (const touch of [false, true]) {
     } finally { await attachAudioDiagnostics(page, info); }
   });
 
+  test(`${touch ? 'touch' : 'mouse'}: trailing canvas pointerup/click after blur cannot restart the clock`, async ({ createContext }, info) => {
+    const context = await createContext({ viewport: { width: 390, height: 844 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+    const page = await context.newPage();
+    await prefs(page, enabled); await page.addInitScript(installAudioProbe, {}); await setup(page, 90);
+    const cdp = await context.newCDPSession(page), x = 200, y = 400;
+    const down = async () => touch
+      ? cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+      : (await page.mouse.move(x, y), page.mouse.down());
+    const up = () => touch
+      ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : page.mouse.up();
+    const clock = () => page.evaluate(() => window.lightingProbe.last.mistTime);
+    try {
+      if (touch) await page.locator('#fish-button').tap(); else await page.locator('#fish-button').click();
+      await tick(page);
+      expect((await audioSnapshot(page)).startedSources).toBe(3);
+      expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y).id, { x, y })).toBe('scene');
+      await down();
+      const before = await clock();
+      const sequence = await page.evaluate(() => window.e2eDiagnostics.events.at(-1).sequence);
+      await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+      // Finish the gesture that began before blur with native input. Its
+      // residual activation must not be treated as a fresh return to the game.
+      await up();
+      const events = await page.evaluate(sequence => window.e2eDiagnostics.events.filter(event => event.sequence > sequence), sequence);
+      const blur = events.find(event => event.type === 'blur');
+      const pointerup = events.find(event => event.type === 'pointerup' && event.target === 'scene');
+      expect(blur.trusted).toBe(false); expect(pointerup.trusted).toBe(true);
+      expect(pointerup.sequence).toBeGreaterThan(blur.sequence);
+      if (!touch) {
+        const click = events.find(event => event.type === 'click' && event.target === 'scene');
+        expect(click.trusted).toBe(true); expect(click.sequence).toBeGreaterThan(pointerup.sequence);
+      }
+      expect(events.filter(event => event.type === 'focus')).toEqual([]);
+      await page.clock.fastForward(1000);
+      expect(await clock()).toBe(before);
+      const stopped = await audioSnapshot(page);
+      expect(stopped.states).toEqual(['running']); expect(stopped.sources).toBe(0);
+      if (touch) {
+        // A new touch begun after blur is a valid mobile return even when the
+        // browser does not send a window-focus notification.
+        await page.touchscreen.tap(x, y);
+        expect(await page.evaluate(sequence => window.e2eDiagnostics.events.filter(event => event.sequence > sequence && event.type === 'focus'), sequence)).toEqual([]);
+      } else {
+        // Even another PC click cannot replace the explicit focus notification.
+        await page.mouse.click(x, y); await page.clock.fastForward(1000);
+        expect(await clock()).toBe(before); expect((await audioSnapshot(page)).sources).toBe(0);
+        await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      }
+      await tick(page);
+      expect(await clock()).toBeGreaterThan(before); expect(await clock()).toBeLessThan(before + 1);
+      const resumed = await audioSnapshot(page);
+      expect(resumed.states).toEqual(['running']); expect(resumed.startedSources).toBe(3);
+      expect(resumed.contexts).toBe(1); expect(resumed.buffers).toBe(3);
+      await soundScreen(page, touch);
+      await expect(page.locator('#ambient-status')).toContainText('一時停止中');
+      if (touch) await page.locator('#collection-close').tap(); else await close(page);
+      await tick(page); expect((await audioSnapshot(page)).startedSources).toBe(3);
+    } finally { await attachAudioDiagnostics(page, info); }
+  });
+
   test(`native Chromium ${touch ? 'touch' : 'mouse'}: activation event order and the complete production output graph`, async ({ createContext }, info) => {
     const context = await createContext({ viewport: { width: 390, height: 844 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage();

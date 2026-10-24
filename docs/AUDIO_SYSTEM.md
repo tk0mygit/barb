@@ -171,8 +171,15 @@ playingは端末のスピーカーから音が聞こえたことを証明する�
 
 メニュー、非表示、フォーカス喪失、pagehideはそれぞれ独立した停止理由です。
 全理由が解除されて初めて、現在の設定・共有時計で再開します。ページ復帰時の過去音の追い掛け再生はありません。
-起動時のhasFocusがfalseのままfocusイベントが届かなくても、表示中の有効なユーザー操作で
-古いblur理由だけを解除し、ゲーム時計の前回時刻をリセットします。hidden／page／menu理由は残します。
+起動時のhasFocusがfalseのままfocusイベントが届かない状態と、明示的なwindow.blur後を区別します。
+起動時は有効なマウスpointerdown／keydown、または新しいタッチの完了で復旧できます。
+明示的なblur後のPC操作はwindow.focusを待ち、途中の操作から遅れて届くpointerup／clickや
+新しいマウスclickだけではゲーム時計・blur停止理由を復旧しません。
+モバイルでfocus通知が欠落する場合は、blur後に新しく始まったtrustedなタッチと、それに対応する
+有効なpointerup（PointerEvent非対応時はtouchend）でのみ復旧できます。タッチ開始の記録は
+blur／非表示／pagehide／pointercancel／touchcancelで破棄し、blur前の操作の末尾を採用しません。
+復旧時はゲーム時計の前回時刻をリセットし、停止時間を加算しません。hidden／page／menu理由も残します。
+音声のアンロック許可とゲームのフォーカス復旧は別に判定し、blur理由が残る間はrunningでも環境音を再生しません。
 ロック・着信・アプリ切替等でcontextがsuspended／interruptedになった場合は音源を解放します。
 focus／pageshowだけでは`resume()`せず、次のユーザー操作または「音声の開始を再試行」で再開します。
 WebGL context喪失時は環境音と共有contextを解放し、既存の再読み込み案内に従います。

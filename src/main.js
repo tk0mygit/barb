@@ -87,15 +87,27 @@ try {
   const ambientAudio = environmentAudio = createAmbientAudio({ session: audioSession, clock: gameClock });
   const audio = createFishingAudio({ session: audioSession });
   const unlockAudio = event => {
-    if (!event.isTrusted || document.hidden || navigator.userActivation?.isActive === false) return;
-    // A visible, trusted interaction also recovers a stale mobile blur reason
-    // when the browser omitted window.focus after opening/restoring the page.
-    if (!focused) {
-      focused = true; previous = performance.now(); ambientAudio.setPaused('blur', false);
+    if (!event.isTrusted || document.hidden) return;
+    const touch = event.pointerType === 'touch' || event.type.startsWith('touch');
+    const contact = event.pointerId ?? event.changedTouches?.[0]?.identifier;
+    // Touch down precedes activation. Remember only a new contact since the
+    // latest blur/hidden/pagehide, never the tail of an interrupted gesture.
+    if (touch && ['pointerdown', 'touchstart'].includes(event.type)) {
+      touchContact = contact; return;
     }
+    const freshTouch = touch && ['pointerup', 'touchend'].includes(event.type) && touchContact === contact;
+    if (touch) touchContact = undefined;
     if (event.type === 'keydown' && (event.repeat || event.key === 'Escape')) return;
     if (event.type === 'pointerdown' && event.pointerType !== 'mouse') return;
     if (event.type === 'pointerup' && event.pointerType === 'mouse') return;
+    if (navigator.userActivation?.isActive === false) return;
+    // Startup may lack focus entirely. After an explicit blur, only a fresh
+    // touch may repair a missing mobile focus notification; PC waits for focus.
+    const startupInput = focusRecovery === 'startup' && ['pointerdown', 'keydown'].includes(event.type);
+    if (!focused && (startupInput || freshTouch)) {
+      focused = true; focusRecovery = null;
+      previous = performance.now(); ambientAudio.setPaused('blur', false);
+    }
     // These controls own their click request; do not change/hide the retry
     // control between pointerdown and the click that actually activates it.
     if (event.target.closest?.('#ambient-toggle, #ambient-retry')) return;
@@ -103,7 +115,13 @@ try {
   };
   document.addEventListener('pointerdown', unlockAudio, { passive: true });
   document.addEventListener('pointerup', unlockAudio, { passive: true });
-  if (!window.PointerEvent) document.addEventListener('touchend', unlockAudio, { passive: true });
+  if (!window.PointerEvent) {
+    document.addEventListener('touchstart', unlockAudio, { passive: true });
+    document.addEventListener('touchend', unlockAudio, { passive: true });
+  }
+  const cancelTouch = () => { touchContact = undefined; };
+  document.addEventListener('pointercancel', cancelTouch);
+  document.addEventListener('touchcancel', cancelTouch);
   document.addEventListener('click', unlockAudio);
   document.addEventListener('keydown', unlockAudio);
   const rig = createCameraRig(camera, boat);
@@ -179,16 +197,22 @@ try {
   resize();
   let previous = performance.now(), elapsed = 0;
   let focused = document.hasFocus();
+  let focusRecovery = focused ? null : 'startup', touchContact;
   ambientAudio.setPaused('blur', !focused);
   ambientAudio.setPaused('hidden', document.hidden);
-  window.addEventListener('blur', () => { focused = false; ambientAudio.setPaused('blur', true); });
-  window.addEventListener('focus', () => { focused = true; previous = performance.now(); ambientAudio.setPaused('blur', false); });
+  window.addEventListener('blur', () => {
+    focused = false; focusRecovery = 'blurred'; cancelTouch(); ambientAudio.setPaused('blur', true);
+  });
+  window.addEventListener('focus', () => {
+    focused = true; focusRecovery = null; cancelTouch();
+    previous = performance.now(); ambientAudio.setPaused('blur', false);
+  });
   document.addEventListener('visibilitychange', () => {
     ambientAudio.setPaused('hidden', document.hidden);
     previous = performance.now();
-    if (document.hidden) autosave.flush();
+    if (document.hidden) { cancelTouch(); autosave.flush(); }
   });
-  window.addEventListener('pagehide', () => { ambientAudio.setPaused('page', true); autosave.flush(); });
+  window.addEventListener('pagehide', () => { cancelTouch(); ambientAudio.setPaused('page', true); autosave.flush(); });
   window.addEventListener('pageshow', () => {
     previous = performance.now();
     ambientAudio.setPaused('page', false); autosave.checkForExternalChanges();
