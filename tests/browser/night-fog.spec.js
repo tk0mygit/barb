@@ -41,11 +41,12 @@ for (const [index, label] of [[0, 'clear'], [8301, 'fog-30'], [3971, 'fog-50'], 
     await testInfo.attach(label, { path, contentType: 'image/png' });
     const actual = await attachCounts(page, testInfo, label);
     reviewImages.push({ label, path, counts: actual });
-    // Stable scene topology; each independent case checks the same baseline
-    // and the exact three-sheet cost, without retaining five GPU contexts.
+    // Phase 4C-1A matched measurements: a second shared instanced crown adds
+    // one call/geometry; shore -1280 and ridge +2496 = +1216 triangles.
+    // Retain the exact three-sheet cost and the existing performance ceilings.
     const fog = profile.targetFogAmount > 0;
-    expect(actual).toEqual({ calls: 30 + (fog ? 3 : 0), triangles: 220228 + (fog ? 6144 : 0),
-      geometries: 23 + (fog ? 1 : 0), textures: 3, programs: 12 + (fog ? 1 : 0) });
+    expect(actual).toEqual({ calls: 31 + (fog ? 3 : 0), triangles: 221444 + (fog ? 6144 : 0),
+      geometries: 24 + (fog ? 1 : 0), textures: 3, programs: 12 + (fog ? 1 : 0) });
     if (fog) {
       const pair = await page.evaluate(async () => {
         const pair = window.lightingProbe.captureMistPair();
