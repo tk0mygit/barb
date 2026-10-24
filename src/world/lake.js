@@ -3,9 +3,10 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { createTerrain } from './terrain.js';
 import { createWater } from './water.js';
 import { createEnvironmentParameters, INITIAL_DAY_CLOCK, sampleDayNight } from './day-night.js';
-import { sampleNightFog } from './night-fog.js';
+import { sampleNightFog, getNightFogDensity, NIGHT_FOG_CONFIG } from './night-fog.js';
+import { createSurfaceFog } from './surface-fog.js';
 
-const hazeDensity = 0.0018, nightFogDensity = 0.0052;
+const hazeDensity = NIGHT_FOG_CONFIG.baseDensity;
 
 export function createLake(scene) {
   scene.background = new THREE.Color('#b9d1cd');
@@ -48,7 +49,8 @@ export function createLake(scene) {
     .replace('#include <colorspace_fragment>', `#include <colorspace_fragment>
       // Meet the scene fog at the horizon in the same output color space.
       gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(nightFogColor, 1.0)).rgb,
-        nightFogStrength * (1.0 - smoothstep(0.0, 0.25, direction.y)));`);
+        mix(1.0 - pow(max(1.0 - nightFogStrength, 0.001), 100.0), 1.0 - pow(max(1.0 - nightFogStrength, 0.001), 2.0),
+          smoothstep(0.0, 0.65, direction.y)));`);
   const moon = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 12),
     new THREE.MeshBasicMaterial({ color: '#d9e3ee', transparent: true, fog: false, depthWrite: false }));
   moon.name = 'moon';
@@ -56,6 +58,8 @@ export function createLake(scene) {
   scene.add(sky, createTerrain());
   const water = createWater(scene.fog);
   scene.add(water.mesh);
+  const surfaceFog = createSurfaceFog();
+  scene.add(surfaceFog.group);
   const environment = createEnvironmentParameters();
   const nightFog = {};
   const sunDirection = new THREE.Vector3(), moonDirection = new THREE.Vector3();
@@ -82,16 +86,17 @@ export function createLake(scene) {
       sky.material.uniforms.skyDaylight.value = environment.skyDaylight;
       sky.material.uniforms.nightTop.value.fromArray(environment.skyTop);
       sky.material.uniforms.nightHorizon.value.fromArray(environment.horizon);
-      scene.fog.color.fromArray(environment.horizon).lerp(nightFogColor, nightFog.intensity * 0.45);
-      scene.fog.density = hazeDensity + (nightFogDensity - hazeDensity) * nightFog.intensity;
-      sky.material.uniforms.nightFogStrength.value = nightFog.intensity;
+      scene.fog.color.fromArray(environment.horizon).lerp(nightFogColor, nightFog.effectiveFogAmount * 0.65);
+      scene.fog.density = getNightFogDensity(nightFog.effectiveFogAmount);
+      sky.material.uniforms.nightFogStrength.value = nightFog.effectiveFogAmount;
       sky.material.uniforms.nightFogColor.value.copy(scene.fog.color);
       scene.background.copy(scene.fog.color);
       moon.position.copy(moonDirection).multiplyScalar(900);
       moon.position.x += boat.x; moon.position.z += boat.z;
-      moon.material.opacity = environment.moonOpacity;
-      moon.visible = environment.moonOpacity > 0;
+      moon.material.opacity = environment.moonOpacity * (1 - nightFog.effectiveFogAmount) ** 2;
+      moon.visible = moon.material.opacity > 0;
       water.update(time, boat, environment);
+      surfaceFog.update(clock, boat, nightFog.effectiveFogAmount, scene.fog.color);
     },
   };
 }
