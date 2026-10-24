@@ -57,8 +57,14 @@ async function gameInput(page, touch) {
 }
 async function pauseClock(page, install = false) {
   if (install) await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-  const now = await page.evaluate(() => Date.now());
-  await page.clock.pauseAt(new Date(now + 1000));
+  const now = new Date(await page.evaluate(() => Date.now()));
+  // Freeze wall time before the next protocol round trip. Under software
+  // WebGL load, sampling Date.now() then targeting +1s can already be in the
+  // past when pauseAt reaches the page. No timing margin or longer wait is
+  // needed; restore advancing wall time after the timers are paused.
+  await page.clock.setFixedTime(now);
+  await page.clock.pauseAt(now);
+  await page.clock.setSystemTime(now);
 }
 async function castAndHook(page, input) {
   const tick = () => page.clock.fastForward(250);
