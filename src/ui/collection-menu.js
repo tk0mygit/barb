@@ -15,8 +15,10 @@ function element(tag, text, className) {
 }
 function fishImage(src, name) {
   const image = element('img');
-  image.src = src; image.alt = name; image.width = 640; image.height = 280;
-  image.loading = 'lazy'; return image;
+  image.src = src; image.alt = name;
+  image.loading = 'lazy';
+  const frame = element('span', undefined, 'fish-image-frame');
+  frame.append(image); return frame;
 }
 
 // One native modal owns menu, grid, detail and storage. No nested dialogs;
@@ -57,7 +59,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
         const fish = FISH_SPECIES[index], discovered = entry.count > 0;
         const card = element(discovered ? 'button' : 'div', undefined, 'fish-card');
         card.dataset.slot = index;
-        card.append(fishImage(discovered ? fish.image : silhouette, discovered ? fish.name : '未発見の魚のシルエット'), element('span', discovered ? fish.name : '？？？'));
+        card.append(fishImage(discovered ? fish.image : silhouette, discovered ? fish.name : '未発見の魚のシルエット'), element('span', discovered ? fish.name : '？？？', 'fish-card-name'));
         if (discovered) {
           card.type = 'button';
           card.append(element('small', `${entry.count}匹 · 最大 ${entry.maxLengthCm.toFixed(1)} cm`));
