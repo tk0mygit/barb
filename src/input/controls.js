@@ -35,6 +35,10 @@ export function createControls(canvas, joystick, knob, fishing = null) {
       joystick.hidden = false;
     }
   });
+  // Pointer handlers own canvas gestures and focus. Cancel the parallel legacy
+  // touch default so Chromium does not carry a drag's gesture suppression into
+  // the next UI tap. Buttons and scrollable menus keep their native defaults.
+  canvas.addEventListener('touchstart', event => { if (enabled) event.preventDefault(); }, { passive: false });
   canvas.addEventListener('pointermove', event => {
     if (event.pointerId !== pointer) return;
     if (fishingGesture) {

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
 import { setup, tick } from './day-night-fixture.js';
 import { installAudioProbe, audioSnapshot, soundScreen } from './audio-fixture.js';
 import { createGameClock } from '../../src/game/game-clock.js';
@@ -25,46 +25,44 @@ const assertMix = async page => {
 };
 
 for (const size of [{ width: 1000, height: 700, touch: false }, { width: 320, height: 568, touch: true }, { width: 568, height: 320, touch: true }]) {
-  test(`OFF default, explicit ON/volume, menu pause, restore and touch layout ${size.width}x${size.height}`, async ({ browser }, info) => {
+  test(`OFF default, explicit ON/volume, menu pause, restore and touch layout ${size.width}x${size.height}`, async ({ createContext }, info) => {
     const { touch, width, height } = size;
-    const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+    const context = await createContext({ viewport: { width, height }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    try {
-      await page.addInitScript(installAudioProbe, {}); await setup(page, 90);
-      expect((await audioSnapshot(page)).contexts).toBe(0);
-      expect(await page.evaluate(key => localStorage.getItem(key), key)).toBeNull();
-      if (touch) await page.locator('#fish-button').tap(); else await page.locator('#fish-button').click();
-      await tick(page);
-      await soundScreen(page, touch); await tick(page);
-      await expect(page.locator('#ambient-toggle')).toHaveText('BGM・自然音：OFF');
-      expect((await audioSnapshot(page)).sources).toBe(0);
-      const activate = locator => touch ? locator.tap() : locator.click();
-      await activate(page.locator('#ambient-toggle'));
-      await expect(page.locator('#ambient-status')).toContainText('一時停止中');
-      const slider = page.locator('#ambient-volume'); await slider.scrollIntoViewIfNeeded();
-      if (touch) {
-        const box = await slider.boundingBox(); await page.touchscreen.tap(box.x + box.width * 0.7, box.y + box.height / 2);
-      } else { await slider.focus(); await page.keyboard.press('End'); }
-      const volume = Number(await slider.inputValue()); expect(volume).toBeGreaterThan(40); expect(volume).toBeLessThanOrEqual(100);
-      await expect(slider).toHaveAttribute('aria-valuetext', `${volume}%`);
-      await expect(page.locator('#audio-preferences-status')).toHaveText('音声設定を保存しました。');
-      await page.locator('#ambient-toggle').scrollIntoViewIfNeeded();
-      const path = info.outputPath('sound-settings.png'); await page.screenshot({ path }); await info.attach('sound-settings', { path, contentType: 'image/png' });
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await activate(page.locator('#collection-close')); await tick(page);
-      const playing = await assertMix(page); expect(playing.master).toBeCloseTo(0.3 * volume / 100); expect(playing.contexts).toBe(1);
-      expect(playing.gestures.every(Boolean)).toBe(true);
-      await soundScreen(page, touch); await tick(page); expect((await audioSnapshot(page)).sources).toBe(0);
-      const clock = await progress(page); await page.clock.fastForward(600000); expect(await progress(page)).toBe(clock);
-      await activate(page.locator('#ambient-toggle')); await tick(page);
-      expect((await audioSnapshot(page)).sources).toBe(0);
-      await expect(page.locator('#ambient-toggle')).toHaveAttribute('aria-pressed', 'false');
-      await page.reload(); await tick(page); expect((await audioSnapshot(page)).contexts).toBe(0);
-      await soundScreen(page, touch); await expect(page.locator('#ambient-toggle')).toHaveAttribute('aria-pressed', 'false');
-      await expect(page.locator('#ambient-volume')).toHaveValue(String(volume));
-      expect(errors).toEqual([]);
-    } finally { await context.close(); }
+    await page.addInitScript(installAudioProbe, {}); await setup(page, 90);
+    expect((await audioSnapshot(page)).contexts).toBe(0);
+    expect(await page.evaluate(key => localStorage.getItem(key), key)).toBeNull();
+    if (touch) await page.locator('#fish-button').tap(); else await page.locator('#fish-button').click();
+    await tick(page);
+    await soundScreen(page, touch); await tick(page);
+    await expect(page.locator('#ambient-toggle')).toHaveText('BGM・自然音：OFF');
+    expect((await audioSnapshot(page)).sources).toBe(0);
+    const activate = locator => touch ? locator.tap() : locator.click();
+    await activate(page.locator('#ambient-toggle'));
+    await expect(page.locator('#ambient-status')).toContainText('一時停止中');
+    const slider = page.locator('#ambient-volume'); await slider.scrollIntoViewIfNeeded();
+    if (touch) {
+      const box = await slider.boundingBox(); await page.touchscreen.tap(box.x + box.width * 0.7, box.y + box.height / 2);
+    } else { await slider.focus(); await page.keyboard.press('End'); }
+    const volume = Number(await slider.inputValue()); expect(volume).toBeGreaterThan(40); expect(volume).toBeLessThanOrEqual(100);
+    await expect(slider).toHaveAttribute('aria-valuetext', `${volume}%`);
+    await expect(page.locator('#audio-preferences-status')).toHaveText('音声設定を保存しました。');
+    await page.locator('#ambient-toggle').scrollIntoViewIfNeeded();
+    const path = info.outputPath('sound-settings.png'); await page.screenshot({ path }); await info.attach('sound-settings', { path, contentType: 'image/png' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await activate(page.locator('#collection-close')); await tick(page);
+    const playing = await assertMix(page); expect(playing.master).toBeCloseTo(0.3 * volume / 100); expect(playing.contexts).toBe(1);
+    expect(playing.gestures.every(Boolean)).toBe(true);
+    await soundScreen(page, touch); await tick(page); expect((await audioSnapshot(page)).sources).toBe(0);
+    const clock = await progress(page); await page.clock.fastForward(600000); expect(await progress(page)).toBe(clock);
+    await activate(page.locator('#ambient-toggle')); await tick(page);
+    expect((await audioSnapshot(page)).sources).toBe(0);
+    await expect(page.locator('#ambient-toggle')).toHaveAttribute('aria-pressed', 'false');
+    await page.reload(); await tick(page); expect((await audioSnapshot(page)).contexts).toBe(0);
+    await soundScreen(page, touch); await expect(page.locator('#ambient-toggle')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#ambient-volume')).toHaveValue(String(volume));
+    expect(errors).toEqual([]);
   });
 }
 

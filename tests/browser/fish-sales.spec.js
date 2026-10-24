@@ -1,13 +1,13 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
 import { FISH_SPECIES } from '../../src/game/fish-species.js';
 import { calculateSalePrice } from '../../src/game/fish-sales.js';
 import { BUYER_LINES } from '../../src/game/buyer-lines.js';
 
 const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
 for (const touch of [false, true]) {
-  test(`${touch ? 'touch' : 'mouse'}: immediate, individual and confirmed bulk sales preserve collection and pause`, async ({ browser }) => {
+  test(`${touch ? 'touch' : 'mouse'}: immediate, individual and confirmed bulk sales preserve collection and pause`, async ({ createContext }) => {
     test.setTimeout(180000);
-    const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 800, height: 600 }, isMobile: touch, hasTouch: touch, deviceScaleFactor: 0.5 });
+    const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 800, height: 600 }, isMobile: touch, hasTouch: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => { window.fishingRandomCalls = 0; Math.random = () => { window.fishingRandomCalls++; return 0.1; }; });
@@ -128,6 +128,6 @@ for (const touch of [false, true]) {
     expect(await phase()).toBe('ready');
     await page.clock.resume(); await page.reload(); await expect(page.locator('#status')).toBeHidden();
     await expect(page.locator('#wallet-balance')).toHaveText(money(balance));
-    expect(errors).toEqual([]); await context.close();
+    expect(errors).toEqual([]);
   });
 }

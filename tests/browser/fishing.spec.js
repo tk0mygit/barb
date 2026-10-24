@@ -1,15 +1,18 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
 import { readFileSync } from 'node:fs';
 import { FISH_SPECIES, getFishSpecies, calculateFishWeightKg } from '../../src/game/fish-species.js';
 import { getSpeciesProbabilities, sampleFishSpecies } from '../../src/game/fish-encounters.js';
+import { installPausedClock } from './clock-fixture.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
 test.use({ deviceScaleFactor: 0.5 });
 
 // Controlled RNG and the real production build. No state-forcing hooks.
-async function setup(page) {
+async function setup(page, { paused = false } = {}) {
   await page.addInitScript(() => { Math.random = () => window.testRandomValue ?? 0.5; });
+  if (paused) await installPausedClock(page);
   await page.goto('./');
+  if (paused) await page.clock.fastForward(250);
   await expect(page.locator('#status')).toBeHidden();
 }
 const phase = page => page.locator('#fishing-panel');
@@ -46,15 +49,20 @@ async function inputFor(page, touch) {
     click: async locator => touch ? locator.tap() : locator.click(),
   };
 }
-async function cast(page, input) {
+async function cast(page, input, advance = async () => {}) {
   await input.click(page.locator('#cast-button'));
+  await advance();
   await expect(phase(page)).toHaveAttribute('data-phase', 'aim');
   await expect(page.locator('#lure-picker')).toBeHidden();
   for (const button of await page.locator('#lure-picker button').all()) await expect(button).toBeDisabled();
   await input.down(); await input.move(300, 270);
+  await advance();
   await expect(page.locator('#line-distance')).toContainText('着水予測 28.0 m');
   await input.up();
-  await expect(phase(page)).toHaveAttribute('data-phase', 'lure');
+  await expect.poll(async () => {
+    await advance();
+    return phase(page).getAttribute('data-phase');
+  }).toBe('lure');
 }
 async function hook(page, input, keepPaused = false) {
   // Software WebGL/CDP round trips can exceed the one-second hook window.
@@ -106,9 +114,9 @@ async function land(page, input, speciesId) {
 }
 
 for (const touch of [false, true]) {
-  test(`${touch ? 'touch' : 'mouse'}: cancellation, missed hook, retry, flick, fight and catch result`, async ({ browser }) => {
+  test(`${touch ? 'touch' : 'mouse'}: cancellation, missed hook, retry, flick, fight and catch result`, async ({ createContext }) => {
     test.setTimeout(360000);
-    const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+    const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -191,49 +199,88 @@ for (const touch of [false, true]) {
     await input.click(page.locator('#collection-close'));
     await cast(page, input);
     expect(errors).toEqual([]);
-    await context.close();
   });
 }
 
 test('mouse: blur/lost capture reset aim, over-tension fails and retry works', async ({ page }) => {
-  await setup(page);
+  // This case checks simulation state and cancellation, not flick duration.
+  // Bind clocks before the renderer starts and keep native pointer ordering.
+  await setup(page, { paused: true });
+  const tick = () => page.clock.fastForward(250);
+  const advanceTo = expected => expect.poll(async () => {
+    await tick();
+    return phase(page).getAttribute('data-phase');
+  }, { intervals: [0] }).toBe(expected);
   const input = await inputFor(page, false);
-  await page.locator('#fish-button').click();
-  await page.waitForTimeout(1000);
+  await page.locator('#fish-button').click(); await tick();
+  await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
   for (const reason of ['blur', 'lostpointercapture', 'visibilitychange']) {
-    await page.locator('#cast-button').click();
+    await page.locator('#cast-button').click(); await tick();
+    await expect(phase(page)).toHaveAttribute('data-phase', 'aim');
     await input.down();
+    // setPointerCapture is pending until the next native pointer event. Commit
+    // it before releasing, so this exercises a real lostpointercapture event.
+    await page.mouse.move(301, 420);
+    await expect.poll(() => page.locator('#scene').evaluate(canvas => canvas.hasPointerCapture(1))).toBe(true);
+    const progress = await page.locator('#fishing-conditions').getAttribute('data-cycle-progress');
     await page.evaluate(reason => {
       if (reason === 'blur') window.dispatchEvent(new Event('blur'));
-      else if (reason === 'visibilitychange') document.dispatchEvent(new Event(reason));
-      else document.querySelector('#scene').dispatchEvent(new PointerEvent(reason, { pointerId: 1 }));
-      window.dispatchEvent(new Event('focus'));
+      else if (reason === 'visibilitychange') {
+        Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+        document.dispatchEvent(new Event(reason));
+      } else document.querySelector('#scene').releasePointerCapture(1);
     }, reason);
+    // Flush pending native lostpointercapture, then check the actual capture.
     await input.up();
+    await expect.poll(() => page.locator('#scene').evaluate(canvas => canvas.hasPointerCapture(1))).toBe(false);
+    if (reason !== 'lostpointercapture') {
+      await page.clock.fastForward(1000);
+      await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-cycle-progress', progress);
+      await page.evaluate(reason => {
+        if (reason === 'blur') window.dispatchEvent(new Event('focus'));
+        else { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); }
+      }, reason);
+    }
+    await tick();
     await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
+    await expect(page.locator('#cast-button')).toBeVisible();
+    await expect(page.locator('#cast-button')).toBeEnabled();
   }
-  await cast(page, input); await hook(page, input);
+  await cast(page, input, tick);
+  await advanceTo('bite');
+  await input.tap(); await tick();
+  await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
   await input.down();
-  await page.waitForFunction(() => document.querySelector('#line-tension').value >= 0.3);
+  await expect.poll(async () => {
+    await tick();
+    return page.locator('#line-tension').evaluate(el => el.value);
+  }).toBeGreaterThanOrEqual(0.3);
   // Sample before cancellation in the same browser turn: a slow automation
   // round trip may otherwise observe tension already relaxed to zero.
   const tension = await page.evaluate(() => {
     const value = document.querySelector('#line-tension').value;
     window.dispatchEvent(new Event('blur'));
-    window.dispatchEvent(new Event('focus'));
     return value;
   });
-  await page.waitForTimeout(500);
-  expect(await page.locator('#line-tension').evaluate(el => el.value)).toBeLessThan(tension);
+  await expect.poll(() => page.locator('#scene').evaluate(canvas => canvas.hasPointerCapture(1))).toBe(false);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(async () => {
+    await tick();
+    return page.locator('#line-tension').evaluate(el => el.value);
+  }).toBeLessThan(tension);
   await input.up(); await input.down();
-  await expect(phase(page)).toHaveAttribute('data-phase', 'failed'); await input.up();
+  await advanceTo('failed'); await input.up();
+  await expect(phase(page)).toHaveAttribute('data-phase', 'failed');
   await expect(page.locator('#fishing-note')).toContainText('ラインが切れ');
+  await advanceTo('ready');
   await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
-  await cast(page, input);
+  await expect(page.locator('#cast-button')).toBeVisible();
+  await expect(page.locator('#cast-button')).toBeEnabled();
+  await cast(page, input, tick);
 });
 
-test('mobile landscape: prepare/cancel and return controls remain reachable', async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
+test('mobile landscape: prepare/cancel and return controls remain reachable', async ({ createContext }) => {
+  const context = await createContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
   const page = await context.newPage(); await setup(page);
   await page.locator('#fish-button').tap();
   for (const button of await page.locator('#lure-picker button').all()) {
@@ -249,7 +296,6 @@ test('mobile landscape: prepare/cancel and return controls remain reachable', as
   await page.locator('#return-button').tap();
   await expect(page.locator('#motion-label')).toHaveText('停船中');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await context.close();
 });
 
 test('all 12 species: production cast, hook, fight, matching result image and recast', async ({ page }) => {

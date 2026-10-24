@@ -15,18 +15,7 @@ export const read = page => page.evaluate(() => window.lightingProbe.last);
 
 export async function observeControls(page) {
   await page.evaluate(() => {
-    window.controlProbe = { events: [], actions: [] };
-    for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'lostpointercapture', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click']) {
-      window.addEventListener(type, event => {
-        const record = {
-          type, target: event.target.closest('button')?.id ?? event.target.id,
-          x: event.clientX ?? event.changedTouches?.[0]?.clientX, y: event.clientY ?? event.changedTouches?.[0]?.clientY, trusted: event.isTrusted,
-          mode: document.body.classList.contains('fishing') ? 'fishing' : 'sailing',
-        };
-        window.controlProbe.events.push(record);
-        queueMicrotask(() => { record.prevented = event.defaultPrevented; });
-      }, true);
-    }
+    window.controlProbe = window.e2eDiagnostics;
   });
 }
 
@@ -38,8 +27,9 @@ export async function activateControl(page, id, touch) {
     const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
     const snapshot = { id: button.id, hidden: button.hidden, disabled: button.disabled, bounds: bounds.toJSON(),
       hit: hit?.closest('button')?.id ?? hit?.id, boatSpeed: window.lightingProbe.last.boatSpeed,
-      motion: document.querySelector('#motion-label').textContent, eventCount: window.controlProbe.events.length };
+      motion: document.querySelector('#motion-label').textContent, eventSequence: window.controlProbe.events.at(-1)?.sequence ?? 0 };
     window.controlProbe.actions.push(snapshot);
+    if (window.controlProbe.actions.length > 30) window.controlProbe.actions.shift();
     return snapshot;
   });
   expect(before.hit).toBe(id);
@@ -49,13 +39,13 @@ export async function activateControl(page, id, touch) {
   // Read the completed event sequence once per poll. This retains both
   // assertions without extra CDP round trips while software WebGL is active.
   await expect.poll(() => page.evaluate(start => {
-    const events = window.controlProbe.events.slice(start);
+    const events = window.controlProbe.events.filter(event => event.sequence > start);
     window.controlProbe.actions.at(-1).eventsAfterInput = events;
     return {
       clicks: events.filter(event => event.type === 'click').map(event => ({ target: event.target, trusted: event.trusted })),
       pointerTargets: events.filter(event => event.type === 'pointerdown').map(event => event.target),
     };
-  }, before.eventCount)).toEqual({ clicks: [{ target: id, trusted: true }], pointerTargets: [id] });
+  }, before.eventSequence)).toEqual({ clicks: [{ target: id, trusted: true }], pointerTargets: [id] });
 }
 
 export async function setup(page, elapsedSeconds, { freeze = true } = {}) {

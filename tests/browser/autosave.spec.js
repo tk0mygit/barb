@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
 import { createCatchCollection } from '../../src/game/catch-collection.js';
 import { createAchievements } from '../../src/game/achievements.js';
 import { createBoatState } from '../../src/game/boat.js';
@@ -111,9 +111,9 @@ async function upgrade(page, input, kind) {
   await expect(page.locator(`[data-equipment="${kind}"] h3`)).toHaveText(`${kind === 'rod' ? 'ロッド' : 'リール'} · Lv.2`);
 }
 
-for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: real captures, RESULT rescue, menu sale/upgrade and sailing survive reload`, async ({ browser }) => {
+for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: real captures, RESULT rescue, menu sale/upgrade and sailing survive reload`, async ({ createContext }) => {
   test.setTimeout(240000);
-  const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 800, height: 600 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+  const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 800, height: 600 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
   const page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => { Math.random = () => window.testRandomValue ?? 0.1; });
@@ -197,7 +197,6 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: real capt
   expect(new Set(continued.data.collection.catches.map(item => item.id)).size).toBe(2);
   expect(continued.data.collection.equipment).toEqual({ rodLevel: 2, reelLevel: 2 });
   expect(errors).toEqual([]);
-  await context.close();
 });
 
 test('reload during a real fight resumes safely in sailing mode and READY', async ({ page }) => {
@@ -296,8 +295,8 @@ test('another tab save stops the older session before it can overwrite new progr
   await other.close();
 });
 
-for (const viewport of [{ width: 320, height: 568 }, { width: 568, height: 320 }]) test(`save warning and menu remain reachable at ${viewport.width}x${viewport.height}`, async ({ browser }) => {
-  const context = await browser.newContext({ viewport, hasTouch: true, isMobile: true, deviceScaleFactor: 0.5 });
+for (const viewport of [{ width: 320, height: 568 }, { width: 568, height: 320 }]) test(`save warning and menu remain reachable at ${viewport.width}x${viewport.height}`, async ({ createContext }) => {
+  const context = await createContext({ viewport, hasTouch: true, isMobile: true, deviceScaleFactor: 0.5 });
   const page = await context.newPage();
   await seed(page, ['broken-A', 'broken-B']); await ready(page);
   const status = page.locator('#save-status');
@@ -312,7 +311,6 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 568, height: 320 }
   await expect(page.locator('[data-equipment="rod"]')).toBeVisible();
   await page.locator('#collection-close').tap();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await context.close();
 });
 
 test('renderer initialization failure leaves both good save generations untouched', async ({ page }) => {

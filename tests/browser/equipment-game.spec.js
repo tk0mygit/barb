@@ -1,8 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './diagnostics-fixture.js';
+import { installPausedClock } from './clock-fixture.js';
+import { activateButton } from './input-fixture.js';
 
 for (const touch of [false, true]) {
-  test(`${touch ? 'touch' : 'mouse'}: real sales fund READY/sailing purchases; active fishing remains read-only`, async ({ browser }) => {
-    const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 800, height: 600 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+  test(`${touch ? 'touch' : 'mouse'}: real sales fund READY/sailing purchases; active fishing remains read-only`, async ({ createContext }) => {
+    const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 800, height: 600 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
@@ -12,28 +14,20 @@ for (const touch of [false, true]) {
       Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 0.25 });
       Math.random = () => window.testRandomValue ?? 0.1;
     });
-    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-    await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
-    const click = locator => touch ? locator.tap({ force: true }) : locator.click({ force: true });
-    await click(page.locator('#fish-button'));
-    const frozenTime = new Date(await page.evaluate(() => Date.now()));
-    await page.clock.setFixedTime(frozenTime);
-    await page.clock.pauseAt(frozenTime);
-    await page.clock.setSystemTime(frozenTime);
-    await page.clock.runFor(16); // Render the fishing controls after the mode click.
+    await installPausedClock(page);
     const tick = () => page.clock.fastForward(250);
+    await page.goto('./'); await tick();
+    await expect(page.locator('#status')).toBeHidden();
+    const click = locator => activateButton(locator, touch);
+    await click(page.locator('#fish-button')); await tick();
+    await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'ready');
     const phase = () => page.locator('#fishing-panel').getAttribute('data-phase');
     const cdp = await context.newCDPSession(page), x = touch ? 300 : 500, y = touch ? 420 : 350;
     const down = async () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }) : (await page.mouse.move(x, y), page.mouse.down());
     const up = () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : page.mouse.up();
     let rodLevel = 1;
     const openEquipment = async () => {
-      // Chromium's emulated drag can suppress the immediately following tap's
-      // compatibility click. Match the existing collection test's DOM opening
-      // for this CAST snapshot; purchases and the other menu visits use touch.
-      const touchAfterDrag = touch && await phase() === 'cast';
       await click(page.locator('#menu-button'));
-      if (touchAfterDrag) await page.locator('#menu-button').evaluate(button => button.click());
       await expect(page.locator('#collection-dialog')).toBeVisible();
       await click(page.locator('[data-view="equipment"]'));
     };
@@ -127,6 +121,9 @@ for (const touch of [false, true]) {
     for (let i = 0; i < 5 && await phase() === 'bite'; i++) await tick();
     expect(await phase()).toBe('failed');
     await readOnly(); for (let i = 0; i < 8 && await phase() !== 'ready'; i++) await tick();
+    await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'ready');
+    await expect(page.locator('#cast-button')).toBeVisible();
+    await expect(page.locator('#cast-button')).toBeEnabled();
     await click(page.locator('#return-button')); await tick();
     await openEquipment(); await expect(page.locator('[data-upgrade="reel"]')).toBeEnabled();
     await click(page.locator('[data-upgrade="reel"]')); await click(page.locator('#confirm-upgrade'));
@@ -141,6 +138,6 @@ for (const touch of [false, true]) {
     await expect(page.locator('#wallet-balance')).toHaveText(money);
     await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
     await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 10');
-    expect(errors).toEqual([]); await context.close();
+    expect(errors).toEqual([]);
   });
 }
