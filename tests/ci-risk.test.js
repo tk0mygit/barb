@@ -1,0 +1,256 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, renameSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { SMOKE_SPECS, L1_GROUPS, classifyChanges, eventPlan, parseNameStatus, readChangedFiles, createPlan } from '../scripts/ci-risk.js';
+
+const availableSpecs = [...new Set([...SMOKE_SPECS, ...Object.values(L1_GROUPS).flatMap(group => group.specs),
+  'tests/browser/game.spec.js', 'tests/browser/save-data.spec.js'])].sort();
+const change = (path, status = 'M') => ({ status, paths: [path] });
+const classify = (changes, options = {}) => classifyChanges(changes, { availableSpecs, ...options });
+const audio = 'src/audio/ambient-player.js';
+const achievementView = 'src/ui/achievements-view.js';
+
+test('README and explicitly reviewed explanatory docs are L0 without E2E', () => {
+  for (const changes of [[change('README.md')], [change('docs/AUDIO_SYSTEM.md')],
+    [change('docs/FISHING_BALANCE.md'), change('README.md')]]) {
+    const plan = classify(changes);
+    assert.equal(plan.level, 'L0'); assert.equal(plan.runE2E, false);
+    assert.deepEqual(plan.specs, []); assert.deepEqual(plan.smokeSpecs, []);
+  }
+});
+
+test('README with local audio changes selects both related specs and PC/touch smoke', () => {
+  for (const source of L1_GROUPS['ambient-output'].sources) {
+    const plan = classify([change('README.md'), change(source)]);
+    assert.equal(plan.level, 'L1'); assert.equal(plan.runE2E, true);
+    assert.deepEqual(plan.specs, [...SMOKE_SPECS, ...L1_GROUPS['ambient-output'].specs].sort());
+    assert.deepEqual(plan.smokeSpecs, SMOKE_SPECS);
+  }
+});
+
+test('each limited UI source selects its integration specs and common smoke', () => {
+  for (const name of ['sound-settings', 'achievements-view', 'equipment-view']) {
+    const group = L1_GROUPS[name], plan = classify(group.sources.map(path => change(path)));
+    assert.equal(plan.level, 'L1');
+    assert.deepEqual(plan.specs, [...new Set([...SMOKE_SPECS, ...group.specs])].sort());
+  }
+});
+
+test('multiple local source features select a deduplicated union', () => {
+  const plan = classify([change(audio), change(achievementView), change('src/ui/equipment-view.js')]);
+  assert.equal(plan.level, 'L1');
+  assert.deepEqual(plan.specs, [...new Set([...SMOKE_SPECS, ...L1_GROUPS['ambient-output'].specs,
+    ...L1_GROUPS['achievements-view'].specs, ...L1_GROUPS['equipment-view'].specs])].sort());
+});
+
+test('main, shared systems, CI, dependencies and operations documents override lower risks', () => {
+  for (const path of ['src/main.js', 'src/input/controls.js', 'src/audio/audio-session.js', 'src/audio/audio-mix.js',
+    'src/audio/ambient-audio.js', 'src/ui/sales-hud.js', 'src/ui/achievement-notice.js', 'src/ui/style.css',
+    'src/game/game-clock.js', 'src/game/save-data.js', 'src/rendering/camera.js', 'src/world/water.js',
+    'tests/browser/diagnostics-fixture.js', 'tests/browser/clock-fixture.js', 'tests/browser/input-fixture.js',
+    'playwright.config.js', '.github/workflows/pages.yml', 'scripts/ci-risk.js', 'tests/ci-risk.test.js',
+    'package.json', 'package-lock.json', 'vite.config.js', 'AGENTS.md', 'docs/TESTING_WORKFLOW.md',
+    'docs/new-operations.md', 'unknown.txt']) {
+    const plan = classify([change('README.md'), change(audio), change(path)]);
+    assert.equal(plan.level, 'L2', path); assert.equal(plan.runE2E, true, path);
+    assert.deepEqual(plan.specs, availableSpecs, path);
+  }
+});
+
+test('missing, failed, empty and malformed diff inputs cannot yield L0/L1', () => {
+  for (const changes of [undefined, null, [], {}, { ok: false }, [change('')], [change('../README.md')],
+    [{ status: 'M', paths: ['README.md', audio] }], [{ status: 'R100', paths: ['README.md'] }],
+    [{ status: 'Z', paths: ['README.md'] }], [change('/README.md')], [change('docs//AUDIO_SYSTEM.md')]]) {
+    assert.equal(classify(changes).level, 'L2');
+  }
+});
+
+test('missing related spec or either smoke falls back to L2', () => {
+  for (const missing of [...SMOKE_SPECS, ...L1_GROUPS['ambient-output'].specs]) {
+    const plan = classify([change(audio)], { availableSpecs: availableSpecs.filter(path => path !== missing) });
+    assert.equal(plan.level, 'L2', missing);
+    assert.match(plan.reasons.join(' '), /欠落/);
+  }
+});
+
+test('malformed inventory cannot produce reduced verification', () => {
+  for (const inventory of [null, {}, ['README.md'], [undefined]]) {
+    assert.equal(classify([change(audio)], { availableSpecs: inventory }).level, 'L2');
+  }
+});
+
+test('empty related-spec mapping is full verification rather than empty L1 success', () => {
+  const plan = classify([change(audio)], { groups: { ...L1_GROUPS, 'ambient-output': { specs: [] } } });
+  assert.equal(plan.level, 'L2'); assert.match(plan.reasons.join(' '), /空・不整合/);
+});
+
+test('a corrupted mapping cannot omit the changed spec', () => {
+  const plan = classify([change('tests/browser/audio.spec.js')], {
+    groups: { ...L1_GROUPS, 'ambient-output': { specs: ['tests/browser/audio-gain.spec.js'] } },
+  });
+  assert.equal(plan.level, 'L2'); assert.match(plan.reasons.join(' '), /漏れ/);
+});
+
+test('deletions and both rename paths retain the highest risk', () => {
+  assert.equal(classify([change(audio, 'D')]).level, 'L1');
+  assert.equal(classify([change('src/main.js', 'D')]).level, 'L2');
+  assert.equal(classify([{ status: 'R100', paths: ['README.md', 'docs/AUDIO_SYSTEM.md'] }]).level, 'L0');
+  assert.equal(classify([{ status: 'R75', paths: [audio, 'docs/AUDIO_SYSTEM.md'] }]).level, 'L1');
+  assert.equal(classify([{ status: 'R99', paths: ['src/main.js', 'README.md'] }]).level, 'L2');
+  assert.equal(classify([{ status: 'R100', paths: ['README.md', 'unknown.md'] }]).level, 'L2');
+  assert.equal(classify([{ status: 'C90', paths: ['src/main.js', 'README.md'] }]).level, 'L2');
+  assert.equal(classify([change('README.md', 'T')]).level, 'L2');
+});
+
+test('known modified individual specs run themselves plus smoke and related coverage', () => {
+  for (const path of ['audio', 'audio-gain', 'achievements', 'achievement-notice', 'equipment-ui', 'equipment-game']) {
+    const spec = `tests/browser/${path}.spec.js`, plan = classify([change(spec)]);
+    assert.equal(plan.level, 'L1', spec); assert.ok(plan.specs.includes(spec), spec);
+    for (const smoke of SMOKE_SPECS) assert.ok(plan.specs.includes(smoke), spec);
+  }
+  assert.equal(classify([change('tests/browser/audio.spec.js'), change('tests/browser/audio-gain.spec.js')]).level, 'L1');
+});
+
+test('new/deleted/renamed/foundation/unknown and multiple-area specs require L2', () => {
+  for (const item of [change('tests/browser/unknown.spec.js', 'A'), change('tests/browser/unknown.spec.js'),
+    change('tests/browser/audio.spec.js', 'A'), change('tests/browser/audio.spec.js', 'D'),
+    { status: 'R100', paths: ['tests/browser/audio.spec.js', 'tests/browser/audio-new.spec.js'] },
+    change('tests/browser/collection-menu.spec.js'), ...SMOKE_SPECS.map(path => change(path))]) {
+    assert.equal(classify([item]).level, 'L2');
+  }
+  assert.equal(classify([change('tests/browser/audio.spec.js'), change('tests/browser/equipment-ui.spec.js')]).level, 'L2');
+});
+
+test('NUL parsing preserves spaces, tabs, newlines, quotes and both rename paths', () => {
+  const paths = ['docs/spaces here.md', 'docs/tab\tname.md', 'docs/line\nbreak.md', 'docs/"quote"-$(x).md'];
+  assert.deepEqual(parseNameStatus(`M\0${paths[0]}\0D\0${paths[1]}\0R100\0${paths[2]}\0${paths[3]}\0`), [
+    change(paths[0]), change(paths[1], 'D'), { status: 'R100', paths: paths.slice(2) },
+  ]);
+  for (const path of paths) assert.equal(classify([change(path)]).level, 'L2');
+});
+
+test('NUL parser rejects incomplete, empty, unknown-status and non-UTF8 diff data', () => {
+  for (const raw of ['', '\0', 'M\0README.md', 'M\0', 'R100\0README.md\0', 'R101\0a\0b\0',
+    'M\0../README.md\0', 'U\0README.md\0', Buffer.from([0x4d, 0, 0xff, 0])]) {
+    assert.throws(() => parseNameStatus(raw));
+  }
+});
+
+test('dispatch, schedule and unknown events always run all specs without Pages', () => {
+  for (const eventName of ['workflow_dispatch', 'schedule', 'unknown', '']) {
+    const plan = eventPlan(eventName, { ref: 'refs/heads/main', changes: [change('README.md')], availableSpecs });
+    assert.equal(plan.level, 'L2'); assert.equal(plan.runE2E, true); assert.equal(plan.deploy, false);
+    assert.deepEqual(plan.specs, availableSpecs);
+  }
+});
+
+test('only main push skips E2E and prepares fresh build deployment', () => {
+  const plan = eventPlan('push', { ref: 'refs/heads/main', availableSpecs });
+  assert.equal(plan.level, 'L0'); assert.equal(plan.runE2E, false); assert.equal(plan.deploy, true);
+  assert.deepEqual(plan.specs, []);
+  assert.equal(eventPlan('push', { ref: 'refs/heads/feature', availableSpecs }).level, 'L2');
+  assert.equal(eventPlan('pull_request', { ref: 'refs/heads/main', changes: [change('README.md')], availableSpecs }).deploy, false);
+});
+
+function git(cwd, ...args) {
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  assert.equal(result.status, 0, `git ${args[0]}: ${result.stderr}`);
+  return result.stdout.trim();
+}
+
+function repo(t) {
+  const cwd = mkdtempSync(join(tmpdir(), 'barb-ci-risk-'));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  git(cwd, 'init', '-b', 'main');
+  git(cwd, 'config', 'user.name', 'CI test'); git(cwd, 'config', 'user.email', 'ci-test@example.invalid');
+  const write = (path, content) => { mkdirSync(join(cwd, path, '..'), { recursive: true }); writeFileSync(join(cwd, path), content); };
+  write('README.md', 'original README\n'); write('docs/AUDIO_SYSTEM.md', 'original explanation\n');
+  write('src/audio/ambient-player.js', 'export const example = 1;\n');
+  for (const path of availableSpecs) write(path, '// inventory fixture\n');
+  git(cwd, 'add', '.'); git(cwd, 'commit', '-m', 'base');
+  const mergeBaseSha = git(cwd, 'rev-parse', 'HEAD');
+  git(cwd, 'switch', '-c', 'feature');
+  write('README.md', 'updated README\n');
+  git(cwd, 'add', '.'); git(cwd, 'commit', '-m', 'README update');
+  return { cwd, write, mergeBaseSha };
+}
+
+function mergeFeature(cwd) {
+  const headSha = git(cwd, 'rev-parse', 'feature');
+  git(cwd, 'switch', 'main'); const baseSha = git(cwd, 'rev-parse', 'HEAD');
+  git(cwd, 'merge', '--no-ff', 'feature', '-m', 'synthetic PR merge');
+  return { cwd, baseSha, headSha, validationSha: git(cwd, 'rev-parse', 'HEAD'), fetch: false };
+}
+
+test('git diff covers the whole PR using merge base, including earlier commits and special-path rename/delete', t => {
+  const { cwd, write, mergeBaseSha } = repo(t);
+  write('src/audio/ambient-player.js', 'export const example = 2;\n');
+  const specialPath = 'docs/space tab\tline\n"quote".md';
+  renameSync(join(cwd, 'docs/AUDIO_SYSTEM.md'), join(cwd, specialPath));
+  git(cwd, 'add', '-A'); git(cwd, 'commit', '-m', 'local change and special rename');
+  git(cwd, 'switch', 'main'); write('base-only.txt', 'new base content\n');
+  git(cwd, 'add', '.'); git(cwd, 'commit', '-m', 'base advances independently');
+  git(cwd, 'switch', 'feature');
+  const input = mergeFeature(cwd), diff = readChangedFiles(input);
+  assert.equal(diff.ok, true); assert.equal(diff.mergeBaseSha, mergeBaseSha);
+  const paths = diff.changes.flatMap(item => item.paths);
+  for (const path of ['README.md', 'src/audio/ambient-player.js', 'docs/AUDIO_SYSTEM.md', specialPath]) assert.ok(paths.includes(path), path);
+  assert.ok(!paths.includes('base-only.txt'));
+  assert.ok(diff.changes.some(item => item.status === 'R100' && item.paths[1] === specialPath));
+});
+
+test('missing history, stale HEAD, wrong base and head-only checkout return failed complete-diff acquisition', t => {
+  const { cwd } = repo(t), input = mergeFeature(cwd);
+  for (const overrides of [{ validationSha: input.headSha }, { headSha: 'a'.repeat(40) },
+    { baseSha: input.headSha }, { baseSha: undefined }, { headSha: '--help' }]) {
+    const diff = readChangedFiles({ ...input, ...overrides });
+    assert.equal(diff.ok, false); assert.deepEqual(diff.changes, []);
+  }
+  git(cwd, 'checkout', input.headSha);
+  const diff = readChangedFiles({ ...input, validationSha: input.headSha });
+  assert.equal(diff.ok, false); assert.match(diff.error, /merge/);
+});
+
+test('shallow history cannot produce a low-risk partial PR diff', t => {
+  const { cwd } = repo(t), input = mergeFeature(cwd);
+  const shallow = mkdtempSync(join(tmpdir(), 'barb-ci-shallow-'));
+  t.after(() => rmSync(shallow, { recursive: true, force: true }));
+  git(shallow, 'clone', '--depth=1', `file://${cwd}`, '.');
+  assert.equal(git(shallow, 'rev-parse', '--is-shallow-repository'), 'true');
+  const diff = readChangedFiles({ ...input, cwd: shallow });
+  assert.equal(diff.ok, false); assert.match(diff.error, /shallow/);
+  const recovered = readChangedFiles({ ...input, cwd: shallow, fetch: true });
+  assert.equal(recovered.ok, true); assert.deepEqual(recovered.changes, [change('README.md')]);
+});
+
+test('empty PR diff is anomalous and forces L2', t => {
+  const { cwd } = repo(t);
+  git(cwd, 'revert', '--no-edit', 'HEAD');
+  const input = mergeFeature(cwd), diff = readChangedFiles(input);
+  assert.equal(diff.ok, false); assert.match(diff.error, /Empty/);
+});
+
+test('createPlan records exact PR and integration SHA and handles L0/L1/L2 simulated diffs', t => {
+  for (const [source, level] of [['README.md', 'L0'], [audio, 'L1'], ['.github/workflows/pages.yml', 'L2']]) {
+    const { cwd, write } = repo(t);
+    if (source !== 'README.md') { write(source, 'changed\n'); git(cwd, 'add', '.'); git(cwd, 'commit', '-m', 'scope'); }
+    const input = mergeFeature(cwd), plan = createPlan({ ...input, eventName: 'pull_request', ref: 'refs/pull/42/merge',
+      event: { number: 42, pull_request: { head: { sha: input.headSha }, base: { sha: input.baseSha } } } });
+    assert.equal(plan.level, level); assert.equal(plan.prNumber, 42);
+    assert.equal(plan.headSha, input.headSha); assert.equal(plan.baseSha, input.baseSha);
+    assert.equal(plan.validationSha, input.validationSha); assert.equal(plan.validationRef, 'refs/pull/42/merge');
+    assert.equal(plan.diff.ok, true); assert.equal(plan.deploy, false);
+  }
+});
+
+test('missing PR metadata, failed inventory and invalid diff fail closed', t => {
+  const { cwd } = repo(t), input = mergeFeature(cwd);
+  const plan = createPlan({ ...input, eventName: 'pull_request', event: {}, ref: 'refs/pull/1/merge' });
+  assert.equal(plan.level, 'L2'); assert.equal(plan.diff.ok, false); assert.equal(plan.runE2E, true);
+  rmSync(join(cwd, 'tests/browser'), { recursive: true });
+  const noInventory = createPlan({ ...input, eventName: 'workflow_dispatch', event: {}, ref: 'refs/heads/main' });
+  assert.equal(noInventory.level, 'L2'); assert.equal(noInventory.runE2E, true); assert.deepEqual(noInventory.specs, []);
+});
