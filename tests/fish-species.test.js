@@ -46,14 +46,16 @@ test('length, mass, resistance and price data stay within the provisional game e
   }
 });
 
-test('each species references its own validated local SVG or transparent PNG', () => {
+test('each species references its own validated local production PNG', () => {
   assert.equal(new Set(FISH_SPECIES.map(fish => fish.image)).size, 12);
   const contents = new Set();
   for (const fish of FISH_SPECIES) {
     const url = new URL(fish.image);
     assert.equal(url.protocol, 'file:');
+    assert.equal(url.pathname, new URL(`../src/assets/fish/${fish.id}.png`, import.meta.url).pathname);
     const bytes = readFileSync(url);
     const image = validateFishImage(url.pathname, bytes);
+    assert.equal(image.format, 'png');
     assert.ok(image.width > 0 && image.height > 0);
     contents.add(bytes.toString('base64'));
   }

@@ -95,3 +95,13 @@ test('an image-only PNG substitution preserves old save v1, catches, sales, achi
     assert.throws(() => parseSaveData(JSON.stringify(corrupt)));
   }
 });
+
+test('explicit SVG and mixed SVG/PNG fixtures remain independent of the production artwork', async t => {
+  for (const png of [false, true]) {
+    const sandbox = await fishSpeciesSandbox(t, { svg: true, png });
+    const changed = await sandbox.load('fish-species');
+    assert.deepEqual(changed.FISH_SPECIES.map(({ image, ...data }) => data), FISH_SPECIES.map(({ image, ...data }) => data));
+    assert.match(changed.BLACK_BASS.image, png ? /fixture\.png$/ : /fixture\.svg$/);
+    for (const fish of changed.FISH_SPECIES.slice(1)) assert.match(fish.image, /fixture\.svg$/);
+  }
+});

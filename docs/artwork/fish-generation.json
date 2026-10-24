@@ -1,0 +1,275 @@
+{
+  "phase": "4C-1B",
+  "date": "2026-10-24",
+  "tool": "OpenAI image_gen.imagegen",
+  "modelVersion": "not exposed by tool",
+  "author": "BARB project",
+  "disclosure": "AI-generated artwork; original text prompts and BARB-generated style references only; final artistic approval by user/PM",
+  "rightsRecord": "../FISH_ARTWORK.md",
+  "styleReferenceNote": "Style-reference paths record generated BARB prototype inputs at generation time; final assets may include subsequent biological detail corrections. No third-party reference pictures were supplied.",
+  "images": [
+    {
+      "id": "black-bass",
+      "tool": "OpenAI image_gen.imagegen",
+      "original": "/workspace/generated_images/exec-1835bc86-4a3a-45e5-ace6-1241d7cb3163.png",
+      "prompt": "Create one original production-quality natural history ichthyological illustration of a LARGEMOUTH BASS (Micropterus salmoides), a single fish isolated on true transparent background. This is the first artwork of a consistent scientific field-guide game collection. Exact right-facing lateral side view, head at RIGHT tail at LEFT, full body and every fin tip visible, no foreshortening. Broad landscape composition approximately 2.286:1, plenty of empty transparent margin all around (at least 8% left/right and above all fin tips); fish occupies 82% canvas width. Mature healthy natural fish: robust elongated olive green body, pale cream underside, distinctive irregular dark horizontal lateral stripe, LARGE mouth whose upper jaw extends distinctly behind the eye, accurate operculum. One deeply notched joined dorsal fin with anterior spines and posterior soft rays, rounded slightly indented caudal fin, anatomically appropriate pectoral/pelvic/anal fins with individually resolved fine rays. Real species-specific morphology, natural scale detail following body contours, crisp clean contour with subtle painterly gouache texture and hand-painted muted natural colors, not a photograph, no vector shapes or cartoon. Soft restrained illumination from UPPER LEFT, moderate natural shading, clear glossy small eye without exaggerated glow. No water, splash, shadow on ground, fishing equipment, hook, line, plants, rocks, border, frame, labels, words, logo or any background. No white matte or outline/halo. Transparent pixels outside the fish. One fish only. High-quality professional fish field-guide plate, tasteful realism, anatomically coherent.",
+      "references": [],
+      "processing": "ImageMagick proportional resize to fit 1136x464, transparent centered padding to 1280x560; sRGB RGBA8 non-interlaced PNG, lossless compression",
+      "finalAsset": "src/assets/fish/black-bass.png",
+      "finalBytes": 648496,
+      "finalSha256": "7dd49f7396c476db8d596ada7a8e979ea5ad59949d4391cf25b602f145cc6fc1",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    },
+    {
+      "id": "smallmouth-bass",
+      "taxon": "Micropterus dolomieu",
+      "prompt": "Create a completely NEW fish illustration, not a recolor of either input. Input fish are original BARB artwork and are STYLE references only. Match their sophisticated muted hand-painted natural-history field-guide treatment, fine scales, clearly resolved fin rays, restrained soft UPPER LEFT light. New subject: ONE adult SMALLMOUTH BASS (Micropterus dolomieu), full exact right-facing lateral view head RIGHT tail LEFT. Full fish all fins/tail enclosed, no cropping. True species morphology: bronze-olive rather streamlined bass body, smaller mouth, upper jaw ending below the middle of the eye and NOT behind it. Closed or slightly parted small mouth, subtle radiating cheek streaks, subdued dark vertical brown bars down bronze flanks; NO continuous dark horizontal stripe. Natural cream underside. Front dorsal with spines and rear soft dorsal joined by a shallower notch than largemouth, slightly indented tail, pectoral/pelvic/anal fins correctly positioned. Distinct original silhouette and anatomy. Realistic fish illustration with slightly painterly gouache texture, crisp fine edge, no white halo. Small natural glossy eye without glow. Landscape 1280x560 intended framing; preserve anatomy not stretching, ample transparent margin around every tip. Transparent background only. No text, labels, frames, logo, water, splash, plants, fishing tackle, ground, cast shadow, floor, scenery, exaggerated illumination. Exactly one fish, no other objects.",
+      "original": "/workspace/generated_images/exec-b3b35c0f-e052-4bd0-8c3d-01640ea4f771.png",
+      "method": "OpenAI image_gen.imagegen; original artwork, text plus own generated BARB style references only",
+      "styleReferences": [
+        "/workspace/artwork-staging/black-bass.png",
+        "/workspace/artwork-staging/bluegill.png"
+      ],
+      "transparentBackground": true,
+      "normalization": "ImageMagick proportional resize within 1136x464; centered transparent extent 1280x560; sRGB, 8-bit RGBA, non-interlaced PNG, lossless ZIP level 9",
+      "edits": [],
+      "finalAsset": "src/assets/fish/smallmouth-bass.png",
+      "finalBytes": 567716,
+      "finalSha256": "1760f566c8051218ec8b8c35605807a633eca874316451e2503c821a0a7e8f4f",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    },
+    {
+      "id": "bluegill",
+      "tool": "OpenAI image_gen.imagegen",
+      "original": "/workspace/generated_images/exec-bdcaa031-2d61-4d77-9055-1228ebeaf17e.png",
+      "prompt": "Create one original production-quality natural history ichthyological illustration of a BLUEGILL (Lepomis macrochirus), matching the refined hand-painted field-guide style of the collection's largemouth bass. One single fish isolated on true transparent background. Exact right-facing lateral side view, head at RIGHT tail at LEFT, full body and EVERY fin tip visible, no foreshortening. Broad landscape composition intended to be fitted without distortion inside 1280x560: keep its true deep, compressed, near-disc-shaped tall body; do NOT stretch it horizontally to fill the wide canvas. Ample empty transparent margin all around above spines and below ventral fins. Mature healthy natural bluegill, subtle olive/bronze scale-covered body with faint dark vertical bars, muted yellow-orange lower breast, bluish cheek/operculum, prominent flat black opercular ear flap immediately behind gill cover, small black rear dorsal blotch. Tiny correct terminal mouth, relatively small head, normal small eye. Connected single dorsal with accurate sharp anterior spines transitioning into rounded posterior soft rays, long pointed pectoral fin, pelvic fins under thorax, correct anal fin and caudal peduncle, slightly forked fan caudal fin. Natural species-specific anatomy and scale pattern following body contours, finely resolved delicate translucent fin rays. Crisp clean contour with subtle painterly gouache texture and muted natural colors, not a photograph, no vector shapes or cartoon. Soft restrained illumination from UPPER LEFT, moderate natural shading, no glow. No water, splash, ground shadow, fishing equipment, hook, line, plants, rocks, border, frame, labels, words or logo. No background and no white matte or outline/halo, transparent pixels outside fish. One fish only. High-quality professional fish field-guide plate, tasteful realism, anatomically coherent.",
+      "references": [],
+      "processing": "ImageMagick proportional resize to fit 1136x464, transparent centered padding to 1280x560; sRGB RGBA8 non-interlaced PNG, lossless compression",
+      "initialOriginal": "/workspace/generated_images/exec-3c1c971b-f42c-4a5b-8f8f-909983be943c.png",
+      "edits": [
+        {
+          "id": "bluegill",
+          "original": "/workspace/generated_images/exec-bdcaa031-2d61-4d77-9055-1228ebeaf17e.png",
+          "reference": "/workspace/generated_images/exec-3c1c971b-f42c-4a5b-8f8f-909983be943c.png",
+          "prompt": "Carefully correct two species-specific details in this original bluegill natural-history illustration. Preserve its right-facing full lateral pose, deep disk body proportions, subtle vertical bars, small mouth, black gill-cover ear flap, muted olive/blue/gold painterly scale texture, upper-left lighting, all fins and true transparent background. (1) Correct the visible pectoral fin behind the gill to be the characteristic LONG, NARROW, SHARPLY POINTED bluegill pectoral, tapering elegantly backwards toward the left, not a short rounded paddle. It should remain a believable delicate rayed fin attached at the same shoulder. (2) Add the natural distinct small dark blackish blotch at the REAR LOWER portion of the soft dorsal fin, at the leftmost rear lobe of the dorsal fin above the back, separate from the opercular ear flap. Preserve fin-ray structure and translucency. Keep every tail and fin tip fully visible with margin, no text, no backgrounds, no water, no shadows on a floor, no white outline. One fish only. This is a precise biological correction, keep the established quality and composition.",
+          "reason": "Independent review found rounded pectoral and missing posterior dorsal blotch; regenerate these two details."
+        }
+      ],
+      "finalAsset": "src/assets/fish/bluegill.png",
+      "finalBytes": 487329,
+      "finalSha256": "8c271a9332bbb30b225df395dd06a5c28981314b0edf2a857f0d7fdc5e8ed43e",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    },
+    {
+      "tool": "OpenAI image_gen.imagegen",
+      "underlyingModel": "Not exposed by tool",
+      "generatedAt": "2026-10-24",
+      "transparentBackground": true,
+      "styleReferences": [
+        "/workspace/artwork-staging/black-bass.png",
+        "/workspace/artwork-staging/bluegill.png"
+      ],
+      "thirdPartyImageInputs": [],
+      "technicalProcessing": "magick ORIGINAL -resize 1136x464 -gravity center -background none -extent 1280x560 -colorspace sRGB -depth 8 -interlace none -define png:color-type=6 -define png:compression-level=9 OUTPUT",
+      "artisticEdits": [],
+      "visualReview": "Generated source and normalized PNG inspected; also composited onto neutral #dce2dc background and inspected. Entire fish, complete fin/tail tips, right-facing lateral orientation, muted natural-history style checked. Independent peer review requested.",
+      "id": "rainbow-trout",
+      "taxon": "Oncorhynchus mykiss",
+      "prompt": "Create ONE entirely new species illustration, not a recolor or edit of the fish's anatomy in the style references. Use the provided BARB prototype images ONLY for their precise natural-history field-guide painting style: restrained muted colors, minute scale detail, clear delicate fin rays, softly painterly texture, soft upper-left lighting, no dramatic highlights. One full-body fish in a strict exact lateral profile facing RIGHT, horizontal spine, entire nose, tail and every fin visible and uncut. Comfortable transparent margin around all tips. True fully transparent RGBA background, no white backdrop, no water, no plants, no ground, no shadow, no other objects, no text or logo. Landscape composition suited to a 1280x560 canvas. Preserve actual species proportions rather than borrowing the bass silhouette.\nSPECIES: adult freshwater rainbow trout, Oncorhynchus mykiss. Slim streamlined salmonid body, modest small silvery scales, gently olive-gray back fading into clean silver sides and pale belly. Clear natural muted rose-pink broad stripe along the lateral line, extending from gill cover to tail base, not glowing. Numerous small distinct fine BLACK spots over the back and upper sides and on the dorsal fin and on BOTH upper and lower lobes of the slightly forked/squared tail. A normal soft-rayed dorsal on mid-back, a separate SMALL ADIPOSE fin between main dorsal and tail, pectoral below gill, paired pelvic fins mid-belly, anal fin rear-belly. Natural eye, modestly open trout mouth with no exaggerated hook. NO red haloed brown-trout spots, NO bass spiny dorsal, NO salmon breeding hump.",
+      "original": "/workspace/generated_images/exec-613eec35-ff47-4ef5-9629-d88199558d22.png",
+      "output": "/workspace/artwork-staging/rainbow-trout.png",
+      "visualFeaturesChecked": "Silver body, pink flank stripe, small black spots over both tail lobes, separate adipose fin.",
+      "limitations": "Illustrative adult representative; individual coloration and exact ray counts vary. Final artwork approval remains user/PM review.",
+      "finalAsset": "src/assets/fish/rainbow-trout.png",
+      "finalBytes": 533310,
+      "finalSha256": "4ad33206e60cd28ca57ef2909a54d84b9f6f2719e562f856cd60047df8eaddc2",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    },
+    {
+      "tool": "OpenAI image_gen.imagegen",
+      "underlyingModel": "Not exposed by tool",
+      "generatedAt": "2026-10-24",
+      "transparentBackground": true,
+      "styleReferences": [
+        "/workspace/artwork-staging/black-bass.png",
+        "/workspace/artwork-staging/bluegill.png"
+      ],
+      "thirdPartyImageInputs": [],
+      "technicalProcessing": "magick ORIGINAL -resize 1136x464 -gravity center -background none -extent 1280x560 -colorspace sRGB -depth 8 -interlace none -define png:color-type=6 -define png:compression-level=9 OUTPUT",
+      "artisticEdits": [],
+      "visualReview": "Generated source and normalized PNG inspected; also composited onto neutral #dce2dc background and inspected. Entire fish, complete fin/tail tips, right-facing lateral orientation, muted natural-history style checked. Independent peer review requested.",
+      "id": "brown-trout",
+      "taxon": "Salmo trutta",
+      "prompt": "Create ONE entirely new species illustration, not a recolor or edit of the fish's anatomy in the style references. Use the provided BARB prototype images ONLY for their precise natural-history field-guide painting style: restrained muted colors, minute scale detail, clear delicate fin rays, softly painterly texture, soft upper-left lighting, no dramatic highlights. One full-body fish in a strict exact lateral profile facing RIGHT, horizontal spine, entire nose, tail and every fin visible and uncut. Comfortable transparent margin around all tips. True fully transparent RGBA background, no white backdrop, no water, no plants, no ground, no shadow, no other objects, no text or logo. Landscape composition suited to a 1280x560 canvas. Preserve actual species proportions rather than borrowing the bass silhouette.\nSPECIES: adult freshwater BROWN TROUT, Salmo trutta, with an entirely distinct new salmonid fish drawing. Moderately long, stout, almost boxy golden-brown and yellow-ochre fish with olive-brown back and pale buttery cream belly; naturally small delicate scales. Scattered round dark brown-black spots on back and upper flanks AND separate smaller distinct RED to burnt-orange spots midway along flanks, many encircled by subtle PALE cream halos. Clearly brown trout: NO continuous pink side stripe. Tail is nearly SQUARE/truncate with only a shallow indentation, pale brown-gold, very few tail spots, unlike densely black-spotted rainbow trout tail. A soft-rayed triangular main dorsal on mid-back, a separate small rounded ADIPOSE fin behind it before tail, normal pectoral, pelvic and anal fin placements. Brown trout head moderately long and mouth modestly open, upper jaw ending just behind eye. No spawning hook, no exaggerated fangs, no bass spiny dorsal. Entire fish only, facing right.",
+      "original": "/workspace/generated_images/exec-7321409b-0c43-4e00-aa2d-b76d99b23e73.png",
+      "output": "/workspace/artwork-staging/brown-trout.png",
+      "visualFeaturesChecked": "Golden-brown body, black and red haloed spots, nearly square sparse-spotted tail, separate adipose.",
+      "limitations": "Illustrative adult representative; individual coloration and exact ray counts vary. Final artwork approval remains user/PM review.",
+      "finalAsset": "src/assets/fish/brown-trout.png",
+      "finalBytes": 561032,
+      "finalSha256": "cae33d63434ec41de5eb65c64a0b62f2f987a0555cad5a5eb61ccf6c77d32535",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    },
+    {
+      "tool": "OpenAI image_gen.imagegen",
+      "underlyingModel": "Not exposed by tool",
+      "generatedAt": "2026-10-24",
+      "transparentBackground": true,
+      "styleReferences": [
+        "/workspace/artwork-staging/black-bass.png",
+        "/workspace/artwork-staging/bluegill.png"
+      ],
+      "thirdPartyImageInputs": [],
+      "technicalProcessing": "magick ORIGINAL -resize 1136x464 -gravity center -background none -extent 1280x560 -colorspace sRGB -depth 8 -interlace none -define png:color-type=6 -define png:compression-level=9 OUTPUT",
+      "artisticEdits": [],
+      "visualReview": "Generated source and normalized PNG inspected; also composited onto neutral #dce2dc background and inspected. Entire fish, complete fin/tail tips, right-facing lateral orientation, muted natural-history style checked. Independent peer review requested.",
+      "id": "iwana",
+      "taxon": "Salvelinus leucomaenis; river-resident form, subspecies unspecified",
+      "prompt": "Create ONE entirely new species illustration, not a recolor or edit of the fish's anatomy in the style references. Use the provided BARB prototype images ONLY for their precise natural-history field-guide painting style: restrained muted colors, minute scale detail, clear delicate fin rays, softly painterly texture, soft upper-left lighting, no dramatic highlights. One full-body fish in a strict exact lateral profile facing RIGHT, horizontal spine, entire nose, tail and every fin visible and uncut. Comfortable transparent margin around all tips. True fully transparent RGBA background, no white backdrop, no water, no plants, no ground, no shadow, no other objects, no text or logo. Landscape composition suited to a 1280x560 canvas. Preserve actual species proportions rather than borrowing the bass silhouette.\nSPECIES: adult Japanese IWANA char, Salvelinus leucomaenis, river-resident form. Entirely NEW slimmer, long almost cylindrical salmonid body with a relatively small head, DARK olive-brown upper body and sides, olive-charcoal back fading gradually to pale muted cream abdomen. Distinct rounded PALE IVORY / CREAM-WHITE spots scattered on back and flanks, with only a few faint muted pale-yellow cream spots below lateral line. The spots are LIGHT ON DARK, never black dots. Subtle very small scales so body looks smooth and finely textured, not large armor plates. Main small soft triangular dorsal on mid-back, separate tiny fleshy ADIPOSE between dorsal and tail, rounded or shallowly indented tail. Muted brown/amber lower fins with restrained pale front edges. Pectoral under gill, paired pelvic mid-belly, anal rear-belly. Natural small dark gold eye, smallish salmonid mouth, no salmon hook or exaggerated teeth. NO rainbow pink stripe; NO brown-trout black/red spots; NO brook-trout worm-like back markings or red spots with blue rings. Conservative dark iwana with clean scattered round cream spots.",
+      "original": "/workspace/generated_images/exec-8e9ffe97-f57a-4658-8c95-f717d2853160.png",
+      "output": "/workspace/artwork-staging/iwana.png",
+      "visualFeaturesChecked": "Dark olive cylindrical body, cream spots and faint yellow lower spots, small scales, separate adipose; no brook-trout vermiculation.",
+      "limitations": "Illustrative adult representative; individual coloration and exact ray counts vary. Final artwork approval remains user/PM review.",
+      "finalAsset": "src/assets/fish/iwana.png",
+      "finalBytes": 439757,
+      "finalSha256": "adb767d5d9a2da58ace916c7b0434a251df00d79f3eeee5fda18eb84da0cce27",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    },
+    {
+      "tool": "OpenAI image_gen.imagegen",
+      "underlyingModel": "Not exposed by tool",
+      "generatedAt": "2026-10-24",
+      "transparentBackground": true,
+      "styleReferences": [
+        "/workspace/artwork-staging/black-bass.png",
+        "/workspace/artwork-staging/bluegill.png"
+      ],
+      "thirdPartyImageInputs": [],
+      "technicalProcessing": "magick ORIGINAL -resize 1136x464 -gravity center -background none -extent 1280x560 -colorspace sRGB -depth 8 -interlace none -define png:color-type=6 -define png:compression-level=9 OUTPUT",
+      "artisticEdits": [],
+      "visualReview": "Generated source and normalized PNG inspected; also composited onto neutral #dce2dc background and inspected. Entire fish, complete fin/tail tips, right-facing lateral orientation, muted natural-history style checked. Independent peer review requested.",
+      "id": "northern-pike",
+      "taxon": "Esox lucius",
+      "prompt": "Create ONE entirely new species illustration, not a recolor or edit of the fish's anatomy in the style references. Use the provided BARB prototype images ONLY for their precise natural-history field-guide painting style: restrained muted colors, minute scale detail, clear delicate fin rays, softly painterly texture, soft upper-left lighting, no dramatic highlights. One full-body fish in a strict exact lateral profile facing RIGHT, horizontal spine, entire nose, tail and every fin visible and uncut. Comfortable transparent margin around all tips. True fully transparent RGBA background, no white backdrop, no water, no plants, no ground, no shadow, no other objects, no text or logo. Landscape composition suited to a 1280x560 canvas. Preserve actual species proportions rather than borrowing the bass silhouette.\nSPECIES: adult NORTHERN PIKE, Esox lucius. Draw an entirely new VERY ELONGATED lean torpedo-like northern pike, body length dramatically greater than height, flattened long DUCKBILL snout and long toothed jaws, eye relatively high on head. Long smooth outline, tiny subtle scales, muted dark olive-green upper body and sides with irregular distinct PALE YELLOW-CREAM oval/bean-shaped spots arranged across the flank; pale cream belly. Tail clearly FORKED with pointed lobes. Exactly ONE triangular/rather rounded SOFT DORSAL fin located FAR BACK just before the tail, almost opposite the similarly rear-set anal fin, leaving the long middle back completely free of fins. Pectoral fins small below gill, pelvic fins halfway down underside. Dorsal/anal/tail muted amber-brown with faint natural mottling. Do NOT draw a mid-back dorsal, an adipose, a second dorsal, spiny perch fins, or diamond gar armor. Do NOT draw the darker-on-light markings of muskellunge. Closed or just slightly open duckbill jaws, no dramatic attack pose. The long pike must fit whole inside the transparent canvas with uncut snout and tail tips, not forced into a bass body shape.",
+      "original": "/workspace/generated_images/exec-499c1844-b0e5-4c9a-8cab-1a54fb321fef.png",
+      "output": "/workspace/artwork-staging/northern-pike.png",
+      "visualFeaturesChecked": "Very long body, duckbill snout, pale oval spots on olive, only rear dorsal opposite anal, forked tail.",
+      "limitations": "Illustrative adult representative; individual coloration and exact ray counts vary. Final artwork approval remains user/PM review.",
+      "finalAsset": "src/assets/fish/northern-pike.png",
+      "finalBytes": 352051,
+      "finalSha256": "42e54eca293d4b770c46e1616532c9b979c7db04760d97735c9eedf7cb726330",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    },
+    {
+      "id": "european-perch",
+      "taxon": "Perca fluviatilis",
+      "prompt": "Create a completely NEW fish illustration; input original BARB fish artwork are STYLE references only, never copy or recolor their silhouettes. Match the subdued hand-painted natural-history field-guide detail with fine scales, clearly separated crisp fin rays, and restrained soft UPPER LEFT light. ONE adult EUROPEAN PERCH / REDFIN (Perca fluviatilis). Entire fish in exact right-facing lateral side view, head RIGHT tail LEFT, every fin and tail tip enclosed, ample transparent margin, intended landscape 1280x560. Distinct high-backed perch silhouette, olive green upper body, muted yellow-green flanks cream belly, SIX dark tapering vertical bars along the sides; dark rear blotch on first dorsal. TWO clearly distinct dorsal fins: first tall stiff spines in middle-front back; smaller second soft-rayed dorsal farther back with an actual short gap between. Red-orange pelvic and anal fins and subdued reddish lower caudal fin, natural pale yellow pectoral. Slender caudal peduncle and forked tail. Modestly sized terminal mouth, natural small warm eye with a single soft reflection, never glowing. Real adult European perch anatomy, not walleye, not yellow perch, not bass; preserved body proportions without distortion. Precise biological illustration with tasteful subtly painterly gouache surface, crisp clean outer edge. Transparent background, no white matte/halo, no scenery or ground/shadow. No water/splash, plants/rocks, hooks/line, text, labels, logo or border. One fish only.",
+      "original": "/workspace/generated_images/exec-1d7a3c81-ae4d-4723-aa9a-8d2d6294aad2.png",
+      "method": "OpenAI image_gen.imagegen; original artwork, text plus own generated BARB style references only",
+      "styleReferences": [
+        "/workspace/artwork-staging/black-bass.png",
+        "/workspace/artwork-staging/bluegill.png"
+      ],
+      "transparentBackground": true,
+      "normalization": "ImageMagick proportional resize within 1136x464; centered transparent extent 1280x560; sRGB, 8-bit RGBA, non-interlaced PNG, lossless ZIP level 9",
+      "edits": [],
+      "finalAsset": "src/assets/fish/european-perch.png",
+      "finalBytes": 526708,
+      "finalSha256": "02728493810f2e70f9a930a949f4af20d92a3a39d14f96f9a0e6e8e591480daf",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    },
+    {
+      "id": "walleye",
+      "taxon": "Sander vitreus",
+      "prompt": "Create a completely NEW fish illustration, input BARB original fish artwork are STYLE references only, never copy their silhouettes. Match their precise subdued painterly natural-history field-guide treatment, clean edges, fine scale structure and individually separated fin rays, restrained soft UPPER LEFT light. Subject ONE adult WALLEYE (Sander vitreus), full exact right-facing lateral side profile, head RIGHT tail LEFT. Very elongated slender olive-gold body with subtle brown mottling and pale cream belly, not broad disk-like perch. TWO separated dorsal fins, first spiny with dark blotch at its rear base; second softer rounded triangular dorsal more posterior. Forked tail with small pale WHITE LOWER CAUDAL TIP. Large natural pearly reflective eye, pupil still natural dark (eye reflects soft daylight, does NOT glow or emit light). Long low head with large slightly parted mouth and subtle canine teeth, natural correct operculum. Pale yellow-gray pectoral/pelvic/anal fins, no red lower fins and no six strong perch vertical bars, no rows of black spots on dorsal fins. Preserve adult walleye proportions and unique anatomy. Every fin and tail tip fully enclosed, ample transparent margin, landscape intended 1280x560, no stretching or perspective. Tasteful fine gouache-like texture, crisp accurate scale/ray detail, single fish. Completely transparent background. No white matte or outline, water/splash, scenery, ground, floor shadow, plants/rocks, fishing tackle, text/labels/frame/logo.",
+      "original": "/workspace/generated_images/exec-c363baa2-8a0d-496c-a328-e1c430a7b6a4.png",
+      "method": "OpenAI image_gen.imagegen; original artwork, text plus own generated BARB style references only",
+      "styleReferences": [
+        "/workspace/artwork-staging/black-bass.png",
+        "/workspace/artwork-staging/bluegill.png"
+      ],
+      "transparentBackground": true,
+      "normalization": "ImageMagick proportional resize within 1136x464; centered transparent extent 1280x560; sRGB, 8-bit RGBA, non-interlaced PNG, lossless ZIP level 9",
+      "edits": [],
+      "finalAsset": "src/assets/fish/walleye.png",
+      "finalBytes": 560071,
+      "finalSha256": "28c1b4e16243b67461dcfaf06383788d4e33514ad50828709882695e8dd67e24",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    },
+    {
+      "id": "catfish",
+      "taxon": "Silurus asotus",
+      "prompt": "Create a completely NEW species-specific fish illustration; input original BARB fish images are ONLY hand-painted natural-history STYLE references, never copy their bass/gill anatomy. Subject: ONE adult Japanese / Amur CATFISH (Silurus asotus). Accurate exact full lateral right-facing side view, head RIGHT tail LEFT, slim elongated tapering scaleless body, broad flattened head, very small lateral eyes, blunt depressed snout and slightly protruding lower jaw, smooth subdued olive-charcoal mottled skin becoming pale cream underneath. Essential Silurus anatomy: EXACTLY TWO PAIRS / FOUR BARBELS in the whole animal, long upper maxillary pair and shorter lower mandibular pair, some far-side occlusion natural in exact lateral view. Show slender graceful tactile whiskers with tips FULLY inside image; do NOT add 6 or 8 barbels. A VERY SMALL soft dorsal fin toward front of back; NO adipose fin, no large bass-like dorsal, no spiny ridge, NO scales. Very LONG low soft-rayed anal fin along ventral rear body from mid-body almost to tail, shallow-notched rounded caudal rather than deeply forked. Correct paired pectoral and pelvic fins, pectoral just behind gill aperture, small pelvic anterior to anal. Emphasize catfish unique smooth flattened head/body, not an American channel catfish and not an eel. True natural proportions. Match tasteful precise subdued painterly gouache field-guide rendering and clean contours from refs, fine soft fin rays and mouth/eye anatomy, soft restrained UPPER LEFT illumination, no glossy plastic sheen. Landscape intended 1280x560 with ample transparent margin around all whiskers and fins. Completely transparent background, no white matte/halo. No water/splash, scenery, ground, floor shadow, plants, rocks, hook/line, text/labels/logo/border. Exactly one fish, nothing else.",
+      "original": "/workspace/generated_images/exec-cf16d444-ed3c-446e-b81b-3ffe9b4466af.png",
+      "method": "OpenAI image_gen.imagegen; original artwork, text plus own generated BARB style references only",
+      "styleReferences": [
+        "/workspace/artwork-staging/black-bass.png",
+        "/workspace/artwork-staging/bluegill.png"
+      ],
+      "transparentBackground": true,
+      "normalization": "ImageMagick proportional resize within 1136x464; centered transparent extent 1280x560; sRGB, 8-bit RGBA, non-interlaced PNG, lossless ZIP level 9",
+      "edits": [],
+      "finalAsset": "src/assets/fish/catfish.png",
+      "finalBytes": 400379,
+      "finalSha256": "ab28a9209938961af690db2e79a4ff2b4a2955a02415b4efdb2ca80509bfd7b4",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    },
+    {
+      "tool": "OpenAI image_gen.imagegen",
+      "underlyingModel": "Not exposed by tool",
+      "generatedAt": "2026-10-24",
+      "transparentBackground": true,
+      "styleReferences": [
+        "/workspace/artwork-staging/black-bass.png",
+        "/workspace/artwork-staging/bluegill.png"
+      ],
+      "thirdPartyImageInputs": [],
+      "technicalProcessing": "magick ORIGINAL -resize 1136x464 -gravity center -background none -extent 1280x560 -colorspace sRGB -depth 8 -interlace none -define png:color-type=6 -define png:compression-level=9 OUTPUT",
+      "artisticEdits": [],
+      "visualReview": "Generated source and normalized PNG inspected; also composited onto neutral #dce2dc background and inspected. Entire fish, complete fin/tail tips, right-facing lateral orientation, muted natural-history style checked. Independent peer review requested.",
+      "id": "alligator-gar",
+      "taxon": "Atractosteus spatula",
+      "prompt": "Create ONE entirely new species illustration, not a recolor or edit of the fish's anatomy in the style references. Use the provided BARB prototype images ONLY for their precise natural-history field-guide painting style: restrained muted colors, minute scale detail, clear delicate fin rays, softly painterly texture, soft upper-left lighting, no dramatic highlights. One full-body fish in a strict exact lateral profile facing RIGHT, horizontal spine, entire nose, tail and every fin visible and uncut. Comfortable transparent margin around all tips. True fully transparent RGBA background, no white backdrop, no water, no plants, no ground, no shadow, no other objects, no text or logo. Landscape composition suited to a 1280x560 canvas. Preserve actual species proportions rather than borrowing the bass silhouette.\nSPECIES: adult ALLIGATOR GAR, Atractosteus spatula. An entirely NEW drawing of an elongated robust cylindrical armored fish, brown-olive back fading to muted pale tan/cream belly. Draw its characteristic long broad flattened alligator-like SNOUT, substantial robust head and jaw, NOT the very thin needle-like snout of a longnose gar. In side profile the closed/slightly parted broad jaws project well forward from the eye, a few small natural teeth subtly visible. Very distinct orderly interlocking RHOMBOID / DIAMOND ganoid armor scales across the long body; bone-like and textured, not circular bass scales. Body remains long and relatively low but stouter than a pike. Tail is broad ROUNDED, not forked. Exactly ONE small soft-rayed rounded triangular dorsal FIN FAR BACK near tail, nearly opposite the anal fin on rear underside. Pectoral near gill, pelvic halfway down abdomen. Dorsal, anal, and rounded tail muted brown with a few modest dark spots; avoid dense spotted head. Small dark eye on robust head; no barbels. NO adipose fin, no middle-back dorsal, no spiny dorsal, no pike-like pale flank ovals or forked tail. Entire long armored fish and long snout uncut, enough transparent clearance around tips.",
+      "original": "/workspace/generated_images/exec-d024a79b-662c-44d2-8788-980c08a32e13.png",
+      "output": "/workspace/artwork-staging/alligator-gar.png",
+      "visualFeaturesChecked": "Robust elongated armored body, broad long snout, rhomboid ganoid scales, rear dorsal and anal, rounded tail.",
+      "limitations": "Illustrative adult representative; individual coloration and exact ray counts vary. Final artwork approval remains user/PM review.",
+      "finalAsset": "src/assets/fish/alligator-gar.png",
+      "finalBytes": 379952,
+      "finalSha256": "6663aa24511ccbe77a59bc363ad5aa0cce71620d3c742d43d1eb143f97686ee6",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    },
+    {
+      "id": "arowana",
+      "taxon": "Osteoglossum bicirrhosum",
+      "prompt": "Create a completely NEW fish illustration; original BARB fish pictures supplied are STYLE references only, do NOT reuse bass anatomy or silhouette. ONE adult SILVER AROWANA (Osteoglossum bicirrhosum), precise full right-facing lateral view, head RIGHT tail LEFT. A long elegant laterally compressed silver fish with VERY LARGE distinct plate-like scales in orderly curved rows; silvery pearl body with restrained pale olive/gray dorsal tint, cream belly. Upturned oblique mouth and strongly projecting lower jaw, TWO short slender barbels extending from lower-jaw TIP. Natural dark eye with restrained soft reflection. This is long-bodied silver arowana, NOT deep-bodied Asian red/gold arowana. Essential fin anatomy: LONG soft dorsal over rear half of body, and an EVEN LONGER soft anal fin starting earlier along underside; each long ribbon-like fine-rayed fin tapers toward a relatively SMALL rounded/pointed caudal fin at rear. The dorsal must not start at front of body, and NO spiny dorsal, NO adipose. Correct long narrow pectoral fins behind operculum and small pelvic fins forward of anal. Maintain the highly elongated silver-arowana proportions, distinct from other species. All tail, barbels and fin tips inside frame with generous transparent margin. Professional natural-history field-guide plate with very fine scale and fin ray structure, subtle hand-painted gouache texture matching references, clean outer contour, soft restrained UPPER LEFT light, no excessive metallic shine or glow, muted natural color. Landscape intended 1280x560 without stretching. Transparent background only; no white matte/halo, scenery, water/splash, ground/floor shadow, rocks, plants, fishing tackle, labels/text/border/logo. Exactly one fish.",
+      "original": "/workspace/generated_images/exec-745b64a7-87df-41b7-8ff4-e5b5406bb551.png",
+      "method": "OpenAI image_gen.imagegen; original artwork, text plus own generated BARB style references only",
+      "styleReferences": [
+        "/workspace/artwork-staging/black-bass.png",
+        "/workspace/artwork-staging/bluegill.png"
+      ],
+      "transparentBackground": true,
+      "normalization": "ImageMagick proportional resize within 1136x464; centered transparent extent 1280x560; sRGB, 8-bit RGBA, non-interlaced PNG, lossless ZIP level 9",
+      "edits": [
+        {
+          "reason": "Independent anatomical QA requested a longer ribbonlike adult silver body and small unforked rounded caudal rather than Asian-like deep body/forked fan tail",
+          "prompt": "Revise THIS silver arowana original artwork to correct a substantive species anatomy problem. Preserve the professional muted hand-painted natural-history style, huge silvery plate scales, exact right-facing lateral view (head right), soft upper-left light, long soft rear dorsal and even longer anal fin, upturned mouth and two jaw-tip barbels, true transparent background and no labels. CHANGE THE SILHOUETTE to an ADULT SILVER AROWANA (Osteoglossum bicirrhosum): appreciably longer, lower and ribbonlike laterally compressed body (adult slender silver fish, length around six times body depth excluding fins), tapered rear body, not the short deep oval body of Asian arowana. MOST IMPORTANT: replace the big forked bass-like fan tail completely with the species-correct comparatively SMALL simple rounded/tapered caudal fin. It must have ONE smoothly curved convex trailing edge, no central notch, NO split or fork between lobes. Long rear dorsal and anal ribbonlike fins taper close to this small round caudal so rear end feels narrow and elegant. Dorsal starts in rear half, anal starts earlier and stretches farther. Keep large scales following this new elongated anatomy and correctly sized eye/head. Redraw proportions anatomically, do not just stretch source pixels. Small pectorals and appropriate pelvic fins. Entire fish, every fin/barbel/tail tip enclosed with generous margin on transparent landscape canvas. Subtle gouache texture, crisp accurate fin rays, muted pearl-silver color, no excessive shine. No background/ground/floor shadow, text, border, splash, water, plants, objects or halo. Exactly one fish.",
+          "input": "/workspace/generated_images/exec-6f270fd5-194f-437f-b4eb-14d69e886bca.png",
+          "output": "/workspace/generated_images/exec-745b64a7-87df-41b7-8ff4-e5b5406bb551.png"
+        }
+      ],
+      "initialOriginal": "/workspace/generated_images/exec-6f270fd5-194f-437f-b4eb-14d69e886bca.png",
+      "finalAsset": "src/assets/fish/arowana.png",
+      "finalBytes": 407085,
+      "finalSha256": "ea2f9766f0f6cc558b181fc2c42130597d286a8dfccde61e14a34b2385b61fd7",
+      "deliveryNormalization": "node scripts/normalize-fish-artwork.mjs ORIGINAL.png OUTPUT.png; proportional fit 1136x464, centered transparent canvas 1280x560, sRGB RGBA8 noninterlaced, lossless PNG; metadata-only explicit sRGB chunk and removal of comments/timestamps; after resampling, nearly opaque alpha samples >=250 become255; softer alpha and clear background preserved"
+    }
+  ],
+  "stylePrototypeOrigins": {
+    "blackBass": "/workspace/generated_images/exec-1835bc86-4a3a-45e5-ace6-1241d7cb3163.png",
+    "initialBluegill": "/workspace/generated_images/exec-3c1c971b-f42c-4a5b-8f8f-909983be943c.png",
+    "revisedBluegill": "/workspace/generated_images/exec-bdcaa031-2d61-4d77-9055-1228ebeaf17e.png",
+    "processing": "Initial style inputs used proportional resize/transparent padding before the final delivery alpha cleanup; the bluegill staging path was updated when its detail correction became available."
+  }
+}
