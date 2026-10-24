@@ -12,8 +12,8 @@ const buffers = createGeneratedBuffers({ createBuffer(channels, length, sampleRa
   return { duration: length / sampleRate, getChannelData: () => data };
 } });
 await mkdir(output, { recursive: true });
-for (const [name, start, seconds] of [['day', 60, 24], ['night-clear', 240, 24], ['night-fog', 960, 24],
-  ['sunset', 168, 24], ['fog-arrives', 896, 24], ['fog-clears-at-dawn', 1064, 24]]) {
+for (const [name, start, seconds] of [['day', 60, 24], ['night-clear', 240, 24], ['night-fog', 2790, 24], ['night-dense-fog', 960, 24],
+  ['sunset', 168, 24], ['dense-fog-arrives', 896, 24], ['dense-fog-clears-at-dawn', 1064, 24]]) {
   const count = Math.round(rate * seconds), wav = Buffer.alloc(44 + count * 2);
   wav.write('RIFF', 0); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8);
   wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);

@@ -41,7 +41,8 @@ test('lighting crosses both clock boundaries, handles long frames and freezes wi
     await page.clock.fastForward(100);
     await expect(display).toHaveAttribute('data-time-of-day', afterPhase);
     const after = await read(page);
-    assertEnvironment(after, await seconds());
+    // Low mist samples cumulative elapsed time, including the crossed cycle.
+    assertEnvironment(after, (boundary === 360 ? 360 : 0) + await seconds());
     for (const key of ['ambient', 'sun', 'moon', 'sky']) expect(Math.abs(before[key] - after[key])).toBeLessThan(0.01);
     for (const key of ['fog', 'deep', 'sunDirection']) before[key].forEach((v, i) => expect(Math.abs(v - after[key][i])).toBeLessThan(0.01));
   }

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { installPausedClock } from './clock-fixture.js';
 import { openUIFixture } from './ui-fixture.js';
 
 const layouts = [
@@ -11,9 +12,8 @@ for (const { name, viewport, touch } of layouts) {
   test(`${name}: hidden notice has no box; one award passes input and expires at 3.5 seconds`, async ({ browser }) => {
     const context = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch });
     const page = await context.newPage();
+    await installPausedClock(page);
     await openUIFixture(page);
-    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-    await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
     const notice = page.locator('#achievement-notice');
     async function expectNoBox() {
       await expect(notice).toBeHidden();
@@ -51,9 +51,8 @@ for (const { name, viewport, touch } of layouts) {
   test(`${name}: notice host is settled before modal buttons can be targeted`, async ({ browser }) => {
     const context = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch });
     const page = await context.newPage();
+    await installPausedClock(page);
     await openUIFixture(page);
-    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-    await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
     await page.evaluate(() => fixture.fund(300, true));
     // Also cover the catch modal: showModal()/close() must return with the
     // notice already in its final host, without waiting for a queued toggle.

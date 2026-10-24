@@ -1,4 +1,4 @@
-const MODE_NAMES = { DAY: '昼のBGM', NIGHT_CLEAR: '夜のBGM', NIGHT_FOG: '霧夜の自然音' };
+const MODE_NAMES = { DAY: '昼のBGM', NIGHT_CLEAR: '夜のBGM', NIGHT_FOG: '霧の夜のBGM', NIGHT_DENSE_FOG: '濃霧の自然音' };
 const PLAYBACK_NAMES = {
   off: 'OFF', waiting: '操作後に再生できます', paused: '一時停止中（メニューなど）',
   playing: '再生中', muted: '音量0%（無音）', blocked: '開始できませんでした。再試行できます',

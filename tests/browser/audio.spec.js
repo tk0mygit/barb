@@ -15,8 +15,9 @@ const progress = page => page.locator('#fishing-conditions').getAttribute('data-
 const assertMix = async page => {
   const seconds = (await progress(page)) * 360;
   const expected = sampleAudioMix(createGameClock(undefined, { elapsedSeconds: seconds }).state);
-  const fog = await page.evaluate(() => window.lightingProbe.last.fogStrength);
-  expected.day *= 1 - fog; expected.night *= 1 - fog; expected.nature = fog;
+  // Match audio against the real surface-fog clock and optical amount.
+  const denseFade = await page.evaluate(() => window.lightingProbe.denseFade ?? 0);
+  expected.day *= 1 - denseFade; expected.night *= 1 - denseFade; expected.nature = denseFade;
   const actual = await audioSnapshot(page);
   expect(actual.sources).toBe(3);
   for (const kind of ['day', 'night', 'nature']) expect(actual.gains[kind]).toBeCloseTo(expected[kind], 6);
@@ -190,5 +191,19 @@ for (const fail of [false, true]) {
     await page.mouse.down(); await page.mouse.up(); await page.clock.fastForward(16);
     await expect(phase).toHaveAttribute('data-phase', 'fight');
     await expect(page.locator('#error')).toBeHidden();
+  });
+}
+
+for (const [seconds, mode, bgm, nature] of [[270, '夜のBGM', 1, 0], [2790, '霧の夜のBGM', 1, 0], [630, '濃霧の自然音', 0, 1]]) {
+  test(`optical fog at ${seconds}s: ${mode}, independent settings and notification context`, async ({ page }) => {
+    await prefs(page, enabled); await page.addInitScript(installAudioProbe, {}); await setup(page, seconds);
+    expect((await audioSnapshot(page)).contexts).toBe(0);
+    await page.locator('#fish-button').click(); await tick(page);
+    const actual = await assertMix(page);
+    expect(actual.gains.night).toBe(bgm); expect(actual.gains.nature).toBe(nature);
+    await soundScreen(page); await expect(page.locator('#ambient-mode')).toHaveText(`現在の環境：${mode}`);
+    expect((await audioSnapshot(page)).contexts).toBe(1);
+    await close(page); await tick(page); await assertMix(page);
+    expect((await audioSnapshot(page)).contexts).toBe(1);
   });
 }

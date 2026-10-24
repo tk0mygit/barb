@@ -1,5 +1,5 @@
 import { GAME_CLOCK_CONFIG } from '../game/game-clock.js';
-import { sampleNightFog } from '../world/night-fog.js';
+import { sampleNightFog, FOG_TYPE } from '../world/night-fog.js';
 
 const smoothstep = value => {
   const t = Math.max(0, Math.min(1, value));
@@ -18,9 +18,10 @@ export function sampleAudioMix(clock, target = {}) {
   const local = smoothstep((seconds + edge) / (2 * edge))
     + smoothstep((duration - seconds + edge) / (2 * edge)) - 1;
   const night = day ? 1 - local : local;
-  target.mode = day ? 'DAY' : target.isFoggyNight ? 'NIGHT_FOG' : 'NIGHT_CLEAR';
-  target.day = (1 - night) * (1 - target.intensity);
-  target.night = night * (1 - target.intensity);
-  target.nature = target.intensity;
+  const denseMix = target.fogType === FOG_TYPE.DENSE_FOG ? target.intensity : 0;
+  target.mode = day ? 'DAY' : `NIGHT_${target.fogType}`;
+  target.day = (1 - night) * (1 - denseMix);
+  target.night = night * (1 - denseMix);
+  target.nature = denseMix;
   return target;
 }

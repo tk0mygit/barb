@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGameClock } from '../src/game/game-clock.js';
-import { sampleNightFog } from '../src/world/night-fog.js';
+import { sampleNightFog, FOG_TYPE } from '../src/world/night-fog.js';
 import { sampleAudioMix } from '../src/audio/audio-mix.js';
 import { createAudioSession } from '../src/audio/audio-session.js';
 import { createAmbientAudio } from '../src/audio/ambient-audio.js';
@@ -14,13 +14,14 @@ const at = seconds => createGameClock(undefined, { elapsedSeconds: seconds }).st
 const near = (a, b, epsilon = 1e-8) => assert.ok(Math.abs(a - b) < epsilon, `${a} != ${b}`);
 const buffers = { day: { duration: 24 }, night: { duration: 24 }, nature: { duration: 24 } };
 
-test('DAY/NIGHT_CLEAR/NIGHT_FOG and exact world fog envelopes, including 180/360 boundaries', () => {
-  for (const [seconds, mode] of [[90, 'DAY'], [180, 'NIGHT_CLEAR'], [270, 'NIGHT_CLEAR'], [360, 'DAY'], [900, 'NIGHT_FOG'], [990, 'NIGHT_FOG'], [1080, 'DAY']])
+test('DAY/NIGHT_CLEAR/NIGHT_FOG/NIGHT_DENSE_FOG and exact world fog envelopes, including 180/360 boundaries', () => {
+  for (const [seconds, mode] of [[90, 'DAY'], [180, 'NIGHT_CLEAR'], [270, 'NIGHT_CLEAR'], [360, 'DAY'], [900, 'NIGHT_DENSE_FOG'], [990, 'NIGHT_DENSE_FOG'], [2790, 'NIGHT_FOG'], [1080, 'DAY']])
     assert.equal(sampleAudioMix(at(seconds)).mode, mode);
   const target = {};
   for (let second = 0; second <= 1080; second += 0.5) {
     assert.equal(sampleAudioMix(at(second), target), target);
-    near(target.nature, sampleNightFog(at(second)).intensity);
+    const fog = sampleNightFog(at(second));
+    near(target.nature, fog.fogType === FOG_TYPE.DENSE_FOG ? fog.intensity : 0);
     near(target.day + target.night + target.nature, 1);
     assert.ok([target.day, target.night, target.nature].every(n => n >= 0 && n <= 1));
   }
@@ -169,4 +170,19 @@ test('original buffers have bounded memory/peaks, smooth seams, distinct music a
   }
   assert.ok(bytes < 7 * 1024 * 1024);
   assert.notDeepEqual(buffers.day.getChannelData(0), buffers.night.getChannelData(0));
+});
+
+test('FOG retains the complete clear-night BGM throughout both fades; only DENSE_FOG silences it', () => {
+  for (const phase of [0, 3, 6, 12, 90, 168, 174, 180 - 1e-4]) {
+    const clear = sampleAudioMix(at(180 + phase));
+    for (const index of [7, 8, 9, 10]) {
+      const fog = sampleAudioMix(at(index * 360 + 180 + phase));
+      assert.equal(fog.mode, 'NIGHT_FOG'); assert.equal(fog.nature, 0);
+      near(fog.day, clear.day); near(fog.night, clear.night);
+    }
+    const dense = sampleAudioMix(at(360 + 180 + phase));
+    assert.equal(dense.mode, 'NIGHT_DENSE_FOG');
+    near(dense.day + dense.night, 1 - dense.intensity); near(dense.nature, dense.intensity);
+  }
+  const dense = sampleAudioMix(at(630)); assert.equal(dense.night, 0); assert.equal(dense.day, 0); assert.equal(dense.nature, 1);
 });

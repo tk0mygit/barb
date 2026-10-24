@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { installPausedClock } from './clock-fixture.js';
 import { openUIFixture } from './ui-fixture.js';
 import { NORMAL_ACHIEVEMENTS } from '../../src/game/achievements.js';
 
@@ -8,16 +9,12 @@ async function openAchievements(page, click = locator => locator.click()) {
   await click(page.locator('#menu-button'));
   await click(page.locator('[data-view="achievements"]'));
 }
-async function installClock(page) {
-  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
-}
 
 for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: ten achievements, live progress, sales and upgrades in the shared menu`, async ({ browser }) => {
   const context = await browser.newContext({ viewport: touch ? { width: 320, height: 568 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch });
   const page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await openUIFixture(page); await installClock(page);
+  await installPausedClock(page); await openUIFixture(page);
   const click = locator => touch ? locator.tap() : locator.click();
   await click(page.locator('#menu-button'));
   await expect(page.locator('#collection-content > button')).toHaveText(['魚図鑑', '保管魚', '装備強化', '実績']);
@@ -118,7 +115,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: ten achie
 });
 
 test('simultaneous awards queue exactly once and expire without frames, including across menu visits', async ({ page }) => {
-  await openUIFixture(page); await installClock(page);
+  await installPausedClock(page); await openUIFixture(page);
   await page.evaluate(() => {
     fixture.collection.register({ schemaVersion: 1, id: 'big', speciesId: 'arowana', lengthCm: 100,
       weightKg: 1, caughtAt: '2026-01-01T00:00:00Z' });
@@ -140,7 +137,7 @@ test('simultaneous awards queue exactly once and expire without frames, includin
 });
 
 test('throttled background timer expires the visible award and preserves pending awards with their full turn', async ({ page }) => {
-  await openUIFixture(page); await installClock(page);
+  await installPausedClock(page); await openUIFixture(page);
   await page.evaluate(() => {
     fixture.collection.register({ schemaVersion: 1, id: 'big', speciesId: 'arowana', lengthCm: 100,
       weightKg: 1, caughtAt: '2026-01-01T00:00:00Z' });
@@ -161,7 +158,7 @@ test('throttled background timer expires the visible award and preserves pending
 
 for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: notice passes pointer input through to the canvas`, async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 320, height: 568 }, hasTouch: touch, isMobile: touch });
-  const page = await context.newPage(); await openUIFixture(page); await installClock(page);
+  const page = await context.newPage(); await installPausedClock(page); await openUIFixture(page);
   await page.evaluate(async () => {
     const { createFishingHUD } = await import('./src/ui/fishing-hud.js');
     const noop = () => {};
