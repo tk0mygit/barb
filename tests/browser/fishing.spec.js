@@ -361,7 +361,7 @@ test('all 12 species: production cast, hook, fight, matching result image and re
   }
   await page.locator('#menu-button').click({ force: true });
   await page.locator('[data-view="encyclopedia"]').click({ force: true });
-  expect(await page.locator('.fish-card > span').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
+  expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
   await expect(page.locator('button.fish-card')).toHaveCount(12);
   await page.screenshot({ path: 'test-results/encyclopedia-discovered.png', animations: 'disabled' });
   await page.locator('#collection-back').click({ force: true });
@@ -375,5 +375,5 @@ test('all 12 species: production cast, hook, fight, matching result image and re
   await page.locator('#menu-button').click(); await page.locator('[data-view="storage"]').click();
   await expect(page.locator('.stored-fish')).toHaveCount(12);
   await page.locator('#collection-back').click(); await page.locator('[data-view="encyclopedia"]').click();
-  expect(await page.locator('.fish-card > span').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
+  expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
 });

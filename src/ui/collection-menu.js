@@ -59,7 +59,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
         const fish = FISH_SPECIES[index], discovered = entry.count > 0;
         const card = element(discovered ? 'button' : 'div', undefined, 'fish-card');
         card.dataset.slot = index;
-        card.append(fishImage(discovered ? fish.image : silhouette, discovered ? fish.name : '未発見の魚のシルエット'), element('span', discovered ? fish.name : '？？？'));
+        card.append(fishImage(discovered ? fish.image : silhouette, discovered ? fish.name : '未発見の魚のシルエット'), element('span', discovered ? fish.name : '？？？', 'fish-card-name'));
         if (discovered) {
           card.type = 'button';
           card.append(element('small', `${entry.count}匹 · 最大 ${entry.maxLengthCm.toFixed(1)} cm`));

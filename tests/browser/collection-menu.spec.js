@@ -15,7 +15,7 @@ for (const touch of [false, true]) {
     await click(page.locator('[data-view="encyclopedia"]'));
     const cards = page.locator('.fish-card');
     await expect(cards).toHaveCount(12);
-    expect(await cards.locator('span').allTextContents()).toEqual(Array(12).fill('？？？'));
+    expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(Array(12).fill('？？？'));
     expect(await cards.evaluateAll(nodes => nodes.map(node => Number(node.dataset.slot)))).toEqual(FISH_SPECIES.map((_, index) => index));
     await expect(page.locator('.fish-card button, button.fish-card')).toHaveCount(0);
     const content = await page.locator('#collection-content').innerHTML();
