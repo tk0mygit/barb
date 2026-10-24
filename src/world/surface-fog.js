@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { sampleNightFog } from './night-fog.js';
 
 export const SURFACE_FOG_CONFIG = Object.freeze({ heights: Object.freeze([0.28, 0.85, 1.42]), size: 400, segments: 32, periodSeconds: 3600 });
 
@@ -7,9 +8,10 @@ export const SURFACE_FOG_CONFIG = Object.freeze({ heights: Object.freeze([0.28, 
 export function createSurfaceFog() {
   const group = new THREE.Group(); group.name = 'surface-fog'; group.visible = false;
   const geometry = new THREE.PlaneGeometry(SURFACE_FOG_CONFIG.size, SURFACE_FOG_CONFIG.size, SURFACE_FOG_CONFIG.segments, SURFACE_FOG_CONFIG.segments);
+  const nightFog = {};
   const material = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, depthTest: true, side: THREE.DoubleSide, forceSinglePass: true, toneMapped: false,
-    uniforms: { fogTime: { value: 0 }, fogDrift: { value: new THREE.Vector2() }, fogAmount: { value: 0 }, fogTint: { value: new THREE.Color() }, boatPosition: { value: new THREE.Vector2() } },
+    uniforms: { fogTime: { value: 0 }, fogDrift: { value: new THREE.Vector2() }, fogAmount: { value: 0 }, fogOpacityScale: { value: 1 }, fogTint: { value: new THREE.Color() }, boatPosition: { value: new THREE.Vector2() } },
     vertexShader: `
       uniform float fogTime;
       varying vec3 world;
@@ -23,6 +25,7 @@ export function createSurfaceFog() {
     fragmentShader: `
       uniform float fogTime;
       uniform float fogAmount;
+      uniform float fogOpacityScale;
       uniform vec2 fogDrift;
       uniform vec3 fogTint;
       uniform vec2 boatPosition;
@@ -45,7 +48,7 @@ export function createSurfaceFog() {
         float cloud = smoothstep(0.43, 0.70, broad) * smoothstep(0.40, 0.68, wisps);
         // Open gaps between broad patches and narrow strands preserve locality.
         // Bound the surface veil in dense fog; distance fog owns attenuation.
-        float alpha = cloud * support * min(fogAmount, 0.7) * 0.45;
+        float alpha = cloud * support * fogAmount * fogOpacityScale * 0.45;
         vec3 mistTint = fogTint * 1.45 + vec3(0.008, 0.010, 0.012);
         gl_FragColor = vec4(mistTint, alpha);
         #include <colorspace_fragment>
@@ -66,6 +69,9 @@ export function createSurfaceFog() {
       const phase = time * (2 * Math.PI / SURFACE_FOG_CONFIG.periodSeconds);
       material.uniforms.fogDrift.value.set(Math.sin(phase) * 34, Math.cos(phase) * 22);
       material.uniforms.fogAmount.value = amount;
+      // Cap the target, not the live envelope: keep all 12s of the shared fade.
+      sampleNightFog(clock, nightFog);
+      material.uniforms.fogOpacityScale.value = nightFog.targetFogAmount > 0 ? Math.min(1, 0.7 / nightFog.targetFogAmount) : 1;
       material.uniforms.fogTint.value.copy(color);
       material.uniforms.boatPosition.value.set(boat.x, boat.z);
     },

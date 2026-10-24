@@ -122,6 +122,7 @@ test('surface wisps and fog reuse geometry/uniforms, align water/sky, obscure th
     near(drift.x, Math.sin((seconds % 3600) * 2 * Math.PI / 3600) * 34);
     near(drift.y, Math.cos((seconds % 3600) * 2 * Math.PI / 3600) * 22);
     assert.equal(uniforms.fogTime.value, seconds % 3600); assert.equal(uniforms.fogAmount.value, fog.effectiveFogAmount);
+    near(uniforms.fogAmount.value * uniforms.fogOpacityScale.value, Math.min(fog.targetFogAmount, 0.7) * fog.intensity);
     near(scene.getObjectByName('moon').material.opacity, env.moonOpacity * (1 - fog.effectiveFogAmount) ** 2);
     assert.equal(scene.children.find(o => o.isHemisphereLight).intensity, env.ambientIntensity);
     assert.equal(scene.children.filter(o => o.isDirectionalLight)[1].intensity, env.moonIntensity);
