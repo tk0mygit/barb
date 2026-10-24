@@ -5,6 +5,10 @@ import { createBoatState } from '../../src/game/boat.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 import { createSaveData } from '../../src/game/save-data.js';
 
+// Match the other production-game E2E fixtures: retain CSS viewport/touch
+// coordinates while bounding software WebGL pixel work on the test runner.
+test.use({ deviceScaleFactor: 0.5 });
+
 const KEYS = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
 const envelope = (generation, data) => JSON.stringify({ storageVersion: 1, generation, data });
 const phase = page => page.locator('#fishing-panel').getAttribute('data-phase');
