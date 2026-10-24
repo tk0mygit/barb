@@ -50,13 +50,26 @@ export function createWater(fog = new THREE.FogExp2('#b9ccc3', 0.0018)) {
       }
       void main() {
         vec2 p = world.xz;
-        float a = noise(p * 0.8 + vec2(time * 0.3, time * 0.15)) * 2.0 - 1.0;
-        float b = noise(p * 1.2 + vec2(-time * 0.2, time * 0.2)) * 2.0 - 1.0;
-        vec3 n = normalize(vec3(a * 0.09, 1.0, b * 0.09));
+        float distanceToEye = length(cameraPosition.xz - p);
+        // Broad wind ripples retain a quiet surface. Attenuate small normals
+        // before they compress into shimmering pixels near the far bank.
+        float detail = 1.0 - smoothstep(24.0, 180.0, distanceToEye);
+        float broad = noise(p * 0.035 + vec2(time * 0.018, -time * 0.012));
+        // Reuse the fine field to bend wave fronts, avoiding a fourth noise
+        // evaluation over the lake's large screen area.
+        float grain = noise(p * 0.28 + vec2(time * 0.08, time * 0.04)) * 2.0 - 1.0;
+        float drift = broad * 2.0 + grain * 0.8;
+        float a = sin(dot(p, vec2(0.68, 0.31)) + time * 0.75 + drift) * 0.55
+          + grain * 0.45;
+        float b = sin(dot(p, vec2(-0.24, 0.92)) - time * 0.63 + drift) * 0.4
+          + (noise(p * 0.37 + vec2(-time * 0.05, time * 0.06)) * 2.0 - 1.0) * 0.6;
+        vec3 n = normalize(vec3(a * 0.055, 1.0, b * 0.055) * vec3(0.35 + detail * 0.65, 1.0, 0.35 + detail * 0.65));
         vec3 eye = normalize(cameraPosition - world);
         float fresnel = pow(1.0 - max(dot(eye, n), 0.0), 3.0);
-        vec3 color = mix(deepColor, reflectionColor, fresnel * 0.85);
-        color += (a * b) * 0.028 * waterDetail;
+        vec3 bodyColor = deepColor * vec3(0.72, 0.82, 0.78);
+        vec3 color = mix(bodyColor, reflectionColor * 0.9, fresnel * 0.82);
+        color *= 0.97 + broad * 0.06;
+        color += (a * b) * 0.009 * detail * waterDetail;
         float sunSpec = pow(max(dot(reflect(-sunDirection, n), eye), 0.0), 90.0);
         float moonSpec = pow(max(dot(reflect(-moonDirection, n), eye), 0.0), 90.0);
         color += sunColor * sunSpec * sunHighlight + moonColor * moonSpec * moonHighlight;

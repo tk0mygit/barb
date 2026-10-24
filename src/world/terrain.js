@@ -1,24 +1,94 @@
 import * as THREE from 'three';
-import { LAKE, PALETTE, shoreRadius, randomGenerator } from './config.js';
+import { LAKE, shoreRadius, randomGenerator } from './config.js';
+import { sceneryNoise, ridgeNoise } from './scenery-noise.js';
+
+// More samples near the waterline, with the original outer skirt extent.
+// Neither this mesh nor its height sampler participates in lake collision.
+const offsets = [-5, 0, 2.5, 5.5, 9, 14, 20, 28, 38, 50, 64, 80, 98, 118, 140, 164, 190, 218, 248, 279, 299];
+const tau = Math.PI * 2;
+const smooth = (a, b, v) => THREE.MathUtils.smoothstep(v, a, b);
+function groundVertex(ring, segment) {
+  const angle = (segment % LAKE.segments) / LAKE.segments * tau;
+  const offset = offsets[ring], r = shoreRadius(angle) + offset;
+  const x = Math.cos(angle) * r, z = Math.sin(angle) * r;
+  const relief = sceneryNoise(x * 0.025, z * 0.025, 181) - 0.5;
+  const y = ring === 0 ? -1.4 : 0.65 + offset * 0.11
+    + Math.max(0, offset - 10) * 0.06 * (Math.sin(x * 0.04) + Math.cos(z * 0.037))
+    + smooth(0, 30, offset) * relief * 3.5;
+  return [Math.fround(x), Math.fround(y), Math.fround(z)];
+}
+function triangleHeight(x, z, a, b, c) {
+  const denominator = (b[2] - c[2]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[2] - c[2]);
+  const u = ((b[2] - c[2]) * (x - c[0]) + (c[0] - b[0]) * (z - c[2])) / denominator;
+  const v = ((c[2] - a[2]) * (x - c[0]) + (a[0] - c[0]) * (z - c[2])) / denominator;
+  return { inside: u >= -1e-5 && v >= -1e-5 && u + v <= 1.00001, height: u * a[1] + v * b[1] + (1 - u - v) * c[1] };
+}
+
+// Initialization only: meet the exact Float32 triangles of the rendered slope.
+export function terrainHeightAt(x, z) {
+  const angle = (Math.atan2(z, x) + tau) % tau;
+  const segment = Math.min(LAKE.segments - 1, Math.floor(angle / tau * LAKE.segments));
+  for (let ring = 0; ring < offsets.length - 1; ring++) {
+    const a = groundVertex(ring, segment), b = groundVertex(ring, segment + 1);
+    const c = groundVertex(ring + 1, segment), d = groundVertex(ring + 1, segment + 1);
+    for (const triangle of [[a, b, c], [b, d, c]]) {
+      const sample = triangleHeight(x, z, ...triangle);
+      if (sample.inside) return sample.height;
+    }
+  }
+  return NaN;
+}
+
+function closeNormals(geometry, columns, rows) {
+  const normals = geometry.attributes.normal, normal = new THREE.Vector3();
+  for (let row = 0; row < rows; row++) {
+    const first = row * columns, last = first + columns - 1;
+    normal.set(normals.getX(first) + normals.getX(last), normals.getY(first) + normals.getY(last), normals.getZ(first) + normals.getZ(last)).normalize();
+    normals.setXYZ(first, normal.x, normal.y, normal.z); normals.setXYZ(last, normal.x, normal.y, normal.z);
+  }
+}
+
+function createCrown(broadleaf) {
+  const positions = [], colors = [], indices = [], sides = 7, levels = 14;
+  const profile = [0.48, 0.82, 0.61, 0.94, 0.64, 0.81, 0.51, 0.67, 0.4, 0.49, 0.26, 0.3, 0.13, 0.13, 0];
+  for (let level = 0; level <= levels; level++) {
+    const t = level / levels;
+    for (let side = 0; side <= sides; side++) {
+      const angle = (side % sides) / sides * tau;
+      const edge = 1 + (broadleaf ? 0.23 : 0.13) * Math.sin(angle * 3 + t * 9) + 0.09 * Math.cos(angle * 2 - t * 6);
+      const radius = (broadleaf ? Math.sin(Math.PI * t) ** 0.65 * (0.94 + Math.sin(t * 23) * 0.1) : profile[level]) * edge;
+      positions.push(Math.cos(angle) * radius + Math.sin(t * 3.1) * 0.12, t, Math.sin(angle) * radius);
+      const light = broadleaf ? 0.76 + t * 0.24 : 0.70 + t * 0.25 + (level % 2 ? 0.05 : 0);
+      colors.push(light * 0.97, light, light * 0.94);
+      if (level < levels && side < sides) {
+        const a = level * (sides + 1) + side, b = a + sides + 1;
+        indices.push(a, b, a + 1, a + 1, b, b + 1);
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(indices); geometry.computeVertexNormals(); closeNormals(geometry, sides + 1, levels + 1);
+  return geometry;
+}
 
 export function createTerrain() {
-  const group = new THREE.Group();
-  const random = randomGenerator();
-  const positions = [], colors = [], indices = [];
-  const rings = 24;
-  const sand = new THREE.Color(PALETTE.shore);
-  const grass = new THREE.Color(PALETTE.grass);
-  for (let ring = 0; ring <= rings; ring++) {
+  const group = new THREE.Group(); group.name = 'lake-scenery';
+  const random = randomGenerator(), positions = [], colors = [], indices = [];
+  const sand = new THREE.Color('#96917a'), grass = new THREE.Color('#61705a');
+  const soil = new THREE.Color('#77745f'), stone = new THREE.Color('#85877c'), color = new THREE.Color();
+  for (let ring = 0; ring < offsets.length; ring++) {
     for (let i = 0; i <= LAKE.segments; i++) {
-      const angle = i / LAKE.segments * Math.PI * 2;
-      const offset = ring === 0 ? -5 : (ring - 1) * 13;
-      const radius = shoreRadius(angle) + offset;
-      const x = Math.cos(angle) * radius, z = Math.sin(angle) * radius;
-      const height = ring === 0 ? -1.4 : 0.65 + offset * 0.11 + Math.max(0, offset - 10) * 0.06 * (Math.sin(x * 0.04) + Math.cos(z * 0.037));
-      positions.push(x, height, z);
-      const color = sand.clone().lerp(grass, Math.min(1, Math.max(0, offset) / 22)).multiplyScalar(0.92 + random() * 0.16);
-      colors.push(color.r, color.g, color.b);
-      if (ring < rings && i < LAKE.segments) {
+      const [x, y, z] = groundVertex(ring, i), offset = offsets[ring];
+      positions.push(x, y, z);
+      const broad = sceneryNoise(x * 0.035, z * 0.035, 91), patch = sceneryNoise(x * 0.13, z * 0.13, 29);
+      const growth = smooth(1.5 + broad * 9, 17 + broad * 19, offset + (patch - 0.5) * 8);
+      color.copy(sand).lerp(grass, growth);
+      color.lerp(soil, smooth(0.48, 0.8, broad) * growth * 0.38);
+      color.lerp(stone, smooth(16, 42, y) * (0.18 + patch * 0.27));
+      color.multiplyScalar(0.91 + patch * 0.13 + broad * 0.07); colors.push(color.r, color.g, color.b);
+      if (ring < offsets.length - 1 && i < LAKE.segments) {
         const a = ring * (LAKE.segments + 1) + i, b = a + LAKE.segments + 1;
         indices.push(a, a + 1, b, a + 1, b + 1, b);
       }
@@ -27,70 +97,81 @@ export function createTerrain() {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
+  geometry.setIndex(indices); geometry.computeVertexNormals(); closeNormals(geometry, LAKE.segments + 1, offsets.length);
   const ground = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }));
-  ground.receiveShadow = true;
-  group.add(ground);
+  ground.name = 'lake-shore'; ground.receiveShadow = true; group.add(ground);
 
-  const count = 850;
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.5, 1, 5), new THREE.MeshStandardMaterial({ color: '#655343' }), count);
-  // Layered, uneven boughs give the evergreen silhouettes a natural edge.
-  const boughPoints = [];
-  for (let level = 0; level <= 14; level++) {
-    const t = level / 14;
-    boughPoints.push(new THREE.Vector2((1 - t) * (level % 2 ? 0.68 : 1), t - 0.5));
-  }
-  const boughGeometry = new THREE.LatheGeometry(boughPoints, 7);
-  const boughPositions = boughGeometry.attributes.position;
-  for (let i = 0; i < boughPositions.count; i++) {
-    const scale = 0.9 + random() * 0.2;
-    boughPositions.setXYZ(i, boughPositions.getX(i) * scale, boughPositions.getY(i), boughPositions.getZ(i) * scale);
-  }
-  boughGeometry.computeVertexNormals();
-  const foliage = new THREE.InstancedMesh(boughGeometry, new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1 }), count);
-  const dummy = new THREE.Object3D();
-  const treeColor = new THREE.Color();
-  for (let i = 0; i < count; i++) {
-    const angle = random() * Math.PI * 2, offset = 12 + random() ** 1.5 * 160;
-    const radius = shoreRadius(angle) + offset;
-    const x = Math.cos(angle) * radius, z = Math.sin(angle) * radius;
-    const y = 0.65 + offset * 0.11 + Math.max(0, offset - 10) * 0.06 * (Math.sin(x * 0.04) + Math.cos(z * 0.037));
-    const h = 7 + random() * 12, w = 2.2 + random() * 2.4;
-    dummy.position.set(x, y + h * 0.32, z);
-    dummy.scale.set(1, h * 0.65, 1);
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.5, 1, 5), new THREE.MeshStandardMaterial({ color: '#655a49', roughness: 1 }), 850);
+  const foliageMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
+  const conifers = new THREE.InstancedMesh(createCrown(false), foliageMaterial, 650);
+  const broadleaves = new THREE.InstancedMesh(createCrown(true), foliageMaterial, 200);
+  trunks.name = 'tree-trunks'; conifers.name = 'tree-conifers'; broadleaves.name = 'tree-broadleaves';
+  const dummy = new THREE.Object3D(), treeColor = new THREE.Color();
+  const evergreen = new THREE.Color('#405a48'), leaf = new THREE.Color('#637053');
+  const pale = new THREE.Color('#7c8966'), shade = new THREE.Color('#344b42');
+  for (let i = 0; i < 850; i++) {
+    let x, z;
+    // Coherent groves and openings, with bounded deterministic rejection.
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const angle = random() * tau, offset = 11 + random() ** 1.35 * 168;
+      const radius = shoreRadius(angle) + offset;
+      x = Math.cos(angle) * radius; z = Math.sin(angle) * radius;
+      if (random() < 0.22 + sceneryNoise(x * 0.028, z * 0.028, 311) * 0.78) break;
+    }
+    const y = terrainHeightAt(x, z), broadleaf = i >= 650;
+    const h = 8 + random() * 13, w = h * (broadleaf ? 0.24 + random() * 0.09 : 0.16 + random() * 0.08);
+    const yaw = random() * tau, aspect = 0.78 + random() * 0.38;
+    dummy.rotation.set(0, yaw, 0); dummy.position.set(x, y + h * 0.28, z);
+    dummy.scale.set(0.65 + h * 0.025, h * 0.56, 0.65 + h * 0.025);
     dummy.updateMatrix(); trunks.setMatrixAt(i, dummy.matrix);
-    treeColor.setHSL(0.29 + random() * 0.08, 0.19 + random() * 0.14, 0.16 + random() * 0.12);
-    dummy.position.set(x, y + h * 0.6, z);
-    dummy.scale.set(w, h, w);
-    dummy.updateMatrix(); foliage.setMatrixAt(i, dummy.matrix);
-    foliage.setColorAt(i, treeColor);
+    const foliage = broadleaf ? broadleaves : conifers, index = broadleaf ? i - 650 : i;
+    treeColor.copy(broadleaf ? leaf : evergreen).lerp(random() < 0.3 ? pale : shade, random() * 0.4);
+    treeColor.multiplyScalar(0.88 + random() * 0.23);
+    dummy.position.set(x, y + h * (broadleaf ? 0.36 : 0.13), z);
+    dummy.scale.set(w, h * (broadleaf ? 0.67 : 0.87), w * aspect);
+    dummy.updateMatrix(); foliage.setMatrixAt(index, dummy.matrix); foliage.setColorAt(index, treeColor);
   }
-  group.add(trunks, foliage);
-  const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: '#92958a', roughness: 1 }), 90);
+  group.add(trunks, conifers, broadleaves);
+  const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1 }), 90);
+  rocks.name = 'shore-rocks';
   for (let i = 0; i < 90; i++) {
-    const angle = random() * Math.PI * 2, r = shoreRadius(angle) + random() * 4;
-    dummy.position.set(Math.cos(angle) * r, 0.4, Math.sin(angle) * r);
-    dummy.rotation.set(random(), random() * 6, random());
-    dummy.scale.set(1 + random() * 3, 0.5 + random() * 1.4, 1 + random() * 2);
+    const angle = random() * tau, offset = random() * 5, r = shoreRadius(angle) + offset;
+    const x = Math.cos(angle) * r, z = Math.sin(angle) * r;
+    dummy.position.set(x, terrainHeightAt(x, z) - 0.25, z);
+    dummy.rotation.set(random(), random() * tau, random());
+    dummy.scale.set(0.8 + random() * 2.3, 0.45 + random() * 1.1, 0.8 + random() * 1.7);
     dummy.updateMatrix(); rocks.setMatrixAt(i, dummy.matrix);
+    treeColor.set('#85897c').lerp(soil, random() * 0.35); rocks.setColorAt(i, treeColor);
   }
   group.add(rocks);
-  // Irregular ridge meshes form continuous distant mountains, with atmospheric fog.
+
+  // Three continuous slopes with overlapping skirts avoid horizon gaps.
   for (let ridge = 0; ridge < 3; ridge++) {
-    const verts = [], faces = [];
-    const n = 96, radius = 430 + ridge * 150;
-    for (let i = 0; i <= n; i++) {
-      const a = i / n * Math.PI * 2;
-      const peak = 80 + ridge * 25 + 55 * Math.sin(a * 5 + ridge) ** 2 + 40 * Math.cos(a * 9 + ridge) ** 2;
-      verts.push(Math.cos(a) * radius, -8, Math.sin(a) * radius);
-      verts.push(Math.cos(a) * (radius + 65), peak, Math.sin(a) * (radius + 65));
-      if (i < n) { const k = i * 2; faces.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+    const verts = [], tints = [], faces = [], n = 128, base = 385 + ridge * 145;
+    const ridgeTint = new THREE.Color(['#596f68', '#738784', '#8e9e9a'][ridge]);
+    for (let row = 0; row < 5; row++) {
+      for (let i = 0; i <= n; i++) {
+        const a = (i % n) / n * tau;
+        const broad = ridgeNoise(a, 7, 807 + ridge * 31), detail = ridgeNoise(a, 31, 233 + ridge * 41);
+        const fine = ridgeNoise(a, 67, 109 + ridge * 17);
+        const peak = 42 + ridge * 18 + broad * 54 + detail * 58 + fine * 26;
+        const radius = base + [0, 38, 78, 115, 215][row] + (row === 0 ? 0 : (detail - 0.5) * 32);
+        const height = row === 0 || row === 4 ? -12 : peak * [0, 0.18 + fine * 0.12, 0.48 + detail * 0.2, 1, 0][row];
+        verts.push(Math.cos(a) * radius, height, Math.sin(a) * radius);
+        color.copy(ridgeTint).multiplyScalar(0.85 + row * 0.025 + broad * 0.09 + detail * 0.07 + fine * 0.035);
+        tints.push(color.r, color.g, color.b);
+        if (row < 4 && i < n) {
+          const k = row * (n + 1) + i, next = k + n + 1;
+          faces.push(k, k + 1, next, k + 1, next + 1, next);
+        }
+      }
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-    geo.setIndex(faces); geo.computeVertexNormals();
-    group.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: ['#718277', '#8a9b93', '#a4b4ad'][ridge], roughness: 1, side: THREE.DoubleSide })));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(tints, 3));
+    geo.setIndex(faces); geo.computeVertexNormals(); closeNormals(geo, n + 1, 5);
+    const mountain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }));
+    mountain.name = `mountain-ridge-${ridge}`; group.add(mountain);
   }
   return group;
 }
