@@ -26,6 +26,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     lureId: DEFAULT_LURE_ID, encounter: null,
   };
   let aimHeading = 0, biteBudget = 0, lureTime = 0, slackTime = 0, fightDistance = 0;
+  let castVisibility = null, aimDX = 0, aimDY = 0;
   // Immutable shared row, captured once per cast; collection remains authoritative.
   let rodPerformance = getEquipmentLevel('rod', 1);
   let reelPerformance = getEquipmentLevel('reel', 1);
@@ -45,8 +46,12 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
   function fail(message) { transition(PHASE.FAILED); state.message = message; }
   function aim(dx = 0, dy = 0) {
     if (state.phase !== PHASE.AIM) return;
-    state.heading = aimHeading + clamp(dx / settings.castDragPixels, -1, 1) * settings.castSpread;
+    aimDX = dx; aimDY = dy;
     const requested = settings.castMin + (settings.castMax + rodPerformance.castDistanceBonusM - settings.castMin) * clamp(Math.hypot(dx, dy) / settings.castDragPixels, 0, 1);
+    const limits = castVisibility?.constrain({ origin: state.origin, heading: aimHeading, requestedDistance: requested,
+      spread: settings.castSpread, landingDistance: settings.landingDistance });
+    const drag = clamp(dx / settings.castDragPixels, -1, 1);
+    state.heading = aimHeading + Math.abs(drag) * (drag < 0 ? limits?.minAngle ?? -settings.castSpread : limits?.maxAngle ?? settings.castSpread);
     // Check the whole cast ray, so a lure cannot cross land into another inlet.
     let distance = 0;
     for (let d = 0.25; d <= requested; d += 0.25) {
@@ -54,7 +59,12 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       distance = d;
     }
     state.distance = distance;
-    state.validCast = distance >= settings.landingDistance + 1;
+    const waterValid = distance >= settings.landingDistance + 1;
+    const visible = !castVisibility || (limits.valid && castVisibility.isVisible({ origin: state.origin,
+      heading: state.heading, distance, landingDistance: settings.landingDistance }));
+    state.validCast = waterValid && visible;
+    state.message = !waterValid ? '岸が近すぎます。湖側へ向きを変えてください' : !visible
+      ? limits.reason || '着水先を画面内に確保できません。湖側へ向くか画面の向きを変えてください' : '';
     state.target = { x: state.origin.x + Math.sin(state.heading) * distance, z: state.origin.z - Math.cos(state.heading) * distance };
   }
   function advance(dt) {
@@ -111,8 +121,9 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       state.lureId = id; return true;
     },
     canLeave: () => [PHASE.READY, PHASE.AIM, PHASE.FAILED].includes(state.phase),
-    prepare(origin, heading) {
+    prepare(origin, heading, visibility) {
       if (state.phase !== PHASE.READY) return false;
+      if (visibility !== undefined) castVisibility = visibility;
       rodPerformance = getEquipmentLevel('rod', collection.equipment?.rodLevel) ?? getEquipmentLevel('rod', 1);
       reelPerformance = getEquipmentLevel('reel', collection.equipment?.reelLevel) ?? getEquipmentLevel('reel', 1);
       state.origin = { x: origin.x, z: origin.z };
@@ -122,9 +133,12 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       transition(PHASE.AIM); aim(); return true;
     },
     aim,
+    setCastVisibility(visibility) { castVisibility = visibility; if (state.phase === PHASE.AIM) aim(aimDX, aimDY); },
+    refreshAim() { if (state.phase === PHASE.AIM) aim(aimDX, aimDY); },
     cast() {
       if (state.phase !== PHASE.AIM) return;
-      if (!state.validCast) { ready('岸が近すぎます。湖側へ向きを変えてください'); return; }
+      aim(aimDX, aimDY);
+      if (!state.validCast) { ready(state.message); return; }
       transition(PHASE.CAST);
     },
     cancelInput() { state.reeling = false; if (state.phase === PHASE.AIM) ready('キャスト準備を解除しました'); },

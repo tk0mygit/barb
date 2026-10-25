@@ -5,6 +5,7 @@ import { createLake } from './world/lake.js';
 import { createBoatState, stepBoat, enterFishing, leaveFishing } from './game/boat.js';
 import { createBoatModel } from './rendering/boat-model.js';
 import { createCameraRig } from './rendering/camera.js';
+import { createCastVisibility } from './rendering/cast-visibility.js';
 import { createControls } from './input/controls.js';
 import { createHUD } from './ui/hud.js';
 import { createFishing, PHASE } from './game/fishing.js';
@@ -125,7 +126,27 @@ try {
   document.addEventListener('click', unlockAudio);
   document.addEventListener('keydown', unlockAudio);
   const rig = createCameraRig(camera, boat);
+  const app = document.querySelector('#app');
+  let preparation = null;
+  let castFrame = null;
+  const castVisibility = createCastVisibility(camera, () => {
+    const style = getComputedStyle(document.documentElement);
+    const inset = edge => parseFloat(style.getPropertyValue(`--safe-${edge}`)) || 0;
+    return { width: window.innerWidth, height: window.innerHeight,
+      insets: Object.fromEntries(['top', 'right', 'bottom', 'left'].map(edge => [edge, inset(edge)])),
+      occlusions: [...document.querySelectorAll('.masthead, .action-panel, .telemetry, .edition, #fishing-panel, #spot-status, .compass, #sale-notice, #achievement-notice')]
+        .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden')
+        .map(element => { const { left, top, right, bottom } = element.getBoundingClientRect(); return { left, top, right, bottom }; }),
+    };
+  });
+  function cancelPreparation() {
+    if (!preparation) return;
+    preparation = null;
+    app.dataset.castPreparing = 'false';
+    controls.setEnabled(!collectionMenu.isOpen);
+  }
   function changeMode(mode) {
+    cancelPreparation();
     if (mode === 'fishing') { if (!enterFishing(boat)) return; }
     else {
       if (!fishing.canLeave()) return;
@@ -139,12 +160,17 @@ try {
   const fishingHUD = createFishingHUD({
     onSelectLure: id => { fishing.selectLure(id); },
     onPrepare: () => {
-      controls.reset();
-      const direction = camera.getWorldDirection(new THREE.Vector3());
-      fishing.prepare(boat, Math.atan2(direction.x, -direction.z));
+      if (preparation || boat.mode !== 'fishing' || fishing.state.phase !== PHASE.READY) return;
+      controls.setEnabled(false);
+      const fromPosition = camera.position.clone(), fromQuaternion = camera.quaternion.clone();
+      const heading = rig.prepareCast();
+      preparation = { heading, fromPosition, fromQuaternion, position: camera.position.clone(), quaternion: camera.quaternion.clone(), time: 0 };
+      camera.position.copy(fromPosition); camera.quaternion.copy(fromQuaternion);
+      app.dataset.castPreparing = 'true';
+      document.querySelector('#cast-button').disabled = true;
       canvas.focus({ preventScroll: true });
     },
-    onCancel: () => { controls.reset(); canvas.focus({ preventScroll: true }); },
+    onCancel: () => { cancelPreparation(); controls.reset(); canvas.focus({ preventScroll: true }); },
     onClose: () => { if (fishing.closeResult()) canvas.focus({ preventScroll: true }); },
     onSell: () => {
       const receipt = fishing.sellResult();
@@ -161,6 +187,7 @@ try {
     canPurchase: () => boat.mode === 'sailing' || (boat.mode === 'fishing' && fishing.state.phase === PHASE.READY),
     canOpen: () => fishing.state.phase !== PHASE.RESULT && !document.querySelector('#catch-dialog').open,
     onOpenChange: open => {
+      if (open) cancelPreparation();
       ambientAudio.setPaused('menu', open);
       salesHUD.update();
       achievementNotice.update();
@@ -182,10 +209,12 @@ try {
   window.addEventListener('keydown', event => {
     if (collectionMenu.isOpen || event.defaultPrevented) return;
     if (event.code !== 'Escape' || boat.mode !== 'fishing' || fishing.state.phase === PHASE.RESULT) return;
-    if (fishing.state.phase === PHASE.AIM) controls.reset();
+    if (preparation) cancelPreparation();
+    else if (fishing.state.phase === PHASE.AIM) controls.reset();
     else changeMode('sailing');
   });
   let drawingSize;
+  let previous = performance.now(), elapsed = 0;
   function resize() {
     const next = calculateRenderResolution({ width: window.innerWidth, height: window.innerHeight,
       devicePixelRatio: window.devicePixelRatio, coarsePointer: window.matchMedia('(pointer: coarse)').matches });
@@ -197,18 +226,24 @@ try {
       drawingSize = next;
     }
     camera.aspect = width / height;
+    // Preserve the cast's horizontal coverage on rotation without turning the
+    // camera or moving the committed target. READY returns to the normal lens.
+    camera.fov = castFrame && fishing.state.phase !== PHASE.AIM ? THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(55 / 2)) * Math.max(1, castFrame.aspect / camera.aspect))) : 55;
     camera.updateProjectionMatrix();
+    fishing.refreshAim();
+    if (fishing.state.phase === PHASE.AIM) castFrame = { aspect: camera.aspect };
+    fishingView.update(fishing, boat.mode === 'fishing', elapsed);
     // Orientation can change while the menu pauses animation updates.
     renderer.render(scene, camera);
   }
   window.addEventListener('resize', resize);
   resize();
-  let previous = performance.now(), elapsed = 0;
   let focused = document.hasFocus();
   let focusRecovery = focused ? null : 'startup', touchContact;
   ambientAudio.setPaused('blur', !focused);
   ambientAudio.setPaused('hidden', document.hidden);
   window.addEventListener('blur', () => {
+    cancelPreparation();
     focused = false; focusRecovery = 'blurred'; cancelTouch(); ambientAudio.setPaused('blur', true);
   });
   window.addEventListener('focus', () => {
@@ -219,6 +254,7 @@ try {
     ambientAudio.setPaused('hidden', document.hidden);
     previous = performance.now();
     if (document.hidden) { cancelTouch(); autosave.flush(); }
+    if (document.hidden) cancelPreparation();
   });
   window.addEventListener('pagehide', () => { cancelTouch(); ambientAudio.setPaused('page', true); autosave.flush(); });
   window.addEventListener('pageshow', () => {
@@ -242,6 +278,10 @@ try {
     const input = controls.read(dt);
     const phaseBefore = fishing.state.phase;
     if (boat.mode === 'fishing') fishing.step(dt);
+    if (phaseBefore === PHASE.CAST && !castFrame) castFrame = { aspect: camera.aspect };
+    if (fishing.state.phase === PHASE.READY && !preparation && castFrame) {
+      castFrame = null; camera.fov = 55; camera.updateProjectionMatrix();
+    }
     if (fishing.state.phase === PHASE.BITE && phaseBefore !== PHASE.BITE) audio.bite();
     // Substeps preserve real-time braking on slow devices without large collision steps.
     const steps = Math.max(1, Math.ceil(dt / 0.05));
@@ -257,11 +297,29 @@ try {
       x: fishing.state.origin.x + Math.sin(fishing.state.heading) * fishing.state.distance,
       z: fishing.state.origin.z - Math.cos(fishing.state.heading) * fishing.state.distance,
     } : null;
-    rig.update(dt, input, boat.mode === 'fishing' && fishing.state.phase !== PHASE.READY, tracking);
-    fishingView.update(fishing, boat.mode === 'fishing', elapsed);
+    rig.update(dt, input, Boolean(preparation) || (boat.mode === 'fishing' && fishing.state.phase !== PHASE.READY), tracking);
+    if (preparation) {
+      preparation.time += dt;
+      const t = Math.min(1, preparation.time / 0.1), smooth = t * t * (3 - 2 * t);
+      camera.position.lerpVectors(preparation.fromPosition, preparation.position, smooth);
+      camera.quaternion.slerpQuaternions(preparation.fromQuaternion, preparation.quaternion, smooth);
+      camera.updateMatrixWorld();
+      if (t === 1) {
+        const heading = preparation.heading;
+        preparation = null; app.dataset.castPreparing = 'false';
+        controls.setEnabled(true);
+        fishing.prepare(boat, heading, castVisibility);
+      }
+    }
     lake.update(elapsed, boat, clockState);
     hud.update(boat);
     fishingHUD.update(fishing, boat.mode === 'fishing', clockState);
+    if (fishing.state.phase === PHASE.AIM) {
+      fishing.refreshAim();
+      castFrame = { aspect: camera.aspect };
+      fishingHUD.update(fishing, boat.mode === 'fishing', clockState);
+    }
+    fishingView.update(fishing, boat.mode === 'fishing', elapsed);
     collectionMenu.update();
     renderer.render(scene, camera);
     hud.ready();

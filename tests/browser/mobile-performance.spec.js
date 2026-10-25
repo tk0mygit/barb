@@ -3,11 +3,11 @@ import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { capturePullRequestBase, prepareSceneryReference } from './lake-scenery-reference.js';
-import { startCapture, enterFishing, fishingInput, layout, assertLayout, tick } from './mobile-capture.js';
-import { assertEnvironment } from './day-night-fixture.js';
+import { enterFishing, fishingInput, layout, assertLayout, tick } from './mobile-capture.js';
+import { assertEnvironment, setup } from './day-night-fixture.js';
 import { MOBILE_COMPARISON_MODES, writeMobileComparison } from '../../scripts/compare-mobile-performance.mjs';
 import { mobileGit, readMobileImplementation, mobileSourceMetadata, assertMobileWorkingSource,
-  expectedMobileResolution, HISTORICAL_MOBILE_BASE } from '../../scripts/lib/mobile-comparison-source.js';
+  expectedMobileResolution, replayMobileCamera, HISTORICAL_MOBILE_BASE } from '../../scripts/lib/mobile-comparison-source.js';
 
 const profiles = [
   { id: 'portrait', width: 390, height: 844, dpr: 2, touch: true },
@@ -30,6 +30,66 @@ const implementations = {};
 const mode = process.env.BARB_MOBILE_COMPARISON_MODE ?? 'regression';
 const destination = resolve(process.env.BARB_MOBILE_OUTPUT ?? 'test-results/mobile-comparison');
 const metric = (s, name) => s.metrics.find(m => m.name === name).value;
+
+async function startCapture(page, seconds = 90) {
+  // Keep this observer local: ordinary screenshots retain the real camera.
+  // A separate fixed camera aligns culling when comparing rendering cost.
+  await page.addInitScript(() => {
+    let devtools;
+    Object.defineProperty(window, '__THREE_DEVTOOLS__', { configurable: true,
+      get: () => devtools,
+      set(value) {
+        devtools = value;
+        value.addEventListener('observe', ({ detail: renderer }) => {
+          if (!renderer.isWebGLRenderer) return;
+          let frame = null, diagnosticCamera;
+          window.mobileCameraFrames = [];
+          const setAnimationLoop = renderer.setAnimationLoop;
+          renderer.setAnimationLoop = function(callback) {
+            let previous = performance.now();
+            return setAnimationLoop.call(this, callback && (now => {
+              frame = { dt: Math.min(0.25, Math.max(0, (now - previous) / 1000)) };
+              previous = now;
+              try { callback(now); } finally { frame = null; }
+            }));
+          };
+          const render = renderer.render;
+          const resources = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
+            geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs.length });
+          renderer.render = function(scene, camera) {
+            diagnosticCamera ??= camera.clone();
+            diagnosticCamera.aspect = camera.aspect;
+            diagnosticCamera.fov = 55;
+            diagnosticCamera.position.set(10, 8.5, 38);
+            diagnosticCamera.lookAt(10, 2.5, 2);
+            diagnosticCamera.updateProjectionMatrix();
+            render.call(this, scene, diagnosticCamera);
+            const fixedResources = resources();
+            const result = render.call(this, scene, camera), actualResources = resources();
+            const gl = this.getContext(), panel = document.querySelector('#fishing-panel');
+            const phase = panel.dataset.phase;
+            const ring = scene.children.find(o => o.isGroup && o.children.some(c => c.isLine)
+              && o.children.some(c => c.geometry?.type === 'RingGeometry'))
+              ?.children.find(o => o.geometry?.type === 'RingGeometry');
+            window.mobileCameraFrames.push({ update: Boolean(frame), dt: frame?.dt ?? 0, aspect: camera.aspect,
+              mode: document.body.classList.contains('fishing') ? 'fishing' : 'sailing',
+              phase, preparing: document.querySelector('#app').dataset.castPreparing === 'true',
+              tracking: ['fight', 'landing'].includes(phase) ? { x: ring.position.x, z: ring.position.z } : null });
+            window.mobileProbe = { viewport: { width: innerWidth, height: innerHeight }, dpr: devicePixelRatio,
+              pixelRatio: this.getPixelRatio(), buffer: { width: gl.drawingBufferWidth, height: gl.drawingBufferHeight },
+              pixels: gl.drawingBufferWidth * gl.drawingBufferHeight,
+              resources: fixedResources, actualResources,
+              resourceCamera: { position: diagnosticCamera.position.toArray(), quaternion: diagnosticCamera.quaternion.toArray(),
+                aspect: diagnosticCamera.aspect, fov: diagnosticCamera.fov },
+              camera: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(), aspect: camera.aspect } };
+            return result;
+          };
+        });
+      },
+    });
+  });
+  await setup(page, seconds);
+}
 test.beforeAll(async ({}, info) => {
   expect(MOBILE_COMPARISON_MODES).toContain(mode);
   await mkdir(destination, { recursive: true });
@@ -44,7 +104,8 @@ test.beforeAll(async ({}, info) => {
   comparison = { mode, baseSha, headSha: event?.pull_request?.head?.sha ?? validationSha, validationSha,
     implementations: Object.fromEntries(Object.entries(implementations).map(([target, source]) => [target, mobileSourceMetadata(source)])),
     conditions: { profiles, scenes, renderer: 'production WebGL2; headless Chromium/SwiftShader',
-      timing: 'Node monotonic wall clock + CDP TaskDuration; six frames / 96 virtual ms; not device FPS or GPU time' } };
+      resourceCamera: 'fixed boat-relative TPS pose (10,8.5,38), lookAt (10,2.5,2), FOV55; paired diagnostic pass then actual production view',
+      timing: 'Node monotonic wall clock + CDP TaskDuration; six frames / 96 virtual ms; includes paired diagnostic passes, not device FPS or GPU time' } };
   const path = resolve(destination, 'comparison-metadata.json');
   await writeFile(path, JSON.stringify(comparison, null, 2));
   await info.attach('mobile-comparison-metadata', { path, contentType: 'application/json' });
@@ -74,10 +135,17 @@ async function contextFor(createContext, target, profile) {
   return { context, page, errors };
 }
 async function saveCapture(target, id, page, metrics, info, withLayout = false) {
+  const cameraFrames = await page.evaluate(() => window.mobileCameraFrames);
+  const cameraExpected = replayMobileCamera(implementations[target], cameraFrames);
+  for (const key of ['position', 'quaternion']) for (let i = 0; i < cameraExpected[key].length; i++) {
+    expect(metrics.camera[key][i], `${id}: source camera ${key}[${i}]`).toBeCloseTo(cameraExpected[key][i], 10);
+  }
+  expect(metrics.camera.aspect).toBe(cameraExpected.aspect);
   const image = resolve(destination, `${target}-${id}.png`);
   await page.screenshot({ path: image });
   await info.attach(`${target}-${id}`, { path: image, contentType: 'image/png' });
-  const entry = { target, id, comparison, metrics, image, ...(withLayout ? { layout: await layout(page) } : {}) };
+  const entry = { target, id, comparison, metrics: { ...metrics, cameraExpected, cameraFrames }, image,
+    ...(withLayout ? { layout: await layout(page) } : {}) };
   captures.push(entry);
   await writeFile(resolve(destination, `${target}-${id}.json`), JSON.stringify(entry, null, 2));
   return entry;
@@ -101,7 +169,9 @@ for (const target of targets) {
       const after = await page.evaluate(() => ({ ...window.mobileProbe, renders: window.lightingProbe.renders }));
       expect(after.renders - before.renders).toBe(6);
       expect(after.resources).toEqual(before.resources);
+      expect(after.actualResources).toEqual(before.actualResources);
       expect(before.resources.calls).toBeLessThan(40);
+      expect(before.actualResources.calls).toBeLessThan(40);
       expect(before.dpr).toBe(profile.dpr);
       const expected = expectedMobileResolution(implementations[target], profile);
       expect(before.pixelRatio).toBe(expected.pixelRatio);
@@ -126,7 +196,7 @@ for (const target of targets) {
             rendererTaskMs: (metric(end, 'TaskDuration') - metric(start, 'TaskDuration')) * 1000 });
         }
       }
-      entry.metrics = metrics;
+      entry.metrics = { ...entry.metrics, ...metrics };
       await writeFile(resolve(destination, `${target}-${entry.id}.json`), JSON.stringify(entry, null, 2));
       expect(errors).toEqual([]);
       await context.close();
