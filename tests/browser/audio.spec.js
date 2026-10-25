@@ -428,9 +428,18 @@ for (const fail of [false, true]) {
     await prefs(page, enabled); await page.addInitScript(installAudioProbe, {}); await setup(page, 90);
     await page.locator('#fish-button').click(); await tick(page); await assertMix(page);
     await page.locator('#cast-button').click();
-    await page.mouse.move(600, 400); await page.mouse.down(); await page.mouse.move(600, 250); await page.mouse.up();
+    // The user may start dragging while the camera levels. Keep that contact
+    // held through the real preparation update, then release to cast.
+    await page.mouse.move(600, 400); await page.mouse.down(); await page.mouse.move(600, 250);
+    await tick(page);
+    const phase = page.locator('#fishing-panel'); await expect(phase).toHaveAttribute('data-phase', 'aim');
+    expect(await page.locator('#scene').evaluate(canvas => {
+      const down = window.e2eDiagnostics.events.findLast(event => event.type === 'pointerdown' && event.target === 'scene');
+      return canvas.hasPointerCapture(down.pointerId);
+    })).toBe(true);
+    await page.mouse.up();
     for (let i = 0; i < 4; i++) await tick(page);
-    const phase = page.locator('#fishing-panel'); await expect(phase).toHaveAttribute('data-phase', 'lure');
+    await expect(phase).toHaveAttribute('data-phase', 'lure');
     await page.evaluate(fail => { window.audioProbe.failGain = fail; }, fail);
     for (let i = 0; i < 120 && await phase.getAttribute('data-phase') !== 'bite'; i++) await tick(page);
     await expect(phase).toHaveAttribute('data-phase', 'bite');

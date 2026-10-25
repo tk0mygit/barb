@@ -4,8 +4,9 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compareMobileCaptures, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
-import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution } from '../scripts/lib/mobile-comparison-source.js';
+import { compareMobileCaptures, compareMobileCapturePair, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
+import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
+import { createCameraRig } from '../src/rendering/camera.js';
 
 const MAIN = 'a22ce01531befa55230fb186579731b8a3b9aeb6';
 const current = await readMobileImplementation(MAIN), legacy = await readMobileImplementation(HISTORICAL_MOBILE_BASE);
@@ -70,6 +71,15 @@ test('normal current-main regression accepts 34 unchanged pairs and exactly 0% r
   assert.equal(rows.length, 34); assert(rows.every(row => row.pixelReduction === 0));
 });
 
+test('a local selected pair keeps resource/HUD checks while the full report still requires all 34', () => {
+  const [before, after] = captures();
+  const b = before.find(entry => entry.id === 'portrait-fight'), a = after.find(entry => entry.id === b.id);
+  assert.equal(compareMobileCapturePair(b, a, metadata()).id, b.id);
+  assert.throws(() => compareMobileCaptures([b], [a], metadata()), /all 25 render and 9 HUD/);
+  a.metrics.resources.programs++;
+  assert.throws(() => compareMobileCapturePair(b, a, metadata()), /resource regression/);
+});
+
 for (const [label, id, ratio] of [['mobile pixel increase', 'portrait-day-tps', 1.75], ['desktop quality reduction', 'pc-hidpi-day-tps', 1]]) {
   test(`regression rejects ${label}`, () => {
     const [before, after] = captures(), m = after.find(c => c.id === id).metrics;
@@ -127,6 +137,65 @@ test('comparison rejects incomplete/duplicate pairs, mixed clocks, mixed source 
   const mixed = structuredClone(after); mixed[0].comparison = { ...metadata(), headSha: 'b'.repeat(40) };
   assert.throws(() => compareMobileCaptures(before, mixed, metadata()), /mixed comparison provenance/);
   assert.throws(() => compareMobileCaptures(before, after, { ...metadata(), mode: 'auto-pass' }), /Unknown mobile comparison mode/);
+});
+
+function preparedCaptures() {
+  const [before, after] = captures(), data = metadata();
+  data.implementations.pr = { ...data.implementations.pr, cameraBlob: 'b'.repeat(40),
+    cameraModel: 'prepared-horizontal-aft-1.25', hudModel: 'cast-upper-controls' };
+  for (const entry of [...before, ...after]) {
+    entry.metrics.cameraExpected = structuredClone(entry.metrics.camera);
+    entry.metrics.resourceCamera = { position: [10, 8.5, 38], quaternion: [0, 0, 0, 1], aspect: entry.metrics.camera.aspect, fov: 55 };
+  }
+  for (const entry of after.filter(entry => entry.id.endsWith('bite'))) {
+    entry.metrics.camera.position = [10, 2.15, 21.25];
+    entry.metrics.cameraExpected = structuredClone(entry.metrics.camera);
+    const s = entry.layout, { width, height } = s.viewport, portrait = width <= 640 && height > 500;
+    const left = width <= 640 || height <= 500 ? 22 : 42, top = portrait ? 88 : height <= 500 ? 84 : 100;
+    const panelWidth = portrait ? width - 44 : 320;
+    s.panel = box(left, top, panelWidth, 99);
+    s.occupancy = s.panel.width * s.panel.height / (width * height) * 100;
+    const actionLeft = portrait ? left : width - left - 420;
+    const actionTop = portrait ? top + 99 + 8 : top;
+    s.buttons = [{ id: 'return-button', ...box(actionLeft, actionTop + 38, ((portrait ? panelWidth : 420) - 8) / 2, 50) }];
+  }
+  return { before, after, data };
+}
+
+test('prepared cast camera and upper BITE HUD have explicit expected geometry while other comparisons stay strict', () => {
+  const { before, after, data } = preparedCaptures();
+  assert.equal(compareMobileCaptures(before, after, data).length, 34);
+  for (const [label, mutate, error] of [
+    ['prepared viewpoint', a => { a.metrics.camera.position[2] += 0.01; a.metrics.cameraExpected.position[2] += 0.01; }, /camera position/],
+    ['HUD x', a => { a.layout.panel = box(23, 88, 346, 99); }, /cast HUD panel placement|HUD occupancy/],
+    ['HUD height', a => { a.layout.panel.height++; a.layout.panel.bottom++; }, /cast HUD panel placement|HUD occupancy/],
+    ['return button', a => { a.layout.buttons[0].x++; }, /cast return button placement/],
+    ['resource pass pose', a => { a.metrics.resourceCamera.fov = 56; }, /diagnostic resource camera differs/],
+  ]) {
+    const pair = preparedCaptures(); mutate(pair.after.find(entry => entry.id === 'portrait-bite'));
+    assert.throws(() => compareMobileCaptures(pair.before, pair.after, pair.data), error, label);
+  }
+  const pair = preparedCaptures();
+  pair.after.find(entry => entry.id === 'portrait-fight').layout.panel.x++;
+  assert.throws(() => compareMobileCaptures(pair.before, pair.after, pair.data), /HUD panel regression/);
+});
+
+test('camera replay uses each source rig and exact recorded updates, including fixed preparation and fight tracking', () => {
+  const frames = [{ update: false, dt: 0, aspect: 390 / 844, mode: 'sailing', phase: 'inactive' },
+    ...Array.from({ length: 12 }, () => ({ update: true, dt: 0.25, aspect: 390 / 844, mode: 'fishing', phase: 'ready', tracking: null })),
+    { update: true, dt: 0.25, aspect: 390 / 844, mode: 'fishing', phase: 'aim', tracking: null },
+    { update: true, dt: 0.25, aspect: 390 / 844, mode: 'fishing', phase: 'bite', tracking: null }];
+  const actual = { createCameraRig, cameraModel: 'prepared-horizontal-aft-1.25' };
+  const prepared = replayMobileCamera(actual, frames);
+  assert.deepEqual(prepared.position, [10, 2.15, 21.25]);
+  assert.deepEqual(prepared.quaternion, [0, 0, 0, 1]);
+  const old = replayMobileCamera(current, frames);
+  assert.notDeepEqual(old.position, prepared.position);
+  frames.push({ update: true, dt: 0.016, aspect: 390 / 844, mode: 'fishing', phase: 'fight', tracking: { x: 10, z: -8 } });
+  const fight = replayMobileCamera(actual, frames);
+  assert.deepEqual(fight.position, prepared.position);
+  assert.notDeepEqual(fight.quaternion, prepared.quaternion);
+  assert.throws(() => replayMobileCamera(actual, []), /Missing camera frame history/);
 });
 
 test('HTML/JSON retain all 34 image pairs, measurements, purpose, base and HEAD SHA', async () => {

@@ -7,14 +7,15 @@ import { formatMoney } from './sales-hud.js';
 const labels = { ready: 'キャスト前', aim: 'キャスト準備', cast: 'キャスト中', lure: 'アタリを待つ', bite: 'アタリ！ 今すぐタップ', fight: 'ファイト', landing: 'ランディング', result: '釣り上げました', failed: '魚が逃げました' };
 const hints = {
   ready: '画面をドラッグして視線調整 → キャスト準備',
-  aim: '画面をドラッグ：左右で方向・長さで飛距離 → 離して投げる',
-  cast: '着水を待っています…', lure: '長押しで巻く · 短くフリックして誘う · 離して待つ',
+  aim: '左右で方向・長さで飛距離 · 離して投げる',
+  cast: '着水を待っています…', lure: '長押しで巻く · フリックで誘う · 離して待つ',
   bite: 'いったん離して、1秒以内に画面をタップ！',
   fight: '長押しで引く · 高くなったら離す · 緩めすぎに注意',
   landing: 'もうすぐ、釣り上がります', failed: 'まもなく再挑戦できます', result: '',
 };
 export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelectLure }) {
   const panel = document.querySelector('#fishing-panel');
+  const app = document.querySelector('#app');
   const status = document.querySelector('#fishing-state');
   const prepare = document.querySelector('#cast-button');
   const cancel = document.querySelector('#cancel-cast');
@@ -45,7 +46,10 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
       if (active && previous === PHASE.RESULT && s.phase === PHASE.RESULT && !dialog.open) onClose();
       panel.hidden = !active;
       panel.dataset.phase = active ? s.phase : 'inactive';
+      app.dataset.fishingPhase = active ? s.phase : 'inactive';
+      app.dataset.castView = active && [PHASE.AIM, PHASE.CAST, PHASE.LURE, PHASE.BITE].includes(s.phase);
       prepare.hidden = !active || s.phase !== PHASE.READY;
+      prepare.disabled = app.dataset.castPreparing === 'true';
       lurePicker.update(s.lureId, active && s.phase === PHASE.READY);
       cancel.hidden = !active || s.phase !== PHASE.AIM;
       if (!active) { previous = null; return; }
@@ -60,11 +64,12 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
         + (conditions?.depthM != null ? ` · 推定水深 ${conditions.depthM.toFixed(1)}m（${depthNames[conditions.depthBand]}）` : '');
       document.querySelector('#return-button').disabled = !fishing.canLeave();
       document.querySelector('#hint').textContent = hints[s.phase];
-      document.querySelector('#fishing-note').textContent = s.message || (s.phase === PHASE.AIM ? '視点固定中 · 大きくドラッグすると遠投' : '');
-      if (previous !== s.phase) status.textContent = labels[s.phase];
+      document.querySelector('#fishing-note').textContent = s.message;
+      const label = app.dataset.castPreparing === 'true' ? '視点を準備中' : labels[s.phase];
+      if (status.textContent !== label) status.textContent = label;
       panel.classList.toggle('bite', s.phase === PHASE.BITE);
       distance.hidden = [PHASE.READY, PHASE.RESULT, PHASE.FAILED].includes(s.phase);
-      distance.textContent = s.phase === PHASE.AIM ? (s.validCast ? `着水予測 ${s.distance.toFixed(1)} m` : '投げられません · 湖側へ向きを調整') : `残距離 ${s.distance.toFixed(1)} m`;
+      distance.textContent = s.phase === PHASE.AIM ? (s.validCast ? `着水予測 ${s.distance.toFixed(1)} m` : '投げられません') : `残距離 ${s.distance.toFixed(1)} m`;
       fight.hidden = s.phase !== PHASE.FIGHT;
       tension.value = s.tension;
       tension.dataset.level = s.tension > tension.high ? 'high' : s.tension < tension.low ? 'low' : 'safe';

@@ -66,7 +66,30 @@ export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
     window.__THREE_DEVTOOLS__.addEventListener('observe', ({ detail: renderer }) => {
       if (!renderer.isWebGLRenderer) return;
       const render = renderer.render;
+      const hooked = new WeakSet(), initializedGeometries = new Set();
       renderer.render = function(scene, camera) {
+        const cpuGeometries = new Set();
+        let fishing;
+        scene.traverse(object => {
+          if (object.isGroup && object.children.some(child => child.isLine)
+            && object.children.some(child => child.geometry?.type === 'RingGeometry' && child.geometry.parameters.outerRadius === 0.7)) fishing = object;
+          if (!object.geometry) return;
+          cpuGeometries.add(object.geometry.id);
+          if (hooked.has(object)) return;
+          hooked.add(object);
+          // Record the actual geometry used by ordinary and shadow draws.
+          // This observes lazy GPU initialization without warming hidden fish
+          // markers or changing scene visibility/camera/game state.
+          for (const method of ['onBeforeRender', 'onBeforeShadow']) {
+            const original = object[method];
+            object[method] = function(...args) {
+              initializedGeometries.add(object.geometry.id);
+              return original?.apply(this, args);
+            };
+          }
+          const geometry = object.geometry;
+          geometry.addEventListener('dispose', () => initializedGeometries.delete(geometry.id));
+        });
         const ambient = scene.children.find(o => o.isHemisphereLight);
         const [sun, moonlight] = scene.children.filter(o => o.isDirectionalLight);
         const sky = scene.children.find(o => o.isSky), moon = scene.getObjectByName('moon');
@@ -99,6 +122,13 @@ export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
         probe.performance = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
           geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures,
           programs: renderer.info.programs.length };
+        probe.resourceCatalog = { cpuGeometryIds: [...cpuGeometries].sort((a, b) => a - b),
+          initializedGeometryIds: [...initializedGeometries].sort((a, b) => a - b),
+          programKeys: renderer.info.programs.map(program => program.cacheKey).sort(),
+          fishingVisible: fishing.visible,
+          fishing: fishing.children.filter(child => child.geometry).map(child => ({ id: child.geometry.id, type: child.geometry.type,
+            initialized: initializedGeometries.has(child.geometry.id),
+            programKeys: [...(renderer.properties.get(child.material).programs?.values() ?? [])].map(program => program.cacheKey).sort() })) };
         // Test-only paired render proves that low wisps contribute pixels;
         // production code exposes no scene controls or capture endpoint.
         probe.captureMistPair = () => {

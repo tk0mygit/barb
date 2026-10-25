@@ -330,3 +330,117 @@ dialog > #achievement-notice { position: static; flex-shrink: 0; margin: 8px 0; 
   /* Give enlarged text its own rows in the narrow safe portion of a short screen. */
   #fight-gauge { display: block; }
 }
+
+/* The fixed cast view keeps its water targets below the horizon. Reserve the
+   upper part for casting information and controls; READY and FIGHT retain
+   their existing layouts. */
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) .bottom-bar {
+  top: max(100px, calc(var(--safe-top) + 72px));
+  bottom: auto;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px 40px;
+}
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) :is(.telemetry, .edition, .compass) { display: none; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel {
+  position: static;
+  grid-column: 1;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  width: auto;
+  max-width: none;
+  padding: 10px 12px;
+  background: #102f32ed;
+  border: 1px solid #e0d5a980;
+  border-radius: 5px;
+}
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel > .eyebrow { display: none; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel p { margin: 0; font-size: 12px; line-height: 1.5; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel #fishing-state { grid-column: 1; grid-row: 1; font-size: 16px; line-height: 1.5; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #line-distance { grid-column: 2; grid-row: 1; text-align: right; align-self: center; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-conditions { grid-column: 1 / -1; grid-row: 3; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) .action-panel {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 8px;
+  min-height: 0;
+  width: min(420px, 100%);
+}
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) :is(#hint, #fishing-note) {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  padding: 6px;
+  border-radius: 3px;
+  background: #102f32ed;
+}
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) :is(#cancel-cast, #return-button) {
+  margin: 0;
+  min-height: 50px;
+  padding: 10px 12px;
+  justify-content: center;
+  letter-spacing: 0;
+}
+#app[data-cast-preparing="true"] :is(#cast-button, #lure-picker) { display: none; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #spot-status {
+  top: max(55%, calc(var(--safe-top) + 310px));
+  left: max(12px, calc(var(--safe-left) + 12px));
+  right: auto;
+  width: 100px;
+  max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 24px);
+  padding: 6px 8px;
+}
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #spot-name { font-size: 12px; line-height: 1.5; letter-spacing: 0; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #spot-effect { margin-top: 3px; font-size: 10px; line-height: 1.4; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #sale-notice {
+  top: max(55%, calc(var(--safe-top) + 310px));
+  left: auto;
+  right: max(12px, calc(var(--safe-right) + 12px));
+  transform: none;
+  width: min(220px, 36vw);
+  padding: 8px 10px;
+}
+/* Keep the simultaneous-notice portrait rule from moving sales back into
+   the cast controls. */
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]):has(> #achievement-notice:not([hidden])) > #sale-notice {
+  top: max(55%, calc(var(--safe-top) + 310px));
+}
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) > #achievement-notice {
+  display: block;
+  top: auto;
+  bottom: max(12px, calc(var(--safe-bottom) + 12px));
+  left: max(12px, calc(var(--safe-left) + 12px));
+  transform: none;
+  width: min(180px, 32vw);
+  padding: 6px 8px;
+}
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel.bite { background: #78532af2; border-width: 2px; border-color: #ffcf77; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel.bite #fishing-state { grid-column: 1 / -1; font-size: 18px; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel.bite #line-distance { grid-column: 1 / -1; grid-row: 2; text-align: left; }
+@media (max-width: 640px) and (min-height: 501px) {
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) .bottom-bar {
+    top: max(88px, calc(var(--safe-top) + 68px));
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) .action-panel { grid-column: 1; grid-row: 2; width: 100%; }
+}
+@media (max-height: 500px) {
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) .bottom-bar { top: max(84px, calc(var(--safe-top) + 64px)); gap: 16px 40px; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) :is(#spot-status, #sale-notice) { top: max(54%, calc(var(--safe-top) + 208px)); }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]):has(> #achievement-notice:not([hidden])) > #sale-notice { top: max(54%, calc(var(--safe-top) + 208px)); }
+}
+@media (max-width: 340px) and (min-height: 501px) {
+  /* The bite label needs an extra line on the smallest portrait. Put its
+     instructions beside the return control to retain the open water below. */
+  #app[data-fishing-phase="bite"] .action-panel #hint { grid-column: 1; grid-row: 1; }
+  #app[data-fishing-phase="bite"] .action-panel #return-button { grid-column: 2; grid-row: 1; }
+}

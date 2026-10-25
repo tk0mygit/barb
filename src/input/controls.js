@@ -6,6 +6,8 @@ export function createControls(canvas, joystick, knob, fishing = null) {
   let previous = origin;
   let mode = 'sailing';
   let fishingGesture = false;
+  let preparing = false;
+  let startedAt;
   let enabled = true;
   const canLook = () => !fishing || fishing.canLook();
   function release() {
@@ -17,14 +19,21 @@ export function createControls(canvas, joystick, knob, fishing = null) {
     state.steer = state.throttle = state.lookX = state.lookY = 0;
     joystick.hidden = true;
   }
-  function reset() { release(); fishing?.input.cancel(); }
+  function reset() {
+    const interruptedPreparation = preparing;
+    preparing = false;
+    release();
+    fishing?.input.cancel();
+    if (interruptedPreparation) fishing?.onPreparationCancel?.();
+  }
   canvas.addEventListener('pointerdown', event => {
     if (!enabled || pointer !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
     pointer = event.pointerId;
     origin = previous = { x: event.clientX, y: event.clientY };
+    startedAt = event.timeStamp;
     canvas.setPointerCapture(pointer);
     canvas.focus({ preventScroll: true });
-    if (mode === 'fishing' && !canLook()) {
+    if (!preparing && mode === 'fishing' && !canLook()) {
       fishingGesture = true;
       fishing.input.down(event.clientX, event.clientY, event.timeStamp);
     }
@@ -41,6 +50,12 @@ export function createControls(canvas, joystick, knob, fishing = null) {
   canvas.addEventListener('touchstart', event => { if (enabled) event.preventDefault(); }, { passive: false });
   canvas.addEventListener('pointermove', event => {
     if (event.pointerId !== pointer) return;
+    if (preparing) {
+      // Keep the live contact, but never look, aim or cast before the camera
+      // has reached its prepared pose. A release here is discarded below.
+      previous = { x: event.clientX, y: event.clientY };
+      return;
+    }
     if (fishingGesture) {
       fishing.input.move(event.clientX, event.clientY);
     } else if (mode === 'fishing' && canLook()) {
@@ -73,10 +88,23 @@ export function createControls(canvas, joystick, knob, fishing = null) {
   document.addEventListener('visibilitychange', reset);
   return {
     reset,
+    beginPreparation() { reset(); preparing = true; },
+    finishPreparation() {
+      if (!preparing) return;
+      preparing = false;
+      // Only a contact still held through preparation becomes a new AIM
+      // gesture. A completed/cancelled contact is never replayed later.
+      if (pointer !== null && mode === 'fishing') {
+        fishingGesture = true;
+        fishing.input.down(origin.x, origin.y, startedAt);
+        fishing.input.move(previous.x, previous.y);
+      }
+    },
+    cancelPreparation() { reset(); },
     setEnabled(next) { reset(); enabled = next; },
     setMode(next) { reset(); mode = next; },
     read(dt) {
-      if (!enabled) return { steer: 0, throttle: 0, lookX: 0, lookY: 0 };
+      if (!enabled || preparing) return { steer: 0, throttle: 0, lookX: 0, lookY: 0 };
       if (mode === 'fishing') fishing?.input.step(dt);
       if (pointer === null) {
         state.steer = Number(keys.has('ArrowRight') || keys.has('KeyD')) - Number(keys.has('ArrowLeft') || keys.has('KeyA'));

@@ -1,6 +1,7 @@
 import { test, expect } from './diagnostics-fixture.js';
 import { FISHING_SPOTS } from '../../src/world/fishing-spots.js';
 import { createBoatState } from '../../src/game/boat.js';
+import { activateButton } from './input-fixture.js';
 
 for (const touch of [false, true]) {
   test(`${touch ? 'touch' : 'mouse'}: sail to all three spots, see effects, fish inside and leave the range`, async ({ createContext }) => {
@@ -27,7 +28,7 @@ for (const touch of [false, true]) {
       : page.mouse.move(x + dx, y + dy);
     const up = () => touch
       ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : page.mouse.up();
-    const click = locator => touch ? locator.tap({ force: true }) : locator.click({ force: true });
+    const click = locator => activateButton(locator, touch);
     const tick = () => page.clock.fastForward(250);
     const boat = createBoatState();
     let sawApproach = false, sawExit = false;

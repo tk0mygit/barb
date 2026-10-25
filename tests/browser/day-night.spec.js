@@ -1,6 +1,7 @@
 import { test, expect } from './diagnostics-fixture.js';
 import { writeFile } from 'node:fs/promises';
 import { tick, read, setup, assertEnvironment, observeControls, activateControl } from './day-night-fixture.js';
+import { assertColdFishingResources, assertLureInitialization, assertStableResourceIdentities } from './lighting-resource-contract.js';
 
 test.use({ deviceScaleFactor: 0.5 });
 
@@ -152,7 +153,9 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
     const moonScreen = await page.evaluate(() => window.lightingProbe.moonScreen);
     expect(Math.abs(moonScreen[0])).toBeLessThan(1); expect(Math.abs(moonScreen[1])).toBeLessThan(1);
     await page.screenshot({ path }); await testInfo.attach('moon-fishing', { path, contentType: 'image/png' });
-    const memoryBefore = await page.evaluate(() => window.lightingProbe.performance);
+    const resources = () => page.evaluate(() => ({ counts: window.lightingProbe.performance, catalog: window.lightingProbe.resourceCatalog }));
+    const memoryBefore = await resources();
+    assertColdFishingResources(memoryBefore);
     await activateControl(page, 'cast-button', touch);
     await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'aim');
     expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y).id, [x, y])).toBe('scene');
@@ -165,13 +168,59 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
     const { lighting, cycleProgress } = await page.evaluate(() => ({ lighting: window.lightingProbe.last,
       cycleProgress: Number(document.querySelector('#fishing-conditions').dataset.cycleProgress) }));
     assertEnvironment(lighting, cycleProgress * 360);
-    const performance = await page.evaluate(() => window.lightingProbe.performance);
-    expect(performance.geometries).toBeLessThanOrEqual(memoryBefore.geometries + 1);
-    expect(performance.calls).toBeLessThan(40);
+    const duringLure = await resources();
     const counts = testInfo.outputPath('render-counts.json');
-    await writeFile(counts, JSON.stringify({ beforeCast: memoryBefore, duringLure: performance }, null, 2));
+    await writeFile(counts, JSON.stringify({ beforeCast: memoryBefore, duringLure }, null, 2));
     await testInfo.attach('render-counts', { path: counts, contentType: 'application/json' });
+    assertLureInitialization(memoryBefore, duringLure);
+    expect(duringLure.counts.calls).toBeLessThan(40);
+    const frame = await page.evaluate(() => window.lightingProbe.renders);
+    await expect.poll(() => page.evaluate(() => window.lightingProbe.renders)).toBeGreaterThan(frame);
+    const nextFrame = await resources();
+    assertStableResourceIdentities(duringLure, nextFrame);
+    await writeFile(counts, JSON.stringify({ beforeCast: memoryBefore, duringLure, nextFrame }, null, 2));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(errors).toEqual([]);
   });
 }
+
+test('cold fishing GPU resources initialize once across preparation cancellation and three normal casts', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await setup(page, 270);
+  const resources = () => page.evaluate(() => ({ counts: window.lightingProbe.performance, catalog: window.lightingProbe.resourceCatalog }));
+  const phase = () => page.locator('#fishing-panel').getAttribute('data-phase');
+  await page.locator('#fish-button').click(); await tick(page);
+  const cold = await resources();
+  const snapshots = [cold];
+  const path = testInfo.outputPath('fishing-resource-initialization.json');
+  const record = async snapshot => { snapshots.push(snapshot); await writeFile(path, JSON.stringify(snapshots, null, 2)); };
+  await writeFile(path, JSON.stringify(snapshots, null, 2));
+  await testInfo.attach('fishing-resource-initialization', { path, contentType: 'application/json' });
+  assertColdFishingResources(cold);
+  await page.locator('#cast-button').click(); await tick(page);
+  await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'aim');
+  const aim = await resources();
+  await record(aim);
+  expect(aim.catalog.fishing.filter(row => row.initialized).map(row => row.type)).toEqual(['RingGeometry']);
+  expect(aim.catalog.cpuGeometryIds).toEqual(cold.catalog.cpuGeometryIds);
+  await page.locator('#cancel-cast').click(); await tick(page);
+  await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'ready');
+  let initialized;
+  for (let cast = 0; cast < 3; cast++) {
+    await page.locator('#cast-button').click(); await tick(page);
+    await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'aim');
+    await page.mouse.move(500, 350); await page.mouse.down(); await page.mouse.up();
+    await tick(page);
+    for (let frame = 0; frame < 5 && await phase() === 'cast'; frame++) await tick(page);
+    await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'lure');
+    const lure = await resources();
+    await record(lure);
+    if (!initialized) { assertLureInitialization(cold, lure); initialized = lure; }
+    else assertStableResourceIdentities(initialized, lure);
+    for (let frame = 0; frame < 80 && await phase() !== 'ready'; frame++) await tick(page);
+    await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'ready');
+    const ready = await resources();
+    await record(ready);
+    assertStableResourceIdentities(initialized, ready);
+  }
+});

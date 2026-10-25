@@ -3,7 +3,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { performance as wallClock } from 'node:perf_hooks';
 import { setup, read, assertEnvironment } from './day-night-fixture.js';
 import { capturePullRequestBase, prepareSceneryReference } from './lake-scenery-reference.js';
-import { writeComparison } from '../../scripts/compare-lake-scenery.mjs';
+import { writeComparison, verifySceneryCameraSource } from '../../scripts/compare-lake-scenery.mjs';
+import { mobileGit, readMobileImplementation, assertMobileWorkingSource } from '../../scripts/lib/mobile-comparison-source.js';
 
 // Capture the real production build. Saved coordinates, native UI input and
 // the existing paused shared clock make the main/PR views reproducible.
@@ -18,8 +19,15 @@ const views = [
   { id: 'landscape', label: 'スマートフォン横', seconds: 90, width: 844, height: 390, touch: true },
 ];
 const captures = [];
+const compare = capturePullRequestBase || Boolean(process.env.BARB_SCENERY_BASE_SHA);
+const implementations = {};
 let reference;
-test.beforeAll(async ({}, testInfo) => { if (capturePullRequestBase) reference = await prepareSceneryReference(testInfo); });
+test.beforeAll(async ({}, testInfo) => {
+  if (compare) reference = await prepareSceneryReference(testInfo, process.env.BARB_SCENERY_BASE_SHA);
+  implementations.pr = await readMobileImplementation(await mobileGit('rev-parse', 'HEAD'));
+  await assertMobileWorkingSource(implementations.pr);
+  if (reference) implementations.main = await readMobileImplementation(reference.sha);
+});
 const metric = (snapshot, name) => snapshot.metrics.find(entry => entry.name === name).value;
 
 test.afterAll(async ({}, testInfo) => {
@@ -43,7 +51,7 @@ test.afterAll(async ({}, testInfo) => {
   }
 });
 
-for (const target of capturePullRequestBase ? ['pr', 'main'] : ['pr']) for (const view of views) {
+for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views) {
   test(`lake scenery: ${target === 'main' ? 'main ' : ''}${view.id}`, async ({ createContext }, testInfo) => {
     const viewport = { width: view.width ?? 1000, height: view.height ?? 700 };
     const context = await createContext({ ...(target === 'main' ? { baseURL: reference.baseURL } : {}), viewport, deviceScaleFactor: 1, hasTouch: Boolean(view.touch), isMobile: Boolean(view.touch) });
@@ -56,10 +64,23 @@ for (const target of capturePullRequestBase ? ['pr', 'main'] : ['pr']) for (cons
       const install = () => {
         window.__THREE_DEVTOOLS__.addEventListener('observe', ({ detail: renderer }) => {
           if (!renderer.isWebGLRenderer) return;
+          let frame = null;
+          window.sceneryCameraFrames = [];
+          const animationLoop = renderer.setAnimationLoop;
+          renderer.setAnimationLoop = function(callback) {
+            let previous = performance.now();
+            return animationLoop.call(this, callback && (now => {
+              frame = { dt: Math.min(0.25, Math.max(0, (now - previous) / 1000)) }; previous = now;
+              try { callback(now); } finally { frame = null; }
+            }));
+          };
           const original = renderer.render;
           renderer.render = function(scene, camera) {
             const result = original.call(this, scene, camera);
-            window.sceneryCamera = { position: camera.position.toArray(), quaternion: camera.quaternion.toArray() };
+            window.sceneryCamera = { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(), fov: camera.fov, aspect: camera.aspect };
+            window.sceneryCameraFrames.push({ update: Boolean(frame), dt: frame?.dt ?? 0, aspect: camera.aspect,
+              mode: document.body.classList.contains('fishing') ? 'fishing' : 'sailing',
+              phase: document.querySelector('#fishing-panel').dataset.phase, tracking: null });
             return result;
           };
         });
@@ -93,7 +114,8 @@ for (const target of capturePullRequestBase ? ['pr', 'main'] : ['pr']) for (cons
     const image = testInfo.outputPath(`${view.id}.png`);
     await page.screenshot({ path: image });
     await testInfo.attach(view.id, { path: image, contentType: 'image/png' });
-    const before = await page.evaluate(() => ({ resources: window.lightingProbe.performance, lighting: window.lightingProbe.last, camera: window.sceneryCamera, renders: window.lightingProbe.renders }));
+    const before = await page.evaluate(() => ({ resources: window.lightingProbe.performance, lighting: window.lightingProbe.last, camera: window.sceneryCamera,
+      cameraFrames: window.sceneryCameraFrames, renders: window.lightingProbe.renders }));
     // 25 ordinary rendered animation frames verify stable GPU allocations.
     // This is a bounded sampling window, not a sleep or retry of failed input.
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
@@ -103,14 +125,19 @@ for (const target of capturePullRequestBase ? ['pr', 'main'] : ['pr']) for (cons
     const sampleWallMs = wallClock.now() - sampleWallStart;
     const sampleCpuEnd = await cdp.send('Performance.getMetrics');
     await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-    const after = await page.evaluate(() => ({ resources: window.lightingProbe.performance, camera: window.sceneryCamera, renders: window.lightingProbe.renders }));
+    const after = await page.evaluate(() => ({ resources: window.lightingProbe.performance, camera: window.sceneryCamera,
+      cameraFrames: window.sceneryCameraFrames, renders: window.lightingProbe.renders }));
+    const implementation = implementations[target];
+    const evidence = frames => ({ sha: implementation.sha, cameraBlob: implementation.cameraBlob, frames });
+    for (const snapshot of [before, after]) verifySceneryCameraSource({ camera: snapshot.camera,
+      cameraEvidence: evidence(snapshot.cameraFrames) }, implementation);
     for (const field of ['geometries', 'textures', 'programs']) expect(after.resources[field]).toBe(before.resources[field]);
     expect(before.resources.calls).toBeLessThan(40);
     const sampledFrames = after.renders - before.renders;
     expect(sampledFrames).toBe(25);
     const taskDurationMs = (metric(sampleCpuEnd, 'TaskDuration') - metric(sampleCpuStart, 'TaskDuration')) * 1000;
     const metrics = { viewport, deviceScaleFactor: 1, savedClockSeconds: view.seconds, boat: before.lighting.boat, heading: 0,
-      camera: before.camera, waterTime: before.lighting.waterTime, fogStrength: before.lighting.fogStrength,
+      camera: before.camera, cameraEvidence: evidence(before.cameraFrames), waterTime: before.lighting.waterTime, fogStrength: before.lighting.fogStrength,
       resources: before.resources, afterResources: after.resources,
       initialLoad: { navigationToReadyMs, rendererTaskMs: (metric(readyCpu, 'TaskDuration') - metric(initialCpu, 'TaskDuration')) * 1000,
         jsHeapUsedBytes: metric(readyCpu, 'JSHeapUsedSize') },

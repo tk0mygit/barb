@@ -2,6 +2,7 @@ import { test, expect } from './diagnostics-fixture.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import { getNightFogProfile } from '../../src/world/night-fog.js';
 import { tick, read, setup, assertEnvironment, observeControls, activateControl } from './day-night-fixture.js';
+import { assertColdFishingResources, expectedColdNightResources } from './lighting-resource-contract.js';
 
 test.use({ deviceScaleFactor: 0.5 });
 const reviewImages = [];
@@ -21,6 +22,9 @@ async function attachCounts(page, testInfo, label) {
   const path = testInfo.outputPath(`${label}-render-counts.json`);
   await writeFile(path, JSON.stringify(counts, null, 2));
   await testInfo.attach(`${label}-render-counts`, { path, contentType: 'application/json' });
+  const catalogPath = testInfo.outputPath(`${label}-resource-catalog.json`);
+  await writeFile(catalogPath, JSON.stringify(await page.evaluate(() => window.lightingProbe.resourceCatalog), null, 2));
+  await testInfo.attach(`${label}-resource-catalog`, { path: catalogPath, contentType: 'application/json' });
   return counts;
 }
 
@@ -41,12 +45,12 @@ for (const [index, label] of [[0, 'clear'], [8301, 'fog-30'], [3971, 'fog-50'], 
     await testInfo.attach(label, { path, contentType: 'image/png' });
     const actual = await attachCounts(page, testInfo, label);
     reviewImages.push({ label, path, counts: actual });
-    // Phase 4C-1A matched measurements: a second shared instanced crown adds
-    // one call/geometry; shore -1280 and ridge +2496 = +1216 triangles.
-    // Retain the exact three-sheet cost and the existing performance ceilings.
+    // Draw cost is unchanged. BOAT now starts with the four hidden fishing
+    // geometries/two marker shader variants cold; validate their real upload
+    // identities as well as the exact matched-scene aggregate.
     const fog = profile.targetFogAmount > 0;
-    expect(actual).toEqual({ calls: 31 + (fog ? 3 : 0), triangles: 221444 + (fog ? 6144 : 0),
-      geometries: 24 + (fog ? 1 : 0), textures: 3, programs: 12 + (fog ? 1 : 0) });
+    assertColdFishingResources({ counts: actual, catalog: await page.evaluate(() => window.lightingProbe.resourceCatalog) });
+    expect(actual).toEqual(expectedColdNightResources(fog));
     if (fog) {
       const pair = await page.evaluate(async () => {
         const pair = window.lightingProbe.captureMistPair();
