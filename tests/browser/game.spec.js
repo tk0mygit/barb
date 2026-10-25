@@ -41,7 +41,7 @@ test('mobile: touch drag, cancellation and mode controls fit the viewport', asyn
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto('http://127.0.0.1:4173/barb/');
+  await page.goto('./');
   await expect(page.locator('#status')).toBeHidden();
   const cdp = await context.newCDPSession(page);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 220, y: 510 }] });

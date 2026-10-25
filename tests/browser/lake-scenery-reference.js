@@ -10,9 +10,9 @@ export const capturePullRequestBase = Boolean(process.env.CI && process.env.GITH
 
 // GitHub's PR base SHA is archived, never checked out into the user's checkout.
 // The baseline shares the locked dependencies and gets its own dist/server.
-export async function prepareSceneryReference(testInfo) {
-  const event = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8'));
-  const sha = event.pull_request?.base?.sha;
+export async function prepareSceneryReference(testInfo, explicitSha) {
+  const event = explicitSha ? null : JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8'));
+  const sha = explicitSha ?? event.pull_request?.base?.sha;
   if (!/^[0-9a-f]{40}$/.test(sha ?? '')) throw new Error('Missing valid PR base SHA for scenery comparison');
   const directory = await mkdtemp(join(tmpdir(), 'barb-scenery-reference-'));
   const source = join(directory, 'source'), archive = join(directory, 'reference.tar');
