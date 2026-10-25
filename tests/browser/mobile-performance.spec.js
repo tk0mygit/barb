@@ -67,16 +67,21 @@ async function startCapture(page, seconds = 90) {
             diagnosticCamera.updateProjectionMatrix();
             if (!initializedPhases.has(phase)) {
               // GPU memory/program counters are cumulative. Initialize the
-              // same visible scene objects before comparing them; otherwise
-              // earlier production-camera culling changes the cache history.
-              const previousCulling = [];
+              // same complete factory scene before comparing them, including
+              // hidden fishing objects. The base's first resize rendered those
+              // before hiding them; the PR hides them before its first render.
+              const previousCulling = [], previousVisibility = [];
               scene.traverse(object => {
+                previousVisibility.push([object, object.visible]); object.visible = true;
                 if (object.isMesh || object.isLine || object.isPoints || object.isSprite) {
                   previousCulling.push([object, object.frustumCulled]); object.frustumCulled = false;
                 }
               });
               try { render.call(this, scene, diagnosticCamera); }
-              finally { for (const [object, culled] of previousCulling) object.frustumCulled = culled; }
+              finally {
+                for (const [object, culled] of previousCulling) object.frustumCulled = culled;
+                for (const [object, visible] of previousVisibility) object.visible = visible;
+              }
               initializedPhases.add(phase);
             }
             render.call(this, scene, diagnosticCamera);
@@ -119,7 +124,7 @@ test.beforeAll(async ({}, info) => {
   comparison = { mode, baseSha, headSha: event?.pull_request?.head?.sha ?? validationSha, validationSha,
     implementations: Object.fromEntries(Object.entries(implementations).map(([target, source]) => [target, mobileSourceMetadata(source)])),
     conditions: { profiles, scenes, renderer: 'production WebGL2; headless Chromium/SwiftShader',
-      resourceCamera: 'same phase-initial visible-scene GPU warmup, then fixed TPS pose (10,8.5,38), lookAt (10,2.5,2), FOV55; paired diagnostic pass then actual production view',
+      resourceCamera: 'same phase-initial complete-scene GPU warmup (visibility/culling restored), then fixed TPS pose (10,8.5,38), lookAt (10,2.5,2), FOV55; paired diagnostic pass then actual production view',
       timing: 'Node monotonic wall clock + CDP TaskDuration; six frames / 96 virtual ms; includes paired diagnostic passes, not device FPS or GPU time' } };
   const path = resolve(destination, 'comparison-metadata.json');
   await writeFile(path, JSON.stringify(comparison, null, 2));
