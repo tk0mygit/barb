@@ -2,6 +2,7 @@ import { test, expect } from './diagnostics-fixture.js';
 import { FISH_SPECIES } from '../../src/game/fish-species.js';
 import { calculateSalePrice } from '../../src/game/fish-sales.js';
 import { BUYER_LINES } from '../../src/game/buyer-lines.js';
+import { activateButton } from './input-fixture.js';
 
 const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
 for (const touch of [false, true]) {
@@ -13,7 +14,7 @@ for (const touch of [false, true]) {
     await page.addInitScript(() => { window.fishingRandomCalls = 0; Math.random = () => { window.fishingRandomCalls++; return 0.1; }; });
     await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
     await expect(page.locator('#wallet-balance')).toHaveText(money(0));
-    const click = locator => touch ? locator.tap({ force: true }) : locator.click({ force: true });
+    const click = locator => activateButton(locator, touch);
     await click(page.locator('#fish-button'));
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
     // GPU/CDP work can outlast a one-second pause deadline on software WebGL.

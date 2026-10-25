@@ -5,6 +5,7 @@ import { createCastVisibility, projectCastFootprint } from '../src/rendering/cas
 import { nearRingExpansion } from '../src/rendering/fishing-visuals.js';
 import { createFishing, getLurePosition, PHASE } from '../src/game/fishing.js';
 import { createCatchCollection } from '../src/game/catch-collection.js';
+import { createFishingInput } from '../src/input/fishing.js';
 
 const sizes = [[1000, 700], [390, 844], [844, 390], [320, 568]];
 function view(width, height, heading = 0, origin = { x: 0, z: 30 }) {
@@ -193,4 +194,85 @@ test('shore ray clipping is retained and unavailable visible water refuses to ca
   assert.equal(blocked.state.validCast, false);
   blocked.cast(); assert.equal(blocked.state.phase, PHASE.READY);
   assert.match(blocked.state.message, /画面内/);
+});
+
+test('fixed FOV55 keeps a central cast visible after rotation but cannot retain the desktop extreme', () => {
+  const { camera, visibility, origin, setViewport } = view(1000, 700);
+  const desktop = visibility.constrain({ origin, heading: 0, requestedDistance: 32, spread: 0.7 });
+  const target = new THREE.Vector3(origin.x + Math.sin(desktop.maxAngle) * 32, 0.12,
+    origin.z - Math.cos(desktop.maxAngle) * 32);
+  assert.ok(Math.abs(target.clone().project(camera).x) < 1);
+  setViewport({ width: 390, height: 844 });
+  assert.equal(camera.fov, 55);
+  assert.ok(target.clone().project(camera).x > 1);
+  assert.equal(visibility.isVisible({ origin, heading: desktop.maxAngle, distance: 32 }), false);
+  assert.equal(visibility.isVisible({ origin, heading: 0, distance: 32 }), true);
+});
+
+for (const phase of [PHASE.CAST, PHASE.LURE, PHASE.BITE]) {
+  test(`${phase}: a viewport recall preserves the committed target and changes no collection data`, () => {
+    const { visibility, origin, setViewport } = view(1000, 700);
+    const fishing = createFishing({ random: () => 0 });
+    fishing.prepare(origin, 0, visibility); fishing.aim(180, 0); fishing.cast();
+    if (phase !== PHASE.CAST) fishing.step(0.801);
+    if (phase === PHASE.BITE) fishing.step(3.01);
+    assert.equal(fishing.state.phase, phase);
+    const input = createFishingInput(fishing);
+    input.down(0, 0); input.step(0.3);
+    const target = { ...fishing.state.target }, heading = fishing.state.heading, distance = fishing.state.distance;
+    const revision = fishing.state.revision;
+    const collectionBefore = JSON.stringify({ catches: fishing.state.catches,
+      wallet: fishing.collection.wallet, equipment: fishing.collection.equipment });
+    setViewport({ width: 390, height: 844 });
+    assert.equal(visibility.isVisible({ origin, heading, distance }), false);
+    assert.equal(fishing.cancelForViewChange(), true);
+    assert.equal(fishing.state.phase, PHASE.READY);
+    assert.equal(fishing.state.revision, revision + 1);
+    assert.match(fishing.state.message, /画面サイズ.*回収/);
+    assert.equal(fishing.state.reeling, false);
+    assert.equal(fishing.state.action, 0);
+    assert.equal(fishing.state.biteRemaining, 0);
+    assert.equal(fishing.state.encounter, null);
+    assert.equal(fishing.state.catch, null);
+    assert.equal(fishing.state.heading, heading);
+    assert.equal(fishing.state.distance, distance);
+    assert.deepEqual(fishing.state.target, target);
+    assert.equal(JSON.stringify({ catches: fishing.state.catches,
+      wallet: fishing.collection.wallet, equipment: fishing.collection.equipment }), collectionBefore);
+    input.up();
+    assert.equal(fishing.state.phase, PHASE.READY);
+    assert.equal(fishing.state.revision, revision + 1, 'a stale release must not cast again');
+    assert.equal(fishing.prepare(origin, 0, visibility), true);
+    fishing.cast(); fishing.step(0.801);
+    assert.equal(fishing.state.phase, PHASE.LURE, 'a fresh central cast remains available');
+  });
+}
+
+test('viewport recall cannot interrupt READY, AIM, FIGHT, LANDING, RESULT or FAILED', () => {
+  function at(phase) {
+    const f = createFishing({ random: () => 0 });
+    if (phase === PHASE.READY) return f;
+    f.prepare({ x: 0, z: 30 }, 0);
+    if (phase === PHASE.AIM) return f;
+    f.cast(); f.step(0.801); f.step(3.01);
+    if (phase === PHASE.FAILED) { f.step(f.settings.hookWindow); return f; }
+    assert.equal(f.hook(), true);
+    if (phase === PHASE.FIGHT) return f;
+    let held = false;
+    for (let i = 0; i < 1000 && f.state.phase === PHASE.FIGHT; i++) {
+      if (f.state.tension < 0.4) held = true;
+      if (f.state.tension > 0.78) held = false;
+      f.reel(held); f.step(0.05);
+    }
+    assert.equal(f.state.phase, PHASE.LANDING);
+    if (phase === PHASE.RESULT) f.step(f.settings.landingSeconds + 0.01);
+    return f;
+  }
+  for (const phase of [PHASE.READY, PHASE.AIM, PHASE.FIGHT, PHASE.LANDING, PHASE.RESULT, PHASE.FAILED]) {
+    const f = at(phase);
+    assert.equal(f.state.phase, phase);
+    const before = JSON.stringify(f.state);
+    assert.equal(f.cancelForViewChange(), false);
+    assert.equal(JSON.stringify(f.state), before, `${phase} is outside the recall contract`);
+  }
 });

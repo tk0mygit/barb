@@ -95,6 +95,25 @@ test('near-water marker expansion is continuous and preserves the original pulse
   }
 });
 
+test('notice exclusion follows the visible flight and water markers before the next render', () => {
+  const { view, fishing, state } = setup(8);
+  const viewport = { width: 390, height: 844 };
+  const camera = new THREE.PerspectiveCamera(55, viewport.width / viewport.height, 0.1, 2400);
+  camera.position.set(state.origin.x, 2.15, state.origin.z + 1.25);
+  camera.lookAt(state.origin.x, 2.15, state.origin.z - 20);
+  state.phase = PHASE.READY; view.update(fishing, true, 0);
+  assert.equal(view.getScreenBounds(camera, viewport), null);
+  state.phase = PHASE.AIM; view.update(fishing, true, 0);
+  const aim = view.getScreenBounds(camera, viewport);
+  assert.ok(aim.top > viewport.height / 2);
+  state.phase = PHASE.CAST; state.time = 0.4; view.update(fishing, true, 0);
+  const flight = view.getScreenBounds(camera, viewport);
+  assert.ok(flight.top < viewport.height / 2, 'exclusion includes the lure above the horizon');
+  assert.ok(flight.bottom >= aim.bottom, 'exclusion also retains the water target');
+  state.phase = PHASE.LURE; state.distance = 4.9; state.time = 1; view.update(fishing, true, 0);
+  assert.ok(view.getScreenBounds(camera, viewport).bottom > aim.bottom, 'retrieval moves the exclusion with the lure');
+});
+
 test('world-position guides remain readable when the nearby boat obstructs their water point', () => {
   const boat = createBoatModel();
   boat.position.set(10, 0, 20); boat.updateMatrixWorld();

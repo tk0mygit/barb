@@ -21,7 +21,25 @@ export function createFishingView(scene) {
   line.frustumCulled = false;
   group.add(ring, lure, shadow, line);
   scene.add(group);
+  const point = new THREE.Vector3();
   return {
+    getScreenBounds(camera, { width, height }) {
+      if (!group.visible) return null;
+      camera.updateMatrixWorld();
+      group.updateWorldMatrix(true, true);
+      const bounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+      for (const mesh of [ring, lure]) {
+        if (!mesh.visible) continue;
+        const vertices = mesh.geometry.attributes.position;
+        for (let i = 0; i < vertices.count; i++) {
+          point.fromBufferAttribute(vertices, i).applyMatrix4(mesh.matrixWorld).project(camera);
+          const x = (point.x + 1) * width / 2, y = (1 - point.y) * height / 2;
+          bounds.left = Math.min(bounds.left, x); bounds.right = Math.max(bounds.right, x);
+          bounds.top = Math.min(bounds.top, y); bounds.bottom = Math.max(bounds.bottom, y);
+        }
+      }
+      return Number.isFinite(bounds.left) ? bounds : null;
+    },
     update(fishing, active, elapsed) {
       const s = fishing.state;
       group.visible = active && ![PHASE.READY, PHASE.RESULT, PHASE.FAILED].includes(s.phase);

@@ -155,6 +155,15 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       transition(PHASE.CAST);
     },
     cancelInput() { state.reeling = false; if (state.phase === PHASE.AIM) ready('キャスト準備を解除しました'); },
+    cancelForViewChange(message = '画面サイズが変わったためルアーを回収しました。向きを調整して再キャストしてください') {
+      if (![PHASE.CAST, PHASE.LURE, PHASE.BITE].includes(state.phase)) return false;
+      // A narrower viewport can hide an already committed target. Recall it
+      // explicitly instead of changing its direction, distance or camera FOV.
+      state.action = 0;
+      state.biteRemaining = 0;
+      ready(message);
+      return true;
+    },
     reel(active) { state.reeling = active && [PHASE.LURE, PHASE.FIGHT].includes(state.phase); },
     flick() { if (state.phase === PHASE.LURE) state.action = settings.actionSeconds; },
     hook() {

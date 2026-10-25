@@ -219,6 +219,39 @@ for (const profile of profiles) {
 }
 
 for (const profile of [profiles[0], profiles[1]]) {
+  test(`cast visibility: ${profile.id} keeps a live drag held through camera preparation`, async ({ createContext }, info) => {
+    const { page, input, click } = await setup(createContext, profile);
+    await click('#cast-button');
+    await expect(page.locator('#app')).toHaveAttribute('data-cast-preparing', 'true');
+    const x = profile.width / 2, y = profile.height * 0.48;
+    await input.down(x, y);
+    await input.move(x, y - 181);
+    const contact = await page.evaluate(() => window.e2eDiagnostics.events.findLast(event => event.type === 'pointerdown' && event.target === 'scene')?.pointerId);
+    expect(contact).toBeDefined();
+    expect(await page.locator('#scene').evaluate((canvas, id) => canvas.hasPointerCapture(id), contact)).toBe(true);
+    // The contact remains held while the real 100ms preparation completes.
+    // It must become the same AIM drag, rather than disappearing or casting
+    // from its future release before the camera reaches its fixed pose.
+    await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'aim');
+    await expect(page.locator('#line-distance')).toHaveText('着水予測 32.0 m');
+    expect(await page.locator('#scene').evaluate((canvas, id) => canvas.hasPointerCapture(id), contact)).toBe(true);
+    const prediction = await read(page);
+    expect(prediction.camera.fov).toBe(55);
+    expect(Math.abs(prediction.camera.pitch)).toBeLessThanOrEqual(1e-3);
+    assertSafe(prediction);
+    await input.up(); await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'cast');
+    for (let i = 0; i < 4 && await panel(page).getAttribute('data-phase') === 'cast'; i++) await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'lure');
+    const landing = await read(page);
+    assertSafe(landing, { lure: true });
+    expect(landing.ring.world).toEqual(prediction.ring.world);
+    expect(landing.camera.quaternion).toEqual(prediction.camera.quaternion);
+    expect(await page.locator('#scene').evaluate((canvas, id) => canvas.hasPointerCapture(id), contact)).toBe(false);
+    await save(page, info, 'held-preparation-drag', { prediction, landing });
+  });
+
   test(`cast visibility: ${profile.id} READY pitch/yaw, cancellation and rotation`, async ({ createContext }, info) => {
     const { page, input, click } = await setup(createContext, profile);
     for (const vertical of [-1, 1]) {
@@ -333,29 +366,93 @@ test('cast visibility: no safe shore target rejects release with an explanation'
 });
 
 
-test('cast visibility: rotating during CAST preserves heading and landing with a wider fixed frame', async ({ createContext }, info) => {
+async function resizeAndObserve(page, viewport) {
+  await page.setViewportSize(viewport);
+  // setViewportSize can finish before Chromium delivers the resize event.
+  // Observe the actual renderer at the new aspect instead of assuming that a
+  // single queued rAF already consumed it. Ordinary 16ms frames keep the
+  // simulation's phase boundaries and hook window unchanged.
+  await expect.poll(async () => {
+    await page.clock.runFor(16);
+    const snapshot = await read(page);
+    return { viewport: snapshot.viewport, aspect: snapshot.camera.aspect };
+  }, { intervals: [0] }).toEqual({ viewport, aspect: viewport.width / viewport.height });
+}
+
+for (const phase of ['cast', 'lure', 'bite']) {
+  test(`cast visibility: unsafe rotation during ${phase.toUpperCase()} recalls the lure at FOV55`, async ({ createContext }, info) => {
+    const { page, input, click } = await setup(createContext, profiles[0]);
+    const prediction = await aim(page, click, input, 1, 32, profiles[0]);
+    await input.up(); await tick(page);
+    for (let i = 0; i < 20 && await panel(page).getAttribute('data-phase') !== phase; i++) await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', phase);
+    const before = await read(page);
+    expect(before.camera.fov).toBe(55);
+    // A contact spanning rotation must be released by the same production
+    // reset path that recalls the unsafe target.
+    await input.down(500, 336);
+    await resizeAndObserve(page, { width: 390, height: 844 });
+    await expect(panel(page)).toHaveAttribute('data-phase', 'ready');
+    await expect(page.locator('#fishing-note')).toContainText(/画面サイズ.*回収/);
+    const recalled = await read(page);
+    expect(recalled.camera.fov).toBe(55);
+    expect(recalled.camera.heading).toBe(before.camera.heading);
+    expect(recalled.ring.world).toEqual(prediction.ring.world);
+    expect(recalled.ring.visible).toBe(false);
+    expect(recalled.lure.visible).toBe(false);
+    expect(await page.locator('#scene').evaluate(canvas => canvas.hasPointerCapture(1))).toBe(false);
+    await save(page, info, `recalled-${phase}`, { prediction, before, recalled });
+    await input.up(); await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'ready');
+    const retry = await aim(page, click, input, 0, 8, profiles[0]);
+    expect(retry.camera.fov).toBe(55);
+    await input.up(); await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'cast');
+    for (let i = 0; i < 5 && await panel(page).getAttribute('data-phase') === 'cast'; i++) await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'lure');
+    assertSafe(await read(page), { lure: true });
+    expect((await read(page)).ring.world).toEqual(retry.ring.world);
+  });
+}
+
+test('cast visibility: a safe central cast continues through rotation with FOV55 and the same target', async ({ createContext }, info) => {
   const { page, input, click } = await setup(createContext, profiles[0]);
-  const prediction = await aim(page, click, input, 1, 32, profiles[0]);
+  const prediction = await aim(page, click, input, 0, 32, profiles[0]);
   await input.up(); await tick(page);
   await expect(panel(page)).toHaveAttribute('data-phase', 'cast');
+  for (let i = 0; i < 5 && await panel(page).getAttribute('data-phase') === 'cast'; i++) await tick(page);
+  await expect(panel(page)).toHaveAttribute('data-phase', 'lure');
   const before = await read(page);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await tick(page);
+  await resizeAndObserve(page, { width: 390, height: 844 });
+  await expect(panel(page)).toHaveAttribute('data-phase', 'lure');
   const rotated = await read(page);
-  expect(rotated.camera.fov).toBeGreaterThan(before.camera.fov);
-  expect(rotated.camera.heading).toBe(before.camera.heading);
+  expect(rotated.camera.fov).toBe(55);
   expect(rotated.camera.position).toEqual(before.camera.position);
   expect(rotated.camera.quaternion).toEqual(before.camera.quaternion);
   expect(rotated.ring.world).toEqual(prediction.ring.world);
-  assertSafe(rotated);
-  for (let i = 0; i < 4 && await panel(page).getAttribute('data-phase') === 'cast'; i++) await tick(page);
-  await expect(panel(page)).toHaveAttribute('data-phase', 'lure');
-  const landing = await read(page);
-  assertSafe(landing, { lure: true });
-  expect(landing.ring.world[0]).toBe(prediction.ring.world[0]);
-  expect(landing.ring.world[2]).toBe(prediction.ring.world[2]);
-  expect(landing.camera.quaternion).toEqual(prediction.camera.quaternion);
-  await save(page, info, 'rotated-cast-landing', { prediction, before, rotated, landing });
+  assertSafe(rotated, { lure: true });
+  for (let i = 0; i < 20 && await panel(page).getAttribute('data-phase') === 'lure'; i++) await tick(page);
+  await expect(panel(page)).toHaveAttribute('data-phase', 'bite');
+  const bite = await read(page);
+  assertSafe(bite, { lure: true });
+  expect(bite.camera.fov).toBe(55);
+  expect(bite.camera.quaternion).toEqual(prediction.camera.quaternion);
+  expect(bite.ring.world).toEqual(prediction.ring.world);
+  await save(page, info, 'rotated-safe-target', { prediction, before, rotated, bite });
+});
+
+test('cast visibility: AIM rotation re-limits the preview at FOV55 before release', async ({ createContext }, info) => {
+  const { page, input, click } = await setup(createContext, profiles[0]);
+  const before = await aim(page, click, input, 1, 32, profiles[0]);
+  await resizeAndObserve(page, { width: 390, height: 844 });
+  await expect(panel(page)).toHaveAttribute('data-phase', 'aim');
+  const prediction = await read(page);
+  expect(prediction.camera.fov).toBe(55);
+  expect(prediction.camera.quaternion).toEqual(before.camera.quaternion);
+  expect(prediction.ring.world[0]).toBeLessThan(before.ring.world[0]);
+  assertSafe(prediction);
+  await save(page, info, 'rotated-aim-preview', { before, prediction });
+  await castAndReturn(page, input, prediction, info, 'rotated-aim');
 });
 
 test('cast visibility: near retrieval and BITE keep readable world markers above the boat', async ({ createContext }, info) => {
