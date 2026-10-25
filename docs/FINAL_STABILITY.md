@@ -189,6 +189,72 @@ WebGL context loss時の安全停止と再読み込み案内も維持し、自�
 `browser-test-results`（14日保持）へ含めます。PRレビュー・実機受入が保持期限を超える場合は、
 PMが必要な証拠を期限内に取得します。診断画像・生成音源・テスト用PCMをGitやPagesの`dist`へ混入させません。
 
+## P4：PR #29の比較テスト修正
+
+当初HEAD `334df5eae731e7671c485d094bb6ab13884d786f`の
+[CI run 40167545640](https://github.com/tk0mygit/barb/actions/runs/40167545640)は、単体447件成功、
+E2E184件中168件成功・16件失敗でした。継続プレイ・音声・保存を含む成功と、CI全体の失敗を区別します。
+失敗16件はすべて`mobile-performance.spec.js`のmain側で、描画15条件とportrait FIGHT回転1条件が
+旧上限1.75を期待し、最適化済みmainの実測1.5を拒否していました。さらにレポート生成にも旧改善率の前提が残っていました。
+
+P4は`src/`、ゲーム仕様、倍率、画質、HUDの製品実装を変更しません。比較元は引き続き
+`a22ce01531befa55230fb186579731b8a3b9aeb6`です。実際にarchiveするbase SHAから解像度moduleを読み、
+source blob `175a5e75df1c7a48aa28c63785ca71d7835af32a`とmain内の接続を照合します。
+PR側は実検証SHAのソースを使い、作業中の製品ソースがそのSHAに一致することも確認します。
+
+既定の`regression`モードでは同じ測定条件の倍率/buffer/リソース数・HUD寸法/配置の一致を要求します。
+ピクセル増加だけでなくPC解像度低下も検出し、HUDと主要操作領域・レティクルの非重複を維持します。
+改善率0%を「20%改善した」と表示しません。4C-2Aの歴史的な約26.5%削減とHUD縮小は、
+改善前SHAを明示した`historical-improvement`モードに20%以上削減・HUD面積縮小の条件を残しています。
+詳細なモード指定と再現コマンドは[MOBILE_PERFORMANCE.md](MOBILE_PERFORMANCE.md#比較の再現と成果物)にあります。
+
+<!-- p4-results:start -->
+局所の修正コード検証SHAは`942f056abdda2cb9f4b6affb38f57078b7d88596`です。
+この後のコミットは結果の文書追記のみで、実装・テストコードは同じです。
+環境は上記と同じNode v24.19.0 / Chromium 154.0.8037.57 / SwiftShader、CPU割当2コアです。
+
+| P4検証 | 結果 |
+| --- | --- |
+| `npm ci --cache /tmp/barb-4c2b-npm-cache` | 成功、依存関係変更なし |
+| `npm test` | 465件成功、失敗/skip 0、14.36秒。比較目的/期待倍率/不正入力/負の検査18件を含む |
+| `npm run build` | 成功、既存chunk-size警告のみ |
+| 比較specの局所実行 | main/PR各29件、計58件成功、725.49秒（約12.1分）。skip/unexpected/flaky 0 |
+| 当初失敗した16件 | CIログの名前と局所JSONを照合し、全16件成功 |
+| 比較資料 | 描画25＋HUD9＝34組、HTML内68画像、各個別PNG/JSON、metadataと測定時間を保存 |
+| 現在mainとの比較 | 34組とも描画ピクセル差0%、buffer/5種リソース数一致、HUD寸法/配置一致で合格 |
+| 画像確認 | 34組すべてPNGのSHA-256が前後一致。portrait FIGHT画像も目視照合 |
+| 実測データの負の検査 | mobile倍率1.5→1.75、PC倍率1.75→1、HUD高さ122→132の各入力をレポート判定が拒否 |
+| 歴史的改善モードの単体検査 | 改善前SHA確認、20%以上削減・HUD縮小を維持。0%改善や違うbase SHAを拒否 |
+| 継続プレイ/音声/保存の維持 | 当初HEADから製品`src/`と対応spec/fixtureに差分なし。当初CIの成功記録を参照し、新HEADの全件成功とは区別 |
+| P4の他spec/全件E2E | ローカルでは未実行。新HEADのL2全件結果はPM確認待ち |
+
+比較モードは`regression`、base SHAは`a22ce01531befa55230fb186579731b8a3b9aeb6`、
+記録された測定HEAD/実検証SHAは上記`942f056…`です。新たなE2Eケース・仮想描画フレーム・sleep・
+リトライ・タイムアウト延長は追加していません。CI全体の実行時間の増分は未計測です。
+歴史的改善モードの全58件E2Eは今回再実行しておらず、4C-2Aの既存実測表と目的別単体検査を区別します。
+
+P4の比較資料は`test-results/p4/mobile-comparison/comparison.html`と`.json`、
+`comparison-metadata.json`、`main.json`、`pr.json`。16件の照合と画像hash確認は
+`test-results/p4/comparison-validation.json`、負の検査は`test-results/p4/negative-checks.json`です。
+診断画像をGit/Pagesへ含めず、従来の`browser-test-results`へ引き継ぎます。
+
+```sh
+npm ci --cache /tmp/barb-4c2b-npm-cache
+npm test
+npm run build
+BARB_MOBILE_BASE_SHA=a22ce01531befa55230fb186579731b8a3b9aeb6 \
+BARB_MOBILE_COMPARISON_MODE=regression \
+BARB_MOBILE_OUTPUT=test-results/p4/mobile-comparison \
+  npx playwright test tests/browser/mobile-performance.spec.js --reporter=line --output=test-results/p4/mobile-e2e
+```
+<!-- p4-results:end -->
+
+通常PRでも従来の34組（描画25・HUD9）のJSON/HTML・68画像と実測時間を保存し、モード・base/HEAD/
+実検証SHA・実装source blob・測定条件を併記します。出力先は`test-results/p4/`、CIでは従来どおり
+`browser-test-results`です。元CIの失敗ログも保存します。新しいCIの完了待機や継続ポーリングはしません。
+P3-B分類は変更せずL2全件E2EをActionsへ委任します。ローカル全件E2E、マージ、デプロイは行いません。
+実機聴取・15〜20分受入、最新HEADのCIとマージ可否は引き続きPMの確認待ちです。
+
 ## スマートフォン実機テスト
 
 ChromeとBraveでそれぞれ独立した15〜20分のセッションを行います。片方の成功を他方へ流用しません。
