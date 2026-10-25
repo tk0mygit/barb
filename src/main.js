@@ -228,7 +228,7 @@ try {
     camera.aspect = width / height;
     // Preserve the cast's horizontal coverage on rotation without turning the
     // camera or moving the committed target. READY returns to the normal lens.
-    camera.fov = castFrame && fishing.state.phase !== PHASE.AIM ? THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(55 / 2)) * Math.max(1, castFrame.aspect / camera.aspect))) : 55;
+    camera.fov = castFrame && ![PHASE.READY, PHASE.AIM].includes(fishing.state.phase) ? THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(55 / 2)) * Math.max(1, castFrame.aspect / camera.aspect))) : 55;
     camera.updateProjectionMatrix();
     fishing.refreshAim();
     if (fishing.state.phase === PHASE.AIM) castFrame = { aspect: camera.aspect };
