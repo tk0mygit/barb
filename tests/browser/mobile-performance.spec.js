@@ -43,6 +43,7 @@ async function startCapture(page, seconds = 90) {
         value.addEventListener('observe', ({ detail: renderer }) => {
           if (!renderer.isWebGLRenderer) return;
           let frame = null, diagnosticCamera;
+          const initializedPhases = new Set();
           window.mobileCameraFrames = [];
           const setAnimationLoop = renderer.setAnimationLoop;
           renderer.setAnimationLoop = function(callback) {
@@ -57,17 +58,31 @@ async function startCapture(page, seconds = 90) {
           const resources = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
             geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs.length });
           renderer.render = function(scene, camera) {
+            const panel = document.querySelector('#fishing-panel'), phase = panel.dataset.phase;
             diagnosticCamera ??= camera.clone();
             diagnosticCamera.aspect = camera.aspect;
             diagnosticCamera.fov = 55;
             diagnosticCamera.position.set(10, 8.5, 38);
             diagnosticCamera.lookAt(10, 2.5, 2);
             diagnosticCamera.updateProjectionMatrix();
+            if (!initializedPhases.has(phase)) {
+              // GPU memory/program counters are cumulative. Initialize the
+              // same visible scene objects before comparing them; otherwise
+              // earlier production-camera culling changes the cache history.
+              const previousCulling = [];
+              scene.traverse(object => {
+                if (object.isMesh || object.isLine || object.isPoints || object.isSprite) {
+                  previousCulling.push([object, object.frustumCulled]); object.frustumCulled = false;
+                }
+              });
+              try { render.call(this, scene, diagnosticCamera); }
+              finally { for (const [object, culled] of previousCulling) object.frustumCulled = culled; }
+              initializedPhases.add(phase);
+            }
             render.call(this, scene, diagnosticCamera);
             const fixedResources = resources();
             const result = render.call(this, scene, camera), actualResources = resources();
-            const gl = this.getContext(), panel = document.querySelector('#fishing-panel');
-            const phase = panel.dataset.phase;
+            const gl = this.getContext();
             const ring = scene.children.find(o => o.isGroup && o.children.some(c => c.isLine)
               && o.children.some(c => c.geometry?.type === 'RingGeometry'))
               ?.children.find(o => o.geometry?.type === 'RingGeometry');
@@ -104,7 +119,7 @@ test.beforeAll(async ({}, info) => {
   comparison = { mode, baseSha, headSha: event?.pull_request?.head?.sha ?? validationSha, validationSha,
     implementations: Object.fromEntries(Object.entries(implementations).map(([target, source]) => [target, mobileSourceMetadata(source)])),
     conditions: { profiles, scenes, renderer: 'production WebGL2; headless Chromium/SwiftShader',
-      resourceCamera: 'fixed boat-relative TPS pose (10,8.5,38), lookAt (10,2.5,2), FOV55; paired diagnostic pass then actual production view',
+      resourceCamera: 'same phase-initial visible-scene GPU warmup, then fixed TPS pose (10,8.5,38), lookAt (10,2.5,2), FOV55; paired diagnostic pass then actual production view',
       timing: 'Node monotonic wall clock + CDP TaskDuration; six frames / 96 virtual ms; includes paired diagnostic passes, not device FPS or GPU time' } };
   const path = resolve(destination, 'comparison-metadata.json');
   await writeFile(path, JSON.stringify(comparison, null, 2));

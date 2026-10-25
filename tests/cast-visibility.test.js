@@ -136,6 +136,47 @@ test('drag mapping remains continuous and monotonic; resize refreshes the curren
   assert.deepEqual(getLurePosition(fishing.state), target);
 });
 
+test('a notice expiring after the preview cannot redirect the released cast', () => {
+  const { visibility, origin, setViewport } = view(390, 844);
+  setViewport({ width: 390, height: 844, occlusions: [{ left: 350, right: 390, top: 0, bottom: 844 }] });
+  const fishing = createFishing(); fishing.prepare(origin, 0, visibility); fishing.aim(180, 0);
+  assert.equal(fishing.state.validCast, true);
+  const heading = fishing.state.heading, target = { ...fishing.state.target };
+  setViewport({ width: 390, height: 844 });
+  assert.ok(visibility.constrain({ origin, heading: 0, requestedDistance: 32, spread: 0.7 }).maxAngle > heading);
+  fishing.cast(); fishing.step(0.801);
+  assert.equal(fishing.state.phase, PHASE.LURE);
+  assert.equal(fishing.state.heading, heading);
+  assert.deepEqual(getLurePosition(fishing.state), target);
+});
+
+test('a new notice after the preview rejects an unsafe release without moving the target', () => {
+  const { visibility, origin, setViewport } = view(390, 844);
+  const fishing = createFishing(); fishing.prepare(origin, 0, visibility); fishing.aim(180, 0);
+  const heading = fishing.state.heading, distance = fishing.state.distance, target = { ...fishing.state.target };
+  setViewport({ width: 390, height: 844, occlusions: [{ left: 350, right: 390, top: 0, bottom: 844 }] });
+  fishing.cast();
+  assert.equal(fishing.state.phase, PHASE.READY);
+  assert.equal(fishing.state.validCast, false);
+  assert.match(fishing.state.message, /画面内/);
+  assert.equal(fishing.state.heading, heading); assert.equal(fishing.state.distance, distance);
+  assert.deepEqual(fishing.state.target, target);
+});
+
+test('new intervening land rejects a release rather than shortening the last displayed preview', () => {
+  const { visibility, origin } = view(390, 844);
+  let island = false;
+  const fishing = createFishing({ isWater: (x, z) => !island || z >= origin.z - 10 || z <= origin.z - 12 });
+  fishing.prepare(origin, 0, visibility); fishing.aim(0, 180);
+  const heading = fishing.state.heading, distance = fishing.state.distance, target = { ...fishing.state.target };
+  island = true; fishing.cast();
+  assert.equal(fishing.state.phase, PHASE.READY);
+  assert.equal(fishing.state.validCast, false);
+  assert.match(fishing.state.message, /岸/);
+  assert.equal(fishing.state.heading, heading); assert.equal(fishing.state.distance, distance);
+  assert.deepEqual(fishing.state.target, target);
+});
+
 test('shore ray clipping is retained and unavailable visible water refuses to cast with a reason', () => {
   const { visibility, origin } = view(390, 844);
   const fishing = createFishing({ isWater: (x, z) => z >= origin.z - 6.13 || z < origin.z - 10 });

@@ -137,8 +137,21 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     refreshAim() { if (state.phase === PHASE.AIM) aim(aimDX, aimDY); },
     cast() {
       if (state.phase !== PHASE.AIM) return;
-      aim(aimDX, aimDY);
       if (!state.validCast) { ready(state.message); return; }
+      // Commit the last preview. A notice expiring between rendering and
+      // release may widen the view limits, but must never redirect this cast.
+      // Recheck safety without changing heading, distance or the water target.
+      for (let d = 0.25; d <= state.distance; d += 0.25) {
+        if (!isWater(state.origin.x + Math.sin(state.heading) * d, state.origin.z - Math.cos(state.heading) * d)) {
+          state.validCast = false;
+          ready('岸が近すぎます。湖側へ向きを変えてください'); return;
+        }
+      }
+      if (castVisibility && !castVisibility.isVisible({ origin: state.origin, heading: state.heading,
+        distance: state.distance, landingDistance: settings.landingDistance })) {
+        state.validCast = false;
+        ready('着水先を画面内に確保できません。湖側へ向くか画面の向きを変えてください'); return;
+      }
       transition(PHASE.CAST);
     },
     cancelInput() { state.reeling = false; if (state.phase === PHASE.AIM) ready('キャスト準備を解除しました'); },
