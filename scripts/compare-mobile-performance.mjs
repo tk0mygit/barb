@@ -63,8 +63,13 @@ export function compareMobileCaptures(before, after, metadata) {
   assert.equal(before.length, 34, 'Expected all 25 render and 9 HUD captures');
   assert.equal(before.length, after.length);
   for (const entries of [before, after]) assert.deepEqual(entries.map(c => c.id).sort(), [...MOBILE_CAPTURE_IDS].sort(), 'Missing/duplicate mobile capture');
-  return before.map(b => {
-    const a = after.find(a => a.id === b.id);
+  return before.map(b => compareMobileCapturePair(b, after.find(a => a.id === b.id), metadata));
+}
+
+// Local selection can verify its real pairs with the same rules without
+// presenting them as the complete 34-pair report required by PR CI.
+export function compareMobileCapturePair(b, a, metadata) {
+    assert.equal(a?.id, b.id, `Missing comparison ${b.id}`);
     assert(a, `Missing comparison ${b.id}`);
     for (const entry of [b, a]) {
       if (entry.comparison) assert.deepEqual(entry.comparison, metadata, `${b.id}: mixed comparison provenance`);
@@ -118,7 +123,6 @@ export function compareMobileCaptures(before, after, metadata) {
     return { id: b.id, before: b.metrics, after: a.metrics,
       pixelReduction,
       ...(b.layout ? { beforeLayout: b.layout, afterLayout: a.layout } : {}) };
-  });
 }
 
 export async function writeMobileComparison(before, after, output, metadata = before[0]?.comparison) {

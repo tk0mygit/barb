@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compareMobileCaptures, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
+import { compareMobileCaptures, compareMobileCapturePair, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
 import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
 import { createCameraRig } from '../src/rendering/camera.js';
 
@@ -69,6 +69,15 @@ test('unrecognized old implementations and missing SHAs cannot silently become l
 test('normal current-main regression accepts 34 unchanged pairs and exactly 0% reduction', () => {
   const rows = compareMobileCaptures(...captures(), metadata());
   assert.equal(rows.length, 34); assert(rows.every(row => row.pixelReduction === 0));
+});
+
+test('a local selected pair keeps resource/HUD checks while the full report still requires all 34', () => {
+  const [before, after] = captures();
+  const b = before.find(entry => entry.id === 'portrait-fight'), a = after.find(entry => entry.id === b.id);
+  assert.equal(compareMobileCapturePair(b, a, metadata()).id, b.id);
+  assert.throws(() => compareMobileCaptures([b], [a], metadata()), /all 25 render and 9 HUD/);
+  a.metrics.resources.programs++;
+  assert.throws(() => compareMobileCapturePair(b, a, metadata()), /resource regression/);
 });
 
 for (const [label, id, ratio] of [['mobile pixel increase', 'portrait-day-tps', 1.75], ['desktop quality reduction', 'pc-hidpi-day-tps', 1]]) {
