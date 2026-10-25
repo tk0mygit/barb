@@ -1,12 +1,13 @@
 import { test, expect } from './diagnostics-fixture.js';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { capturePullRequestBase, prepareSceneryReference } from './lake-scenery-reference.js';
 import { startCapture, enterFishing, fishingInput, layout, assertLayout, tick } from './mobile-capture.js';
 import { assertEnvironment } from './day-night-fixture.js';
-import { writeMobileComparison } from '../../scripts/compare-mobile-performance.mjs';
-import { calculateRenderResolution } from '../../src/rendering/resolution.js';
+import { MOBILE_COMPARISON_MODES, writeMobileComparison } from '../../scripts/compare-mobile-performance.mjs';
+import { mobileGit, readMobileImplementation, mobileSourceMetadata, assertMobileWorkingSource,
+  expectedMobileResolution, HISTORICAL_MOBILE_BASE } from '../../scripts/lib/mobile-comparison-source.js';
 
 const profiles = [
   { id: 'portrait', width: 390, height: 844, dpr: 2, touch: true },
@@ -24,11 +25,29 @@ const compare = capturePullRequestBase || Boolean(process.env.BARB_MOBILE_BASE_S
 const targets = process.env.BARB_MOBILE_TARGET ? [process.env.BARB_MOBILE_TARGET] : compare ? ['main', 'pr'] : ['pr'];
 const captures = [];
 let reference;
+let comparison;
+const implementations = {};
+const mode = process.env.BARB_MOBILE_COMPARISON_MODE ?? 'regression';
 const destination = resolve(process.env.BARB_MOBILE_OUTPUT ?? 'test-results/mobile-comparison');
 const metric = (s, name) => s.metrics.find(m => m.name === name).value;
 test.beforeAll(async ({}, info) => {
+  expect(MOBILE_COMPARISON_MODES).toContain(mode);
   await mkdir(destination, { recursive: true });
   if (targets.includes('main')) reference = await prepareSceneryReference(info, process.env.BARB_MOBILE_BASE_SHA);
+  const event = capturePullRequestBase ? JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8')) : null;
+  const validationSha = await mobileGit('rev-parse', 'HEAD');
+  const baseSha = reference?.sha ?? process.env.BARB_MOBILE_BASE_SHA ?? event?.pull_request?.base?.sha ?? null;
+  implementations.pr = await readMobileImplementation(validationSha);
+  await assertMobileWorkingSource(implementations.pr);
+  if (baseSha) implementations.main = await readMobileImplementation(baseSha);
+  if (mode === 'historical-improvement') expect(baseSha).toBe(HISTORICAL_MOBILE_BASE);
+  comparison = { mode, baseSha, headSha: event?.pull_request?.head?.sha ?? validationSha, validationSha,
+    implementations: Object.fromEntries(Object.entries(implementations).map(([target, source]) => [target, mobileSourceMetadata(source)])),
+    conditions: { profiles, scenes, renderer: 'production WebGL2; headless Chromium/SwiftShader',
+      timing: 'Node monotonic wall clock + CDP TaskDuration; six frames / 96 virtual ms; not device FPS or GPU time' } };
+  const path = resolve(destination, 'comparison-metadata.json');
+  await writeFile(path, JSON.stringify(comparison, null, 2));
+  await info.attach('mobile-comparison-metadata', { path, contentType: 'application/json' });
 });
 test.afterAll(async ({}, info) => {
   await reference?.dispose(info);
@@ -40,8 +59,9 @@ test.afterAll(async ({}, info) => {
   const before = captures.filter(c => c.target === 'main'), after = captures.filter(c => c.target === 'pr');
   if (before.length && before.length === after.length) {
     const path = resolve(destination, 'comparison.html');
-    await writeMobileComparison(before, after, path);
+    await writeMobileComparison(before, after, path, comparison);
     await info.attach('mobile-comparison', { path, contentType: 'text/html' });
+    await info.attach('mobile-comparison-metrics', { path: path.replace(/\.html$/, '.json'), contentType: 'application/json' });
   }
 });
 async function contextFor(createContext, target, profile) {
@@ -57,7 +77,7 @@ async function saveCapture(target, id, page, metrics, info, withLayout = false) 
   const image = resolve(destination, `${target}-${id}.png`);
   await page.screenshot({ path: image });
   await info.attach(`${target}-${id}`, { path: image, contentType: 'image/png' });
-  const entry = { target, id, metrics, image, ...(withLayout ? { layout: await layout(page) } : {}) };
+  const entry = { target, id, comparison, metrics, image, ...(withLayout ? { layout: await layout(page) } : {}) };
   captures.push(entry);
   await writeFile(resolve(destination, `${target}-${id}.json`), JSON.stringify(entry, null, 2));
   return entry;
@@ -83,10 +103,10 @@ for (const target of targets) {
       expect(after.resources).toEqual(before.resources);
       expect(before.resources.calls).toBeLessThan(40);
       expect(before.dpr).toBe(profile.dpr);
-      const expectedRatio = target === 'main' ? Math.min(profile.dpr, 1.75) : calculateRenderResolution({ width: profile.width, height: profile.height, devicePixelRatio: profile.dpr, coarsePointer: Boolean(profile.touch) }).pixelRatio;
-      expect(before.pixelRatio).toBe(expectedRatio);
-      expect(before.buffer).toEqual({ width: Math.floor(profile.width * expectedRatio), height: Math.floor(profile.height * expectedRatio) });
-      expect(before.camera.aspect).toBeCloseTo(profile.width / profile.height, 8);
+      const expected = expectedMobileResolution(implementations[target], profile);
+      expect(before.pixelRatio).toBe(expected.pixelRatio);
+      expect(before.buffer).toEqual(expected.buffer);
+      expect(before.camera.aspect).toBeCloseTo(expected.aspect, 8);
       const metrics = { ...before, savedClockSeconds: scene.seconds,
         initial: { setupToReadyMs, rendererTaskMs: (metric(ready, 'TaskDuration') - metric(initial, 'TaskDuration')) * 1000 },
         continuing: { frames: 6, simulatedMs: 96, wallMs, rendererTaskMs: (metric(cpuEnd, 'TaskDuration') - metric(cpuStart, 'TaskDuration')) * 1000 }, errors };
@@ -116,12 +136,13 @@ for (const target of targets) {
     test(`mobile HUD: ${target} ${profile.id} native fight and rotation`, async ({ createContext }, info) => {
       test.setTimeout(240000);
       const { context, page, errors } = await contextFor(createContext, target, profile);
+      const currentHUD = implementations[target].resolutionModel === 'mobile-budget';
       await startCapture(page); await enterFishing(page, profile.touch);
-      if (target === 'pr') assertLayout(await layout(page), { fight: false });
+      if (currentHUD) assertLayout(await layout(page), { fight: false });
       const input = await fishingInput(page, profile.touch);
       await input.bite();
       await saveCapture(target, `${profile.id}-bite`, page, await page.evaluate(() => window.mobileProbe), info, true);
-      if (target === 'pr') {
+      if (currentHUD) {
         assertLayout(await layout(page), { fight: false });
         await expect(page.locator('#hint')).toContainText('1秒以内');
         await expect(page.locator('#fishing-state')).toContainText('今すぐタップ');
@@ -133,15 +154,15 @@ for (const target of targets) {
       await expect(page.locator('#line-tension')).toHaveAttribute('high', '0.78');
       await saveCapture(target, `${profile.id}-fight`, page, await page.evaluate(() => window.mobileProbe), info, true);
       {
-        if (target === 'pr') assertLayout(await layout(page));
+        if (currentHUD) assertLayout(await layout(page));
         // Native down within HUD bounds must reach the canvas and change tension.
         const s = await layout(page), value = s.tension;
         await input.down({ x: s.panel.x + s.panel.width / 2, y: s.panel.y + s.panel.height / 2 });
         for (let i = 0; i < 12 && (await layout(page)).tension <= 0.78; i++) await tick(page);
         const high = await layout(page); expect(high.tension).toBeGreaterThan(value); expect(high.tension).toBeGreaterThan(0.78);
-        if (target === 'pr') assertLayout(high); await input.up();
+        if (currentHUD) assertLayout(high); await input.up();
         for (let i = 0; i < 16 && (await layout(page)).tension >= 0.18; i++) await tick(page);
-        const low = await layout(page); expect(low.tension).toBeLessThan(0.18); if (target === 'pr') assertLayout(low);
+        const low = await layout(page); expect(low.tension).toBeLessThan(0.18); if (currentHUD) assertLayout(low);
         await expect(page.locator('#tension-value')).toHaveText(`${Math.round(low.tension * 100)}%`);
       }
       if (profile.id === 'portrait') {
@@ -149,12 +170,14 @@ for (const target of targets) {
         // Resize renders synchronously, even without advancing the fight clock.
         await expect.poll(() => page.evaluate(() => window.mobileProbe.viewport.width)).toBe(844);
         const metrics = await page.evaluate(() => window.mobileProbe);
-        expect(metrics.camera.aspect).toBeCloseTo(844 / 390, 8);
-        expect(metrics.pixelRatio).toBe(target === 'main' ? 1.75 : 1.5);
+        const expected = expectedMobileResolution(implementations[target], { ...profile, width: 844, height: 390 });
+        expect(metrics.camera.aspect).toBeCloseTo(expected.aspect, 8);
+        expect(metrics.pixelRatio).toBe(expected.pixelRatio);
+        expect(metrics.buffer).toEqual(expected.buffer);
         for (const field of ['geometries', 'textures', 'programs']) expect(metrics.resources[field]).toBe(fightResources[field]);
         expect(metrics.resources.calls).toBeLessThan(40);
         await saveCapture(target, 'rotated-fight', page, metrics, info, true);
-        if (target === 'pr') assertLayout(await layout(page));
+        if (currentHUD) assertLayout(await layout(page));
       }
       expect(errors).toEqual([]); await context.close();
     });
