@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, renameSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readdirSync, writeFileSync, renameSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SMOKE_SPECS, L1_GROUPS, classifyChanges, eventPlan, parseNameStatus, readChangedFiles, createPlan } from '../scripts/ci-risk.js';
+import { SMOKE_SPECS, L0_DOCUMENTS, L1_GROUPS, classifyChanges, eventPlan, parseNameStatus, readChangedFiles, createPlan } from '../scripts/ci-risk.js';
+import { FISH_SPECIES } from '../src/game/fish-species.js';
 
 const availableSpecs = [...new Set([...SMOKE_SPECS, ...Object.values(L1_GROUPS).flatMap(group => group.specs),
   'tests/browser/game.spec.js', 'tests/browser/save-data.spec.js'])].sort();
@@ -12,6 +13,11 @@ const change = (path, status = 'M') => ({ status, paths: [path] });
 const classify = (changes, options = {}) => classifyChanges(changes, { availableSpecs, ...options });
 const audio = 'src/audio/ambient-player.js';
 const achievementView = 'src/ui/achievements-view.js';
+const fishPng = 'src/assets/fish/black-bass.png';
+const fishPngSources = L1_GROUPS['fish-png'].sources;
+// Keep the required selection independent of the classifier's mapping.
+const fishPngSpecs = ['collection-menu', 'fish-assets', 'fish-sales', 'fishing', 'smoke-pc', 'smoke-touch']
+  .map(name => `tests/browser/${name}.spec.js`).sort();
 
 test('README and explicitly reviewed explanatory docs are L0 without E2E', () => {
   for (const changes of [[change('README.md')], [change('docs/AUDIO_SYSTEM.md')],
@@ -44,6 +50,101 @@ test('multiple local source features select a deduplicated union', () => {
   assert.equal(plan.level, 'L1');
   assert.deepEqual(plan.specs, [...new Set([...SMOKE_SPECS, ...L1_GROUPS['ambient-output'].specs,
     ...L1_GROUPS['achievements-view'].specs, ...L1_GROUPS['equipment-view'].specs])].sort());
+});
+
+test('fish PNG allowlist matches exactly the twelve registered production files', () => {
+  const production = readdirSync(new URL('../src/assets/fish/', import.meta.url), { withFileTypes: true })
+    .filter(entry => entry.isFile() && entry.name.endsWith('.png')).map(entry => `src/assets/fish/${entry.name}`).sort();
+  assert.equal(fishPngSources.length, 12);
+  assert.deepEqual([...fishPngSources].sort(), production);
+  assert.deepEqual([...fishPngSources].sort(), FISH_SPECIES.map(fish => `src/assets/fish/${fish.id}.png`).sort());
+});
+
+test('each existing PNG and multiple existing PNG modifications select all six required specs', () => {
+  for (const sources of [...fishPngSources.map(path => [path]), fishPngSources.slice(0, 2), fishPngSources]) {
+    const plan = classify(sources.map(path => change(path)));
+    assert.equal(plan.level, 'L1'); assert.equal(plan.runE2E, true); assert.equal(plan.deploy, false);
+    assert.deepEqual(plan.specs, fishPngSpecs); assert.deepEqual(plan.smokeSpecs, SMOKE_SPECS);
+  }
+});
+
+test('existing L0 documents can accompany modified fish PNGs', () => {
+  for (const document of L0_DOCUMENTS) {
+    const plan = classify([change(document), change(fishPng)]);
+    assert.equal(plan.level, 'L1', document); assert.deepEqual(plan.specs, fishPngSpecs);
+  }
+});
+
+test('fish PNG additions, deletions, type changes, renames and copies always require L2', () => {
+  for (const path of fishPngSources) {
+    const changes = ['A', 'D', 'T'].map(status => change(path, status));
+    for (const status of ['R0', 'R75', 'R100', 'C0', 'C90', 'C100']) {
+      for (const other of [fishPngSources.find(candidate => candidate !== path), 'src/assets/fish/new-fish.png', 'README.md']) {
+        changes.push({ status, paths: [path, other] }, { status, paths: [other, path] });
+      }
+    }
+    for (const item of changes) {
+      const plan = classify([item]);
+      assert.equal(plan.level, 'L2', JSON.stringify(item)); assert.deepEqual(plan.specs, availableSpecs);
+    }
+  }
+});
+
+test('PNG with references, product JS, UI, CSS, test infrastructure or unknown files requires L2', () => {
+  for (const path of ['src/game/fish-species.js', 'src/game/fish-species-registry.js', 'src/game/fishing.js',
+    'src/main.js', 'src/ui/fishing-hud.js', 'src/ui/collection-menu.js', 'src/ui/style.css',
+    'tests/browser/ui-fixture.js', 'tests/browser/diagnostics-fixture.js', 'playwright.config.js',
+    'src/assets/fish/new-fish.png', 'src/assets/fish/unknown.svg', 'src/assets/fish/black-bass.svg',
+    'src/assets/fish/black-bass.jpg', 'src/assets/fish/black-bass.PNG', 'src/assets/fish/black-bass.png.bak',
+    'src/assets/fish/nested/black-bass.png', 'unknown.txt']) {
+    assert.equal(classify([change(fishPng), change(path)]).level, 'L2', path);
+    assert.equal(classify([change(path), change(fishPng)]).level, 'L2', path);
+  }
+});
+
+test('PNG cannot mix with any of the four existing L1 implementation groups or their individual specs', () => {
+  for (const name of ['ambient-output', 'sound-settings', 'achievements-view', 'equipment-view']) {
+    for (const path of [...L1_GROUPS[name].sources, ...L1_GROUPS[name].specs]) {
+      assert.equal(classify([change(fishPng), change(path)]).level, 'L2', path);
+      assert.equal(classify([change(path), change(fishPng)]).level, 'L2', path);
+    }
+  }
+  for (const spec of fishPngSpecs) assert.equal(classify([change(fishPng), change(spec)]).level, 'L2', spec);
+});
+
+test('fish PNG selection fails closed if any required spec, smoke or mapping is absent', () => {
+  for (const missing of fishPngSpecs) {
+    const plan = classify([change(fishPng)], { availableSpecs: availableSpecs.filter(path => path !== missing) });
+    assert.equal(plan.level, 'L2', missing); assert.match(plan.reasons.join(' '), /欠落/);
+  }
+  for (const group of [undefined, { specs: [] }]) {
+    const plan = classify([change(fishPng)], { groups: { ...L1_GROUPS, 'fish-png': group } });
+    assert.equal(plan.level, 'L2'); assert.match(plan.reasons.join(' '), /空・不整合/);
+  }
+});
+
+test('PNG paths retain exact NUL parsing and incomplete or special-path diffs never reduce verification', () => {
+  const prefix = `M\0${fishPng}\0`;
+  assert.deepEqual(parseNameStatus(prefix), [change(fishPng)]);
+  for (const path of ['src/assets/fish/black bass.png', 'src/assets/fish/black\tbass.png',
+    'src/assets/fish/black\nbass.png', 'src/assets/fish/"black-bass"-$(x).png', 'src/assets/fish/black\\bass.png']) {
+    const parsed = parseNameStatus(`${prefix}M\0${path}\0`);
+    assert.deepEqual(parsed, [change(fishPng), change(path)]);
+    assert.equal(classify(parsed).level, 'L2', path);
+  }
+  for (const raw of [`${prefix}M`, `${prefix}R100\0${fishPng}\0`, `${prefix}M\0../${fishPng}\0`,
+    Buffer.concat([Buffer.from(prefix), Buffer.from([0x4d, 0, 0xff, 0])])]) {
+    assert.throws(() => parseNameStatus(raw));
+  }
+});
+
+test('the P4-A1 classifier PR itself requires the full L2 inventory', () => {
+  const changes = ['scripts/ci-risk.js', 'tests/ci-risk.test.js', 'docs/TESTING_WORKFLOW.md'].map(path => change(path));
+  for (const scope of [changes, [...changes, change(fishPng)]]) {
+    const plan = classify(scope);
+    assert.equal(plan.level, 'L2'); assert.equal(plan.runE2E, true); assert.equal(plan.deploy, false);
+    assert.deepEqual(plan.specs, availableSpecs);
+  }
 });
 
 test('main, shared systems, CI, dependencies and operations documents override lower risks', () => {
@@ -169,6 +270,7 @@ function repo(t) {
   const write = (path, content) => { mkdirSync(join(cwd, path, '..'), { recursive: true }); writeFileSync(join(cwd, path), content); };
   write('README.md', 'original README\n'); write('docs/AUDIO_SYSTEM.md', 'original explanation\n');
   write('src/audio/ambient-player.js', 'export const example = 1;\n');
+  write(fishPng, 'base image fixture\n');
   for (const path of availableSpecs) write(path, '// inventory fixture\n');
   git(cwd, 'add', '.'); git(cwd, 'commit', '-m', 'base');
   const mergeBaseSha = git(cwd, 'rev-parse', 'HEAD');
@@ -234,7 +336,7 @@ test('empty PR diff is anomalous and forces L2', t => {
 });
 
 test('createPlan records exact PR and integration SHA and handles L0/L1/L2 simulated diffs', t => {
-  for (const [source, level] of [['README.md', 'L0'], [audio, 'L1'], ['.github/workflows/pages.yml', 'L2']]) {
+  for (const [source, level] of [['README.md', 'L0'], [audio, 'L1'], [fishPng, 'L1'], ['.github/workflows/pages.yml', 'L2']]) {
     const { cwd, write } = repo(t);
     if (source !== 'README.md') { write(source, 'changed\n'); git(cwd, 'add', '.'); git(cwd, 'commit', '-m', 'scope'); }
     const input = mergeFeature(cwd), plan = createPlan({ ...input, eventName: 'pull_request', ref: 'refs/pull/42/merge',
@@ -244,6 +346,29 @@ test('createPlan records exact PR and integration SHA and handles L0/L1/L2 simul
     assert.equal(plan.validationSha, input.validationSha); assert.equal(plan.validationRef, 'refs/pull/42/merge');
     assert.equal(plan.diff.ok, true); assert.equal(plan.deploy, false);
   }
+});
+
+test('a real PNG-only merge diff selects six specs, while SHA mismatches and missing disk specs force L2', t => {
+  const { cwd, write, mergeBaseSha } = repo(t);
+  git(cwd, 'restore', '--source', mergeBaseSha, 'README.md');
+  write(fishPng, 'modified image fixture\n');
+  git(cwd, 'add', '.'); git(cwd, 'commit', '-m', 'PNG-only net diff');
+  const input = mergeFeature(cwd);
+  const options = { ...input, eventName: 'pull_request', ref: 'refs/pull/42/merge',
+    event: { number: 42, pull_request: { head: { sha: input.headSha }, base: { sha: input.baseSha } } } };
+  const plan = createPlan(options);
+  assert.equal(plan.diff.ok, true); assert.deepEqual(plan.changes, [change(fishPng)]);
+  assert.equal(plan.level, 'L1'); assert.deepEqual(plan.specs, fishPngSpecs);
+  for (const overrides of [{ validationSha: input.headSha },
+    { event: { pull_request: { head: { sha: 'a'.repeat(40) }, base: { sha: input.baseSha } } } },
+    { event: { pull_request: { head: { sha: input.headSha }, base: { sha: input.headSha } } } }]) {
+    const failed = createPlan({ ...options, ...overrides });
+    assert.equal(failed.level, 'L2'); assert.equal(failed.diff.ok, false);
+    assert.deepEqual(failed.specs, availableSpecs);
+  }
+  rmSync(join(cwd, 'tests/browser/fish-assets.spec.js'));
+  const missing = createPlan(options);
+  assert.equal(missing.level, 'L2'); assert.match(missing.reasons.join(' '), /欠落/);
 });
 
 test('missing PR metadata, failed inventory and invalid diff fail closed', t => {
