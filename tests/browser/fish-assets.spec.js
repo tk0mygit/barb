@@ -5,14 +5,16 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { build } from 'vite';
 import { fishSpeciesSandbox } from '../helpers/fish-species-sandbox.js';
-import { FISH_SPECIES, BLACK_BASS } from '../../src/game/fish-species.js';
+import { FISH_SPECIES, BLACK_BASS, calculateFishWeightKg } from '../../src/game/fish-species.js';
 import { createCatchCollection } from '../../src/game/catch-collection.js';
 import { createAchievements } from '../../src/game/achievements.js';
 import { createBoatState } from '../../src/game/boat.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 import { createSaveData } from '../../src/game/save-data.js';
+import { generateFishArtworkReport } from '../../scripts/report-fish-artwork.mjs';
 
 const png = readFileSync(new URL('../fixtures/fish-assets/transparent-test.png', import.meta.url));
+const svg = readFileSync(new URL('../fixtures/fish-assets/transparent-test.svg', import.meta.url));
 function legacySave() {
   const collection = createCatchCollection(), achievements = createAchievements({ collection, now: () => 1000 });
   collection.register({ schemaVersion: 1, id: 'legacy-bass', speciesId: 'black-bass', lengthCm: 40, weightKg: 1.1, caughtAt: '2026-01-01T00:00:00.000Z' });
@@ -60,7 +62,8 @@ for (const touch of [false, true]) for (const pngImage of [false, true]) {
     let release;
     const gate = new Promise(resolve => { release = resolve; });
     await page.route('**/barb/fish-test.png', async route => { await gate; return route.fulfill({ body: png, contentType: 'image/png' }); });
-    await openUIFixture(page, legacySave(), { pngFishImage: pngImage });
+    await page.route('**/barb/fish-test.svg', route => route.fulfill({ body: svg, contentType: 'image/svg+xml' }));
+    await openUIFixture(page, legacySave(), { pngFishImage: pngImage, svgFishImage: !pngImage });
     await click(page.locator('#menu-button')); await click(page.locator('[data-view="encyclopedia"]'));
     await expect(page.locator('.fish-card')).toHaveCount(12);
     const unknown = page.locator('div.fish-card');
@@ -114,7 +117,7 @@ for (const touch of [false, true]) for (const pngImage of [false, true]) {
 }
 
 test('Vite builds static SVG/PNG references for /barb/ and the browser loads emitted and inlined PNG', async ({ page }) => {
-  const sandbox = await fishSpeciesSandbox(null, { png: true });
+  const sandbox = await fishSpeciesSandbox(null, { svg: true, png: true });
   try {
     await writeFile(join(sandbox.root, 'index.html'), '<script type="module">import { FISH_SPECIES } from "/src/game/fish-species.js"; for (const fish of FISH_SPECIES) { const image = new Image(); image.src = fish.image; image.alt = fish.name; document.body.append(image); }</script>');
     for (const inline of [false, true]) {
@@ -150,3 +153,200 @@ test('Vite builds static SVG/PNG references for /barb/ and the browser loads emi
     }
   } finally { await sandbox.dispose(); }
 });
+
+function allSpeciesLegacySave() {
+  const collection = createCatchCollection(), achievements = createAchievements({ collection, now: () => 1000 });
+  for (const fish of FISH_SPECIES) {
+    const lengthCm = fish.weight.referenceLengthCm;
+    const record = collection.register({ schemaVersion: 1, id: `legacy-${fish.id}`, speciesId: fish.id,
+      lengthCm, weightKg: calculateFishWeightKg(fish.id, lengthCm), caughtAt: '2026-01-01T00:00:00.000Z' });
+    collection.store(record.id);
+  }
+  return createSaveData({ collection, achievements, boat: createBoatState(), clock: createGameClock() }, { savedAt: '2026-01-01T00:00:00.000Z' });
+}
+
+async function checkProductionImage(image, fish, { inspectPixels = false } = {}) {
+  await image.scrollIntoViewIfNeeded();
+  await expect(image).toBeVisible();
+  const state = await image.evaluate(async (img, inspectPixels) => {
+    await img.decode();
+    const box = img.getBoundingClientRect(), frame = img.parentElement.getBoundingClientRect();
+    const result = { src: img.currentSrc, width: img.naturalWidth, height: img.naturalHeight, alt: img.alt,
+      fit: getComputedStyle(img).objectFit, loading: img.loading,
+      inside: box.left >= frame.left && box.right <= frame.right + 1 && box.top >= frame.top && box.bottom <= frame.bottom + 1,
+      widthFits: frame.width <= innerWidth };
+    if (inspectPixels) {
+      const canvas = document.createElement('canvas'); canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
+      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let borderNonTransparent = 0, transparentPixels = 0, opaquePixels = 0;
+      for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
+        const alpha = pixels[(y * canvas.width + x) * 4 + 3];
+        if (alpha === 0) transparentPixels++;
+        if (alpha === 255) opaquePixels++;
+        if ((x === 0 || y === 0 || x === canvas.width - 1 || y === canvas.height - 1) && alpha !== 0) borderNonTransparent++;
+      }
+      const hash = await crypto.subtle.digest('SHA-256', pixels);
+      Object.assign(result, { borderNonTransparent, transparentPixels, opaquePixels,
+        decodedSha256: [...new Uint8Array(hash)].map(value => value.toString(16).padStart(2, '0')).join('') });
+    }
+    return result;
+  }, inspectPixels);
+  expect([state.width, state.height]).toEqual([1280, 560]);
+  expect(state.fit).toBe('contain'); expect(state.inside && state.widthFits).toBe(true);
+  expect(state.alt).toContain(fish.name);
+  expect(new URL(state.src).pathname).toBe(`/barb/src/assets/fish/${fish.id}.png`);
+  if (inspectPixels) {
+    expect(state.borderNonTransparent).toBe(0);
+    expect(state.transparentPixels).toBeGreaterThan(0);
+    expect(state.opaquePixels).toBeGreaterThan(0);
+  }
+  return state;
+}
+
+// Keep actual production startup separate from the source-module UI fixture.
+// Defining static image URLs must not initiate twelve PNG downloads.
+test('production startup and undiscovered encyclopedia do not preload fish PNGs', async ({ page }, testInfo) => {
+  const requests = [], failures = [];
+  page.on('request', request => { if (request.resourceType() === 'image') requests.push(request.url()); });
+  page.on('requestfailed', request => failures.push({ url: request.url(), error: request.failure()?.errorText }));
+  await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
+  await expect(page.locator('#catch-image')).not.toHaveAttribute('src');
+  const initialImages = [...requests];
+  await page.locator('#menu-button').click(); await page.locator('[data-view="encyclopedia"]').click();
+  await expect(page.locator('div.fish-card')).toHaveCount(12);
+  await expect(page.locator('button.fish-card')).toHaveCount(0);
+  const cards = await page.locator('.fish-card').evaluateAll(nodes => nodes.map(node => node.outerHTML).join(''));
+  for (const fish of FISH_SPECIES) {
+    expect(cards).not.toContain(fish.name); expect(cards).not.toContain(fish.description);
+    expect(cards).not.toContain(`${fish.id}.png`);
+  }
+  expect(new Set(await page.locator('.fish-card img').evaluateAll(images => images.map(img => img.src))).size).toBe(1);
+  expect(await page.locator('.fish-card img').evaluateAll(images => images.every(img => img.loading === 'lazy'))).toBe(true);
+  expect(requests.filter(url => /\.png(?:$|\?)/.test(url))).toEqual([]);
+  expect(await page.locator('link[rel="preload"][as="image"]').count()).toBe(0);
+  expect(failures).toEqual([]);
+  const report = { scope: 'production Vite build, fresh save', initialImages,
+    encyclopediaImages: requests, fishPngBytes: 0,
+    resources: await page.evaluate(() => performance.getEntriesByType('resource').filter(entry => entry.initiatorType === 'img')
+      .map(entry => ({ name: entry.name, transferSize: entry.transferSize, encodedBodySize: entry.encodedBodySize, decodedBodySize: entry.decodedBodySize, duration: entry.duration }))) };
+  const path = testInfo.outputPath('startup-image-loading.json');
+  await writeFile(path, JSON.stringify(report, null, 2));
+  await testInfo.attach('startup-image-loading', { path, contentType: 'application/json' });
+});
+
+const artworkViewports = [
+  { label: 'desktop', viewport: { width: 1280, height: 800 }, touch: false },
+  { label: 'mobile-portrait', viewport: { width: 390, height: 844 }, touch: true },
+  { label: 'mobile-landscape', viewport: { width: 844, height: 390 }, touch: true },
+];
+for (const { label, viewport, touch } of artworkViewports) {
+  test(`${label}: twelve production PNGs decode and agree in legacy grid, detail, storage and catches`, async ({ createContext }, testInfo) => {
+    const context = await createContext({ viewport, hasTouch: touch, isMobile: touch });
+    const page = await context.newPage(), errors = [], imageResponses = [], pendingResponses = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('requestfailed', request => { if (request.resourceType() === 'image') errors.push(`${request.url()}: ${request.failure()?.errorText}`); });
+    page.on('response', response => {
+      if (/\/src\/assets\/fish\/[\w-]+\.png$/.test(new URL(response.url()).pathname)) {
+        pendingResponses.push(response.body().then(body => imageResponses.push({ url: response.url(), status: response.status(), bytes: body.length })));
+      }
+    });
+    await page.addInitScript(() => { Math.random = () => window.artworkRoll ?? 0; });
+    const click = locator => touch ? locator.tap() : locator.click();
+    await openUIFixture(page, allSpeciesLegacySave());
+    expect(imageResponses).toEqual([]);
+    expect(await page.evaluate(() => fixture.restored.collection.catches.every(record => record.schemaVersion === 1 && !('image' in record) && !('imageUrl' in record)))).toBe(true);
+    await click(page.locator('#menu-button')); await click(page.locator('[data-view="encyclopedia"]'));
+    await expect(page.locator('button.fish-card')).toHaveCount(12);
+    await expect(page.locator('div.fish-card')).toHaveCount(0);
+    const gridImages = new Map(), decoded = [];
+    // Compare resolved layout sizes exactly: viewport-relative DOMRects lose
+    // floating-point precision when the scroll position changes.
+    const framesBefore = await page.locator('.fish-card .fish-image-frame').evaluateAll(nodes => nodes.map(node => ({ width: getComputedStyle(node).width, height: getComputedStyle(node).height })));
+    for (const [index, fish] of FISH_SPECIES.entries()) {
+      const state = await checkProductionImage(page.locator('button.fish-card img').nth(index), fish, { inspectPixels: true });
+      expect(state.loading).toBe('lazy'); gridImages.set(fish.id, state.src); decoded.push({ speciesId: fish.id, ...state });
+    }
+    expect(new Set(decoded.map(image => image.src)).size).toBe(12);
+    expect(new Set(decoded.map(image => image.decodedSha256)).size).toBe(12);
+    expect(await page.locator('.fish-card .fish-image-frame').evaluateAll(nodes => nodes.map(node => ({ width: getComputedStyle(node).width, height: getComputedStyle(node).height })))).toEqual(framesBefore);
+    await page.locator('.fish-card').first().scrollIntoViewIfNeeded();
+    await page.locator('#collection-dialog').screenshot({ path: testInfo.outputPath(`${label}-encyclopedia.png`) });
+    await Promise.all(pendingResponses);
+    const gridLoading = [...imageResponses];
+    expect(new Set(gridLoading.map(response => response.url)).size).toBe(12);
+    expect(gridLoading.every(response => response.status === 200)).toBe(true);
+    for (const [index, fish] of FISH_SPECIES.entries()) {
+      await click(page.locator('button.fish-card').nth(index));
+      const detail = await checkProductionImage(page.locator('.fish-detail img'), fish);
+      expect(detail.src).toBe(gridImages.get(fish.id)); expect(detail.loading).toBe('lazy');
+      await expect(page.locator('.fish-description')).toHaveText(fish.description);
+      if (['black-bass', 'bluegill', 'northern-pike'].includes(fish.id)) {
+        await page.locator('#collection-dialog').screenshot({ path: testInfo.outputPath(`${label}-detail-${fish.id}.png`) });
+      }
+      await click(page.locator('#collection-back'));
+    }
+    await click(page.locator('#collection-back')); await click(page.locator('[data-view="storage"]'));
+    await expect(page.locator('.stored-fish')).toHaveCount(12);
+    for (const fish of FISH_SPECIES) {
+      const state = await checkProductionImage(page.locator(`[data-catch-id="legacy-${fish.id}"] img`), fish);
+      expect(state.src).toBe(gridImages.get(fish.id)); expect(state.loading).toBe('lazy');
+    }
+    await page.locator('.stored-fish').first().scrollIntoViewIfNeeded();
+    await page.locator('#collection-dialog').screenshot({ path: testInfo.outputPath(`${label}-storage.png`) });
+    await click(page.locator('#collection-close'));
+    // Exercise the real fishing domain transitions for all twelve species. RNG
+    // selects a probability interval; catches/phases are never assigned by tests.
+    for (const fish of FISH_SPECIES) {
+      const caught = await page.evaluate(async speciesId => {
+        const { getSpeciesProbabilities } = await import('/barb/src/game/fish-encounters.js');
+        const fishing = fixture.fishing;
+        fixture.fishingHUD.update(fishing, true, { timeOfDay: 'day', cycleProgress: 0 });
+        window.artworkRoll = 0;
+        fishing.prepare({ x: 0, z: 30 }, 0); fishing.aim(0, 180); fishing.cast();
+        for (let i = 0; i < 120 && fishing.state.phase === 'cast'; i++) fishing.step(1 / 60);
+        const entries = getSpeciesProbabilities(fishing.state.lureId, fishing.getConditions());
+        const index = entries.findIndex(entry => entry.speciesId === speciesId);
+        window.artworkRoll = entries.slice(0, index).reduce((sum, entry) => sum + entry.probability, 0) + entries[index].probability / 2;
+        for (let i = 0; i < 1000 && fishing.state.phase === 'lure'; i++) fishing.step(1 / 60);
+        fishing.hook();
+        for (let i = 0; i < 1800 && fishing.state.phase === 'fight'; i++) {
+          fishing.reel(fishing.state.tension < 0.65); fishing.step(1 / 60);
+        }
+        fishing.step(2);
+        fixture.fishingHUD.update(fishing, true, { timeOfDay: 'day', cycleProgress: 0 });
+        return { phase: fishing.state.phase, speciesId: fishing.state.catch?.speciesId };
+      }, fish.id);
+      expect(caught).toEqual({ phase: 'result', speciesId: fish.id });
+      const catchImage = await checkProductionImage(page.locator('#catch-image'), fish);
+      expect(catchImage.src).toBe(gridImages.get(fish.id));
+      if (['black-bass', 'bluegill', 'northern-pike'].includes(fish.id)) {
+        await page.locator('#catch-dialog').screenshot({ path: testInfo.outputPath(`${label}-catch-${fish.id}.png`) });
+      }
+      await click(page.locator('#close-catch'));
+      await expect(page.locator('#catch-dialog')).toBeHidden();
+    }
+    await page.reload(); await page.waitForFunction(() => Boolean(window.fixture));
+    await click(page.locator('#menu-button')); await click(page.locator('[data-view="storage"]'));
+    for (const fish of FISH_SPECIES) {
+      const state = await checkProductionImage(page.locator(`[data-catch-id="legacy-${fish.id}"] img`), fish);
+      expect(state.src).toBe(gridImages.get(fish.id));
+    }
+    expect(errors).toEqual([]);
+    const report = { scope: 'real UI/domain modules with schema-v1 restored save; complete encyclopedia after scrolling every lazy card; original production PNGs, no HTTP compression', viewport,
+      initialFishPngCount: 0, gridLoadedImages: gridLoading,
+      gridImageBytes: gridLoading.reduce((sum, response) => sum + response.bytes, 0),
+      decodedImages: decoded, imageErrors: errors };
+    const path = testInfo.outputPath(`${label}-image-loading.json`);
+    await writeFile(path, JSON.stringify(report, null, 2));
+    await testInfo.attach(`${label}-image-loading`, { path, contentType: 'application/json' });
+    if (label === 'desktop') {
+      const reviewContext = await createContext({ viewport: { width: 1280, height: 800 } });
+      const reviewDirectory = testInfo.outputPath('artwork-review');
+      await generateFishArtworkReport({ outputDirectory: reviewDirectory, page: await reviewContext.newPage() });
+      for (const name of ['contact-sheet.png', 'prototype-comparison.png', 'artwork-quality.json', 'artwork-quality.md']) {
+        await testInfo.attach(name, { path: join(reviewDirectory, name), contentType: name.endsWith('.png') ? 'image/png' : name.endsWith('.json') ? 'application/json' : 'text/markdown' });
+      }
+    }
+  });
+}

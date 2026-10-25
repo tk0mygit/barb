@@ -54,6 +54,8 @@ test('PNG rejects corrupt structures, pixels, opaque formats and resource exhaus
 });
 
 test('SVG retains safety and size checks while allowing other positive viewBoxes', () => {
+  assert.deepEqual(validateFishImage('transparent-test.svg', readFileSync(new URL('./fixtures/fish-assets/transparent-test.svg', import.meta.url))),
+    { format: 'svg', width: 640, height: 280 });
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 120"><path d="M0 0"/></svg>';
   assert.deepEqual(validateFishImage('test.svg', Buffer.from(svg)), { format: 'svg', width: 80, height: 120 });
   for (const content of ['<script/>', '<foreignObject/>', '<image href="https://example.com/a"/>', '<path onclick="x()"/>',
