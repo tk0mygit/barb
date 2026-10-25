@@ -43,7 +43,7 @@ export function createFishingView(scene) {
       ring.position.set(s.phase === PHASE.CAST ? s.target.x : x, 0.12, s.phase === PHASE.CAST ? s.target.z : z);
       const splash = s.phase === PHASE.LANDING || (s.phase === PHASE.LURE && s.time < 0.8);
       const expansion = nearRingExpansion(s.distance, fishing.settings.landingDistance);
-      ring.scale.setScalar(splash ? 1 + s.time * 2 * expansion : s.phase === PHASE.BITE ? 1 + (0.5 + Math.sin(elapsed * 22) * 0.4) * expansion : 1);
+      ring.scale.setScalar(splash ? 1 + s.time * 2 * (s.phase === PHASE.LANDING ? 1 : expansion) : s.phase === PHASE.BITE ? 1 + (0.5 + Math.sin(elapsed * 22) * 0.4) * expansion : 1);
       ring.material.opacity = splash ? Math.max(0, 1 - s.time / 1.2) : 0.8;
       ring.material.color.set(s.phase === PHASE.BITE ? '#ffb86c' : s.validCast ? '#ffe5a1' : '#ff6655');
       shadow.visible = s.phase === PHASE.FIGHT;

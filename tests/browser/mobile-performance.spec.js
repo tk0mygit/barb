@@ -5,7 +5,7 @@ import { performance } from 'node:perf_hooks';
 import { capturePullRequestBase, prepareSceneryReference } from './lake-scenery-reference.js';
 import { enterFishing, fishingInput, layout, assertLayout, tick } from './mobile-capture.js';
 import { assertEnvironment, setup } from './day-night-fixture.js';
-import { MOBILE_COMPARISON_MODES, writeMobileComparison } from '../../scripts/compare-mobile-performance.mjs';
+import { MOBILE_COMPARISON_MODES, MOBILE_CAPTURE_IDS, writeMobileComparison } from '../../scripts/compare-mobile-performance.mjs';
 import { mobileGit, readMobileImplementation, mobileSourceMetadata, assertMobileWorkingSource,
   expectedMobileResolution, replayMobileCamera, HISTORICAL_MOBILE_BASE } from '../../scripts/lib/mobile-comparison-source.js';
 
@@ -118,11 +118,22 @@ test.afterAll(async ({}, info) => {
     await info.attach(`mobile-${target}`, { path, contentType: 'application/json' });
   }
   const before = captures.filter(c => c.target === 'main'), after = captures.filter(c => c.target === 'pr');
-  if (before.length && before.length === after.length) {
+  if (before.length === MOBILE_CAPTURE_IDS.length && after.length === MOBILE_CAPTURE_IDS.length) {
     const path = resolve(destination, 'comparison.html');
     await writeMobileComparison(before, after, path, comparison);
     await info.attach('mobile-comparison', { path, contentType: 'text/html' });
     await info.attach('mobile-comparison-metrics', { path: path.replace(/\.html$/, '.json'), contentType: 'application/json' });
+  } else if (before.length || after.length) {
+    const path = resolve(destination, 'comparison-incomplete.json');
+    await writeFile(path, JSON.stringify({ status: 'incomplete; full 34-pair comparison not executed', expectedPairs: MOBILE_CAPTURE_IDS.length,
+      captured: { main: before.map(entry => entry.id), pr: after.map(entry => entry.id) },
+      missing: Object.fromEntries([['main', before], ['pr', after]].map(([target, entries]) =>
+        [target, MOBILE_CAPTURE_IDS.filter(id => !entries.some(entry => entry.id === id))])) }, null, 2));
+    await info.attach('mobile-comparison-incomplete', { path, contentType: 'application/json' });
+  }
+  if (capturePullRequestBase) {
+    expect(before, 'PR CI requires every main capture').toHaveLength(MOBILE_CAPTURE_IDS.length);
+    expect(after, 'PR CI requires every PR capture').toHaveLength(MOBILE_CAPTURE_IDS.length);
   }
 });
 async function contextFor(createContext, target, profile) {
