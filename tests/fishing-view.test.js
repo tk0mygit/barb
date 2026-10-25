@@ -109,7 +109,7 @@ test('world-position guides remain readable when the nearby boat obstructs their
     assert.ok(ray.intersectObject(boat, true).length > 0, 'fixture must reproduce real boat occlusion');
     assert.equal(marker.material.depthTest, false);
     assert.equal(marker.material.depthWrite, false);
-    assert.equal(marker.material.transparent, true);
+    assert.equal(marker.material.transparent, marker === ring);
     assert.ok(marker.renderOrder > 0 && marker.renderOrder < 2, 'guide stays before the existing surface fog');
     assert.equal(marker.material.fog, true);
   }

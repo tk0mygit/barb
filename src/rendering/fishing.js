@@ -6,7 +6,7 @@ export function createFishingView(scene) {
   const group = new THREE.Group();
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.6, 0.7, 40), new THREE.MeshBasicMaterial({ color: '#ffe5a1', side: THREE.DoubleSide, transparent: true, depthTest: false, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2;
-  const lure = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffe1a0', transparent: true, depthTest: false, depthWrite: false }));
+  const lure = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffe1a0', depthTest: false, depthWrite: false }));
   // These world-position guides remain readable over the nearby boat. Draw
   // after water/boat, before the existing surface-fog layer (renderOrder 2).
   // Their normal material fog remains enabled, and DOM HUD stays above them.
