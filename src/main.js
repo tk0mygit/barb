@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import './ui/style.css';
+import { calculateRenderResolution } from './rendering/resolution.js';
 import { createLake } from './world/lake.js';
 import { createBoatState, stepBoat, enterFishing, leaveFishing } from './game/boat.js';
 import { createBoatModel } from './rendering/boat-model.js';
@@ -60,7 +61,6 @@ try {
   autosave.subscribe(saveStatus.update);
   saveStatus.update(autosave.status);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.9;
   renderer.shadowMap.enabled = true;
@@ -185,9 +185,17 @@ try {
     if (fishing.state.phase === PHASE.AIM) controls.reset();
     else changeMode('sailing');
   });
+  let drawingSize;
   function resize() {
-    const width = window.innerWidth, height = window.innerHeight;
-    renderer.setSize(width, height);
+    const next = calculateRenderResolution({ width: window.innerWidth, height: window.innerHeight,
+      devicePixelRatio: window.devicePixelRatio, coarsePointer: window.matchMedia('(pointer: coarse)').matches });
+    const { width, height, pixelRatio } = next;
+    if (!drawingSize || width !== drawingSize.width || height !== drawingSize.height || pixelRatio !== drawingSize.pixelRatio) {
+      // Set dimensions and ratio together, avoiding an intermediate allocation
+      // at the old orientation's size. CSS owns the canvas's displayed size.
+      renderer.setDrawingBufferSize(width, height, pixelRatio);
+      drawingSize = next;
+    }
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     // Orientation can change while the menu pauses animation updates.

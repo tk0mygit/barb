@@ -62,7 +62,7 @@ button:disabled { opacity: 0.5; cursor: wait; }
 }
 @media (max-height: 500px) { .lake-title { display: none; } .masthead { top: 16px; } .bottom-bar { bottom: 16px; } .compass { top: 35%; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-#fishing-panel { position: absolute; z-index: 2; left: 42px; top: 25%; width: min(280px, 40vw); pointer-events: none; padding: 18px 22px; background: #123936d9; border-left: 2px solid #e0d5a9; border-radius: 3px; }
+#fishing-panel { position: fixed; z-index: 2; left: 42px; top: 25%; width: min(280px, 40vw); pointer-events: none; padding: 18px 22px; background: #123936d9; border-left: 2px solid #e0d5a9; border-radius: 3px; }
 #fishing-panel p { margin: 8px 0; font-size: 12px; }
 #fishing-panel #fishing-state { font-size: 18px; line-height: 1.5; }
 #fishing-panel.bite { background: #78532af2; border-color: #ffcf77; box-shadow: 0 0 0 5px #ffda7840; }
@@ -230,3 +230,103 @@ dialog > #achievement-notice { position: static; flex-shrink: 0; margin: 8px 0; 
 .sound-settings input:focus-visible { outline: 2px solid #f2c96c; outline-offset: 2px; }
 .sound-settings output { display: block; text-align: right; }
 #audio-preferences-status { font-size: 12px; color: #ded8be; }
+
+/* Insets are shared by the HUD, controls and native dialogs, including rotation. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+.masthead {
+  top: max(32px, calc(var(--safe-top) + 8px));
+  left: max(40px, calc(var(--safe-left) + 12px));
+  right: max(40px, calc(var(--safe-right) + 12px));
+}
+.bottom-bar {
+  left: max(42px, calc(var(--safe-left) + 12px));
+  right: max(42px, calc(var(--safe-right) + 12px));
+  bottom: max(30px, calc(var(--safe-bottom) + 12px));
+}
+#reel-state:empty, #fishing-note:empty { display: none; }
+#line-tension { height: 22px; }
+#line-tension::-webkit-meter-bar { background: #091f22; border: 1px solid #f4f2e680; border-radius: 3px; }
+#line-tension::-webkit-meter-optimum-value { background: #a8d49b; }
+#line-tension::-webkit-meter-suboptimum-value { background: #ffd47a; }
+#line-tension::-moz-meter-bar { background: #a8d49b; }
+#line-tension[data-level="high"]::-webkit-meter-suboptimum-value { background: #ffac94; }
+#line-tension[data-level="high"]::-moz-meter-bar { background: #ffac94; }
+#line-tension[data-level="low"]::-moz-meter-bar { background: #ffd47a; }
+#tension-warning { font-weight: 600; }
+#catch-dialog, #collection-dialog {
+  inset: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  margin: auto;
+  max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 24px);
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 24px);
+}
+@media (max-width: 640px), (max-height: 500px) {
+  .masthead {
+    top: max(16px, calc(var(--safe-top) + 8px));
+    left: max(22px, calc(var(--safe-left) + 12px));
+    right: max(22px, calc(var(--safe-right) + 12px));
+  }
+  .bottom-bar {
+    left: max(22px, calc(var(--safe-left) + 12px));
+    right: max(22px, calc(var(--safe-right) + 12px));
+    bottom: max(16px, calc(var(--safe-bottom) + 12px));
+  }
+  .fishing .bottom-bar {
+    left: max(22px, calc(var(--safe-left) + 12px));
+    right: max(22px, calc(var(--safe-right) + 12px));
+    width: auto;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .fishing .action-panel { grid-column: 1; grid-row: 2; min-width: 0; min-height: 0; }
+  .fishing #hint { font-size: 12px; line-height: 1.5; margin-bottom: 8px; }
+  .fishing #fishing-note { font-size: 12px; line-height: 1.5; margin-top: 8px; }
+  #fishing-panel {
+    position: static;
+    grid-column: 1; grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
+    width: auto;
+    min-width: 0;
+    padding: 10px 12px;
+    background: #102f32ed;
+    border: 1px solid #e0d5a980;
+    border-radius: 5px;
+  }
+  #fishing-panel > .eyebrow { display: none; }
+  #fishing-panel p { margin: 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+  #fishing-panel #fishing-state { grid-column: 1; grid-row: 1; font-size: 16px; line-height: 1.5; font-weight: 600; }
+  #line-distance { grid-column: 2; grid-row: 1; align-self: center; text-align: right; font-variant-numeric: tabular-nums; }
+  #fishing-conditions { grid-column: 1 / -1; grid-row: 3; color: #e3e8db; }
+  #fishing-panel[data-phase="ready"] #fishing-conditions { grid-column: 2; grid-row: 1; align-self: center; text-align: right; }
+  #reel-state { grid-column: 1 / -1; grid-row: 2; }
+  #fight-gauge { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 12px; align-items: center; }
+  #fight-gauge label { grid-column: 1; grid-row: 1; }
+  #fight-gauge #line-tension { grid-column: 1 / -1; grid-row: 2; }
+  #fight-gauge #tension-warning { grid-column: 2; grid-row: 1; }
+  #fight-gauge label { display: block; font-size: 12px; line-height: 1.5; }
+  #fight-gauge #tension-warning { font-size: 14px; line-height: 1.5; }
+  #tension-value { font-size: 16px; line-height: 1.125; font-weight: 600; }
+  #fishing-panel.bite { border: 2px solid #ffcf77; box-shadow: 0 0 0 3px #ffda7840; }
+  #fishing-panel.bite #fishing-state { grid-column: 1 / -1; color: #fff0b5; font-size: 18px; }
+  #fishing-panel.bite #line-distance { grid-column: 1 / -1; grid-row: 2; text-align: left; }
+}
+@media (max-width: 640px) and (min-height: 501px) {
+  .masthead { top: max(24px, calc(var(--safe-top) + 8px)); }
+  .bottom-bar { bottom: max(24px, calc(var(--safe-bottom) + 12px)); }
+}
+@media (max-height: 500px) {
+  .fishing .bottom-bar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; }
+  .fishing #fishing-panel { max-width: 320px; }
+  .fishing .action-panel { grid-column: 2; grid-row: 1; width: min(300px, 100%); justify-self: end; }
+}
+
+@media (max-height: 500px) and (max-width: 740px) {
+  /* Give enlarged text its own rows in the narrow safe portion of a short screen. */
+  #fight-gauge { display: block; }
+}

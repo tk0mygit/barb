@@ -32,6 +32,17 @@
         <strong id="spot-name"></strong><span id="spot-effect"></span>
       </section>
       <div class="bottom-bar">
+        <section id="fishing-panel" hidden aria-label="釣りの状況">
+          <p class="eyebrow">ON THE LINE</p>
+          <p id="fishing-state" role="status" aria-live="polite"></p>
+          <p id="fishing-conditions"></p>
+          <p id="line-distance"></p><p id="reel-state"></p>
+          <div id="fight-gauge" hidden>
+            <label for="line-tension">ラインテンション <span id="tension-value"></span></label>
+            <meter id="line-tension" min="0" max="1" low="0.18" high="0.78" optimum="0.5" value="0.42"></meter>
+            <p id="tension-warning"></p>
+          </div>
+        </section>
         <div class="telemetry"><span class="eyebrow" id="mode-label">EXPLORING</span><div><strong id="speed">0.0</strong><span class="unit">km/h</span></div><span id="motion-label">停船中</span></div>
         <section class="action-panel" aria-label="船の操作">
           <p id="hint">ドラッグして操船 · 離すと停船</p>
@@ -44,17 +55,6 @@
         </section>
         <div class="edition"><span class="eyebrow">EARLY EXPLORATION</span><span>01 / A MOMENT ON THE WATER</span></div>
       </div>
-      <section id="fishing-panel" hidden aria-label="釣りの状況">
-        <p class="eyebrow">ON THE LINE</p>
-        <p id="fishing-state" role="status" aria-live="polite"></p>
-        <p id="fishing-conditions"></p>
-        <p id="line-distance"></p><p id="reel-state"></p>
-        <div id="fight-gauge" hidden>
-          <label for="line-tension">ラインテンション <span id="tension-value"></span></label>
-          <meter id="line-tension" min="0" max="1" low="0.18" high="0.78" optimum="0.5" value="0.42"></meter>
-          <p id="tension-warning"></p>
-        </div>
-      </section>
       <dialog id="catch-dialog" aria-labelledby="catch-species">
         <p class="eyebrow">A MOMENT TO REMEMBER</p>
         <h2 id="catch-species"></h2>

@@ -67,6 +67,7 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
       distance.textContent = s.phase === PHASE.AIM ? (s.validCast ? `着水予測 ${s.distance.toFixed(1)} m` : '投げられません · 湖側へ向きを調整') : `残距離 ${s.distance.toFixed(1)} m`;
       fight.hidden = s.phase !== PHASE.FIGHT;
       tension.value = s.tension;
+      tension.dataset.level = s.tension > tension.high ? 'high' : s.tension < tension.low ? 'low' : 'safe';
       document.querySelector('#tension-value').textContent = `${Math.round(s.tension * 100)}%`;
       document.querySelector('#tension-warning').textContent = s.tension > 0.78 ? '離して緩める！' : s.tension < 0.18 ? '長押しで巻く！' : 'テンションを保つ';
       document.querySelector('#reel-state').textContent = s.phase === PHASE.LURE ? s.reeling ? '巻き取り中' : s.action > 0 ? 'ルアーアクション' : '待機中' : '';
