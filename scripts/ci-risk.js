@@ -35,6 +35,19 @@ export const L1_GROUPS = Object.freeze({
     sources: ['src/ui/equipment-view.js'],
     specs: [browser('equipment-ui'), browser('equipment-game'), browser('collection-menu')],
   },
+  'fish-png': {
+    // Existing regular PNGs verified on main a2eac55. Keep this list explicit;
+    // new species, references and other image formats need separate review.
+    sources: [
+      'src/assets/fish/alligator-gar.png', 'src/assets/fish/arowana.png',
+      'src/assets/fish/black-bass.png', 'src/assets/fish/bluegill.png',
+      'src/assets/fish/brown-trout.png', 'src/assets/fish/catfish.png',
+      'src/assets/fish/european-perch.png', 'src/assets/fish/iwana.png',
+      'src/assets/fish/northern-pike.png', 'src/assets/fish/rainbow-trout.png',
+      'src/assets/fish/smallmouth-bass.png', 'src/assets/fish/walleye.png',
+    ],
+    specs: [browser('fish-assets'), browser('fishing'), browser('collection-menu'), browser('fish-sales')],
+  },
 });
 
 // Shared menu coverage does not make changes to the menu itself low risk.
@@ -95,10 +108,12 @@ export function classifyChanges(changes, { availableSpecs = [], groups = L1_GROU
       if (isSpec && (status !== 'M')) return full([`specの追加・削除・リネーム: ${path}`]);
       const group = isSpec ? specGroups.get(path) : sourceGroups.get(path);
       if (!group) return full([`高リスク・共有基盤・未知の変更: ${path}`]);
+      if (group === 'fish-png' && status !== 'M') return full([`既存魚PNGの内容変更以外: ${status} ${path}`]);
       selectedGroups.add(group);
       if (isSpec) changedSpecGroups.add(group);
     }
   }
+  if (selectedGroups.has('fish-png') && selectedGroups.size > 1) return full(['魚PNGと他のL1領域の混在のため全件検証']);
   if (changedSpecGroups.size > 1) return full(['複数領域のspec変更のため全件検証']);
   if (!selectedGroups.size) return { level: 'L0', reasons: ['既知の説明用文書のみの変更'], changes,
     specs: [], smokeSpecs: [], runE2E: false, deploy: false };

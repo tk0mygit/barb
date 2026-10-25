@@ -44,7 +44,8 @@ L0の初期許可対象は `README.md` と `docs/` 直下の説明文書
 `FISHING_BALANCE.md`、`EQUIPMENT_UPGRADES.md`、`DEPTH_AND_TIME.md`、
 `DAY_NIGHT_LIGHTING.md`、`CATCH_COLLECTION.md`、`AUDIO_SYSTEM.md`、`ACHIEVEMENTS.md`。
 新規・未知の文書は運用ルールを含む可能性があるため、確認して許可対象へ追加するまでL2とする。
-文書と実装の混在は厳しい側を採用する。複数のL1実装変更は関連specの和集合を実行するが、
+文書と実装の混在は厳しい側を採用する。既存4グループ間の複数のL1実装変更は
+関連specの和集合を実行するが、魚PNGと他のL1グループの混在はL2とする。
 複数領域のspecだけを変更した場合は保守的にL2とする。分類対象に未登録のspecや、
 既存specの削除もL2。個別specの限定変更をL1にするときも、変更されたspec自身を必ず含める。
 導入後1〜2週間は保守的に運用し、実測・依存関係の確認なしにL1を拡大しない。
@@ -57,7 +58,7 @@ Playwright設定、共通fixture、ビルド設定・依存関係・lockfileはL
 
 ### L1対応表
 
-対応表は `scripts/ci-risk.js` が唯一の判定元。独立した出力・表示処理に限定し、
+対応表は `scripts/ci-risk.js` が唯一の判定元。独立した出力・表示処理と下記の既存PNGに限定し、
 ゲーム状態・入力・時計・セーブの変更へ自動拡張しない。
 
 | 変更ファイル | 関連spec（すべて `tests/browser/`） |
@@ -66,12 +67,34 @@ Playwright設定、共通fixture、ビルド設定・依存関係・lockfileはL
 | `src/ui/sound-settings.js` | `audio.spec.js`、`collection-menu.spec.js` |
 | `src/ui/achievements-view.js` | `achievements.spec.js`、`achievement-notice.spec.js`、`collection-menu.spec.js` |
 | `src/ui/equipment-view.js` | `equipment-ui.spec.js`、`equipment-game.spec.js`、`collection-menu.spec.js` |
+| `src/assets/fish/` の下記12 PNG（既存内容の `M` のみ） | `fish-assets.spec.js`、`fishing.spec.js`、`collection-menu.spec.js`、`fish-sales.spec.js` |
 
 音源と環境音プレイヤーは音声の生成・再生の境界、設定UIと表示UIは各機能のDOM表示の
 境界として選択する。設定・表示UIが共通メニューへ接続するため `collection-menu.spec.js` も含める。
 実績・装備のゲーム状態側や共通音声制御へ変更が広がればL2となる。
 `src/ui/sales-hud.js` と `src/ui/achievement-notice.js` も、状態・入力や通知の連携を保守的に
 扱いL2のままとする。既知の個別specだけの変更はその対応領域のspecも選択する。
+
+P4-A1ではmain `a2eac55d6de852e1f5ed9b42ad84abdec5b40cbb` に存在する次の12ファイルを
+完全一致の許可リストで登録する（すべて `src/assets/fish/` 直下）。
+`alligator-gar.png`、`arowana.png`、`black-bass.png`、`bluegill.png`、`brown-trout.png`、
+`catfish.png`、`european-perch.png`、`iwana.png`、`northern-pike.png`、`rainbow-trout.png`、
+`smallmouth-bass.png`、`walleye.png`。
+単独・複数の内容変更と既存L0文書との組合せだけをL1とする。
+追加・削除・リネーム・コピー・ファイル種別変更はL2。未知の画像・未登録パス、
+`unknown.svg`、`fish-species.js` などの参照定義、ゲームロジック、UI・CSS、テスト基盤が
+混在した場合もL2。他のL1実装グループや個別specとの混在も初期導入ではL2とし、
+上記の魚関連spec自体を新たにL1対象へ登録するものではない。
+
+依存調査ではPNGの参照先は `src/ui/fishing-hud.js` の釣果画像と
+`src/ui/collection-menu.js` の図鑑一覧・詳細・保管魚画像。
+`fish-assets.spec.js` は12魚種のデコード・画像識別・透過・PC／タッチ縦横の各表示・
+復元後の画像を、`fishing.spec.js` は本番ビルドの釣果画像と元ファイルの一致を検証する。
+メニュー遷移・保管魚・売却との連携に `collection-menu.spec.js` と `fish-sales.spec.js` を選ぶ。
+形式・寸法・容量・色空間・透明な外周・12魚種の画像識別は既存の
+`tests/fish-artwork.test.js`、`tests/fish-image-validation.test.js`、`tests/fish-species.test.js` を維持する。
+P4-A1の実装PR自身は分類器・テスト・検証ルールの変更なのでL2となり、
+マージ前に最新HEADのGitHub Actions全件E2E成功が必要。
 
 L1には常に `tests/browser/smoke-pc.spec.js` と `tests/browser/smoke-touch.spec.js` を加える。
 本番ビルド上でアプリ起動・UIの操作可能性・重大なconsole/page errorの不在を確認し、
