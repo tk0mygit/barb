@@ -1,0 +1,143 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { compareMobileCaptures, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
+import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution } from '../scripts/lib/mobile-comparison-source.js';
+
+const MAIN = 'a22ce01531befa55230fb186579731b8a3b9aeb6';
+const current = await readMobileImplementation(MAIN), legacy = await readMobileImplementation(HISTORICAL_MOBILE_BASE);
+const profiles = {
+  portrait: { width: 390, height: 844, dpr: 2, touch: true }, landscape: { width: 844, height: 390, dpr: 2, touch: true },
+  small: { width: 360, height: 740, dpr: 3, touch: true }, pc: { width: 1280, height: 800, dpr: 1 }, 'pc-hidpi': { width: 1280, height: 800, dpr: 2 },
+};
+const box = (x, y, width, height) => ({ x, y, width, height, left: x, right: x + width, top: y, bottom: y + height });
+
+function metadata(historical = false) {
+  return { mode: historical ? 'historical-improvement' : 'regression', baseSha: historical ? HISTORICAL_MOBILE_BASE : MAIN,
+    headSha: MAIN, validationSha: MAIN, implementations: { main: mobileSourceMetadata(historical ? legacy : current), pr: mobileSourceMetadata(current) } };
+}
+// Synthetic records exercise the report's acceptance rules; these values are
+// never presented as browser measurements or substituted for E2E captures.
+function captures(historical = false) {
+  const series = implementation => MOBILE_CAPTURE_IDS.map(id => {
+    const profile = id === 'rotated-fight' ? profiles.landscape : profiles[Object.keys(profiles).sort((a, b) => b.length - a.length).find(p => id.startsWith(`${p}-`))];
+    const { width, height, dpr } = profile;
+    const expected = expectedMobileResolution(implementation, profile);
+    const entry = { id, metrics: { viewport: { width, height }, dpr, ...expected, pixels: expected.buffer.width * expected.buffer.height,
+      camera: { position: [10, 2.15, 20], quaternion: [0, 0, 0, 1], aspect: expected.aspect }, savedClockSeconds: 90,
+      boat: [10, 20], waterTime: 0.25, fogStrength: 0,
+      resources: { calls: 26, triangles: 221152, geometries: 23, textures: 3, programs: 11 } } };
+    if (/-bite$|-fight$/.test(id)) {
+      const oldMobile = implementation === legacy && !id.startsWith('pc');
+      const panel = box(20, height - (oldMobile ? 160 : 140), oldMobile ? 320 : 300, oldMobile ? 120 : 80);
+      entry.layout = { viewport: { width, height }, phase: id.endsWith('bite') ? 'bite' : 'fight', panel,
+        occupancy: panel.width * panel.height / (width * height) * 100, reticle: box(width / 2 - 6, height / 2 - 6, 12, 12),
+        meter: box(panel.x + 5, panel.y + 20, 200, 18), buttons: [{ id: 'return-button', ...box(width - 50, height - 40, 30, 30) }],
+        header: box(10, 10, 80, 25), notices: [], scrollWidth: width, pointerEvents: 'none', hit: 'scene' };
+    }
+    return entry;
+  });
+  return [series(historical ? legacy : current), series(current)];
+}
+
+test('the exact optimized and pre-4C-2A SHA implementations give independently correct ratios/buffers', () => {
+  const ratios = [1.5, 1.5, 1.5, 1, 1.75], buffers = [[585, 1266], [1266, 585], [540, 1110], [1280, 800], [2240, 1400]];
+  for (const [index, profile] of Object.values(profiles).entries()) {
+    const r = expectedMobileResolution(current, profile);
+    assert.equal(r.pixelRatio, ratios[index]); assert.deepEqual(r.buffer, { width: buffers[index][0], height: buffers[index][1] });
+    assert.equal(expectedMobileResolution(legacy, profile).pixelRatio, Math.min(profile.dpr, 1.75));
+  }
+  assert.deepEqual(expectedMobileResolution(current, profiles.landscape), { pixelRatio: 1.5, buffer: { width: 1266, height: 585 }, aspect: 844 / 390 });
+  assert.equal(current.resolutionBlob, '175a5e75df1c7a48aa28c63785ca71d7835af32a');
+  assert.equal(current.resolutionModel, 'mobile-budget'); assert.equal(legacy.resolutionModel, 'legacy-1.75');
+});
+
+test('low and invalid DPR validation still uses the actual optimized source', () => {
+  for (const dpr of [0.5, 1]) assert.equal(expectedMobileResolution(current, { ...profiles.portrait, dpr }).pixelRatio, dpr);
+  for (const dpr of [0, -1, NaN, Infinity, undefined]) assert.equal(expectedMobileResolution(current, { ...profiles.portrait, dpr }).pixelRatio, 1);
+});
+
+test('unrecognized old implementations and missing SHAs cannot silently become legacy 1.75', async () => {
+  await assert.rejects(readMobileImplementation('main'), /full mobile implementation SHA/);
+  await assert.rejects(readMobileImplementation('df2d10b17385352209a54ea44f73bc7d67198fcc'), /unrecognized rendering implementation/);
+});
+
+test('normal current-main regression accepts 34 unchanged pairs and exactly 0% reduction', () => {
+  const rows = compareMobileCaptures(...captures(), metadata());
+  assert.equal(rows.length, 34); assert(rows.every(row => row.pixelReduction === 0));
+});
+
+for (const [label, id, ratio] of [['mobile pixel increase', 'portrait-day-tps', 1.75], ['desktop quality reduction', 'pc-hidpi-day-tps', 1]]) {
+  test(`regression rejects ${label}`, () => {
+    const [before, after] = captures(), m = after.find(c => c.id === id).metrics;
+    m.pixelRatio = ratio; m.buffer = { width: Math.floor(m.viewport.width * ratio), height: Math.floor(m.viewport.height * ratio) }; m.pixels = m.buffer.width * m.buffer.height;
+    assert.throws(() => compareMobileCaptures(before, after, metadata()), /pixel ratio regression/);
+  });
+}
+
+test('incorrect drawing buffer dimensions fail even when their pixel area is unchanged', () => {
+  const [before, after] = captures(), m = after[0].metrics;
+  m.buffer = { width: m.buffer.height, height: m.buffer.width };
+  assert.throws(() => compareMobileCaptures(before, after, metadata()), /drawing buffer dimensions/);
+});
+
+test('HUD area and position regressions cannot pass as 0% pixel reduction', () => {
+  for (const change of [s => { s.panel = box(20, s.panel.y, 310, 85); s.occupancy = s.panel.width * s.panel.height / (s.viewport.width * s.viewport.height) * 100; },
+    s => { s.panel = box(21, s.panel.y, s.panel.width, s.panel.height); }]) {
+    const [before, after] = captures(); change(after.find(c => c.id === 'portrait-fight').layout);
+    assert.throws(() => compareMobileCaptures(before, after, metadata()), /HUD .*regression/);
+  }
+});
+
+for (const target of ['reticle', 'controls']) test(`HUD overlap with ${target} fails even if both baselines share it`, () => {
+  const [before, after] = captures();
+  for (const entries of [before, after]) {
+    const s = entries.find(c => c.id === 'portrait-fight').layout;
+    if (target === 'reticle') s.reticle = s.panel; else s.buttons[0] = s.panel;
+  }
+  assert.throws(() => compareMobileCaptures(before, after, metadata()), /HUD overlaps/);
+});
+
+for (const resource of ['calls', 'triangles', 'geometries', 'textures', 'programs']) test(`a ${resource} resource regression is rejected`, () => {
+  const [before, after] = captures(); after[0].metrics.resources[resource]++;
+  assert.throws(() => compareMobileCaptures(before, after, metadata()), /resource regression/);
+});
+
+test('historical mode keeps >=20% mobile reduction and smaller HUD, with an explicit verified base only', () => {
+  const pair = captures(true), rows = compareMobileCaptures(...pair, metadata(true));
+  assert(rows.filter(row => !row.id.startsWith('pc')).every(row => row.pixelReduction >= 20));
+  assert.throws(() => compareMobileCaptures(...pair, { ...metadata(true), baseSha: MAIN }), /explicit pre-4C-2A SHA/);
+  assert.throws(() => compareMobileCaptures(...pair, metadata()), /pixel ratio regression/);
+  assert.throws(() => compareMobileCaptures(...captures(), metadata(true)), /historical mobile pixel reduction/);
+  const unchangedHUD = captures(true);
+  unchangedHUD[0].find(c => c.id === 'portrait-fight').layout = structuredClone(unchangedHUD[1].find(c => c.id === 'portrait-fight').layout);
+  assert.throws(() => compareMobileCaptures(...unchangedHUD, metadata(true)), /historical HUD area did not shrink/);
+});
+
+test('comparison rejects incomplete/duplicate pairs, mixed clocks, mixed source provenance and unknown modes', () => {
+  const [before, after] = captures();
+  assert.throws(() => compareMobileCaptures(before.slice(1), after, metadata()), /all 25 render and 9 HUD/);
+  const duplicate = structuredClone(after); duplicate[1] = duplicate[0];
+  assert.throws(() => compareMobileCaptures(before, duplicate, metadata()), /Missing\/duplicate/);
+  const clock = structuredClone(after); clock[0].metrics.savedClockSeconds++;
+  assert.throws(() => compareMobileCaptures(before, clock, metadata()), /savedClockSeconds differs/);
+  const mixed = structuredClone(after); mixed[0].comparison = { ...metadata(), headSha: 'b'.repeat(40) };
+  assert.throws(() => compareMobileCaptures(before, mixed, metadata()), /mixed comparison provenance/);
+  assert.throws(() => compareMobileCaptures(before, after, { ...metadata(), mode: 'auto-pass' }), /Unknown mobile comparison mode/);
+});
+
+test('HTML/JSON retain all 34 image pairs, measurements, purpose, base and HEAD SHA', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'barb-mobile-report-'));
+  try {
+    const [before, after] = captures(), image = fileURLToPath(new URL('./fixtures/fish-assets/transparent-test.png', import.meta.url));
+    for (const entry of [...before, ...after]) entry.image = image;
+    const output = join(dir, 'comparison.html'); await writeMobileComparison(before, after, output, metadata());
+    const json = JSON.parse(await readFile(join(dir, 'comparison.json'), 'utf8')), html = await readFile(output, 'utf8');
+    assert.equal(json.metadata.mode, 'regression'); assert.equal(json.metadata.baseSha, MAIN); assert.equal(json.metadata.headSha, MAIN);
+    assert.equal(json.rows.length, 34); assert.equal((html.match(/<article /g) ?? []).length, 34); assert.equal((html.match(/data:image\/png;base64/g) ?? []).length, 68);
+    assert.deepEqual(json.rows[0].before, before[0].metrics);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

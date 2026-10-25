@@ -144,6 +144,21 @@ delta上限0.25秒と船の0.05秒サブステップ、メニュー／非表示�
 PR base SHAをgit archiveで一時展開、同じlock済み依存関係でビルドし、port 4174で起動します。
 worktreeは追加せず、終了時に一時ソースとサーバーを削除します。分類・必須チェック・workflowは変更しません。
 
+通常PRの既定モードは`regression`です。現在のmainはすでに4C-2Aを含むため、毎回20%の削減や
+HUDの縮小を要求しません。同条件の倍率・buffer寸法・ピクセル数・5種のリソース数とHUD寸法/配置を
+厳密に比較し、ピクセル増加、PC画質低下、HUDの拡大/移動/重なりを拒否します。改善率0%は同値の結果です。
+両側のviewport/DPR・時計・船・カメラ・霧の一致を保ち、ボタン/レティクルとの非重複も検査します。
+
+倍率の期待値は`main`というラベルから推測せず、`scripts/lib/mobile-comparison-source.js`で実際に
+archiveするSHAの`src/main.js`と解像度moduleを読み取ります。参照したsource blobを記録し、PRの作業中
+ソースも記録SHAと一致することを確認します。旧倍率は、下記の検証済み改善前SHAにだけ対応します。
+未知の実装を旧1.75倍と仮定しません。縦/横/小型1.5、PC 1、高DPR PC 1.75、回転後buffer/aspect、
+低DPR/不正DPRは単体・E2Eで引き続き検査します。
+
+この文書の前後表・約26.5%削減とHUD面積縮小は、4C-2Aの歴史的な改善証拠として維持します。
+`historical-improvement`を明示し、改善前`d8cbbe8c9bbeace7345cab789ebe5b066270fa84`を指定した場合だけ、
+従来の20%以上削減・モバイルFIGHT HUD縮小を要求します。通常PRの回帰比較へ自動適用しません。
+
 船(10,20)・向き0、保存時計、viewport、DPR、カメラ補間フレーム数、テスト内乱数を固定します。
 5画面条件 × 昼TPS／昼FPS／CLEAR夜／FOG夜／DENSE_FOG夜の25条件を比較します。
 初回はNode単調時計によるsetup開始→初回描画を経たready、継続は通常6フレーム（仮想96ms）の外部実時間、
@@ -157,6 +172,9 @@ PC・縦・横・小型の両フェーズとFIGHT中の回転画像、DOMRect・
 
 Actionsの `browser-test-results` 内 `mobile-comparison/comparison.html` と `.json` が全比較資料です。
 HTMLへ前後PNGを埋め込み、個別PNGと測定JSON、main.json／pr.json、各テストの添付も保存します。
+34組（描画25・HUD9）と68画像を維持します。`comparison-metadata.json`とHTML/比較JSONにモード、
+base/PR HEAD/実検証SHA、実装のsource blob、viewport/DPR/時計/サンプル条件を記録します。
+比較JSONは`{ metadata, rows }`形式、main.json/pr.jsonは従来のcapture配列にprovenanceを追加した形式です。
 既存の診断成果物の14日保持に従い、画像・生成レポートをGitやdistへ混入させません。
 ローカルは次のように実行します（比較元は取得済みコミット）。
 
@@ -164,7 +182,12 @@ HTMLへ前後PNGを埋め込み、個別PNGと測定JSON、main.json／pr.json�
 npm ci --cache /tmp/barb-npm-cache
 npm test
 npm run build
+# 通常PRの回帰比較（この修正時点の最新main。実行時は対象base SHAを指定）
+BARB_MOBILE_BASE_SHA=a22ce01531befa55230fb186579731b8a3b9aeb6 \
+  npx playwright test tests/browser/mobile-performance.spec.js --reporter=line --output=test-results/mobile-regression
+# 歴史的な4C-2A改善比較
 BARB_MOBILE_BASE_SHA=d8cbbe8c9bbeace7345cab789ebe5b066270fa84 \
+BARB_MOBILE_COMPARISON_MODE=historical-improvement \
   npx playwright test tests/browser/mobile-performance.spec.js --reporter=line --output=test-results/mobile-review
 npx playwright test tests/browser/mobile-layout.spec.js --reporter=line --output=test-results/mobile-layout
 ```
@@ -172,6 +195,8 @@ npx playwright test tests/browser/mobile-layout.spec.js --reporter=line --output
 既存Chromiumを使う場合はPLAYWRIGHT_CHROMIUM_EXECUTABLE_PATHに実際のパスを指定します。
 変更前後を別々に収集する場合はBARB_MOBILE_TARGET=main／prと別のBARB_MOBILE_OUTPUTを指定し、
 `node scripts/compare-mobile-performance.mjs <main.json> <pr.json> <比較.html>` で統合します。
+provenanceのない旧captureを再統合する場合は、後ろに`historical-improvement <改善前の完全SHA> <測定HEADの完全SHA>`を
+明示します。SHAはGitから再照合し、モードを省略して旧データを改善比較として成功扱いにはしません。
 
 ## 検証結果・4C-2Bへの引き継ぎ
 

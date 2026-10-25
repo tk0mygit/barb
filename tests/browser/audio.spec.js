@@ -132,6 +132,60 @@ test('rejection and mobile interruption are silent, visible, retryable and do no
   expect((await audioSnapshot(page)).contexts).toBe(1);
 });
 
+test('touch: repeated page returns with suspended/interrupted audio require a fresh retry and reuse PCM', async ({ createContext }, info) => {
+  const context = await createContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 0.5 });
+  const page = await context.newPage();
+  await prefs(page, enabled); await page.addInitScript(installAudioProbe, {}); await setup(page, 90);
+  try {
+    await page.locator('#fish-button').tap(); await tick(page);
+    const initial = await audioSnapshot(page);
+    expect(initial.states).toEqual(['running']); expect(initial.startedSources).toBe(3);
+    for (const [index, state] of ['suspended', 'interrupted', 'suspended', 'interrupted'].entries()) {
+      const before = await audioSnapshot(page), clock = await progress(page);
+      // Model an OS/browser interruption in addition to the page lifecycle.
+      // The fake context establishes app behavior, not device audibility.
+      await page.evaluate(state => {
+        window.dispatchEvent(new Event('blur'));
+        Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+        window.dispatchEvent(new Event('pagehide'));
+        window.audioProbe.contexts[0].change(state);
+      }, state);
+      await page.clock.fastForward(600000);
+      expect(await progress(page)).toBe(clock);
+      const stopped = await audioSnapshot(page);
+      expect(stopped.sources).toBe(0); expect(stopped.liveNodes).toBe(0);
+      await page.evaluate(() => {
+        delete document.hidden; document.dispatchEvent(new Event('visibilitychange'));
+        window.dispatchEvent(new Event('pageshow')); window.dispatchEvent(new Event('focus'));
+      });
+      await tick(page);
+      const returned = await audioSnapshot(page);
+      expect(returned.resumes).toBe(before.resumes); expect(returned.sources).toBe(0);
+      expect(returned.states).toEqual([state]);
+      // Inspect without a trusted input so that the retry button, rather than
+      // an earlier menu tap, owns the next resume request.
+      await page.locator('#menu-button').evaluate(button => button.click());
+      await page.locator('[data-view="sound"]').evaluate(button => button.click());
+      await expect(page.locator('#ambient-status')).toContainText('中断');
+      await expect(page.locator('#ambient-retry')).toBeVisible();
+      await page.locator('#ambient-retry').tap();
+      await expect(page.locator('#ambient-status')).toContainText('一時停止中');
+      expect((await audioSnapshot(page)).resumes).toBe(before.resumes + 1);
+      await page.locator('#collection-close').tap(); await tick(page);
+      const resumed = await audioSnapshot(page);
+      expect(resumed.states).toEqual(['running']); expect(resumed.startedSources).toBe(3);
+      expect(resumed.contexts).toBe(1); expect(resumed.buffers).toBe(3);
+      expect(resumed.gainNodes).toBe(4); expect(resumed.liveNodes).toBe(7);
+      // Retired one-shot SourceNodes are replaced, but only one bank is live.
+      expect(resumed.totalSources).toBe(initial.totalSources + (index + 1) * 3);
+      expect(resumed.destinationConnected).toBe(true);
+      expect(await progress(page)).toBeGreaterThan(clock);
+      await expect(page.locator('#error')).toBeHidden();
+    }
+  } finally { await attachAudioDiagnostics(page, info); }
+});
+
 for (const scenario of ['invalid', 'read-denied', 'write-denied', 'unsupported']) {
   test(`preferences ${scenario}: safe UI, independent game save status`, async ({ page }) => {
     await page.addInitScript(installAudioProbe, { unsupported: scenario === 'unsupported' });
