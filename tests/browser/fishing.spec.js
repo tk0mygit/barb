@@ -138,6 +138,7 @@ for (const touch of [false, true]) {
     await input.click(page.locator(`[data-lure-id="${lureId}"]`));
     await page.waitForTimeout(1000);
     await input.click(page.locator('#cast-button'));
+    await expect(phase(page)).toHaveAttribute('data-phase', 'aim');
     await input.down(); await input.move(300, 300); await input.cancel();
     if (!touch) await page.mouse.up();
     await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
