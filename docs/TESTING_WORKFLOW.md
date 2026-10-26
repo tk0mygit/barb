@@ -24,7 +24,9 @@ P3-Aのマージ後の重複削減を維持する。main pushはChromiumもE2E�
 マージ後のmainから生成した `dist` を公開する。PR成果物や過去のテスト成功は流用しない。
 Pagesアップロードと `deploy` の条件はともに
 `github.event_name == 'push' && github.ref == 'refs/heads/main'`。
-アップロードは通常の成功条件を保ち、`deploy` は `needs: build` に依存する。
+アップロードは通常の成功条件を保ち、`deploy` は `build` と最終ゲート `required`
+（表示名 `ci-required`）の両方の成功を要求する。
+Pages artifact名にもrun ID・attempt・main SHAを含め、同じ名前を指定して公開する。
 検証の失敗・中断時、PR、手動検証、将来の定期検証では公開しない。
 
 concurrencyはワークフロー名・イベント名・refごとに分離する。同じPRの更新では古いrunを
@@ -159,11 +161,76 @@ L1の関連specが空・欠落、PC／タッチスモークが欠落、収集件
 全件へフォールバックするか明示的に失敗する。選択したテストの失敗・中断・未実行を
 成功へ変換しない。L2も全件の収集・実行結果を確認する。
 
-検証ジョブ `build` の表示名は `ci-required` に固定し、PRのjob全体をスキップする
-pathsフィルターは設けない。共通検証と選択E2Eは同じジョブで順に実行する。
-`continue-on-error` や成功だけを返す集約jobを設けず、診断アップロードが成功しても
-先行する失敗は残す。途中の失敗や中断、必要な検証がskippedになった状態では成功しない。
-Playwrightの `workers: 1`、共通診断fixture、Clock・描画負荷対策を維持する。
+PRのjob全体をスキップするpathsフィルターは設けない。最終チェック名 `ci-required` は
+下記の集約jobへ引き継ぐ。`continue-on-error` は使用せず、診断アップロードの成功で
+先行する失敗を上書きしない。Playwrightの `workers: 1`、共通診断fixture、Clock・
+描画負荷対策を維持する。
+
+### P4-C1：全件E2Eの2系統と最終ゲート
+
+実装前に、必須ジョブの失敗・中断・欠落・意図しないskipで最終成功を返さない構成を
+確認した。構成は `build` → 独立Runnerの `e2e_regular` / `e2e_mobile` → `required`。
+両E2Eジョブは互いに依存せず、各Runnerでは引き続き `workers=1`。
+通常系統は `mobile-performance.spec.js` 以外の全specを、モバイル系統は同spec全体を扱う。
+新規specは通常系統に含まれる。34組のmain／PR比較をRunner間で分けない。
+製品コード、spec、assertion、閾値、DPR、timeout、retry、Contextの分離は変更しない。
+
+`scripts/ci-risk.js` は従来のschemaVersion 1のリスク計画とL1対応表を維持する。
+`scripts/ci-e2e.js prepare` はcheckoutとイベントから元の計画を再検証し、完全なspec一覧、
+系統ごとのspec、元計画のハッシュを `.ci/execution-plan.json` に記録する。
+さらに**分割前の選択全体**をPlaywrightで収集して `.ci/expected-collection.json` に保存する。
+L2はフィルターなしで収集するため、分割側の選択漏れを期待値に取り込まない。
+`--list` はブラウザー・WebGLを起動しない。
+
+各系統の `ci-e2e.js run regular|mobile` は同じ検証SHAをcheckoutし、検証済みbuild artifactの
+同一distを使用する。元の分類、base/head/validation SHAとPR仮想マージの親、ref、run ID・
+attempt、spec一覧を再照合し、収集IDが元の期待IDの担当部分と一致してから実行する。
+PR比較のbaseは `pull_request.base.sha`、PR側の製品ビルドは仮想マージのvalidation SHA。
+PR HEAD SHAを仮想マージSHAやbase SHAの代わりに使用しない。
+SHA関係を証明できない状態では、L2に分類されても検証成功にはしない。
+
+`scripts/ci-summary.js record` が各jobのstep outcome、SHA/ref/run情報、全payloadファイルの
+SHA-256を `.ci/job-record.json` に記録する。診断と記録は失敗時もアップロードする。
+artifactは `ci-<run ID>-<attempt>-<validation SHA>-build|regular|mobile` の別名で14日保持し、
+集約時も別ディレクトリへダウンロードする。上書きによる結果の代用はしない。
+build artifactは元計画・期待収集・分割計画・dist、系統artifactはそれらの計画・期待収集と
+収集JSON・実行JSON・実行結果・`test-results/` を含む。全ファイルのハッシュを再検証し、
+各系統が使用したbuild recordのハッシュも最終ゲートで照合する。
+
+`required` は **`if: always()` と `needs: [build, e2e_regular, e2e_mobile]`** によって、
+依存jobの失敗やskipが自動伝播して判定処理まで省略されることを防ぐ。
+`ci-summary.js result` は自身のセットアップとダウンロード、全必須jobの `needs.result`、
+`npm ci`・単体テスト・ビルドと系統の必須step、artifact IDの存在と非重複、記録の整合性を要求する。
+各系統で元の計画を再確認し、収集ID集合と実行ID集合の和集合がそれぞれ元の期待ID集合に
+完全一致すること、系統内・系統間に重複がないことを検証する。成功件数の加算で代用しない。
+全テストが期待status `passed`、試行1回・retry 0・実status `passed` であることも再検証する。
+skip、expected failure、retry、収集不足、実行不足、追加ID、終了signalを成功に変換しない。
+
+PRでモバイルが選択された場合は、既存の比較検証を使って34組のraw captureと比較JSONを
+再照合する。比較metadataのbase/head/validation SHA、HTML、68画像、各capture JSONも必須。
+一方しか成功していれば全件成功を表示しない。workflow全体のキャンセルなどで最終job自体が
+停止された場合もGitHubのcancelled表示となり、成功条件は満たさない。
+
+| イベント／レベル | 通常系統 | モバイル系統 | 最終ゲート |
+| --- | --- | --- | --- |
+| PR L2 | 全24spec（追加specも含む） | 全1spec・34組比較 | 双方の成功と全IDを照合 |
+| PR L1 | 従来の関連spec＋PC／タッチスモーク | 選択にない場合はjobを起動しない | 選択部分だけを照合 |
+| PR L0 | 起動しない | 起動しない | 単体・ビルドと明示的 `not-run` が必須 |
+| main push | 起動しない | 起動しない | 単体・ビルド・同SHAのPages artifactを検証後に公開 |
+| workflow_dispatch | 全通常spec | 全モバイルspec | 全IDを照合、Pagesは公開しない |
+
+将来L1対応表にモバイルspecが入っても、そのspec全体をモバイル系統へ送り、元の関連specと
+両スモークを維持する。未対応の変更や対応表の欠落は従来の分類器でL2へ倒す。
+現状のL1に新しい許可対象は追加しない。
+手動実行は従来のspec条件を保つためPRイベントのmain／PR比較は発生せず、PR側34captureを
+含む全件を実行する。この場合に34組比較完了とは表示しない。cronは引き続き無効。
+
+基準main `a92ee95df8f6486affbad4af965fe68eacb3cc42` の `CI=true` / `pull_request` 相当の
+ローカル収集だけでは、分割前25spec・205テスト、通常24spec・147テスト、モバイル1spec・58テスト。
+分割前後のID集合が完全一致し、重複0件だった。34組はcaptureの比較数で、58はモバイルの
+Playwrightテスト数（両targetの描画・HUDテスト）であり、単位が異なる。
+これは収集確認であり、実E2Eの成功や時間短縮の実測ではない。
+P4-C1のPR自身はCI・検証基盤の変更なのでL2。
 
 ## Job SummaryとPRへの記録
 
@@ -205,8 +272,8 @@ L0／L1へ強制変更して全件要求を弱める入力は用意しない。
 
 ## mainの最新性とブランチ保護
 
-2026-10-24のP3-B着手時に、mainは
-`c1a56143b526f3da26144957ad614bb0ac339576`、`protected: false`、Rulesetは未設定と再確認した。
+2026-10-26のP4-C1着手時に、mainは
+`a92ee95df8f6486affbad4af965fe68eacb3cc42`、`protected: false`、Rulesetは未設定と再確認した。
 保護が有効だと仮定せず、Codexは設定を変更しない。PMはマージ直前に次を確認する。
 
 1. PRの最新HEADに対する `ci-required` が成功し、分類と必要な実行範囲が正しい。
@@ -242,6 +309,52 @@ P3-BのPR自身はCI選択ロジックを変更するためL2となり、全件E
 失敗・再実行・中断・待ち時間は別記し、条件を揃える。公開までの時間はPM承認・マージ・
 deploy完了を分けて記録する。Codexは計測のためのCI完了待機・継続監視を行わない。
 
+P4-C1はPR #32の参考値（全CI約53〜54分、E2E約46.6分、モバイル約17分、その他約29.6分）と
+完了後のPR L2実測を比較する。値はRunner環境によって変動し、目標短縮量を実績と記載しない。
+`ci-required` Summaryから各系統のテスト数・実E2E処理時間・収集時間・artifact名を確認できる。
+Actionsのrun画面から全CIの時間と各job時間、各stepの開始・終了を確認する。
+正確に記録する場合、**完了後にPMが1回だけ**対象run/attemptのAPIデータを取得できる。
+
+```bash
+barb_run_id=<対象runの数値ID>
+barb_attempt=1 # 対象attemptを指定する
+gh api "repos/tk0mygit/barb/actions/runs/$barb_run_id/attempts/$barb_attempt" > /tmp/barb-ci-run.json
+gh api --paginate --slurp "repos/tk0mygit/barb/actions/runs/$barb_run_id/attempts/$barb_attempt/jobs?per_page=100" > /tmp/barb-ci-jobs.json
+python3 - <<'PY'
+import json
+from datetime import datetime
+run = json.load(open('/tmp/barb-ci-run.json'))
+jobs = [j for page in json.load(open('/tmp/barb-ci-jobs.json')) for j in page['jobs']]
+stamp = lambda s: datetime.fromisoformat(s.replace('Z', '+00:00'))
+seconds = lambda item: (stamp(item['completed_at']) - stamp(item['started_at'])).total_seconds()
+assert run['event'] == 'pull_request' and run['status'] == 'completed'
+gate = next(j for j in jobs if j['name'] == 'ci-required')
+print('run / attempt / HEAD:', run['id'], run['run_attempt'], run['head_sha'])
+print('全CI壁時計秒（run開始→最終ゲート完了）:', (stamp(gate['completed_at']) - stamp(run['run_started_at'])).total_seconds())
+print('最終ゲート:', gate['conclusion'])
+total = 0
+setup_tokens = ('actions/checkout@', 'actions/setup-node@', 'npm ci', 'actions/download-artifact@',
+                'Set up Chromium', 'Download separate validation artifacts')
+for job in jobs:
+    if job['conclusion'] == 'skipped':
+        continue
+    duration = seconds(job)
+    total += duration
+    setup = sum(seconds(s) for s in job['steps'] if s.get('started_at') and s.get('completed_at')
+                and not s['name'].startswith('Post ') and any(t in s['name'] for t in setup_tokens))
+    print(job['name'], job['conclusion'], 'Runner秒:', duration, 'setup秒:', setup)
+print('総Runner秒（job実時間の和、課金の丸め前）:', total)
+PY
+```
+
+通常／モバイルjobの実時間を別々に記録し、setup秒はcheckout・Node・npm ci・ダウンロード・
+Chromiumの合計として比較する。L2ではbuild・両系統・最終ゲートでnpm ciが重複し、
+Chromiumの準備は2回となるため、この追加コストも省略しない。待機時間はRunner秒へ加算せず、
+壁時計との違いを記録する。34組の完了証拠はmobile artifactの `comparison.html`、
+`comparison.json` の34行、`main.json` / `pr.json`、68画像とゲートの照合結果。
+全件数は元の期待収集JSONと両系統の実行JSONでも確認する。
+Runner使用量や失敗率が著しく悪化した場合はPMが採用を再評価する。
+
 ## 局所検証
 
 ```bash
@@ -257,7 +370,8 @@ npx playwright test tests/browser/day-night.spec.js --grep 'night sailing' --rep
 
 選択ロジックの単体テストは `npm test` に含む。局所スモークは上記の2specだけで実行する。
 `node scripts/ci-risk.js --output .ci/plan.json` はActionsのイベント情報から検証計画を生成する
-CI用コマンドで、`node scripts/ci-e2e.js` がその計画に従って収集・実行を確認する。
+CI用コマンドで、`node scripts/ci-e2e.js prepare` が元の選択を収集し、
+`node scripts/ci-e2e.js run regular|mobile` が各系統の収集・実行を確認する。
 模擬差分・失敗・欠落・イベント条件は選択ロジックと実行基盤の単体テストで検証する。
 ローカルで全件を起動するためにCI用コマンドを使わない。
 
@@ -270,8 +384,9 @@ Playwrightは実行開始時に指定出力ディレクトリを消去する。
 ## CI失敗時の調査
 
 1. 失敗したHEAD SHA・run ID・attempt・テスト名・最初に失敗した操作を記録する。
-2. Actionsの `browser-test-results` をダウンロードする。失敗時も `if: always()` で
-   `test-results/` を保存する。保存期間は14日。
+2. 対象run/attempt/SHAの `ci-…-build` と失敗系統の `ci-…-regular|mobile` をダウンロードする。
+   失敗時も `if: always()` で `.ci/` と `test-results/` を保存する。保存期間は14日。
+   各系統の収集・実行JSONと `job-record.json` のファイル一覧・SHA情報も照合する。
 3. `error-context.md`、失敗時PNG、`trace.zip`、`*-diagnostics.json` を同じテストで照合する。
 4. Traceはローカルで `npx playwright show-trace <展開先>/trace.zip` を開く。
    操作名、locator、DOM snapshot、console、操作前後を確認する。

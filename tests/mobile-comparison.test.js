@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { compareMobileCaptures, compareMobileCapturePair, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
 import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
 import { createCameraRig } from '../src/rendering/camera.js';
+import { validateMobileEvidence } from '../scripts/ci-summary.js';
 
 const MAIN = 'a22ce01531befa55230fb186579731b8a3b9aeb6';
 const current = await readMobileImplementation(MAIN), legacy = await readMobileImplementation(HISTORICAL_MOBILE_BASE);
@@ -69,6 +70,30 @@ test('unrecognized old implementations and missing SHAs cannot silently become l
 test('normal current-main regression accepts 34 unchanged pairs and exactly 0% reduction', () => {
   const rows = compareMobileCaptures(...captures(), metadata());
   assert.equal(rows.length, 34); assert(rows.every(row => row.pixelReduction === 0));
+});
+
+test('final gate requires all 34 pairs, their report, provenance and every image/record', () => {
+  const data = metadata(), [before, after] = captures();
+  const files = Object.fromEntries(['comparison-metadata.json', 'main.json', 'pr.json', 'comparison.html', 'comparison.json',
+    ...['main', 'pr'].flatMap(target => MOBILE_CAPTURE_IDS.flatMap(id => [`${target}-${id}.png`, `${target}-${id}.json`]))]
+    .map(file => [`test-results/mobile-comparison/${file}`, 'synthetic-manifest-hash']));
+  const payload = { record: { files }, mobile: { metadata: data, before, after,
+    comparison: { metadata: data, rows: compareMobileCaptures(before, after, data) } } };
+  assert.equal(validateMobileEvidence(payload, data), 34);
+  for (const file of Object.keys(files)) {
+    const missing = structuredClone(payload); delete missing.record.files[file];
+    assert.throws(() => validateMobileEvidence(missing, data), /Missing mobile artifact/);
+  }
+  for (const key of ['baseSha', 'headSha', 'validationSha']) {
+    assert.throws(() => validateMobileEvidence(payload, { ...data, [key]: 'b'.repeat(40) }), /differs/);
+  }
+  const partial = structuredClone(payload); partial.mobile.before.pop();
+  assert.throws(() => validateMobileEvidence(partial, data), /all 25 render and 9 HUD/);
+  const mixed = structuredClone(payload); mixed.mobile.comparison.rows[0].id = 'substituted';
+  assert.throws(() => validateMobileEvidence(mixed, data), /report differs/);
+  const incomplete = structuredClone(payload);
+  incomplete.record.files['test-results/mobile-comparison/comparison-incomplete.json'] = 'hash';
+  assert.throws(() => validateMobileEvidence(incomplete, data), /Incomplete mobile comparison/);
 });
 
 test('a local selected pair keeps resource/HUD checks while the full report still requires all 34', () => {

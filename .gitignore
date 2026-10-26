@@ -4,5 +4,7 @@ dist/
 playwright-report/
 test-results/
 .ci/
+.ci-input/
+.ci-artifacts/
 *.local
 .DS_Store
