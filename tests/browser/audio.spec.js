@@ -438,7 +438,8 @@ for (const touch of [false, true]) {
       } else {
         expect(menuEvents.find(event => event.type === 'pointerdown').active).toBe(true);
       }
-      expect(await page.evaluate(() => window.audioProbe.nodes.filter(n => n.audioProbeType === 'source').every(n => n.loop && n.started && n.buffer?.duration === 24))).toBe(true);
+      expect(await page.evaluate(() => window.audioProbe.nodes.filter(n => n.audioProbeType === 'source' && n.loop === true)
+        .every(n => n.loop && n.started && n.buffer?.duration === 24))).toBe(true);
     } finally { await attachAudioDiagnostics(page, info); }
   });
 }

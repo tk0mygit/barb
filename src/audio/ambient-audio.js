@@ -1,9 +1,11 @@
 import { sampleAudioMix } from './audio-mix.js';
 import { createAudioPreferences, validateAudioPreferences } from './audio-preferences.js';
 import { createAmbientPlayer } from './ambient-player.js';
+import { createBioPlayer } from './bio-player.js';
 
 // No DOM, independent clocks, save subscriptions or input-state side effects.
-export function createAmbientAudio({ session, clock, preferencesStore = createAudioPreferences(), player = createAmbientPlayer() }) {
+export function createAmbientAudio({ session, clock, preferencesStore = createAudioPreferences(), player = createAmbientPlayer(),
+  bioPlayer = createBioPlayer({ clock }) }) {
   let { preferences, persistence } = preferencesStore.load();
   const pauses = new Set(), mix = {};
   let playback = 'off', failed = false, disposed = false, lastPublished;
@@ -33,6 +35,11 @@ export function createAmbientAudio({ session, clock, preferencesStore = createAu
       if (playback === 'playing') player.play(session.context, mix, preferences.volume, clockState.elapsedSeconds);
       else player.stop({ immediate: session.context?.state !== 'running', freeBuffers: !preferences.enabled });
     } catch { failed = true; playback = 'blocked'; }
+    // Acquisition/playback failures in the optional one-shot layer must never
+    // mark the existing BGM/nature bank as blocked or interrupt fishing input.
+    try { bioPlayer.update({ context: session.context, mix, volume: preferences.volume,
+      enabled: preferences.enabled, playing: playback === 'playing', ready: session.status === 'ready' }); }
+    catch { /* Independent layer; the regular bank and its UI remain valid. */ }
     publish();
   }
   const unsubscribe = session.subscribe(update);
@@ -52,9 +59,15 @@ export function createAmbientAudio({ session, clock, preferencesStore = createAu
     // Must be invoked by a user gesture, including retry after mobile interruption.
     unlock() {
       if (disposed) return;
+      const retryBio = failed || session.status !== 'ready' || session.context?.state !== 'running';
       failed = false;
+      if (retryBio) { try { bioPlayer.retry(); } catch { /* Retry is best effort for this layer. */ } }
       session.unlock().then(update).catch(() => { failed = true; update(); });
     },
-    dispose() { disposed = true; unsubscribe(); listeners.clear(); player.dispose(); },
+    dispose() {
+      disposed = true; unsubscribe(); listeners.clear();
+      try { bioPlayer.dispose(); } catch { /* Always release the regular bank. */ }
+      player.dispose();
+    },
   };
 }

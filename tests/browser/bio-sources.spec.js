@@ -83,11 +83,13 @@ test('isolated Vite bundle keeps /barb/ URLs and native decoding/cache at 44.1/4
   }
 });
 
-test('normal game build contains no bio-audio payload or module at startup', () => {
+test('integrated game build emits exactly the six original WAV payloads under the Vite base', () => {
   const assets = readdirSync('dist/assets');
-  expect(assets.filter(file => file.endsWith('.wav'))).toEqual([]);
-  for (const file of assets.filter(name => name.endsWith('.js'))) {
-    const source = readFileSync(join('dist/assets', file), 'utf8');
-    for (const v of BIO_VARIANTS) expect(source).not.toContain(v.id);
+  const wav = assets.filter(file => file.endsWith('.wav'));
+  expect(wav).toHaveLength(6);
+  for (const v of BIO_VARIANTS) {
+    const file = wav.find(name => name.startsWith(`${v.id}-`));
+    expect(file, v.id).toBeTruthy();
+    expect(createHash('sha256').update(readFileSync(join('dist/assets', file))).digest('hex')).toBe(v.sha256);
   }
 });

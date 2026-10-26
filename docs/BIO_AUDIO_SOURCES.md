@@ -71,8 +71,9 @@ factoryはcontextを生成・unlock・resume・closeしない。AudioBufferSourc
 IDとURLの上書き機能はない。6本のURLは静的な`new URL(…, import.meta.url)`でViteに検出させ、
 `/barb/`配下のハッシュ付きアセットURLへ変換する。
 
-現在は既存モジュールからfactoryをimportしない。通常のゲームビルドにはfactoryも新しいWAVも出力されない。
-将来の呼び出し側からimportすればViteが6本を配置することを、独立した検証用ビルドで確認する。
+D-2B-1時点ではfactoryは未接続だった。D-2B-3では独立した`bio-player.js`から利用し、
+通常ビルドにも6 WAVを配置する。起動時OFF／unlock前には取得・デコード・AudioContext生成を行わない。
+統合後の責務と検証は[BIO_AUDIO_PLAYBACK.md](BIO_AUDIO_PLAYBACK.md)を参照する。
 
 ## 取得・検証・キャッシュの契約
 
