@@ -1,0 +1,311 @@
+{
+  "version": 1,
+  "phase": "4.5-D-2A",
+  "synthVersion": "d2a-1",
+  "sampleRate": 44100,
+  "channels": 1,
+  "encoding": "RIFF WAVE PCM signed 16-bit little-endian",
+  "status": "Prototype assets. Not integrated. Human listening approval pending.",
+  "provenance": "Original procedural formulas and fixed parameter tables. No third-party audio, recordings or generative audio services.",
+  "isolatedGain": 1,
+  "normalization": "None; fixed synthesis levels. All contexts retain game volume=40%, AMBIENT_GAIN=0.3. Biology voice gain 0.45 is a proposal.",
+  "variants": [
+    {
+      "id": "bird-a",
+      "kind": "bird",
+      "title": "上昇する小鳥の短句",
+      "durationSeconds": 2.1,
+      "seed": 1112101441,
+      "sampleRate": 44100,
+      "channels": 1,
+      "loop": false,
+      "suggestedVoiceGain": 0.45,
+      "file": "wav/bird-a.wav",
+      "frames": 92610,
+      "wavBytes": 185264,
+      "float32Bytes": 370440,
+      "sha256": "f4fe58dcc944ed86b75fc752bc9a276e2114231a19aace1f35c4f6801df75cdd"
+    },
+    {
+      "id": "bird-b",
+      "kind": "bird",
+      "title": "細かい連声と下降句",
+      "durationSeconds": 2.55,
+      "seed": 1112101442,
+      "sampleRate": 44100,
+      "channels": 1,
+      "loop": false,
+      "suggestedVoiceGain": 0.45,
+      "file": "wav/bird-b.wav",
+      "frames": 112455,
+      "wavBytes": 224954,
+      "float32Bytes": 449820,
+      "sha256": "b5f70daa5f51bd980758f3516859b642e05bb84027186dc8a1c8f471267cbd07"
+    },
+    {
+      "id": "bird-c",
+      "kind": "bird",
+      "title": "間を空けた柔らかい応答",
+      "durationSeconds": 2.85,
+      "seed": 1112101443,
+      "sampleRate": 44100,
+      "channels": 1,
+      "loop": false,
+      "suggestedVoiceGain": 0.45,
+      "file": "wav/bird-c.wav",
+      "frames": 125685,
+      "wavBytes": 251414,
+      "float32Bytes": 502740,
+      "sha256": "4d1a4a0ae8335dad212d19352035784513fe98e82f8517eab863c114ea465224"
+    },
+    {
+      "id": "suzumushi-a",
+      "kind": "suzumushi",
+      "title": "細い共鳴・3つの鳴き句",
+      "durationSeconds": 3.6,
+      "seed": 1398102593,
+      "sampleRate": 44100,
+      "channels": 1,
+      "loop": false,
+      "suggestedVoiceGain": 0.45,
+      "file": "wav/suzumushi-a.wav",
+      "frames": 158760,
+      "wavBytes": 317564,
+      "float32Bytes": 635040,
+      "sha256": "08894eafb5aada31fa37f8f30a95674052f6150376ab138f059a5f83c4fd3e49"
+    },
+    {
+      "id": "suzumushi-b",
+      "kind": "suzumushi",
+      "title": "やや低い共鳴・長短の鳴き句",
+      "durationSeconds": 4.1,
+      "seed": 1398102594,
+      "sampleRate": 44100,
+      "channels": 1,
+      "loop": false,
+      "suggestedVoiceGain": 0.45,
+      "file": "wav/suzumushi-b.wav",
+      "frames": 180810,
+      "wavBytes": 361664,
+      "float32Bytes": 723240,
+      "sha256": "3461114f02ba6af205c3b3bf91e19e131422fb536fa74b8aeae5f929cc631224"
+    },
+    {
+      "id": "suzumushi-c",
+      "kind": "suzumushi",
+      "title": "高めの共鳴・弱い応答",
+      "durationSeconds": 3.85,
+      "seed": 1398102595,
+      "sampleRate": 44100,
+      "channels": 1,
+      "loop": false,
+      "suggestedVoiceGain": 0.45,
+      "file": "wav/suzumushi-c.wav",
+      "frames": 169785,
+      "wavBytes": 339614,
+      "float32Bytes": 679140,
+      "sha256": "ab91099ba8c898b3f3cc7a2e187b4e3dd72a4a5114b9d2ead02aa93f4002c953"
+    }
+  ],
+  "previews": [
+    {
+      "id": "day-context-30s",
+      "file": "wav/day-context-30s.wav",
+      "scene": "昼BGM + 鳥（固定配置）",
+      "seconds": 30,
+      "gameStartSeconds": 60,
+      "ambientMaster": 0.3,
+      "gameVolume": 40,
+      "voiceGain": 0.45,
+      "effectiveBiologyGain": 0.054,
+      "placements": [
+        {
+          "onsetSeconds": 2.2,
+          "id": "bird-a"
+        },
+        {
+          "onsetSeconds": 8.8,
+          "id": "bird-c"
+        },
+        {
+          "onsetSeconds": 17.4,
+          "id": "bird-b"
+        }
+      ],
+      "wavBytes": 2646044,
+      "float32Bytes": 5292000,
+      "sha256": "273e175cbd35bb8110013125fc743d1cb7811cbcc59954adc65f3227f52065c1"
+    },
+    {
+      "id": "night-context-30s",
+      "file": "wav/night-context-30s.wav",
+      "scene": "夜CLEARのBGM + 鈴虫（固定配置）",
+      "seconds": 30,
+      "gameStartSeconds": 240,
+      "ambientMaster": 0.3,
+      "gameVolume": 40,
+      "voiceGain": 0.45,
+      "effectiveBiologyGain": 0.054,
+      "placements": [
+        {
+          "onsetSeconds": 1.7,
+          "id": "suzumushi-b"
+        },
+        {
+          "onsetSeconds": 9.8,
+          "id": "suzumushi-a"
+        },
+        {
+          "onsetSeconds": 18.5,
+          "id": "suzumushi-c"
+        }
+      ],
+      "wavBytes": 2646044,
+      "float32Bytes": 5292000,
+      "sha256": "e00335ef5508615ab42cde03f6f2b75c8720213b54de008dd085c94836e9b68e"
+    },
+    {
+      "id": "nature-context-30s",
+      "file": "wav/nature-context-30s.wav",
+      "scene": "既存の濃霧自然音 + 鈴虫（固定配置）",
+      "seconds": 30,
+      "gameStartSeconds": 960,
+      "ambientMaster": 0.3,
+      "gameVolume": 40,
+      "voiceGain": 0.45,
+      "effectiveBiologyGain": 0.054,
+      "placements": [
+        {
+          "onsetSeconds": 1.7,
+          "id": "suzumushi-b"
+        },
+        {
+          "onsetSeconds": 9.8,
+          "id": "suzumushi-a"
+        },
+        {
+          "onsetSeconds": 18.5,
+          "id": "suzumushi-c"
+        }
+      ],
+      "wavBytes": 2646044,
+      "float32Bytes": 5292000,
+      "sha256": "81c82c0fbcdb75d4377ff7ececb49a63a17da768145de3a7545c4feaa4247f93"
+    },
+    {
+      "id": "day-context-90s",
+      "file": "wav/day-context-90s.wav",
+      "scene": "昼BGM + 鳥（90秒・固定配置）",
+      "seconds": 90,
+      "gameStartSeconds": 45,
+      "ambientMaster": 0.3,
+      "gameVolume": 40,
+      "voiceGain": 0.45,
+      "effectiveBiologyGain": 0.054,
+      "placements": [
+        {
+          "onsetSeconds": 2.2,
+          "id": "bird-a"
+        },
+        {
+          "onsetSeconds": 8.8,
+          "id": "bird-c"
+        },
+        {
+          "onsetSeconds": 17.4,
+          "id": "bird-b"
+        },
+        {
+          "onsetSeconds": 29.7,
+          "id": "bird-a"
+        },
+        {
+          "onsetSeconds": 38.5,
+          "id": "bird-b"
+        },
+        {
+          "onsetSeconds": 52,
+          "id": "bird-c"
+        },
+        {
+          "onsetSeconds": 63.7,
+          "id": "bird-b"
+        },
+        {
+          "onsetSeconds": 76.2,
+          "id": "bird-a"
+        },
+        {
+          "onsetSeconds": 84.4,
+          "id": "bird-c"
+        }
+      ],
+      "wavBytes": 7938044,
+      "float32Bytes": 15876000,
+      "sha256": "590630763d7a0406c7e5e5393bc18361e054d0fbb40c707004cde447b072392f"
+    },
+    {
+      "id": "night-context-90s",
+      "file": "wav/night-context-90s.wav",
+      "scene": "夜CLEARのBGM + 鈴虫（90秒・固定配置）",
+      "seconds": 90,
+      "gameStartSeconds": 240,
+      "ambientMaster": 0.3,
+      "gameVolume": 40,
+      "voiceGain": 0.45,
+      "effectiveBiologyGain": 0.054,
+      "placements": [
+        {
+          "onsetSeconds": 1.7,
+          "id": "suzumushi-b"
+        },
+        {
+          "onsetSeconds": 9.8,
+          "id": "suzumushi-a"
+        },
+        {
+          "onsetSeconds": 18.5,
+          "id": "suzumushi-c"
+        },
+        {
+          "onsetSeconds": 29.1,
+          "id": "suzumushi-b"
+        },
+        {
+          "onsetSeconds": 39.3,
+          "id": "suzumushi-c"
+        },
+        {
+          "onsetSeconds": 50.2,
+          "id": "suzumushi-a"
+        },
+        {
+          "onsetSeconds": 62.8,
+          "id": "suzumushi-c"
+        },
+        {
+          "onsetSeconds": 74.3,
+          "id": "suzumushi-b"
+        },
+        {
+          "onsetSeconds": 83.5,
+          "id": "suzumushi-a"
+        }
+      ],
+      "wavBytes": 7938044,
+      "float32Bytes": 15876000,
+      "sha256": "5b7e3d85b652e6880de27541cf89bdd25de71cdbfc702ece7f64a2580d526c8a"
+    }
+  ],
+  "reference": {
+    "repo": "/workspace/barb",
+    "repoHead": "20d2899c2df0f24ea1178e0defe6b346351a2dc4",
+    "generatedSourcesSHA256": "a57cd333fa933a76a3dbea0123f0516e6f6e21d936644c4a12cea424fa343430",
+    "baselineFloat32Hashes": {
+      "day": "3b6cafeea6ed98277046143387c79a1338d2c75138fa0eebe9409177d256dc86",
+      "night": "3550bf58c11b970ed476614790747e999ab4fa5821b28f09921b21d9fa71a92c",
+      "nature": "f7c31d1fe5bfe4342e8d13b0d11df859c22f32bf4ec62c5de58b0ebcea4a69a0"
+    },
+    "note": "Read-only existing BGM/nature factory; nature includes wind/water AND old distant synthetic calls. AudioParam smoothing/hardware not simulated; fixed render is not D-2B scheduling."
+  }
+}
