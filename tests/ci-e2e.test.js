@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { reportTests, runE2E, validateCollection, validateExecution, validatePlan } from '../scripts/ci-e2e.js';
+import { MOBILE_SPEC, prepareE2E, reportTests, runE2E, validateCollection, validateExecution, validatePlan } from '../scripts/ci-e2e.js';
+import { artifactName, recordJob, validationContext } from '../scripts/lib/ci-artifacts.js';
+import { BUILD_STEPS, E2E_STEPS, verifyArtifacts } from '../scripts/ci-summary.js';
 import { createPlan, SMOKE_SPECS } from '../scripts/ci-risk.js';
 
 const SHA = 'a'.repeat(40);
@@ -18,7 +20,7 @@ function report(specs = selectedSpecs) {
     suites: [{ title: 'browser suite', suites: specs.map((file, index) => ({
       title: file,
       specs: [{ id: `test-${index}`, file: file.replace('tests/browser/', ''),
-        tests: [{ projectName: 'chromium', expectedStatus: 'passed', status: 'expected', results: [{ status: 'passed' }] }],
+        tests: [{ projectName: 'chromium', expectedStatus: 'passed', status: 'expected', results: [{ status: 'passed', retry: 0 }] }],
       }],
     })) }],
   };
@@ -155,13 +157,14 @@ test('L0 may omit E2E only with an empty consistent selection', () => {
 
 // Exercise the actual Playwright CLI and its JSON reporter in a disposable
 // repository. These probes request no browser, web server or application code.
-function runnerFixture(t, eventName = 'workflow_dispatch', behavior = 'pass') {
+function runnerFixture(t, eventName = 'workflow_dispatch', behavior = 'pass', includeMobile = false) {
   const cwd = mkdtempSync(path.join(tmpdir(), 'barb-ci-runner-'));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   mkdirSync(path.join(cwd, 'tests/browser'), { recursive: true });
-  const inventory = eventName === 'pull_request'
+  const originalInventory = eventName === 'pull_request'
     ? [...selectedSpecs, 'tests/browser/audio-gain.spec.js', 'tests/browser/game.spec.js'].sort()
     : selectedSpecs;
+  const inventory = [...originalInventory, ...(includeMobile ? [MOBILE_SPEC] : [])].sort();
   for (const [index, file] of inventory.entries()) writeFileSync(path.join(cwd, file), `
     const { test, expect } = require('@playwright/test');
     test${behavior === 'skip' && index === 0 ? '.skip' : ''}('probe ${index}', () => {
@@ -199,6 +202,7 @@ function runnerFixture(t, eventName = 'workflow_dispatch', behavior = 'pass') {
   const eventPath = path.join(cwd, 'event.json');
   writeFileSync(eventPath, JSON.stringify(event));
   const env = { ...process.env, GITHUB_EVENT_PATH: eventPath, GITHUB_EVENT_NAME: eventName,
+    GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '1',
     GITHUB_REF: eventName === 'pull_request' ? 'refs/pull/1/merge' : 'refs/heads/main', GITHUB_SHA: validationSha };
   mkdirSync(path.join(cwd, '.ci'));
   writeFileSync(path.join(cwd, '.ci/plan.json'), JSON.stringify(createPlan({
@@ -208,30 +212,58 @@ function runnerFixture(t, eventName = 'workflow_dispatch', behavior = 'pass') {
   return { cwd, env, result: () => JSON.parse(readFileSync(path.join(cwd, '.ci/result.json'), 'utf8')) };
 }
 
+function runPrepared(fixture) {
+  prepareE2E(fixture);
+  mkdirSync(path.join(fixture.cwd, 'dist'));
+  writeFileSync(path.join(fixture.cwd, 'dist/index.html'), 'probe build');
+  seal(fixture, 'build', BUILD_STEPS);
+  const input = path.join(fixture.cwd, '.ci-input');
+  mkdirSync(input);
+  for (const directory of ['.ci', 'dist']) cpSync(path.join(fixture.cwd, directory), path.join(input, directory), { recursive: true });
+  rmSync(path.join(fixture.cwd, '.ci'), { recursive: true });
+  return runE2E(fixture);
+}
+
+function seal(fixture, job, names) {
+  return recordJob(job, { ...fixture, env: { ...fixture.env, CI_JOB_STATUS: 'success',
+    CI_STEPS: JSON.stringify({ ...Object.fromEntries(names.map(name => [name, { outcome: 'success' }])),
+      ...(job === 'build' ? { pages: { outcome: fixture.env.GITHUB_EVENT_NAME === 'push' ? 'success' : 'skipped' } } : {}) }) } });
+}
+
+function archive(fixture, directory, job) {
+  const plan = JSON.parse(readFileSync(path.join(fixture.cwd, '.ci/plan.json'), 'utf8'));
+  const destination = path.join(fixture.cwd, '.ci-artifacts', artifactName(validationContext(plan, fixture.env), job));
+  mkdirSync(destination, { recursive: true });
+  for (const root of ['.ci', job === 'build' ? 'dist' : 'test-results']) {
+    cpSync(path.join(directory, root), path.join(destination, root), { recursive: true });
+  }
+  return destination;
+}
+
 test('runner records main push E2E omission without launching Playwright', t => {
   const fixture = runnerFixture(t, 'push');
-  assert.equal(runE2E(fixture).status, 'not-run');
+  assert.equal(prepareE2E(fixture).status, 'not-run');
   assert.equal(fixture.result().executed, false);
   assert.equal(fixture.result().passedTests, 0);
 });
 
 test('runner completes only after collecting and executing the full dispatch inventory', t => {
   const fixture = runnerFixture(t);
-  assert.equal(runE2E(fixture).status, 'passed');
+  assert.equal(runPrepared(fixture).status, 'passed');
   assert.equal(fixture.result().passedTests, selectedSpecs.length);
   assert.equal(fixture.result().executed, true);
 });
 
 test('runner persists a failed result when actual Playwright test fails', t => {
   const fixture = runnerFixture(t, 'workflow_dispatch', 'fail');
-  assert.throws(() => runE2E(fixture), /did not exit successfully/);
+  assert.throws(() => runPrepared(fixture), /did not exit successfully/);
   assert.equal(fixture.result().status, 'failed');
   assert.equal(fixture.result().exitCode, 1);
 });
 
 test('runner rejects actual skipped tests even when Playwright exits successfully', t => {
   const fixture = runnerFixture(t, 'workflow_dispatch', 'skip');
-  assert.throws(() => runE2E(fixture), /Non-passing test expectation|Failed, skipped or flaky test/);
+  assert.throws(() => runPrepared(fixture), /Non-passing test expectation|Failed, skipped or flaky test/);
   assert.equal(fixture.result().status, 'failed');
 });
 
@@ -241,7 +273,7 @@ test('L1 PR runner recomputes the real merge diff and filters only related and s
   assert.equal(planned.level, 'L1');
   assert.equal(planned.diff.ok, true);
   assert.deepEqual(planned.changes, [{ status: 'M', paths: ['src/audio/ambient-player.js'] }]);
-  assert.equal(runE2E(fixture).passedTests, 4);
+  assert.equal(runPrepared(fixture).passedTests, 4);
   const collected = reportTests(JSON.parse(readFileSync(path.join(fixture.cwd, '.ci/collection.json'), 'utf8')));
   assert.deepEqual(collected.map(({ file }) => file).sort(), [
     'audio-gain.spec.js', 'audio.spec.js', 'smoke-pc.spec.js', 'smoke-touch.spec.js',
@@ -254,6 +286,45 @@ test('L0 documentation PR runner verifies the merge and records intentional E2E 
   const planned = JSON.parse(readFileSync(path.join(fixture.cwd, '.ci/plan.json'), 'utf8'));
   assert.equal(planned.level, 'L0');
   assert.equal(planned.diff.ok, true);
-  assert.equal(runE2E(fixture).status, 'not-run');
+  assert.equal(prepareE2E(fixture).status, 'not-run');
   assert.equal(fixture.result().executed, false);
+});
+
+test('real reporter probes from both lanes pass the actual artifact gate; missing/corrupt evidence fails', t => {
+  const fixture = runnerFixture(t, 'workflow_dispatch', 'pass', true);
+  // No browser/application is used; this exercises runner/report/artifact wiring.
+  assert.equal(runPrepared(fixture).passedTests, selectedSpecs.length);
+  archive(fixture, path.join(fixture.cwd, '.ci-input'), 'build');
+  seal(fixture, 'regular', E2E_STEPS); archive(fixture, fixture.cwd, 'regular');
+  assert.equal(runE2E({ ...fixture, lane: 'mobile' }).passedTests, 1);
+  seal(fixture, 'mobile', E2E_STEPS);
+  const mobile = archive(fixture, fixture.cwd, 'mobile');
+  const needs = Object.fromEntries(['build', 'e2e_regular', 'e2e_mobile'].map(job =>
+    [job, { result: 'success', outputs: { artifact_id: `${job}-id` } }]));
+  const input = { ...fixture, env: { ...fixture.env, CI_NEEDS: JSON.stringify(needs) } };
+  assert.equal(verifyArtifacts(input).result.passedTests, 4);
+  const reportFile = path.join(mobile, '.ci/e2e-report.json');
+  const original = readFileSync(reportFile);
+  writeFileSync(reportFile, '{}');
+  assert.throws(() => verifyArtifacts(input), /missing, added or corrupted/);
+  writeFileSync(reportFile, original);
+  mkdirSync(path.join(fixture.cwd, '.ci-artifacts/unexpected-artifact'));
+  assert.throws(() => verifyArtifacts(input), /Missing, unexpected or colliding/);
+  rmSync(path.join(fixture.cwd, '.ci-artifacts/unexpected-artifact'), { recursive: true });
+  rmSync(mobile, { recursive: true });
+  assert.throws(() => verifyArtifacts(input), /Missing, unexpected or colliding/);
+});
+
+test('actual L0 and main push records pass only with explicit omission and required build evidence', t => {
+  for (const eventName of ['pull_request', 'push']) {
+    const fixture = runnerFixture(t, eventName, 'docs');
+    assert.equal(prepareE2E(fixture).status, 'not-run');
+    mkdirSync(path.join(fixture.cwd, 'dist')); writeFileSync(path.join(fixture.cwd, 'dist/index.html'), 'built main');
+    seal(fixture, 'build', BUILD_STEPS); archive(fixture, fixture.cwd, 'build');
+    const needs = { build: { result: 'success', outputs: { artifact_id: 'build-id',
+      ...(eventName === 'push' ? { pages_artifact_id: 'pages-id' } : {}) } },
+    e2e_regular: { result: 'skipped', outputs: {} }, e2e_mobile: { result: 'skipped', outputs: {} } };
+    const result = verifyArtifacts({ ...fixture, env: { ...fixture.env, CI_NEEDS: JSON.stringify(needs) } });
+    assert.equal(result.result.passedTests, 0); assert.equal(result.plan.deploy, eventName === 'push');
+  }
 });
