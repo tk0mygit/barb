@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { assertColdFishingResources, assertLureInitialization, assertStableResourceIdentities, expectedColdNightResources } from './browser/lighting-resource-contract.js';
 
 function snapshots() {
-  const fishing = [{ id: 3, type: 'RingGeometry' }, { id: 4, type: 'SphereGeometry' },
+  const fishing = [{ id: 3, type: 'RingGeometry' }, { id: 4, type: 'LureGeometry' },
     { id: 5, type: 'CircleGeometry' }, { id: 6, type: 'BufferGeometry' }];
   const cold = { counts: { geometries: 2, programs: 1, textures: 3 }, catalog: {
     cpuGeometryIds: [1, 2, 3, 4, 5, 6], initializedGeometryIds: [1, 2], programKeys: ['world'], fishingVisible: false,
@@ -14,7 +14,7 @@ function snapshots() {
   lure.catalog.initializedGeometryIds = [1, 2, 3, 4, 6];
   lure.catalog.programKeys = ['line', 'lure', 'world'];
   lure.catalog.fishing = fishing.map(row => ({ ...row, initialized: row.type !== 'CircleGeometry',
-    programKeys: row.type === 'RingGeometry' ? ['world'] : row.type === 'SphereGeometry' ? ['lure'] : row.type === 'BufferGeometry' ? ['line'] : [] }));
+    programKeys: row.type === 'RingGeometry' ? ['world'] : row.type === 'LureGeometry' ? ['lure'] : row.type === 'BufferGeometry' ? ['line'] : [] }));
   return { cold, lure };
 }
 

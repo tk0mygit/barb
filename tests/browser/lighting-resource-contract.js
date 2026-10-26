@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
-const FISHING_GEOMETRY_TYPES = ['BufferGeometry', 'CircleGeometry', 'RingGeometry', 'SphereGeometry'];
-const LURE_GEOMETRY_TYPES = ['BufferGeometry', 'RingGeometry', 'SphereGeometry'];
+const FISHING_GEOMETRY_TYPES = ['BufferGeometry', 'CircleGeometry', 'LureGeometry', 'RingGeometry'];
+const LURE_GEOMETRY_TYPES = ['BufferGeometry', 'LureGeometry', 'RingGeometry'];
 const sorted = values => [...values].sort((a, b) => typeof a === 'number' ? a - b : a.localeCompare(b));
 const difference = (after, before) => after.filter(value => !before.includes(value));
 

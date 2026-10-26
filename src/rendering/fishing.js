@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 import { PHASE, getLurePosition } from '../game/fishing.js';
 import { nearRingExpansion } from './fishing-visuals.js';
+import { createLureModel } from './lure-models.js';
 
-export function createFishingView(scene) {
+export function createFishingView(scene, camera) {
   const group = new THREE.Group();
+  group.visible = false;
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.6, 0.7, 40), new THREE.MeshBasicMaterial({ color: '#ffe5a1', side: THREE.DoubleSide, transparent: true, depthTest: false, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2;
-  const lure = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffe1a0', depthTest: false, depthWrite: false }));
+  const lureModel = createLureModel();
+  const lure = lureModel.mesh;
   // These world-position guides remain readable over the nearby boat. Draw
   // after water/boat, before the existing surface-fog layer (renderOrder 2).
   // Their normal material fog remains enabled, and DOM HUD stays above them.
@@ -18,10 +21,12 @@ export function createFishingView(scene) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: '#f0e8c9', transparent: true, opacity: 0.65 }));
+  line.name = 'fishing-line';
   line.frustumCulled = false;
   group.add(ring, lure, shadow, line);
   scene.add(group);
   const point = new THREE.Vector3();
+  const lineOrigin = new THREE.Vector3();
   return {
     getScreenBounds(camera, { width, height }) {
       if (!group.visible) return null;
@@ -42,6 +47,7 @@ export function createFishingView(scene) {
     },
     update(fishing, active, elapsed) {
       const s = fishing.state;
+      lureModel.select(s.lureId);
       group.visible = active && ![PHASE.READY, PHASE.RESULT, PHASE.FAILED].includes(s.phase);
       if (!group.visible) return;
       let { x, z } = getLurePosition(s);
@@ -55,6 +61,8 @@ export function createFishingView(scene) {
         y = 2 * (1 - t) + Math.sin(t * Math.PI) * Math.min(4, s.distance * 0.18);
       }
       lure.position.set(x, y + (s.action > 0 ? Math.abs(Math.sin(elapsed * 18)) * 0.35 : 0), z);
+      // Show a readable three-quarter profile, following the cast/retrieval ray.
+      lure.rotation.y = -s.heading + Math.PI / 3;
       lure.visible = s.phase !== PHASE.AIM && s.phase !== PHASE.LANDING;
       // The water marker remains at the predicted landing point throughout
       // flight; it must not travel through the near-boat area with the lure.
@@ -67,7 +75,14 @@ export function createFishingView(scene) {
       shadow.visible = s.phase === PHASE.FIGHT;
       shadow.position.set(x, 0.11, z);
       line.visible = s.phase !== PHASE.AIM;
-      positions.set([s.origin.x + 0.4, 2, s.origin.z - 0.4, x, y, z]);
+      // A virtual rod tip in the camera's 3D view volume, one metre ahead.
+      // Scale with its frustum so yaw, tracking and aspect changes preserve a
+      // natural slightly-right-of-centre projection (58%, 57%) on every screen.
+      camera.updateMatrixWorld();
+      const halfHeight = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / camera.zoom;
+      lineOrigin.set(0.16 * halfHeight * camera.aspect, -0.14 * halfHeight, -1).applyMatrix4(camera.matrixWorld);
+      lineOrigin.toArray(positions, 0);
+      lure.position.toArray(positions, 3);
       geometry.attributes.position.needsUpdate = true;
     },
   };

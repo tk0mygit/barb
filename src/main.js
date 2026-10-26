@@ -86,7 +86,7 @@ try {
     onPreparationCancel: () => cancelPreparation(),
   });
   controls.setEnabled(false);
-  const fishingView = createFishingView(scene);
+  const fishingView = createFishingView(scene, camera);
   const castNotices = createCastNotices();
   audioSession = createAudioSession();
   const ambientAudio = environmentAudio = createAmbientAudio({ session: audioSession, clock: gameClock });
