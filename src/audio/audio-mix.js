@@ -6,6 +6,9 @@ const smoothstep = value => {
   return t * t * (3 - 2 * t);
 };
 export const AUDIO_TRANSITION_SECONDS = 8;
+// Raw 24s PCM at 0.25 is 15.17/13.69 dB below day/night BGM RMS.
+// Keep BGM at its existing level; see docs/AUDIO_SYSTEM.md for output bounds.
+export const NATURE_BASE_GAIN = 0.25;
 
 // Absolute shared-clock sampling only. The 16-second twilight blend straddles
 // each day/night boundary; fog uses the world's exact 12-second envelope.
@@ -22,6 +25,6 @@ export function sampleAudioMix(clock, target = {}) {
   target.mode = day ? 'DAY' : `NIGHT_${target.fogType}`;
   target.day = (1 - night) * (1 - denseMix);
   target.night = night * (1 - denseMix);
-  target.nature = denseMix;
+  target.nature = NATURE_BASE_GAIN + (1 - NATURE_BASE_GAIN) * denseMix;
   return target;
 }

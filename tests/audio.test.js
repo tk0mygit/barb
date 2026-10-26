@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGameClock } from '../src/game/game-clock.js';
 import { sampleNightFog, FOG_TYPE } from '../src/world/night-fog.js';
-import { sampleAudioMix } from '../src/audio/audio-mix.js';
+import { sampleAudioMix, NATURE_BASE_GAIN } from '../src/audio/audio-mix.js';
 import { createAudioSession } from '../src/audio/audio-session.js';
 import { createAmbientAudio } from '../src/audio/ambient-audio.js';
 import { createAmbientPlayer, AMBIENT_GAIN, AUDIO_FADE_SECONDS } from '../src/audio/ambient-player.js';
@@ -21,14 +21,33 @@ test('DAY/NIGHT_CLEAR/NIGHT_FOG/NIGHT_DENSE_FOG and exact world fog envelopes, i
   for (let second = 0; second <= 1080; second += 0.5) {
     assert.equal(sampleAudioMix(at(second), target), target);
     const fog = sampleNightFog(at(second));
-    near(target.nature, fog.fogType === FOG_TYPE.DENSE_FOG ? fog.intensity : 0);
-    near(target.day + target.night + target.nature, 1);
+    const dense = fog.fogType === FOG_TYPE.DENSE_FOG ? fog.intensity : 0;
+    near(target.day + target.night, 1 - dense);
+    near(target.nature, NATURE_BASE_GAIN + (1 - NATURE_BASE_GAIN) * dense);
+    near(target.day + target.night + target.nature, 1 + NATURE_BASE_GAIN * (1 - dense));
     assert.ok([target.day, target.night, target.nature].every(n => n >= 0 && n <= 1));
   }
-  for (const [second, nature] of [[900, 0], [906, 0.5], [912, 1], [1068, 1], [1074, 0.5], [1080, 0]]) near(sampleAudioMix(at(second)).nature, nature);
+  for (const [second, nature] of [[900, 0.25], [906, 0.625], [912, 1], [1068, 1], [1074, 0.625], [1080, 0.25]]) near(sampleAudioMix(at(second)).nature, nature);
   for (const boundary of [180, 360, 900, 1080]) {
     const a = sampleAudioMix(at(boundary - 1e-6)), b = sampleAudioMix(at(boundary + 1e-6));
     for (const kind of ['day', 'night', 'nature']) near(a[kind], b[kind], 1e-6);
+  }
+});
+
+test('independent nature layer preserves full BGM and the exact 16s twilight envelope', () => {
+  assert.equal(NATURE_BASE_GAIN, 0.25);
+  for (const [second, day, night] of [[90, 1, 0], [172, 1, 0], [176, 0.84375, 0.15625],
+    [180, 0.5, 0.5], [184, 0.15625, 0.84375], [188, 0, 1], [270, 0, 1],
+    [352, 0, 1], [356, 0.15625, 0.84375], [360, 0.5, 0.5], [364, 0.84375, 0.15625], [368, 1, 0], [2790, 0, 1]]) {
+    const mix = sampleAudioMix(at(second));
+    near(mix.day, day); near(mix.night, night); near(mix.nature, 0.25);
+  }
+  // Dense fades retain their 12s endpoints and reverse symmetrically.
+  for (const [second, bgm, nature] of [[903, 0.84375, 0.3671875], [906, 0.5, 0.625],
+    [909, 0.15625, 0.8828125], [912, 0, 1], [1068, 0, 1],
+    [1071, 0.15625, 0.8828125], [1074, 0.5, 0.625], [1077, 0.84375, 0.3671875]]) {
+    const mix = sampleAudioMix(at(second));
+    near(mix.day + mix.night, bgm); near(mix.nature, nature);
   }
 });
 
@@ -158,7 +177,7 @@ test('controller pauses compose, mute/off stay cheap, storage failure stays inde
   assert.equal(session.context, undefined); assert.equal(writes.length, 0); assert.equal(ambient.state.playback, 'off');
   ambient.setPreferences({ enabled: true }); assert.equal(ambient.state.playback, 'waiting');
   assert.equal(ambient.state.persistence, 'failed'); await session.unlock();
-  assert.equal(ambient.state.playback, 'playing'); near(calls.at(-1)[2].nature, 0.5);
+  assert.equal(ambient.state.playback, 'playing'); near(calls.at(-1)[2].nature, 0.625);
   for (const reason of ['menu', 'hidden', 'blur', 'page']) ambient.setPaused(reason, true);
   assert.equal(ambient.state.playback, 'paused');
   for (const reason of ['menu', 'hidden', 'blur']) { ambient.setPaused(reason, false); assert.equal(ambient.state.playback, 'paused'); }
@@ -210,12 +229,47 @@ test('FOG retains the complete clear-night BGM throughout both fades; only DENSE
     const clear = sampleAudioMix(at(180 + phase));
     for (const index of [7, 8, 9, 10]) {
       const fog = sampleAudioMix(at(index * 360 + 180 + phase));
-      assert.equal(fog.mode, 'NIGHT_FOG'); assert.equal(fog.nature, 0);
+      assert.equal(fog.mode, 'NIGHT_FOG'); assert.equal(fog.nature, NATURE_BASE_GAIN);
       near(fog.day, clear.day); near(fog.night, clear.night);
     }
     const dense = sampleAudioMix(at(360 + 180 + phase));
     assert.equal(dense.mode, 'NIGHT_DENSE_FOG');
-    near(dense.day + dense.night, 1 - dense.intensity); near(dense.nature, dense.intensity);
+    near(dense.day + dense.night, 1 - dense.intensity);
+    near(dense.nature, NATURE_BASE_GAIN + (1 - NATURE_BASE_GAIN) * dense.intensity);
   }
   const dense = sampleAudioMix(at(630)); assert.equal(dense.night, 0); assert.equal(dense.day, 0); assert.equal(dense.nature, 1);
+});
+
+test('layered PCM bounds target/independent-ramp peaks and normal RMS increase below 0.2dB', () => {
+  const pcm = Object.fromEntries(Object.entries(createGeneratedBuffers(fakeContext()))
+    .map(([kind, buffer]) => [kind, buffer.getChannelData(0)]));
+  const peaks = {}, rms = {};
+  for (const [kind, data] of Object.entries(pcm)) {
+    let peak = 0, energy = 0;
+    for (const value of data) { peak = Math.max(peak, Math.abs(value)); energy += value ** 2; }
+    peaks[kind] = peak; rms[kind] = Math.sqrt(energy / data.length);
+  }
+  // Triangle inequality for every loop phase and dense/twilight target mix.
+  const bound = AMBIENT_GAIN * Math.max(Math.max(peaks.day, peaks.night)
+    + NATURE_BASE_GAIN * peaks.nature, peaks.nature);
+  assert.ok(bound < 0.04, `ambient peak bound ${bound}`);
+  assert.ok(bound + 0.12 < 0.16, `ambient + independent bite peak bound ${bound + 0.12}`);
+  // Retargets may leave channels at different points in their 80ms ramps.
+  // Each stays in [0, 1], so this conservative bound also covers rapid jumps.
+  const rampBound = AMBIENT_GAIN * (peaks.day + peaks.night + peaks.nature);
+  assert.ok(rampBound < 0.1, `independent ramp peak bound ${rampBound}`);
+  assert.ok(rampBound + 0.12 < 0.22, `ramp + independent bite peak bound ${rampBound + 0.12}`);
+  for (const kind of ['day', 'night']) {
+    const relativeDb = 20 * Math.log10(NATURE_BASE_GAIN * rms.nature / rms[kind]);
+    assert.ok(relativeDb > -15.3 && relativeDb < -13.6, `${kind}: nature relative RMS ${relativeDb}dB`);
+    let energy = 0, peak = 0;
+    for (let i = 0; i < pcm[kind].length; i++) {
+      const value = (pcm[kind][i] + NATURE_BASE_GAIN * pcm.nature[i]) * AMBIENT_GAIN;
+      assert.ok(Number.isFinite(value));
+      energy += value ** 2; peak = Math.max(peak, Math.abs(value));
+    }
+    const changeDb = 20 * Math.log10(Math.sqrt(energy / pcm[kind].length) / (rms[kind] * AMBIENT_GAIN));
+    assert.ok(changeDb >= 0 && changeDb < 0.2, `${kind}: mixed RMS change ${changeDb}dB`);
+    assert.ok(peak < 0.04, `${kind}: mixed peak ${peak}`);
+  }
 });

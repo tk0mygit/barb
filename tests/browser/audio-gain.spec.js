@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { test, expect } from './diagnostics-fixture.js';
 
-test('native offline gain output stays continuous at 30/60/144fps and irregular updates, including pause/resume', async ({ page }, info) => {
+async function loadAudioModules(page) {
   // Serve the actual production modules through test-only routes, as in the UI
   // fixture. No game hooks or source changes are needed for offline rendering.
   await page.route('**/barb/src/**', route => {
@@ -10,9 +10,13 @@ test('native offline gain output stays continuous at 30/60/144fps and irregular 
   });
   await page.route('**/barb/audio-gain.html', route => route.fulfill({ body: '<!doctype html><title>Offline gain verification</title>', contentType: 'text/html' }));
   await page.goto('./audio-gain.html');
+}
+
+test('native offline gain output stays continuous at 30/60/144fps and irregular updates, including pause/resume', async ({ page }, info) => {
+  await loadAudioModules(page);
   const results = await page.evaluate(async () => {
     const { createAmbientPlayer, AMBIENT_GAIN } = await import('./src/audio/ambient-player.js');
-    const { sampleAudioMix } = await import('./src/audio/audio-mix.js');
+    const { sampleAudioMix, NATURE_BASE_GAIN } = await import('./src/audio/audio-mix.js');
     const { createGameClock } = await import('./src/game/game-clock.js');
     const results = [], rate = 22050, duration = 52;
     for (const fallback of [false, true]) {
@@ -101,7 +105,7 @@ test('native offline gain output stays continuous at 30/60/144fps and irregular 
           stepSamples: [...data.subarray(Math.max(0, maximumStepIndex - 2), maximumStepIndex + 3)],
           crossfadeMinimumTime: crossfadeMinimumIndex / rate,
           crossfadeMinimumAction: events.filter(event => event.actualTime <= crossfadeMinimumIndex / rate).at(-1)?.label ?? 'initial-play',
-          liveSources, gains: gains.length, expectedLevel: AMBIENT_GAIN * 0.4 });
+          liveSources, gains: gains.length, expectedLevel: AMBIENT_GAIN * 0.4 * (1 + NATURE_BASE_GAIN) });
         player.dispose();
       }
     }
@@ -123,4 +127,62 @@ test('native offline gain output stays continuous at 30/60/144fps and irregular 
     expect(result.sources).toBe(6); expect(result.peakSources).toBe(3);
     expect(result.liveSources).toBe(3); expect(result.generations).toBe(1); expect(result.gains).toBe(8);
   }
+});
+
+test('native production PCM bounds layered output and all twilight/dense transitions at volume 100', async ({ page }, info) => {
+  await loadAudioModules(page);
+  const results = await page.evaluate(async () => {
+    const { createAmbientPlayer } = await import('./src/audio/ambient-player.js');
+    const { sampleAudioMix } = await import('./src/audio/audio-mix.js');
+    const { createGameClock } = await import('./src/game/game-clock.js');
+    const results = [], rate = 22050, duration = 24.24;
+    for (const [name, start, transition] of [['day', 60, false], ['night-clear', 240, false],
+      ['night-fog', 2790, false], ['night-dense-fog', 960, false], ['sunset', 168, true],
+      ['sunrise', 348, true], ['dense-fog-arrives', 896, true], ['dense-fog-clears', 1064, true]]) {
+      const offline = new OfflineAudioContext(1, Math.round(rate * duration), rate);
+      const player = createAmbientPlayer();
+      const play = () => {
+        const clock = createGameClock(undefined, { elapsedSeconds: start + offline.currentTime }).state;
+        player.play(offline, sampleAudioMix(clock), 100, clock.elapsedSeconds);
+      };
+      play();
+      // Exercise native AudioParam retargets using the real 24s PCM and player.
+      const times = transition ? Array.from({ length: Math.floor(duration * 60) }, (_, i) => (i + 1) / 60)
+        .filter(time => time < duration) : [];
+      let suspended = times.length ? offline.suspend(times[0]) : undefined;
+      const rendering = offline.startRendering();
+      for (let i = 0; i < times.length; i++) {
+        await suspended; play();
+        if (times[i + 1]) suspended = offline.suspend(times[i + 1]);
+        await offline.resume();
+      }
+      const data = (await rendering).getChannelData(0);
+      let peak = 0, maximumStep = 0, clipped = 0, nonFinite = 0, energy = 0;
+      for (let i = 0; i < data.length; i++) {
+        peak = Math.max(peak, Math.abs(data[i]));
+        if (i) maximumStep = Math.max(maximumStep, Math.abs(data[i] - data[i - 1]));
+        if (Math.abs(data[i]) >= 1) clipped++;
+        if (!Number.isFinite(data[i])) nonFinite++;
+        // A complete 24s loop after the player's initial fade.
+        if (i >= Math.round(0.12 * rate) && i < Math.round(24.12 * rate)) energy += data[i] ** 2;
+      }
+      results.push({ name, start, peak, maximumStep, clipped, nonFinite, rms: Math.sqrt(energy / (rate * 24)) });
+      player.dispose();
+    }
+    return results;
+  });
+  const path = info.outputPath('native-layered-pcm.json');
+  writeFileSync(path, JSON.stringify(results, null, 2));
+  await info.attach('native-layered-pcm', { path, contentType: 'application/json' });
+  expect(results).toHaveLength(8);
+  for (const result of results) {
+    expect(result.nonFinite).toBe(0); expect(result.clipped).toBe(0);
+    expect(result.peak).toBeGreaterThan(0.001); expect(result.peak).toBeLessThan(0.04);
+    expect(result.maximumStep).toBeLessThan(0.0061);
+  }
+  for (const [index, originalRms] of [[0, 0.031305474682915224], [1, 0.02641287173963192], [2, 0.02641287173963192]]) {
+    const changeDb = 20 * Math.log10(results[index].rms / (originalRms * 0.3));
+    expect(changeDb).toBeGreaterThanOrEqual(0); expect(changeDb).toBeLessThan(0.2);
+  }
+  expect(results[1].rms).toBeCloseTo(results[2].rms, 8);
 });
