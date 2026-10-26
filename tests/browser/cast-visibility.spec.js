@@ -8,6 +8,9 @@ import { createBoatState } from '../../src/game/boat.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 import { createSaveData } from '../../src/game/save-data.js';
 import { shoreRadius } from '../../src/world/config.js';
+import { prepareSceneryReference } from './lake-scenery-reference.js';
+import { LURES } from '../../src/game/lures.js';
+import { performance } from 'node:perf_hooks';
 
 const profiles = [
   { id: 'pc', width: 1000, height: 700, touch: false },
@@ -20,19 +23,26 @@ const panel = page => page.locator('#fishing-panel');
 const read = page => page.evaluate(() => window.castProbe);
 const separated = (a, b) => a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
 
+function assertLine(snapshot) {
+  expect(snapshot.line.visible).toBe(true);
+  expect(snapshot.line.points[0].normalized[0]).toBeCloseTo(0.58, 5);
+  expect(snapshot.line.points[0].normalized[1]).toBeCloseTo(0.57, 5);
+  for (let i = 0; i < 3; i++) expect(snapshot.line.points[1].world[i]).toBeCloseTo(snapshot.lure.world[i], 5);
+}
+
 function savedSession(rodLevel, boatPosition = { x: 0, z: 30, heading: 0 }) {
   const collection = createCatchCollection({ initialData: { catches: [], wallet: { balance: 0, lifetimeSales: 0 }, equipment: { rodLevel, reelLevel: 1 } } });
   return createSaveData({ collection, achievements: createAchievements({ collection }), boat: createBoatState(boatPosition),
     clock: createGameClock(undefined, { elapsedSeconds: 90 }) });
 }
 
-async function setup(createContext, profile, rodLevel = 1, boatPosition, randomValue = 0) {
+async function setup(createContext, profile, rodLevel = 1, boatPosition, randomValue = 0, options = {}) {
   const context = await createContext({ viewport: { width: profile.width, height: profile.height },
-    hasTouch: profile.touch, isMobile: profile.touch, deviceScaleFactor: 0.5 });
+    hasTouch: profile.touch, isMobile: profile.touch, deviceScaleFactor: options.dpr ?? 0.5 });
   const page = await context.newPage();
   // Save seeding is an initial condition. All preparation, aim, casts and phase
   // changes below use the production application and native pointer events.
-  await page.addInitScript(({ data, randomValue }) => {
+  await page.addInitScript(({ data, randomValue, legacy }) => {
     localStorage.setItem('barb.save.v1.slotA', JSON.stringify({ storageVersion: 1, generation: 1, data }));
     Math.random = () => randomValue;
     window.__THREE_DEVTOOLS__ = new EventTarget();
@@ -41,11 +51,22 @@ async function setup(createContext, profile, rodLevel = 1, boatPosition, randomV
       const render = renderer.render;
       renderer.render = function(scene, camera) {
         const result = render.call(this, scene, camera);
-        let ring, lure;
+        window.castRenderCount = (window.castRenderCount ?? 0) + 1;
+        const gl = this.getContext();
+        window.castMetrics = { calls: this.info.render.calls, triangles: this.info.render.triangles,
+          geometries: this.info.memory.geometries, textures: this.info.memory.textures, programs: this.info.programs.length,
+          buffer: [gl.drawingBufferWidth, gl.drawingBufferHeight], pixelRatio: this.getPixelRatio(),
+          gpuTimerAvailable: Boolean(gl.getExtension('EXT_disjoint_timer_query_webgl2')) };
+        // Projection diagnostics are excluded from timed performance samples.
+        if (window.castProbePaused) return result;
+        let ring, lure, line;
         scene.traverse(object => {
           if (object.geometry?.type === 'RingGeometry' && object.geometry.parameters.outerRadius === 0.7) ring = object;
-          if (object.geometry?.type === 'SphereGeometry' && object.geometry.parameters.radius === 0.13) lure = object;
+          if (object.name === 'fishing-lure') lure = object;
+          // Only the archived before-build uses the old sphere identifier.
+          if (legacy && object.geometry?.type === 'SphereGeometry' && object.geometry.parameters.radius === 0.13) lure = object;
         });
+        line = ring?.parent.children.find(object => object.isLine);
         const visible = object => object && object.visible && (!object.parent || visible(object.parent));
         const project = vector => {
           const ndc = vector.clone().project(camera);
@@ -57,7 +78,8 @@ async function setup(createContext, profile, rodLevel = 1, boatPosition, randomV
           for (let i = 0; i < position.count; i++) {
             points.push(project(object.localToWorld(object.position.clone().set(position.getX(i), position.getY(i), position.getZ(i)))));
           }
-          return { visible: Boolean(visible(object)), world: object.position.toArray(), scale: object.scale.toArray(),
+          return { visible: Boolean(visible(object)), lureId: object.userData.lureId, geometryId: object.geometry.id, materialId: object.material.id,
+            world: object.position.toArray(), scale: object.scale.toArray(),
             center: project(object.getWorldPosition(object.position.clone())),
             bounds: { left: Math.min(...points.map(p => p.x)), right: Math.max(...points.map(p => p.x)),
               top: Math.min(...points.map(p => p.y)), bottom: Math.max(...points.map(p => p.y)) },
@@ -68,16 +90,23 @@ async function setup(createContext, profile, rodLevel = 1, boatPosition, randomV
           .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden')
           .map(element => ({ id: element.id || element.className, ...element.getBoundingClientRect().toJSON() }));
         window.castProbe = { phase: document.querySelector('#fishing-panel').dataset.phase,
+          elapsed: scene.getObjectByName('lake-water').material.uniforms.time.value,
           viewport: { width: innerWidth, height: innerHeight },
           camera: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(),
             pitch: Math.asin(direction.y), heading: Math.atan2(direction.x, -direction.z), aspect: camera.aspect, fov: camera.fov },
-          ring: mesh(ring), lure: mesh(lure), obstacles };
+          ring: mesh(ring), lure: mesh(lure), obstacles,
+          line: line && { visible: Boolean(visible(line)), points: [0, 1].map(i => {
+            const position = line.geometry.attributes.position;
+            const world = line.position.clone().fromBufferAttribute(position, i).applyMatrix4(line.matrixWorld);
+            const screen = project(world);
+            return { world: world.toArray(), ...screen, normalized: [screen.x / innerWidth, screen.y / innerHeight] };
+          }) } };
         return result;
       };
     });
-  }, { data: savedSession(rodLevel, boatPosition), randomValue });
+  }, { data: savedSession(rodLevel, boatPosition), randomValue, legacy: Boolean(options.legacy) });
   await installPausedClock(page);
-  await page.goto('./'); await tick(page);
+  await page.goto(options.baseURL ?? './'); await tick(page);
   await expect(page.locator('#status')).toBeHidden();
   await expect(page.locator('#error')).toBeHidden();
   const click = selector => activateButton(page.locator(selector), profile.touch);
@@ -172,6 +201,7 @@ async function castAndReturn(page, input, prediction, info, id) {
   await expect(panel(page)).toHaveAttribute('data-phase', 'lure');
   const landing = await read(page);
   assertSafe(landing, { lure: true });
+  assertLine(landing);
   expect(Math.abs(landing.ring.world[0] - prediction.ring.world[0])).toBeLessThanOrEqual(1e-6);
   expect(Math.abs(landing.ring.world[2] - prediction.ring.world[2])).toBeLessThanOrEqual(1e-6);
   expect(landing.camera.position).toEqual(prediction.camera.position);
@@ -186,7 +216,7 @@ async function castAndReturn(page, input, prediction, info, id) {
   for (let i = 0; i < 24 && await panel(page).getAttribute('data-phase') !== 'ready'; i++) {
     await tick(page);
     const snapshot = await read(page);
-    if (['lure', 'bite'].includes(snapshot.phase)) { assertSafe(snapshot, { lure: true }); samples.push(snapshot); }
+    if (['lure', 'bite'].includes(snapshot.phase)) { assertSafe(snapshot, { lure: true }); assertLine(snapshot); samples.push(snapshot); }
   }
   await expect(panel(page)).toHaveAttribute('data-phase', 'ready');
   expect(samples.some(s => s.phase === 'bite')).toBe(true);
@@ -488,4 +518,188 @@ test('cast visibility: near retrieval and BITE keep readable world markers above
   assertSafe(bite, { lure: true });
   expect(bite.camera.quaternion).toEqual(prediction.camera.quaternion);
   await save(page, info, 'near-bite', bite);
+});
+
+// Local before/after review uses an archived, separately built main. It never
+// checks out another ref into the working tree or changes production state.
+test.describe('fishing visuals evidence', () => {
+  let reference;
+  test.beforeAll(async ({}, info) => {
+    if (process.env.BARB_FISHING_BASE_SHA) reference = await prepareSceneryReference(info, process.env.BARB_FISHING_BASE_SHA);
+  });
+  test.afterAll(async ({}, info) => { await reference?.dispose(info); });
+  const visualProfiles = [...profiles, { id: 'short', width: 640, height: 320, touch: true }];
+  for (const profile of visualProfiles) for (const { id } of LURES) {
+    test(`${profile.id} ${id}: selected shape, line origin, complete projection and rendering cost`, async ({ createContext }, info) => {
+      const captures = [];
+      for (const target of reference ? ['before', 'after'] : ['after']) {
+        const legacy = target === 'before';
+        const { page, context, click, input } = await setup(createContext, profile, 1, undefined, 0.5,
+          { dpr: profile.touch ? 2 : 1, legacy, baseURL: legacy ? reference.baseURL : undefined });
+        await click(`[data-lure-id="${id}"]`);
+        await tick(page);
+        await expect(page.locator(`[data-lure-id="${id}"]`)).toHaveAttribute('aria-pressed', 'true');
+        const prediction = await aim(page, click, input, 0, 8, profile);
+        await input.up(); await page.clock.runFor(16);
+        await expect(panel(page)).toHaveAttribute('data-phase', 'cast');
+        await expect(page.locator('#lure-picker')).toBeHidden();
+        // Explicit negative input: a hidden picker must still be rejected by
+        // the real state API, without swapping an in-flight model.
+        await page.locator(`[data-lure-id="${id === 'minnow' ? 'worm' : 'minnow'}"]`).evaluate(button => button.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+        await page.clock.runFor(16);
+        const flight = await read(page);
+        if (!legacy) { expect(flight.lure.lureId).toBe(id); assertLine(flight); }
+        await save(page, info, `${target}-${id}-flight`, flight);
+        const b = flight.lure.bounds;
+        const detailPath = info.outputPath(`${target}-${id}-detail.png`);
+        const left = Math.max(0, Math.floor(b.left) - 8), top = Math.max(0, Math.floor(b.top) - 8);
+        await page.screenshot({ path: detailPath, clip: { x: left, y: top,
+          width: Math.min(profile.width, Math.ceil(b.right) + 8) - left,
+          height: Math.min(profile.height, Math.ceil(b.bottom) + 8) - top } });
+        await info.attach(`${target}-${id}-detail`, { path: detailPath, contentType: 'image/png' });
+        for (let i = 0; i < 5 && await panel(page).getAttribute('data-phase') === 'cast'; i++) await tick(page);
+        await expect(panel(page)).toHaveAttribute('data-phase', 'lure');
+        const landing = await read(page);
+        assertSafe(landing, { lure: true });
+        expect(landing.ring.world).toEqual(prediction.ring.world);
+        if (!legacy) { expect(landing.lure.lureId).toBe(id); assertLine(landing); }
+        await save(page, info, `${target}-${id}-8m`, landing);
+        const cdp = await context.newCDPSession(page);
+        await cdp.send('Performance.enable');
+        // Warm ordinary production frames, then time identical frame counts.
+        // Full-resolution screenshots above retain the actual device policy.
+        await page.evaluate(() => { window.castProbePaused = true; });
+        await page.clock.runFor(48);
+        const warm = await page.evaluate(() => window.castMetrics), samples = [];
+        const metric = (result, name) => result.metrics.find(m => m.name === name).value;
+        // Paired CPU sampling belongs to the explicit local comparison. The
+        // ordinary CI case still checks the complete rendered model/input and
+        // projection, without repeating the dedicated mobile performance job.
+        for (let batch = 0; batch < (reference ? 3 : 0); batch++) {
+          const frames = await page.evaluate(() => window.castRenderCount);
+          const start = await cdp.send('Performance.getMetrics'), begin = performance.now();
+          await page.clock.runFor(96);
+          const wallMs = performance.now() - begin, end = await cdp.send('Performance.getMetrics');
+          const last = await page.evaluate(() => ({ metrics: window.castMetrics, frames: window.castRenderCount }));
+          expect(last.frames - frames).toBe(6);
+          expect(last.metrics).toEqual(warm);
+          samples.push({ frames: 6, wallMs, cpuTaskMs: (metric(end, 'TaskDuration') - metric(start, 'TaskDuration')) * 1000,
+            jsHeapBytes: metric(end, 'JSHeapUsedSize') });
+        }
+        await page.evaluate(() => { window.castProbePaused = false; });
+        await page.clock.runFor(16);
+        captures.push({ target, baseSha: reference?.sha, profile, id, prediction, flight, landing, resources: warm, samples });
+        await context.close();
+      }
+      if (reference) {
+        const [before, after] = captures;
+        expect(after.landing.ring.world).toEqual(before.landing.ring.world);
+        for (const axis of [0, 2]) expect(after.landing.lure.world[axis]).toBe(before.landing.lure.world[axis]);
+        // rAF's first partial frame differs between navigations. Prove the
+        // unchanged bob against each build's actual shared animation clock.
+        for (const capture of captures) expect(capture.landing.lure.world[1]).toBeCloseTo(0.15 + Math.sin(capture.landing.elapsed * 7) * 0.035, 12);
+        expect(after.landing.camera).toEqual(before.landing.camera);
+        expect(after.resources.calls).toBe(before.resources.calls);
+        expect(after.resources.geometries).toBe(before.resources.geometries);
+        expect(after.resources.textures).toBe(before.resources.textures);
+        expect(after.resources.programs).toBe(before.resources.programs);
+        const modelTriangles = { minnow: 80, crankbait: 84, worm: 192, spinnerbait: 304 };
+        expect(after.resources.triangles).toBe(before.resources.triangles - 80 + modelTriangles[id]);
+        expect(after.resources.buffer).toEqual(before.resources.buffer);
+      }
+      const path = info.outputPath('comparison.json');
+      await writeFile(path, JSON.stringify(captures, null, 2));
+      await info.attach('fishing-visual-comparison', { path, contentType: 'application/json' });
+    });
+  }
+});
+
+for (const profile of [profiles[0], profiles[1]]) {
+  test(`line continuity: ${profile.id} yaw, action, BITE, tracking FIGHT and rotated LANDING`, async ({ createContext }, info) => {
+    const { page, input, click } = await setup(createContext, profile, 1, undefined, 0.5);
+    await click('[data-lure-id="spinnerbait"]'); await tick(page);
+    // Change the real READY yaw before preparing the cast.
+    await input.down(40, profile.height * 0.48); await input.move(220, profile.height * 0.48);
+    await tick(page); await input.up();
+    for (let i = 0; i < 4; i++) await tick(page);
+    const prediction = await aim(page, click, input, 0, 8, profile);
+    expect(Math.abs(prediction.camera.heading)).toBeGreaterThan(0.5);
+    await input.up();
+    const phases = new Set();
+    const observe = async () => {
+      const snapshot = await read(page);
+      phases.add(snapshot.phase); assertLine(snapshot);
+      expect(snapshot.lure.lureId).toBe('spinnerbait');
+      return snapshot;
+    };
+    await page.clock.runFor(16); await observe();
+    for (let i = 0; i < 5 && await panel(page).getAttribute('data-phase') === 'cast'; i++) await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'lure');
+    await observe();
+    // A native short drag exercises the production action displacement.
+    const x = profile.width / 2, y = profile.height * 0.48;
+    await input.down(x, y); await input.move(x + 40, y); await input.up();
+    await page.clock.runFor(16);
+    await expect(page.locator('#reel-state')).toHaveText('ルアーアクション');
+    const action = await observe();
+    expect(action.lure.world[1]).toBeGreaterThan(0.19);
+    await save(page, info, 'connected-action-after-yaw', action);
+    for (let i = 0; i < 80 && await panel(page).getAttribute('data-phase') !== 'bite'; i++) { await tick(page); await observe(); }
+    await expect(panel(page)).toHaveAttribute('data-phase', 'bite');
+    await save(page, info, 'connected-bite', await observe());
+    await input.down(x, y); await input.up(); await page.clock.runFor(16);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'fight'); await observe();
+    const rotatedSize = profile.touch ? { width: 844, height: 390 } : { width: 390, height: 844 };
+    await resizeAndObserve(page, rotatedSize);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'fight');
+    await save(page, info, 'connected-rotated-fight', await observe());
+    let held = false;
+    for (let i = 0; i < 140 && await panel(page).getAttribute('data-phase') === 'fight'; i++) {
+      const tension = await page.locator('#line-tension').evaluate(el => el.value);
+      if (!held && tension < 0.3) { await input.down(rotatedSize.width / 2, rotatedSize.height * 0.48); held = true; }
+      else if (held && tension > 0.58) { await input.up(); held = false; }
+      await tick(page); await observe();
+    }
+    if (held) await input.up();
+    await expect(panel(page)).toHaveAttribute('data-phase', 'landing');
+    await save(page, info, 'connected-landing', await observe());
+    expect([...phases]).toEqual(['cast', 'lure', 'bite', 'fight', 'landing']);
+    for (let i = 0; i < 6 && await panel(page).getAttribute('data-phase') === 'landing'; i++) await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'result');
+    expect((await read(page)).line.visible).toBe(false);
+    await click('#close-catch'); await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'ready');
+  });
+}
+
+test('lure resource reuse: all four selections and repeated casts keep one draw, one material and bounded GPU allocations', async ({ createContext }, info) => {
+  const { page, input, click } = await setup(createContext, profiles[0]);
+  const ids = new Map(), samples = [];
+  let first, allInitialized;
+  for (let cycle = 0; cycle < 2; cycle++) for (const { id } of LURES) {
+    await click(`[data-lure-id="${id}"]`); await tick(page);
+    await aim(page, click, input, 0, 8, profiles[0]); await input.up();
+    for (let i = 0; i < 5 && await panel(page).getAttribute('data-phase') !== 'lure'; i++) await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'lure');
+    const snapshot = await read(page), resources = await page.evaluate(() => window.castMetrics);
+    expect(snapshot.lure.lureId).toBe(id); assertSafe(snapshot, { lure: true }); assertLine(snapshot);
+    if (!cycle) ids.set(id, snapshot.lure.geometryId);
+    else expect(snapshot.lure.geometryId).toBe(ids.get(id));
+    first ??= { snapshot, resources };
+    expect(snapshot.lure.materialId).toBe(first.snapshot.lure.materialId);
+    expect(resources.calls).toBe(first.resources.calls);
+    expect(resources.textures).toBe(first.resources.textures);
+    expect(resources.programs).toBe(first.resources.programs);
+    expect(resources.geometries).toBeLessThanOrEqual(first.resources.geometries + 3);
+    if (cycle) expect(resources.geometries).toBe(allInitialized);
+    if (!cycle && id === 'spinnerbait') allInitialized = resources.geometries;
+    samples.push({ cycle, id, geometryId: snapshot.lure.geometryId, materialId: snapshot.lure.materialId, resources });
+    for (let i = 0; i < 32 && await panel(page).getAttribute('data-phase') !== 'ready'; i++) await tick(page);
+    await expect(panel(page)).toHaveAttribute('data-phase', 'ready');
+  }
+  expect(ids.size).toBe(4); expect(new Set(ids.values()).size).toBe(4);
+  expect(allInitialized).toBe(first.resources.geometries + 3);
+  const path = info.outputPath('four-lure-resource-reuse.json');
+  await writeFile(path, JSON.stringify(samples, null, 2));
+  await info.attach('four-lure-resource-reuse', { path, contentType: 'application/json' });
 });

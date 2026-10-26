@@ -241,12 +241,128 @@ const artworkViewports = [
   { label: 'mobile-portrait', viewport: { width: 390, height: 844 }, touch: true },
   { label: 'mobile-landscape', viewport: { width: 844, height: 390 }, touch: true },
 ];
+
+// Observe real dispose() calls without changing loading, input or cancellation.
+// Match a disposal to the exact in-flight Request, never a URL-wide exception.
+async function observeCollectionImageRequests(page) {
+  const requests = new Map(), pending = new Set(), disposals = new Map();
+  page.on('request', request => {
+    if (request.resourceType() !== 'image') return;
+    requests.set(request, { id: requests.size + 1, url: request.url(), outcome: 'pending' });
+    pending.add(request);
+  });
+  page.on('requestfinished', request => {
+    if (requests.has(request)) requests.get(request).outcome = 'finished';
+    pending.delete(request);
+  });
+  page.on('requestfailed', request => {
+    if (requests.has(request)) Object.assign(requests.get(request), { outcome: 'failed', error: request.failure()?.errorText });
+    pending.delete(request);
+  });
+  await page.exposeBinding('recordFishImageDisposal', (_, { phase, key, ...sample }) => {
+    if (phase === 'before') {
+      const candidates = [...pending].filter(request => request.url() === sample.url);
+      disposals.set(key, { before: sample, request: candidates.length === 1 ? candidates[0] : null });
+    } else if (disposals.has(key)) disposals.get(key).after = sample;
+  });
+  await page.addInitScript(() => {
+    let transition, serial = 0;
+    document.addEventListener('click', event => {
+      const button = event.target.closest?.('button');
+      if (!event.isTrusted || !button?.matches('button.fish-card, #collection-back, #collection-close, [data-view]')) return;
+      transition = { event, trigger: button.id || button.dataset.view || `fish-slot-${button.dataset.slot}` };
+    }, true);
+    const remove = Element.prototype.removeAttribute;
+    Element.prototype.removeAttribute = function(name) {
+      if (name !== 'src' || !(this instanceof HTMLImageElement) || !transition?.event.eventPhase || !this.closest('#collection-content')) return remove.apply(this, arguments);
+      const key = `${performance.timeOrigin}:${++serial}`;
+      const before = { url: this.src, complete: this.complete, connected: this.isConnected,
+        transition: { trigger: transition.trigger, trusted: transition.event.isTrusted },
+        title: document.querySelector('#collection-title').textContent, stack: new Error().stack };
+      window.recordFishImageDisposal({ phase: 'before', key, ...before });
+      const result = remove.apply(this, arguments);
+      queueMicrotask(() => window.recordFishImageDisposal({ phase: 'after', key, src: this.getAttribute('src'),
+        connected: this.isConnected, title: document.querySelector('#collection-title').textContent,
+        dialogOpen: document.querySelector('#collection-dialog').open }));
+      return result;
+    };
+  });
+  return async () => {
+    await expect.poll(() => pending.size).toBe(0);
+    await page.evaluate(() => {}); // Flush the observer bindings after the native action.
+    const expectedCancellations = [], unexpectedFailures = [];
+    for (const [request, record] of requests) {
+      if (record.outcome !== 'failed') continue;
+      const matches = [...disposals.entries()].filter(([, disposal]) => {
+        const { before, after } = disposal;
+        return disposal.request === request && record.error === 'net::ERR_ABORTED'
+          && /^\/barb\/src\/assets\/fish\/[\w-]+\.png$/.test(new URL(record.url).pathname)
+          && before.complete === false && before.connected && before.transition.trusted
+          && /at Object\.dispose \([^\n]*\/src\/ui\/fish-image-loader\.js:\d+:\d+\)/.test(before.stack)
+          && /at (render|finishClose) \([^\n]*\/src\/ui\/collection-menu\.js:\d+:\d+\)/.test(before.stack)
+          && after?.src === null && ((!after.connected && after.dialogOpen && after.title !== before.title)
+            || (before.transition.trigger === 'collection-close' && !after.dialogOpen));
+      });
+      if (matches.length === 1) expectedCancellations.push({ ...record, disposalKey: matches[0][0] });
+      else unexpectedFailures.push(record);
+    }
+    return { requests: [...requests.values()], expectedCancellations, unexpectedFailures,
+      disposals: [...disposals].map(([key, { request, ...record }]) => ({ key, requestId: requests.get(request)?.id ?? null, ...record })) };
+  };
+}
+
+test('collection image audit identifies native dispose cancellation and subsequent production decode', async ({ createContext }, testInfo) => {
+  const context = await createContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  const audit = await observeCollectionImageRequests(page);
+  await openUIFixture(page, allSpeciesLegacySave());
+  let release, started;
+  const gate = new Promise(resolve => { release = resolve; }), requested = new Promise(resolve => { started = resolve; });
+  let first = true;
+  await page.route('**/barb/src/assets/fish/black-bass.png', async route => {
+    if (first) { first = false; started(); await gate; }
+    await route.fallback();
+  });
+  await page.locator('#menu-button').tap(); await page.locator('[data-view="encyclopedia"]').tap();
+  await requested;
+  const failed = page.waitForEvent('requestfailed', request => request.url().endsWith('/black-bass.png'));
+  await page.locator('button.fish-card').nth(2).tap();
+  expect((await failed).failure()?.errorText).toBe('net::ERR_ABORTED');
+  release();
+  await checkProductionImage(page.locator('.fish-detail img'), FISH_SPECIES[2]);
+  await page.locator('#collection-back').tap();
+  await checkProductionImage(page.locator('button.fish-card img').first(), BLACK_BASS, { inspectPixels: true });
+  const report = await audit();
+  const path = testInfo.outputPath('image-request-audit.json');
+  await writeFile(path, JSON.stringify(report, null, 2));
+  await testInfo.attach('image-request-audit', { path, contentType: 'application/json' });
+  expect(report.unexpectedFailures).toEqual([]);
+  expect(report.expectedCancellations).toHaveLength(1);
+  expect(report.expectedCancellations[0].url).toMatch(/\/black-bass\.png$/);
+});
+
+for (const error of ['aborted', 'failed']) {
+  test(`collection image audit rejects an active image network ${error}`, async ({ page }) => {
+    const audit = await observeCollectionImageRequests(page);
+    await openUIFixture(page, allSpeciesLegacySave());
+    await page.route('**/barb/src/assets/fish/black-bass.png', route => route.abort(error));
+    const failed = page.waitForEvent('requestfailed', request => request.url().endsWith('/black-bass.png'));
+    await page.locator('#menu-button').click(); await page.locator('[data-view="encyclopedia"]').click();
+    const request = await failed;
+    await expect(page.locator('button.fish-card img').first()).toHaveJSProperty('complete', true);
+    expect(await page.locator('button.fish-card img').first().evaluate(image => image.decode().then(() => true, () => false))).toBe(false);
+    const report = await audit();
+    expect(report.expectedCancellations).toEqual([]);
+    expect(report.unexpectedFailures).toEqual([{ id: 1, url: request.url(), outcome: 'failed', error: request.failure().errorText }]);
+  });
+}
+
 for (const { label, viewport, touch } of artworkViewports) {
   test(`${label}: twelve production PNGs decode and agree in legacy grid, detail, storage and catches`, async ({ createContext }, testInfo) => {
     const context = await createContext({ viewport, hasTouch: touch, isMobile: touch });
     const page = await context.newPage(), errors = [], imageResponses = [], pendingResponses = [];
+    const imageRequestAudit = await observeCollectionImageRequests(page);
     page.on('pageerror', error => errors.push(error.message));
-    page.on('requestfailed', request => { if (request.resourceType() === 'image') errors.push(`${request.url()}: ${request.failure()?.errorText}`); });
     page.on('response', response => {
       if (/\/src\/assets\/fish\/[\w-]+\.png$/.test(new URL(response.url()).pathname)) {
         pendingResponses.push(response.body().then(body => imageResponses.push({ url: response.url(), status: response.status(), bytes: body.length })));
@@ -336,14 +452,16 @@ for (const { label, viewport, touch } of artworkViewports) {
       const state = await checkProductionImage(page.locator(`[data-catch-id="legacy-${fish.id}"] img`), fish);
       expect(state.src).toBe(gridImages.get(fish.id));
     }
-    expect(errors).toEqual([]);
+    const imageRequests = await imageRequestAudit();
+    errors.push(...imageRequests.unexpectedFailures.map(({ url, error }) => `${url}: ${error}`));
     const report = { scope: 'real UI/domain modules with schema-v1 restored save; complete encyclopedia after scrolling every lazy card; original production PNGs, no HTTP compression', viewport,
       initialFishPngCount: 0, gridLoadedImages: gridLoading,
       gridImageBytes: gridLoading.reduce((sum, response) => sum + response.bytes, 0),
-      decodedImages: decoded, imageErrors: errors };
+      decodedImages: decoded, imageErrors: errors, imageRequests };
     const path = testInfo.outputPath(`${label}-image-loading.json`);
     await writeFile(path, JSON.stringify(report, null, 2));
     await testInfo.attach(`${label}-image-loading`, { path, contentType: 'application/json' });
+    expect(errors).toEqual([]);
     if (label === 'desktop') {
       const reviewContext = await createContext({ viewport: { width: 1280, height: 800 } });
       const reviewDirectory = testInfo.outputPath('artwork-review');

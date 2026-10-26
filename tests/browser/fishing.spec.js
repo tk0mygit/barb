@@ -214,10 +214,14 @@ test('mouse: blur/lost capture reset aim, over-tension fails and retry works', a
   // Bind clocks before the renderer starts and keep native pointer ordering.
   await setup(page, { paused: true });
   const tick = () => page.clock.fastForward(250);
-  const advanceTo = expected => expect.poll(async () => {
-    await tick();
-    return phase(page).getAttribute('data-phase');
-  }, { intervals: [0] }).toBe(expected);
+  const advanceTo = async expected => {
+    // This paused-clock case needs ~11 simulated seconds before BITE. On
+    // software WebGL, a 15s wall-clock poll can expire after only 9s of game
+    // time. Bound ordinary 250ms updates by simulation steps instead; stop at
+    // the first matching phase so the one-second hook window stays intact.
+    for (let frame = 0; frame < 64 && await phase(page).getAttribute('data-phase') !== expected; frame++) await tick();
+    await expect(phase(page)).toHaveAttribute('data-phase', expected);
+  };
   const input = await inputFor(page, false);
   await page.locator('#fish-button').click(); await tick();
   await expect(phase(page)).toHaveAttribute('data-phase', 'ready');

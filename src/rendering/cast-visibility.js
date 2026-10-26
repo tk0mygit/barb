@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { nearRingExpansion } from './fishing-visuals.js';
+import { LURE_FOOTPRINT_ENVELOPES } from './lure-models.js';
 
 // Include the largest splash (0.7 * 2.6), bite pulse (0.7 * 1.9),
 // and the lure's bob/action envelope. These are visual bounds, not distances.
@@ -10,7 +11,7 @@ const point = new THREE.Vector3();
 const union = (a, b) => ({ left: Math.min(a.left, b.left), right: Math.max(a.right, b.right),
   top: Math.min(a.top, b.top), bottom: Math.max(a.bottom, b.bottom), clipped: a.clipped || b.clipped });
 
-// Project the actual 40-sided ring plus a conservative box around the sphere.
+// Project the actual 40-sided ring plus all models' rotation/bob/action envelope.
 // CSS pixels deliberately do not depend on the renderer's backbuffer ratio.
 export function projectCastFootprint(camera, { x, z, radius = CAST_SPLASH_RADIUS }, { width, height }) {
   const ndc = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
@@ -25,8 +26,10 @@ export function projectCastFootprint(camera, { x, z, radius = CAST_SPLASH_RADIUS
     const angle = i * Math.PI * 2 / 40;
     include(x + Math.cos(angle) * radius, 0.12, z + Math.sin(angle) * radius);
   }
-  for (const dx of [-0.13, 0.13]) for (const dz of [-0.13, 0.13]) {
-    for (const y of [-0.015, 0.665]) include(x + dx, y, z + dz);
+  for (const envelope of LURE_FOOTPRINT_ENVELOPES) {
+    for (const dx of [-envelope.radius, envelope.radius]) for (const dz of [-envelope.radius, envelope.radius]) {
+      for (const y of [0.15 - 0.035 + envelope.minY, 0.15 + 0.035 + 0.35 + envelope.maxY]) include(x + dx, y, z + dz);
+    }
   }
   return { left: (1 + ndc.left) * width / 2, right: (1 + ndc.right) * width / 2,
     top: (1 + ndc.top) * height / 2, bottom: (1 + ndc.bottom) * height / 2, ndc, clipped };

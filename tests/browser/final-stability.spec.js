@@ -19,6 +19,17 @@ async function savedSlots(page) {
   return slots.sort((a, b) => b.generation - a.generation);
 }
 
+async function lureResources(page) {
+  return page.evaluate(() => {
+    const catalog = window.lightingProbe.resourceCatalog;
+    return {
+      selectedIds: [...document.querySelectorAll('#lure-picker [aria-pressed="true"]')].map(button => button.dataset.lureId),
+      geometries: catalog.fishing.filter(row => row.type === 'LureGeometry').map(({ id, initialized }) => ({ id, initialized })),
+      initializedGeometryIds: catalog.initializedGeometryIds,
+    };
+  });
+}
+
 // This is one bounded transaction/lifecycle regression, not a real-time soak.
 // Native input drives every cast and capture. Long virtual frames exercise the
 // active game clock/environment; fishing and movement retain their dt cap.
@@ -73,11 +84,23 @@ test('touch: repeated play, multi-cycle environment and reload keep resources an
     await resources.snapshot('initial-ready');
 
     let balance = 0, warmup;
+    const lureGeometries = new Map(), addedLureGeometryIds = new Set();
     const dispositions = [];
     for (let round = 0; round < 3; round++) {
-      await click(page.locator(`[data-lure-id="${round === 1 ? 'crankbait' : 'minnow'}"]`));
+      const lureId = round === 1 ? 'crankbait' : 'minnow';
+      await click(page.locator(`[data-lure-id="${lureId}"]`));
       await tick(page);
-      await expect(page.locator(`[data-lure-id="${round === 1 ? 'crankbait' : 'minnow'}"]`)).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.locator(`[data-lure-id="${lureId}"]`)).toHaveAttribute('aria-pressed', 'true');
+      const beforeCast = await lureResources(page);
+      expect(beforeCast.selectedIds).toEqual([lureId]);
+      expect(beforeCast.geometries).toHaveLength(1);
+      const geometryId = beforeCast.geometries[0].id, firstUse = !lureGeometries.has(lureId);
+      expect(beforeCast.geometries[0].initialized).toBe(!firstUse);
+      if (firstUse) {
+        expect([...lureGeometries.values()]).not.toContain(geometryId);
+        expect(beforeCast.initializedGeometryIds).not.toContain(geometryId);
+        lureGeometries.set(lureId, geometryId);
+      } else expect(geometryId).toBe(lureGeometries.get(lureId));
       await input.bite();
       const biteTime = await page.evaluate(() => performance.now());
       await input.hook();
@@ -134,8 +157,29 @@ test('touch: repeated play, multi-cycle environment and reload keep resources an
       }
       await settle(); await sampleAt([810, 2970, 3330][round]);
       const sample = await resources.snapshot(round === 0 ? 'warmup-ready' : `repeat-${round + 1}-ready`);
+      sample.lure = { id: lureId, geometryId, firstUse, beforeCast, ...await lureResources(page) };
+      expect(sample.lure.selectedIds).toEqual([lureId]);
+      expect(sample.lure.geometries).toEqual([{ id: geometryId, initialized: true }]);
+      expect(sample.lure.initializedGeometryIds).toContain(geometryId);
+      expect(sample.lure.initializedGeometryIds).toHaveLength(sample.renderer.resources.geometries);
       if (round === 0) warmup = sample;
-      else assertResourcePlateau(warmup, sample);
+      else {
+        const previous = resources.samples.at(-2).lure;
+        expect(beforeCast.initializedGeometryIds).toEqual(previous.initializedGeometryIds);
+        const expectedNewIds = firstUse ? [geometryId] : [];
+        sample.lure.expectedNewGeometryIds = expectedNewIds;
+        // A first-use increase must be exactly the selected lure's actual
+        // geometry. No other upload, replacement or disposal may hide in it.
+        expect(sample.lure.initializedGeometryIds.filter(id => !beforeCast.initializedGeometryIds.includes(id))).toEqual(expectedNewIds);
+        if (firstUse) addedLureGeometryIds.add(geometryId);
+        expect(sample.lure.initializedGeometryIds).toEqual([...warmup.lure.initializedGeometryIds, ...addedLureGeometryIds].sort((a, b) => a - b));
+        // Keep the original warmup camera/environment and every other counter.
+        // Only identified, newly drawn lure IDs contribute to this expectation.
+        const expectedGeometries = warmup.renderer.resources.geometries + addedLureGeometryIds.size;
+        expect(sample.renderer.resources.geometries).toBe(expectedGeometries);
+        assertResourcePlateau({ ...warmup, renderer: { ...warmup.renderer,
+          resources: { ...warmup.renderer.resources, geometries: expectedGeometries } } }, sample);
+      }
 
       await page.evaluate(() => { window.dispatchEvent(new Event('pagehide')); window.dispatchEvent(new Event('pageshow')); });
       const slots = await savedSlots(page);
