@@ -168,6 +168,7 @@ function allSpeciesLegacySave() {
 async function checkProductionImage(image, fish, { inspectPixels = false } = {}) {
   await image.scrollIntoViewIfNeeded();
   await expect(image).toBeVisible();
+  await expect(image).toHaveAttribute('src', /.+/);
   const state = await image.evaluate(async (img, inspectPixels) => {
     await img.decode();
     const box = img.getBoundingClientRect(), frame = img.parentElement.getBoundingClientRect();
@@ -265,7 +266,10 @@ for (const { label, viewport, touch } of artworkViewports) {
     const framesBefore = await page.locator('.fish-card .fish-image-frame').evaluateAll(nodes => nodes.map(node => ({ width: getComputedStyle(node).width, height: getComputedStyle(node).height })));
     for (const [index, fish] of FISH_SPECIES.entries()) {
       const state = await checkProductionImage(page.locator('button.fish-card img').nth(index), fish, { inspectPixels: true });
-      expect(state.loading).toBe('lazy'); gridImages.set(fish.id, state.src); decoded.push({ speciesId: fish.id, ...state });
+      // A fish is promoted from deferred/lazy to eager only when its frame
+      // enters the pane. fish-image-loading.spec verifies the initial boundary
+      // and request concurrency before any scrolling or completed downloads.
+      expect(state.loading).toBe('eager'); gridImages.set(fish.id, state.src); decoded.push({ speciesId: fish.id, ...state });
     }
     expect(new Set(decoded.map(image => image.src)).size).toBe(12);
     expect(new Set(decoded.map(image => image.decodedSha256)).size).toBe(12);
@@ -279,7 +283,7 @@ for (const { label, viewport, touch } of artworkViewports) {
     for (const [index, fish] of FISH_SPECIES.entries()) {
       await click(page.locator('button.fish-card').nth(index));
       const detail = await checkProductionImage(page.locator('.fish-detail img'), fish);
-      expect(detail.src).toBe(gridImages.get(fish.id)); expect(detail.loading).toBe('lazy');
+      expect(detail.src).toBe(gridImages.get(fish.id)); expect(detail.loading).toBe('eager');
       await expect(page.locator('.fish-description')).toHaveText(fish.description);
       if (['black-bass', 'bluegill', 'northern-pike'].includes(fish.id)) {
         await page.locator('#collection-dialog').screenshot({ path: testInfo.outputPath(`${label}-detail-${fish.id}.png`) });
@@ -290,7 +294,7 @@ for (const { label, viewport, touch } of artworkViewports) {
     await expect(page.locator('.stored-fish')).toHaveCount(12);
     for (const fish of FISH_SPECIES) {
       const state = await checkProductionImage(page.locator(`[data-catch-id="legacy-${fish.id}"] img`), fish);
-      expect(state.src).toBe(gridImages.get(fish.id)); expect(state.loading).toBe('lazy');
+      expect(state.src).toBe(gridImages.get(fish.id)); expect(state.loading).toBe('eager');
     }
     await page.locator('.stored-fish').first().scrollIntoViewIfNeeded();
     await page.locator('#collection-dialog').screenshot({ path: testInfo.outputPath(`${label}-storage.png`) });

@@ -80,6 +80,7 @@ button:disabled { opacity: 0.5; cursor: wait; }
 #catch-dialog h2 { font-size: 24px; font-weight: 400; letter-spacing: 3px; }
 .fish-image-frame { position: relative; display: block; width: 100%; aspect-ratio: 640 / 280; overflow: hidden; background: #ced5b6; border-radius: 4px; }
 .fish-image-frame > img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
+#catch-image-status { position: absolute; inset: 0; display: grid; place-items: center; color: #173d38; font-size: 14px; }
 #catch-dialog dl { display: flex; justify-content: space-around; margin: 24px 0; }
 #catch-dialog dt { font-size: 11px; opacity: 0.7; }
 #catch-dialog dd { margin: 8px 0 0; font-size: 27px; font-variant-numeric: tabular-nums; }
