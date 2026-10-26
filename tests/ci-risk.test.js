@@ -18,6 +18,9 @@ const fishPngSources = L1_GROUPS['fish-png'].sources;
 // Keep the required selection independent of the classifier's mapping.
 const fishPngSpecs = ['collection-menu', 'fish-assets', 'fish-sales', 'fishing', 'smoke-pc', 'smoke-touch']
   .map(name => `tests/browser/${name}.spec.js`).sort();
+const spotsHUD = 'src/ui/fishing-spots-hud.js';
+const spotsHUDSpecs = ['cast-visibility', 'fishing-spots', 'mobile-layout', 'smoke-pc', 'smoke-touch']
+  .map(name => `tests/browser/${name}.spec.js`).sort();
 
 test('README and explicitly reviewed explanatory docs are L0 without E2E', () => {
   for (const changes of [[change('README.md')], [change('docs/AUDIO_SYSTEM.md')],
@@ -50,6 +53,97 @@ test('multiple local source features select a deduplicated union', () => {
   assert.equal(plan.level, 'L1');
   assert.deepEqual(plan.specs, [...new Set([...SMOKE_SPECS, ...L1_GROUPS['ambient-output'].specs,
     ...L1_GROUPS['achievements-view'].specs, ...L1_GROUPS['equipment-view'].specs])].sort());
+});
+
+test('only the existing fishing spots HUD modification selects the five required specs', () => {
+  assert.deepEqual(L1_GROUPS['fishing-spots-hud'].sources, [spotsHUD]);
+  for (const documents of [[], ...L0_DOCUMENTS.map(path => [change(path)])]) {
+    const plan = classify([change(spotsHUD), ...documents]);
+    assert.equal(plan.level, 'L1'); assert.equal(plan.runE2E, true); assert.equal(plan.deploy, false);
+    assert.deepEqual(plan.specs, spotsHUDSpecs); assert.deepEqual(plan.smokeSpecs, SMOKE_SPECS);
+  }
+});
+
+test('fishing spots HUD additions, deletions, type changes, renames and copies require L2', () => {
+  const changes = ['A', 'D', 'T'].map(status => change(spotsHUD, status));
+  for (const status of ['R0', 'R75', 'R100', 'C0', 'C90', 'C100']) {
+    for (const other of ['src/ui/fishing-spots-hud-new.js', audio, 'README.md']) {
+      changes.push({ status, paths: [spotsHUD, other] }, { status, paths: [other, spotsHUD] });
+    }
+  }
+  for (const item of changes) {
+    const plan = classify([change('README.md'), item]);
+    assert.equal(plan.level, 'L2', JSON.stringify(item)); assert.deepEqual(plan.specs, availableSpecs);
+  }
+});
+
+test('fishing spots HUD cannot mix with any other L1 implementation or individual spec', () => {
+  for (const [name, group] of Object.entries(L1_GROUPS)) {
+    if (name === 'fishing-spots-hud') continue;
+    for (const path of [...group.sources, ...group.specs]) {
+      for (const changes of [[change(spotsHUD), change(path)], [change(path), change(spotsHUD)]]) {
+        const plan = classify(changes);
+        assert.equal(plan.level, 'L2', path); assert.deepEqual(plan.specs, availableSpecs);
+      }
+    }
+  }
+});
+
+test('fishing spots HUD with state, input, camera, shared UI or unknown files requires L2', () => {
+  for (const path of ['src/main.js', 'src/game/fishing-spots.js', 'src/world/fishing-spots.js',
+    'src/game/fishing.js', 'src/input/fishing.js', 'src/input/controls.js',
+    'src/rendering/camera.js', 'src/rendering/cast-visibility.js', 'src/rendering/fishing-spots.js',
+    'src/ui/cast-notices.js', 'src/ui/hud.js', 'src/ui/fishing-hud.js', 'src/ui/collection-menu.js',
+    'src/ui/sales-hud.js', 'src/ui/achievement-notice.js', 'src/ui/style.css', 'index.html',
+    'src/ui/fishing-spots-hud-new.js', 'src/ui/nested/fishing-spots-hud.js', 'unknown.txt']) {
+    for (const changes of [[change(spotsHUD), change(path)], [change(path), change(spotsHUD)]]) {
+      const plan = classify(changes);
+      assert.equal(plan.level, 'L2', path); assert.deepEqual(plan.specs, availableSpecs);
+    }
+  }
+});
+
+test('fishing spots HUD coverage specs remain L2 when changed alone or with the HUD', () => {
+  for (const spec of spotsHUDSpecs) {
+    for (const scope of [[change(spec)], [change(spotsHUD), change(spec)]]) {
+      const plan = classify(scope);
+      assert.equal(plan.level, 'L2', spec); assert.deepEqual(plan.specs, availableSpecs);
+    }
+  }
+});
+
+test('fishing spots HUD fails closed if any required spec, smoke or mapping is absent', () => {
+  for (const missing of spotsHUDSpecs) {
+    const plan = classify([change(spotsHUD)], { availableSpecs: availableSpecs.filter(path => path !== missing) });
+    assert.equal(plan.level, 'L2', missing); assert.match(plan.reasons.join(' '), /欠落/);
+  }
+  for (const group of [undefined, { specs: [] }]) {
+    const plan = classify([change(spotsHUD)], { groups: { ...L1_GROUPS, 'fishing-spots-hud': group } });
+    assert.equal(plan.level, 'L2'); assert.match(plan.reasons.join(' '), /空・不整合/);
+  }
+});
+
+test('fishing spots HUD requires its exact path and a complete NUL-delimited diff', () => {
+  const prefix = `M\0${spotsHUD}\0`;
+  assert.deepEqual(parseNameStatus(prefix), [change(spotsHUD)]);
+  for (const path of ['src/ui/fishing spots-hud.js', 'src/ui/fishing-spots-hud.js.bak',
+    'src/ui/Fishing-spots-hud.js', 'src/ui/fishing-spots\thud.js', 'src/ui/fishing-spots\nhud.js']) {
+    const plan = classify(parseNameStatus(`${prefix}M\0${path}\0`));
+    assert.equal(plan.level, 'L2', path);
+  }
+  for (const raw of [`${prefix}M`, `${prefix}R100\0${spotsHUD}\0`,
+    Buffer.concat([Buffer.from(prefix), Buffer.from([0x4d, 0, 0xff, 0])])]) {
+    assert.throws(() => parseNameStatus(raw));
+  }
+});
+
+test('the P4-A2 classifier PR itself requires the full L2 inventory', () => {
+  const changes = ['scripts/ci-risk.js', 'tests/ci-risk.test.js', 'docs/TESTING_WORKFLOW.md'].map(path => change(path));
+  for (const scope of [changes, [...changes, change(spotsHUD)]]) {
+    const plan = classify(scope);
+    assert.equal(plan.level, 'L2'); assert.equal(plan.runE2E, true); assert.equal(plan.deploy, false);
+    assert.deepEqual(plan.specs, availableSpecs);
+  }
 });
 
 test('fish PNG allowlist matches exactly the twelve registered production files', () => {
@@ -271,6 +365,7 @@ function repo(t) {
   write('README.md', 'original README\n'); write('docs/AUDIO_SYSTEM.md', 'original explanation\n');
   write('src/audio/ambient-player.js', 'export const example = 1;\n');
   write(fishPng, 'base image fixture\n');
+  write(spotsHUD, 'export const example = 1;\n');
   for (const path of availableSpecs) write(path, '// inventory fixture\n');
   git(cwd, 'add', '.'); git(cwd, 'commit', '-m', 'base');
   const mergeBaseSha = git(cwd, 'rev-parse', 'HEAD');
@@ -336,7 +431,7 @@ test('empty PR diff is anomalous and forces L2', t => {
 });
 
 test('createPlan records exact PR and integration SHA and handles L0/L1/L2 simulated diffs', t => {
-  for (const [source, level] of [['README.md', 'L0'], [audio, 'L1'], [fishPng, 'L1'], ['.github/workflows/pages.yml', 'L2']]) {
+  for (const [source, level] of [['README.md', 'L0'], [audio, 'L1'], [fishPng, 'L1'], [spotsHUD, 'L1'], ['.github/workflows/pages.yml', 'L2']]) {
     const { cwd, write } = repo(t);
     if (source !== 'README.md') { write(source, 'changed\n'); git(cwd, 'add', '.'); git(cwd, 'commit', '-m', 'scope'); }
     const input = mergeFeature(cwd), plan = createPlan({ ...input, eventName: 'pull_request', ref: 'refs/pull/42/merge',
@@ -345,6 +440,33 @@ test('createPlan records exact PR and integration SHA and handles L0/L1/L2 simul
     assert.equal(plan.headSha, input.headSha); assert.equal(plan.baseSha, input.baseSha);
     assert.equal(plan.validationSha, input.validationSha); assert.equal(plan.validationRef, 'refs/pull/42/merge');
     assert.equal(plan.diff.ok, true); assert.equal(plan.deploy, false);
+  }
+});
+
+test('a real HUD-only merge diff selects five specs, while SHA mismatches and missing disk specs force L2', t => {
+  const { cwd, write, mergeBaseSha } = repo(t);
+  git(cwd, 'restore', '--source', mergeBaseSha, 'README.md');
+  write(spotsHUD, 'export const example = 2;\n');
+  git(cwd, 'add', '.'); git(cwd, 'commit', '-m', 'HUD-only net diff');
+  const input = mergeFeature(cwd);
+  const options = { ...input, eventName: 'pull_request', ref: 'refs/pull/42/merge',
+    event: { number: 42, pull_request: { head: { sha: input.headSha }, base: { sha: input.baseSha } } } };
+  const plan = createPlan(options);
+  assert.equal(plan.diff.ok, true); assert.deepEqual(plan.changes, [change(spotsHUD)]);
+  assert.equal(plan.level, 'L1'); assert.deepEqual(plan.specs, spotsHUDSpecs);
+  for (const overrides of [{ validationSha: input.headSha },
+    { event: { pull_request: { head: { sha: 'a'.repeat(40) }, base: { sha: input.baseSha } } } },
+    { event: { pull_request: { head: { sha: input.headSha }, base: { sha: input.headSha } } } }]) {
+    const failed = createPlan({ ...options, ...overrides });
+    assert.equal(failed.level, 'L2'); assert.equal(failed.diff.ok, false);
+    assert.deepEqual(failed.specs, availableSpecs);
+  }
+  for (const missing of spotsHUDSpecs) {
+    rmSync(join(cwd, missing));
+    const failed = createPlan(options);
+    assert.equal(failed.level, 'L2', missing); assert.match(failed.reasons.join(' '), /欠落/);
+    assert.deepEqual(failed.specs, availableSpecs.filter(path => path !== missing));
+    write(missing, '// restored inventory fixture\n');
   }
 });
 

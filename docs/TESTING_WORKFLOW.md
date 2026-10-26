@@ -45,7 +45,7 @@ L0の初期許可対象は `README.md` と `docs/` 直下の説明文書
 `DAY_NIGHT_LIGHTING.md`、`CATCH_COLLECTION.md`、`AUDIO_SYSTEM.md`、`ACHIEVEMENTS.md`。
 新規・未知の文書は運用ルールを含む可能性があるため、確認して許可対象へ追加するまでL2とする。
 文書と実装の混在は厳しい側を採用する。既存4グループ間の複数のL1実装変更は
-関連specの和集合を実行するが、魚PNGと他のL1グループの混在はL2とする。
+関連specの和集合を実行するが、魚PNGまたは釣りポイントHUDと他のL1グループの混在はL2とする。
 複数領域のspecだけを変更した場合は保守的にL2とする。分類対象に未登録のspecや、
 既存specの削除もL2。個別specの限定変更をL1にするときも、変更されたspec自身を必ず含める。
 導入後1〜2週間は保守的に運用し、実測・依存関係の確認なしにL1を拡大しない。
@@ -67,6 +67,7 @@ Playwright設定、共通fixture、ビルド設定・依存関係・lockfileはL
 | `src/ui/sound-settings.js` | `audio.spec.js`、`collection-menu.spec.js` |
 | `src/ui/achievements-view.js` | `achievements.spec.js`、`achievement-notice.spec.js`、`collection-menu.spec.js` |
 | `src/ui/equipment-view.js` | `equipment-ui.spec.js`、`equipment-game.spec.js`、`collection-menu.spec.js` |
+| `src/ui/fishing-spots-hud.js`（既存内容の `M` のみ、他実装と混在不可） | `fishing-spots.spec.js`、`cast-visibility.spec.js`、`mobile-layout.spec.js` |
 | `src/assets/fish/` の下記12 PNG（既存内容の `M` のみ） | `fish-assets.spec.js`、`fishing.spec.js`、`collection-menu.spec.js`、`fish-sales.spec.js` |
 
 音源と環境音プレイヤーは音声の生成・再生の境界、設定UIと表示UIは各機能のDOM表示の
@@ -94,6 +95,49 @@ P4-A1ではmain `a2eac55d6de852e1f5ed9b42ad84abdec5b40cbb` に存在する次の
 形式・寸法・容量・色空間・透明な外周・12魚種の画像識別は既存の
 `tests/fish-artwork.test.js`、`tests/fish-image-validation.test.js`、`tests/fish-species.test.js` を維持する。
 P4-A1の実装PR自身は分類器・テスト・検証ルールの変更なのでL2となり、
+マージ前に最新HEADのGitHub Actions全件E2E成功が必要。
+
+P4-A2はmain `2c774744040350ef784fe16f8edf89c4c9cf8154` の
+`src/ui/fishing-spots-hud.js` だけを追加の表示境界として登録する。
+旧分類はL2（未登録UI）、新分類は既存ファイルの内容変更 `M` のみL1。
+既存L0文書との組合せを許可する。追加・削除・リネーム・コピー・種別変更はL2。
+未知パス、ゲーム状態・入力・カメラ・描画・共通UI・CSS・HTML・CI基盤との混在もL2。
+既存4グループや魚PNGとの混在もL2とし、それら従来の単独分類・選択範囲は維持する。
+関連3specや共通スモーク自体の変更を新たにL1へ登録せず、HUDとの混在もL2とする。
+他のUIモジュールへ許可対象を広げない。
+
+呼び出し元は `src/main.js` の初期表示とフレーム更新のみ。
+`getFishingSpotStatus(boat)` の結果を読み、専用DOMの `#spot-status`、`#spot-name`、
+`#spot-effect` に表示・文言・datasetを設定する。状態への書き戻し、イベント購読、
+入力・時計・セーブ・カメラ操作、他モジュールのimportはない。
+ただし `#spot-status` の可視性・文量は `src/ui/cast-notices.js` の実測寸法に影響する。
+同モジュールは売却・実績通知と水面マーカーを避けて配置し、収まらない場合は
+呼び出し元のキャスト判定・回収にも影響するため、HUDを完全に無関係な装飾とは扱わない。
+専用DOM・CSS・通知配置側・状態側の変更はこのL1の対象に含めない。
+
+選択するE2Eは次の既存検証と共通スモークの5spec。
+
+- `fishing-spots.spec.js`: PC／タッチで接近・範囲内・離脱、表示名・効果・属性、範囲内の釣り。
+- `cast-visibility.spec.js`: PC／タッチ縦横・小画面のキャスト、表示中のポイント／売却／実績通知を
+  障害領域に含めた水面マーカーとの非重複判定、回転時の継続・回収。
+- `mobile-layout.spec.js`: safe inset、短い横画面、拡大文字、メニュー・ファイト・釣果画面の回転、
+  表示中の通知との非重複と主要ボタンの操作可能性。
+- `smoke-pc.spec.js` と `smoke-touch.spec.js`: 起動・操船・停船・釣り視点と主要操作、重大なエラー。
+
+同基準SHAのローカル標準設定でPlaywrightの収集だけを比較すると、全件は25spec・168テスト、
+選択範囲は5spec・25テスト（`cast-visibility` 20、`fishing-spots` 2、残り各1）。
+テスト数は143件、約85%減り、無関係な音声・保存・画像品質等の検証を省ける。
+`CI=true` の `pull_request` 相当条件では比較用ケースが増え、全件は25spec・205テスト。
+同じ5spec・25テストを選ぶことで180件、約88%の検証量を削減できる。
+これは収集した検証量の比較であり、CI所要時間の短縮率を実測した値ではない。
+全件E2Eのローカル実行やCI待機を計測目的で行わない。
+
+残留リスクとして、ファイル名と `M` による分類だけでは将来の責務拡大を検出できない。
+HUD内で状態・入力・カメラ・共通通知を制御し始める変更は再評価と全件検証が必要。
+既存specは通知3種の同時表示や実機の全組合せを網羅するものではない。
+既存の通知配置単体テストを維持し、関連spec・共通スモークの欠落、収集・実行の失敗、
+SHA不整合は従来どおりL2へのフォールバックまたは明示的失敗とする。
+P4-A2の実装PR自身は分類器・テスト・本書の変更なのでL2であり、
 マージ前に最新HEADのGitHub Actions全件E2E成功が必要。
 
 L1には常に `tests/browser/smoke-pc.spec.js` と `tests/browser/smoke-touch.spec.js` を加える。

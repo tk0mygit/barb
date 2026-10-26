@@ -35,6 +35,12 @@ export const L1_GROUPS = Object.freeze({
     sources: ['src/ui/equipment-view.js'],
     specs: [browser('equipment-ui'), browser('equipment-game'), browser('collection-menu')],
   },
+  'fishing-spots-hud': {
+    // Existing display-only module; its notice dimensions also affect casts.
+    // Keep this initial expansion isolated from every other implementation area.
+    sources: ['src/ui/fishing-spots-hud.js'],
+    specs: [browser('fishing-spots'), browser('cast-visibility'), browser('mobile-layout')],
+  },
   'fish-png': {
     // Existing regular PNGs verified on main a2eac55. Keep this list explicit;
     // new species, references and other image formats need separate review.
@@ -109,11 +115,13 @@ export function classifyChanges(changes, { availableSpecs = [], groups = L1_GROU
       const group = isSpec ? specGroups.get(path) : sourceGroups.get(path);
       if (!group) return full([`高リスク・共有基盤・未知の変更: ${path}`]);
       if (group === 'fish-png' && status !== 'M') return full([`既存魚PNGの内容変更以外: ${status} ${path}`]);
+      if (group === 'fishing-spots-hud' && status !== 'M') return full([`既存釣りポイントHUDの内容変更以外: ${status} ${path}`]);
       selectedGroups.add(group);
       if (isSpec) changedSpecGroups.add(group);
     }
   }
   if (selectedGroups.has('fish-png') && selectedGroups.size > 1) return full(['魚PNGと他のL1領域の混在のため全件検証']);
+  if (selectedGroups.has('fishing-spots-hud') && selectedGroups.size > 1) return full(['釣りポイントHUDと他のL1領域の混在のため全件検証']);
   if (changedSpecGroups.size > 1) return full(['複数領域のspec変更のため全件検証']);
   if (!selectedGroups.size) return { level: 'L0', reasons: ['既知の説明用文書のみの変更'], changes,
     specs: [], smokeSpecs: [], runE2E: false, deploy: false };
