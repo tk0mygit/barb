@@ -3,6 +3,7 @@ import { getFishSpecies } from '../game/fish-species.js';
 import { createLurePicker } from './lure-picker.js';
 import { calculateSalePrice } from '../game/fish-sales.js';
 import { formatMoney } from './sales-hud.js';
+import { createFishImageLoader } from './fish-image-loader.js';
 
 const labels = { ready: 'キャスト前', aim: 'キャスト準備', cast: 'キャスト中', lure: 'アタリを待つ', bite: 'アタリ！ 今すぐタップ', fight: 'ファイト', landing: 'ランディング', result: '釣り上げました', failed: '魚が逃げました' };
 const hints = {
@@ -24,26 +25,67 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
   const fight = document.querySelector('#fight-gauge');
   const dialog = document.querySelector('#catch-dialog');
   const close = document.querySelector('#close-catch');
+  const imageStatus = document.querySelector('#catch-image-status');
+  const loadFishImage = createFishImageLoader();
   const lurePicker = createLurePicker(document.querySelector('#lure-picker'), onSelectLure);
   let previous = null;
+  let generation = 0, currentRequest = null, prefetchedEncounter = null, isActive = false;
+  function invalidateImage() {
+    generation++; currentRequest = null;
+    const old = document.querySelector('#catch-image');
+    old.hidden = true;
+    // Detach the old pixels immediately; the cache may still own this decoded
+    // element, but a closed/changed result must never leave it in the frame.
+    const empty = document.createElement('img');
+    empty.id = 'catch-image'; empty.alt = ''; empty.hidden = true;
+    old.removeAttribute('id'); old.replaceWith(empty);
+    imageStatus.hidden = false;
+    imageStatus.textContent = '画像を読み込み中…';
+  }
+  function showImage(fishing, record) {
+    invalidateImage();
+    const request = currentRequest = { generation, catchId: record.id, speciesId: record.speciesId };
+    const species = getFishSpecies(record.speciesId);
+    const isCurrent = () => currentRequest === request && generation === request.generation
+      && isActive && dialog.open && fishing.state.phase === PHASE.RESULT
+      && fishing.state.catch?.id === request.catchId && fishing.state.catch?.speciesId === request.speciesId;
+    loadFishImage(species).then(image => {
+      if (!isCurrent()) return;
+      image.id = 'catch-image'; image.alt = `${species.name}の側面イラスト`; image.hidden = false;
+      document.querySelector('#catch-image').replaceWith(image);
+      imageStatus.hidden = true;
+    }, () => {
+      if (isCurrent()) imageStatus.textContent = '画像を表示できません';
+    });
+  }
   prepare.addEventListener('click', onPrepare);
   cancel.addEventListener('click', onCancel);
-  const closeResult = () => { onClose(); dialog.close(); };
+  const closeResult = () => { invalidateImage(); onClose(); dialog.close(); };
   close.addEventListener('click', closeResult);
   document.querySelector('#sell-catch').addEventListener('click', () => {
-    if (onSell()) dialog.close();
+    if (onSell()) { invalidateImage(); dialog.close(); }
     else document.querySelector('#catch-sale-error').textContent = '売却できませんでした。保管して続けてください。';
   });
   dialog.addEventListener('cancel', event => { event.preventDefault(); closeResult(); });
   // Also settle platform/programmatic dialog closes; the game operation is
   // idempotent, so repeated close/cancel/click events cannot store twice.
-  dialog.addEventListener('close', () => { if (!dialog.open) onClose(); });
+  dialog.addEventListener('close', () => { if (!dialog.open) { invalidateImage(); onClose(); } });
   return {
     update(fishing, active, clock) {
       const s = fishing.state;
+      isActive = active;
       // A native close event can arrive after the next animation frame. Settle
       // that result before rendering instead of reopening the closed dialog.
-      if (active && previous === PHASE.RESULT && s.phase === PHASE.RESULT && !dialog.open) onClose();
+      if (active && previous === PHASE.RESULT && s.phase === PHASE.RESULT && !dialog.open
+        && currentRequest?.catchId === s.catch?.id) { invalidateImage(); onClose(); }
+      if ((!active || s.phase !== PHASE.RESULT) && currentRequest) invalidateImage();
+      if ((!active || s.phase !== PHASE.RESULT) && dialog.open) { dialog.close(); onClose(); }
+      if (active && [PHASE.BITE, PHASE.FIGHT, PHASE.LANDING].includes(s.phase)) {
+        if (s.encounter && prefetchedEncounter !== s.encounter) {
+          prefetchedEncounter = s.encounter;
+          loadFishImage(getFishSpecies(s.encounter.speciesId)).catch(() => {});
+        }
+      } else if (s.phase !== PHASE.RESULT || !active) prefetchedEncounter = null;
       panel.hidden = !active;
       panel.dataset.phase = active ? s.phase : 'inactive';
       app.dataset.fishingPhase = active ? s.phase : 'inactive';
@@ -76,18 +118,18 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
       document.querySelector('#tension-value').textContent = `${Math.round(s.tension * 100)}%`;
       document.querySelector('#tension-warning').textContent = s.tension > 0.78 ? '離して緩める！' : s.tension < 0.18 ? '長押しで巻く！' : 'テンションを保つ';
       document.querySelector('#reel-state').textContent = s.phase === PHASE.LURE ? s.reeling ? '巻き取り中' : s.action > 0 ? 'ルアーアクション' : '待機中' : '';
-      if (s.phase === PHASE.RESULT && !dialog.open) {
+      if (s.phase === PHASE.RESULT && (!dialog.open || currentRequest?.catchId !== s.catch.id
+        || currentRequest?.speciesId !== s.catch.speciesId)) {
         const species = getFishSpecies(s.catch.speciesId);
+        showImage(fishing, s.catch);
         document.querySelector('#catch-species').textContent = species.name;
-        const image = document.querySelector('#catch-image');
-        image.src = species.image;
-        image.alt = `${species.name}の側面イラスト`;
         document.querySelector('#catch-length').textContent = `${s.catch.lengthCm.toFixed(1)} cm`;
         document.querySelector('#catch-weight').textContent = `${s.catch.weightKg.toFixed(2)} kg`;
         document.querySelector('#catch-sale-price').textContent = `売却価格 ${formatMoney(calculateSalePrice(s.catch))}`;
         document.querySelector('#catch-sale-error').textContent = '';
-        dialog.showModal(); close.focus();
-      } else if (s.phase !== PHASE.RESULT && dialog.open) dialog.close();
+        if (!dialog.open) dialog.showModal();
+        close.focus();
+      }
       previous = s.phase;
     },
   };

@@ -4,6 +4,7 @@ import { formatMoney } from './sales-hud.js';
 import { EQUIPMENT_NAMES, UPGRADE_GUIDANCE, renderEquipment, renderUpgradeConfirmation } from './equipment-view.js';
 import { renderAchievements } from './achievements-view.js';
 import { renderSoundSettings } from './sound-settings.js';
+import { createVisibleFishImages } from './fish-image-loader.js';
 
 const silhouette = new URL('../assets/fish/unknown.svg', import.meta.url).href;
 const dates = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeStyle: 'medium' });
@@ -13,10 +14,12 @@ function element(tag, text, className) {
   if (className) node.className = className;
   return node;
 }
-function fishImage(src, name) {
+function fishImage(src, name, visibleImages) {
   const image = element('img');
-  image.src = src; image.alt = name;
+  image.alt = name;
   image.loading = 'lazy';
+  if (visibleImages) visibleImages.add(image, src);
+  else image.src = src;
   const frame = element('span', undefined, 'fish-image-frame');
   frame.append(image); return frame;
 }
@@ -35,7 +38,9 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
   let purchaseAllowedOnPress = null;
   const purchaseAllowed = () => purchaseAllowedAtOpen && canPurchase();
   let disposeSoundSettings;
+  let visibleImages;
   function render(next = 'menu', speciesId) {
+    visibleImages?.dispose(); visibleImages = createVisibleFishImages(content);
     disposeSoundSettings?.(); disposeSoundSettings = null;
     if (next !== 'confirm-sale') pendingSale = null;
     if (next !== 'confirm-upgrade') pendingUpgrade = null;
@@ -59,7 +64,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
         const fish = FISH_SPECIES[index], discovered = entry.count > 0;
         const card = element(discovered ? 'button' : 'div', undefined, 'fish-card');
         card.dataset.slot = index;
-        card.append(fishImage(discovered ? fish.image : silhouette, discovered ? fish.name : '未発見の魚のシルエット'), element('span', discovered ? fish.name : '？？？', 'fish-card-name'));
+        card.append(fishImage(discovered ? fish.image : silhouette, discovered ? fish.name : '未発見の魚のシルエット', discovered ? visibleImages : null), element('span', discovered ? fish.name : '？？？', 'fish-card-name'));
         if (discovered) {
           card.type = 'button';
           card.append(element('small', `${entry.count}匹 · 最大 ${entry.maxLengthCm.toFixed(1)} cm`));
@@ -74,7 +79,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
       const fish = getFishSpecies(entry.speciesId);
       title.textContent = fish.name;
       const detail = element('article', undefined, 'fish-detail');
-      detail.append(fishImage(fish.image, fish.name), element('p', fish.description, 'fish-description'));
+      detail.append(fishImage(fish.image, fish.name, visibleImages), element('p', fish.description, 'fish-description'));
       const stats = element('dl');
       for (const [label, value] of [['累計捕獲数', `${entry.count}匹`], ['自己最大体長', `${entry.maxLengthCm.toFixed(1)} cm`], ['基準売却単価', `${fish.basePricePerKg} 通貨/kg`]]) {
         const row = element('div'); row.append(element('dt', label), element('dd', value)); stats.append(row);
@@ -108,7 +113,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
           completeSale(collection.sellStored([record.id]));
         });
         info.append(sell);
-        row.append(fishImage(fish.image, fish.name), info); list.append(row);
+        row.append(fishImage(fish.image, fish.name, visibleImages), info); list.append(row);
       }
       content.append(list);
     } else if (next === 'sound') {
@@ -157,6 +162,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
       cancel.addEventListener('click', () => { render('storage'); title.focus(); });
       content.append(confirm, cancel);
     }
+    visibleImages.refresh();
   }
   function completeUpgrade(receipt, error = '購入できませんでした。最新の所持金と装備をご確認ください。') {
     onUpgrade(); // The shared HUD owns both wallet displays, even on failure.
@@ -171,6 +177,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
   }
   function finishClose() {
     if (!active) return;
+    visibleImages?.dispose();
     disposeSoundSettings?.(); disposeSoundSettings = null;
     active = false; pendingSale = null; pendingUpgrade = null; purchaseAllowedAtOpen = false;
     trigger.setAttribute('aria-expanded', 'false'); onOpenChange(false);
