@@ -2,7 +2,7 @@ import { test, expect } from './diagnostics-fixture.js';
 import { setup, tick } from './day-night-fixture.js';
 import { installAudioProbe, audioSnapshot, attachAudioDiagnostics, soundScreen } from './audio-fixture.js';
 import { createGameClock } from '../../src/game/game-clock.js';
-import { sampleAudioMix } from '../../src/audio/audio-mix.js';
+import { sampleAudioMix, NATURE_BASE_GAIN } from '../../src/audio/audio-mix.js';
 
 const key = 'barb.audio.preferences.v1';
 test.use({ deviceScaleFactor: 0.5 });
@@ -17,7 +17,8 @@ const assertMix = async page => {
   const expected = sampleAudioMix(createGameClock(undefined, { elapsedSeconds: seconds }).state);
   // Match audio against the real surface-fog clock and optical amount.
   const denseFade = await page.evaluate(() => window.lightingProbe.denseFade ?? 0);
-  expected.day *= 1 - denseFade; expected.night *= 1 - denseFade; expected.nature = denseFade;
+  expected.day *= 1 - denseFade; expected.night *= 1 - denseFade;
+  expected.nature = NATURE_BASE_GAIN + (1 - NATURE_BASE_GAIN) * denseFade;
   const actual = await audioSnapshot(page);
   expect(actual.sources).toBe(3);
   for (const kind of ['day', 'night', 'nature']) expect(actual.gains[kind]).toBeCloseTo(expected[kind], 6);
@@ -54,6 +55,25 @@ for (const size of [{ width: 1000, height: 700, touch: false }, { width: 320, he
     await activate(page.locator('#collection-close')); await tick(page);
     const playing = await assertMix(page); expect(playing.master).toBeCloseTo(0.3 * volume / 100); expect(playing.contexts).toBe(1);
     expect(playing.gestures.every(Boolean)).toBe(true);
+    await soundScreen(page, touch); await tick(page); expect((await audioSnapshot(page)).sources).toBe(0);
+    if (touch) {
+      await slider.scrollIntoViewIfNeeded();
+      const box = await slider.boundingBox(); await page.touchscreen.tap(box.x + 1, box.y + box.height / 2);
+    } else { await slider.focus(); await page.keyboard.press('Home'); }
+    await expect(slider).toHaveValue('0');
+    const mutedClock = await progress(page);
+    await activate(page.locator('#collection-close')); await tick(page);
+    expect((await audioSnapshot(page)).sources).toBe(0);
+    expect(await progress(page)).toBeGreaterThan(mutedClock);
+    expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), key)).toEqual({ version: 1, enabled: true, volume: 0 });
+    await soundScreen(page, touch);
+    await expect(slider).toHaveValue('0');
+    if (touch) {
+      await slider.scrollIntoViewIfNeeded();
+      const box = await slider.boundingBox(); await page.touchscreen.tap(box.x + box.width * 0.7, box.y + box.height / 2);
+    } else { await slider.focus(); await page.keyboard.press('End'); }
+    await expect(slider).toHaveValue(String(volume));
+    await activate(page.locator('#collection-close')); await tick(page); await assertMix(page);
     await soundScreen(page, touch); await tick(page); expect((await audioSnapshot(page)).sources).toBe(0);
     const clock = await progress(page); await page.clock.fastForward(600000); expect(await progress(page)).toBe(clock);
     await activate(page.locator('#ambient-toggle')); await tick(page);
@@ -254,7 +274,7 @@ for (const touch of [false, true]) {
       await expect(page.locator('#ambient-status')).toContainText('一時停止中');
       await activate(page.locator('#collection-close')); await tick(page);
       const playing = await audioSnapshot(page);
-      expect(playing.gains).toEqual({ day: 1, night: 0, nature: 0 });
+      expect(playing.gains).toEqual({ day: 1, night: 0, nature: NATURE_BASE_GAIN });
       expect(playing.states).toEqual(['running']); expect(playing.startedSources).toBe(3);
       expect(playing.gainNodes).toBe(4); expect(playing.destinationConnected).toBe(true);
       expect(playing.totalSources).toBe(3); expect(playing.buffers).toBe(3);
@@ -292,7 +312,7 @@ for (const touch of [false, true]) {
       await page.clock.fastForward(600000); expect(await clock()).toBe(menuClock);
       if (touch) await page.locator('#collection-close').tap(); else await close(page);
       await tick(page); const playing = await audioSnapshot(page);
-      expect(playing.gains).toEqual({ day: 1, night: 0, nature: 0 });
+      expect(playing.gains).toEqual({ day: 1, night: 0, nature: NATURE_BASE_GAIN });
       expect(playing.states).toEqual(['running']); expect(playing.startedSources).toBe(3);
       expect(playing.resumes).toBe(1);
       expect(await clock()).toBeGreaterThan(menuClock); expect(await clock()).toBeLessThan(menuClock + 1);
@@ -456,7 +476,7 @@ for (const fail of [false, true]) {
   });
 }
 
-for (const [seconds, mode, bgm, nature] of [[270, '夜のBGM', 1, 0], [2790, '霧の夜のBGM', 1, 0], [630, '濃霧の自然音', 0, 1]]) {
+for (const [seconds, mode, bgm, nature] of [[270, '夜のBGM', 1, NATURE_BASE_GAIN], [2790, '霧の夜のBGM', 1, NATURE_BASE_GAIN], [630, '濃霧の自然音', 0, 1]]) {
   test(`optical fog at ${seconds}s: ${mode}, independent settings and notification context`, async ({ page }) => {
     await prefs(page, enabled); await page.addInitScript(installAudioProbe, {}); await setup(page, seconds);
     expect((await audioSnapshot(page)).contexts).toBe(0);
