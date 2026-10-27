@@ -149,6 +149,11 @@ HUDの縮小を要求しません。同条件の倍率・buffer寸法・ピク�
 厳密に比較し、ピクセル増加、PC画質低下、HUDの拡大/移動/重なりを拒否します。改善率0%は同値の結果です。
 両側のviewport/DPR・時計・船・カメラ・霧の一致を保ち、ボタン/レティクルとの非重複も検査します。
 
+G-1の共有B樹冠map導入だけは、旧main完全SHA・両側のレビュー済みsrc tree/terrain/texture blobと
+lock/index/Vite設定を照合し、texture3→4の正確な増分を検証します。programを含む他資源は完全一致。
+未知sourceや将来PRへ+1枠を持ち越さず、導入後同士は全資源完全一致です。source metadataとGit再照合を
+維持し、historical-improvementにはこの移行を適用しません。実装と所有関係は `LAKE_SCENERY.md` を参照。
+
 倍率の期待値は`main`というラベルから推測せず、`scripts/lib/mobile-comparison-source.js`で実際に
 archiveするSHAの`src/main.js`と解像度moduleを読み取ります。参照したsource blobを記録し、PRの作業中
 ソースも記録SHAと一致することを確認します。旧倍率は、下記の検証済み改善前SHAにだけ対応します。

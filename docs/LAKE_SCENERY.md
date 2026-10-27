@@ -1,5 +1,38 @@
 # 自然湖の景観（Phase 4C-1A）
 
+## Phase 4.5 G-1：採用Bの樹冠
+
+針葉650本はG-1形状候補 `ba5d6f0c7db46ad7391fa988bb4e31b71a82ebf4` の形状と
+v2 B `49fa7c9bf6578a18153e377f9b80eed67da497d5` の模様を保持する。
+広葉200本はmain `6c92a1c6d004580144db72011bf5999fa5a2e651` の形状へUVだけを追加し、
+同じB模様を適用する。配置・個体行列/色の乱数列・幹/地形/岩/山・航行/釣りポイントは変えない。
+各冠120頂点/588 index/196三角形、景観196,312三角形・8geometryを維持する。
+
+`src/world/conifer-texture.js` は採用Bだけを生成する。64² RGBA、固定座標noise、
+sRGB、mipmap/LinearMipmapLinear、repeat3×4、anisotropy1。不透明の明度斑を既存の
+vertexColor/instanceColorへ掛け、linear平均0.68をmaterial gain1/0.68で補う。
+追加照明・normalMap・透過板・shader/pass・影はない。両樹種で1material/1mapを共有し、
+material総数はmainと同じ7。mapはworld初期化で1回生成し、既存の重複を除くmaterial cleanupで
+1回disposeする。CPU画素16,384bytes、RGBA8全mip概算21,844bytes、UV追加は両冠計1,920bytes。
+
+1000×700/DPR1/船(10,20)/向き0/保存90秒の初回実測は
+31 calls / 221,444 triangles / 20 geometries / **4 textures / 10 programs**。
+旧mainよりtexture+1。共有により旧foliage programを置き換えるため、coniferだけのv2 Bで見られた
+program+1は残らない。霧は従来どおり+3 calls/+6,144 triangles/+1geometry/+1program。
+これはSwiftShaderの資源計測であり、実機FPS/発熱や性能不変の保証ではない。
+
+モバイル比較の例外は旧mainの完全SHAと、レビュー済みのsrc tree・terrain/texture blob・
+lock/index/Vite設定を照合できる今回の移行だけに限定する。texture3→4だけを要求し、
+calls/triangles/geometries/programsは完全一致。未知のsource、変更済みbuild入力、
+導入後の通常PRは従来の全資源完全一致へ戻り、historical-improvementには適用しない。
+比較のsource metadataへruntime treeと関連blobを追加し、作業中sourceとGit再読込も検証する。
+このため比較source helperの変更も必要になるが、共通fixture/CI workflowは変更しない。
+
+ユーザーPMはBを選定済み。両樹種の近景/斜め/昼夜/霧/縦横の比較、初回・継続CPU診断と
+残る実機確認をPR資料へ添付する。G-2配置、G-3実機、Phase4.5最終main全件受入は別途必要。
+
+以下の4C-1A表は歴史的な改善記録で、G-1の新規計測と混同しない。
+
 砂・草・樹木を落ち着いた黄緑から青緑でまとめ、遠景ほど青灰色へ寄せます。
 既存の空・照明・FogExp2に同じ景観を通し、夕暮れや夜霧に固有の別景色へ切り替えません。
 外部画像・モデル・フォントは追加せず、プロシージャル描画を維持しています。

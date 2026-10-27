@@ -5,6 +5,28 @@ import assert from 'node:assert/strict';
 import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, replayMobileCamera } from './lib/mobile-comparison-source.js';
 
 export const MOBILE_COMPARISON_MODES = ['regression', 'historical-improvement'];
+// One reviewed product-source transition, not a per-PR resource allowance.
+// sourceTree covers all src files, including water/lights/boat/fishing. Root
+// build inputs must also match. A future source tree falls back to exact equality.
+const SHARED_B = {
+  baseSha: '6c92a1c6d004580144db72011bf5999fa5a2e651',
+  before: { sourceTree: 'f82f21d7f502afcc69580e9240a3ee61b260f4df', terrainBlob: 'fe35f303bd66416de3c84fc91fbc04d8e093fb3a', crownTextureBlob: null },
+  after: { sourceTree: 'b2b8cd1d51494a6332633c59f1ad580cd489a151', terrainBlob: '4035462c3a09c46e20510e86a663da9d772a5d07', crownTextureBlob: 'f867ba84e5ed9727004ba313232078d61469c25d' },
+  build: { lockBlob: '47245ebaa299d7e7521020579099984095cc556d', indexBlob: '4f4a23265ef8e4a7bf2e74afedd5fc41ce585651', viteBlob: 'b0d324b56a47ba5b7ff1b0580db1f6a9f2d3fcb3' },
+};
+
+function expectedResources(before, metadata) {
+  const { main, pr } = metadata.implementations;
+  const matches = (source, identity) => Object.entries(identity).every(([key, value]) => source[key] === value);
+  const sharedB = metadata.mode === 'regression' && metadata.baseSha === SHARED_B.baseSha
+    && main.sha === metadata.baseSha && pr.sha === metadata.validationSha
+    && matches(main, SHARED_B.before) && matches(pr, SHARED_B.after)
+    && matches(main, SHARED_B.build) && matches(pr, SHARED_B.build);
+  if (!sharedB) return { resources: before, transition: null };
+  assert.equal(before.textures, 3, 'Shared B transition requires the verified three-texture base');
+  // Reusing one material replaces the old foliage shader: no program delta.
+  return { resources: { ...before, textures: 4 }, transition: 'shared-crown-B: texture +1, all other resources exact' };
+}
 export const MOBILE_CAPTURE_IDS = [
   ...['portrait', 'landscape', 'small', 'pc', 'pc-hidpi'].flatMap(profile =>
     ['day-tps', 'day-fps', 'clear-night', 'fog-night', 'dense-night'].map(scene => `${profile}-${scene}`)),
@@ -89,7 +111,8 @@ export function compareMobileCapturePair(b, a, metadata) {
         checkCamera(a.metrics.camera, { position: [10, 2.15, 21.25], quaternion: [0, 0, 0, 1], aspect: a.metrics.camera.aspect }, b.id);
       }
     } else assert.deepEqual(a.metrics.camera, b.metrics.camera, `${b.id}: camera differs`);
-    assert.deepEqual(a.metrics.resources, b.metrics.resources, `${b.id}: resource regression`);
+    const expected = expectedResources(b.metrics.resources, metadata);
+    assert.deepEqual(a.metrics.resources, expected.resources, `${b.id}: resource regression`);
     const pixelReduction = (1 - a.metrics.pixels / b.metrics.pixels) * 100;
     if (metadata.mode === 'regression') {
       // With unchanged rendering, both increasing cost and reducing quality
@@ -121,6 +144,7 @@ export function compareMobileCapturePair(b, a, metadata) {
       }
     }
     return { id: b.id, before: b.metrics, after: a.metrics,
+      ...(expected.transition ? { resourceTransition: expected.transition } : {}),
       pixelReduction,
       ...(b.layout ? { beforeLayout: b.layout, afterLayout: a.layout } : {}) };
 }

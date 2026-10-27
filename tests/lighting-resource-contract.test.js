@@ -5,11 +5,11 @@ import { assertColdFishingResources, assertLureInitialization, assertStableResou
 function snapshots() {
   const fishing = [{ id: 3, type: 'RingGeometry' }, { id: 4, type: 'LureGeometry' },
     { id: 5, type: 'CircleGeometry' }, { id: 6, type: 'BufferGeometry' }];
-  const cold = { counts: { geometries: 2, programs: 1, textures: 3 }, catalog: {
+  const cold = { counts: { geometries: 2, programs: 1, textures: 4 }, catalog: {
     cpuGeometryIds: [1, 2, 3, 4, 5, 6], initializedGeometryIds: [1, 2], programKeys: ['world'], fishingVisible: false,
     fishing: fishing.map(row => ({ ...row, initialized: false, programKeys: [] })) } };
   const lure = structuredClone(cold);
-  lure.counts = { geometries: 5, programs: 3, textures: 3 };
+  lure.counts = { geometries: 5, programs: 3, textures: 4 };
   lure.catalog.fishingVisible = true;
   lure.catalog.initializedGeometryIds = [1, 2, 3, 4, 6];
   lure.catalog.programKeys = ['line', 'lure', 'world'];
@@ -23,8 +23,15 @@ test('cold and first-cast contracts distinguish allocation history from recreate
   assertColdFishingResources(cold);
   assertLureInitialization(cold, lure);
   assertStableResourceIdentities(lure, structuredClone(lure));
-  assert.deepEqual(expectedColdNightResources(false), { calls: 31, triangles: 221444, geometries: 20, textures: 3, programs: 10 });
-  assert.deepEqual(expectedColdNightResources(true), { calls: 34, triangles: 227588, geometries: 21, textures: 3, programs: 11 });
+  assert.deepEqual(expectedColdNightResources(false), { calls: 31, triangles: 221444, geometries: 20, textures: 4, programs: 10 });
+  assert.deepEqual(expectedColdNightResources(true), { calls: 34, triangles: 227588, geometries: 21, textures: 4, programs: 11 });
+});
+
+test('cold startup rejects a missing shared map or any second crown texture', () => {
+  for (const textures of [3, 5]) {
+    const { cold } = snapshots(); cold.counts.textures = textures;
+    assert.throws(() => assertColdFishingResources(cold), /one shared B crown map/);
+  }
 });
 
 test('cold contract rejects eager marker upload even when the aggregate looks plausible', () => {

@@ -20,6 +20,7 @@ export function assertResourceCatalog({ counts, catalog }) {
 
 export function assertColdFishingResources(snapshot) {
   assertResourceCatalog(snapshot);
+  assert.equal(snapshot.counts.textures, 4, 'Cold scene requires three existing textures and one shared B crown map');
   assert.equal(snapshot.catalog.fishingVisible, false, 'Cold fishing group is visible');
   assert(snapshot.catalog.fishing.every(row => !row.initialized && row.programKeys.length === 0), 'Hidden fishing resources were uploaded before preparation');
 }
@@ -30,7 +31,9 @@ export function assertColdFishingResources(snapshot) {
 export function expectedColdNightResources(fog) {
   return { calls: 31 + (fog ? 3 : 0), triangles: 221444 + (fog ? 6144 : 0),
     geometries: 24 - FISHING_GEOMETRY_TYPES.length + (fog ? 1 : 0),
-    textures: 3, programs: 12 - 2 + (fog ? 1 : 0) };
+    // Shared B replaces the old untextured foliage program; it adds one map,
+    // not a second material/program variant as the conifer-only preview did.
+    textures: 4, programs: 12 - 2 + (fog ? 1 : 0) };
 }
 
 export function assertLureInitialization(before, after) {

@@ -27,6 +27,14 @@ export async function readMobileImplementation(sha) {
   }
   const hudSource = await mobileGit('show', `${sha}:src/ui/style.css`);
   const implementation = { sha,
+    // Source identities bound the one accepted crown-map migration. The whole
+    // runtime tree prevents unrelated renderer changes hiding inside its delta.
+    sourceTree: await mobileGit('rev-parse', `${sha}:src`),
+    terrainBlob: await mobileGit('rev-parse', `${sha}:src/world/terrain.js`),
+    crownTextureBlob: await mobileGit('rev-parse', `${sha}:src/world/conifer-texture.js`).catch(() => null),
+    lockBlob: await mobileGit('rev-parse', `${sha}:package-lock.json`),
+    indexBlob: await mobileGit('rev-parse', `${sha}:index.html`),
+    viteBlob: await mobileGit('rev-parse', `${sha}:vite.config.js`),
     mainBlob: await mobileGit('rev-parse', `${sha}:src/main.js`),
     hudBlob: await mobileGit('rev-parse', `${sha}:src/ui/style.css`),
     hudLogicBlob: await mobileGit('rev-parse', `${sha}:src/ui/fishing-hud.js`),
@@ -54,7 +62,12 @@ export async function readMobileImplementation(sha) {
 export function mobileSourceMetadata({ calculate, createCameraRig, ...metadata }) { return metadata; }
 
 export async function assertMobileWorkingSource(implementation) {
+  assert.equal(await mobileGit('rev-parse', 'HEAD:src'), implementation.sourceTree, 'Runtime source tree differs from recorded SHA');
+  assert.equal(await mobileGit('status', '--porcelain=v1', '--untracked-files=all', '--', 'src'), '', 'Runtime working source differs from recorded SHA');
   for (const [file, expected] of [['src/main.js', implementation.mainBlob], ['src/ui/style.css', implementation.hudBlob],
+    ['src/world/terrain.js', implementation.terrainBlob],
+    ...(implementation.crownTextureBlob ? [['src/world/conifer-texture.js', implementation.crownTextureBlob]] : []),
+    ['package-lock.json', implementation.lockBlob], ['index.html', implementation.indexBlob], ['vite.config.js', implementation.viteBlob],
     ['src/ui/fishing-hud.js', implementation.hudLogicBlob],
     ['src/rendering/camera.js', implementation.cameraBlob],
     ['src/rendering/fishing.js', implementation.fishingViewBlob],
