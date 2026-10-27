@@ -5,12 +5,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compareMobileCaptures, compareMobileCapturePair, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
-import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
+import { HISTORICAL_MOBILE_BASE, mobileGit, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera, assertMobileWorkingSource } from '../scripts/lib/mobile-comparison-source.js';
 import { createCameraRig } from '../src/rendering/camera.js';
 import { validateMobileEvidence } from '../scripts/ci-summary.js';
 
 const MAIN = 'a22ce01531befa55230fb186579731b8a3b9aeb6';
 const current = await readMobileImplementation(MAIN), legacy = await readMobileImplementation(HISTORICAL_MOBILE_BASE);
+const g1Base = await readMobileImplementation('6c92a1c6d004580144db72011bf5999fa5a2e651');
+// Synthetic reviewed-source fixture: no dependency on a WIP commit surviving
+// squash merge or branch deletion. Real working/Git provenance is tested below.
+const sharedB = { ...g1Base, sha: 'f'.repeat(40),
+  sourceTree: 'b2b8cd1d51494a6332633c59f1ad580cd489a151',
+  terrainBlob: '4035462c3a09c46e20510e86a663da9d772a5d07',
+  crownTextureBlob: 'f867ba84e5ed9727004ba313232078d61469c25d' };
 const profiles = {
   portrait: { width: 390, height: 844, dpr: 2, touch: true }, landscape: { width: 844, height: 390, dpr: 2, touch: true },
   small: { width: 360, height: 740, dpr: 3, touch: true }, pc: { width: 1280, height: 800, dpr: 1 }, 'pc-hidpi': { width: 1280, height: 800, dpr: 2 },
@@ -70,6 +77,75 @@ test('unrecognized old implementations and missing SHAs cannot silently become l
 test('normal current-main regression accepts 34 unchanged pairs and exactly 0% reduction', () => {
   const rows = compareMobileCaptures(...captures(), metadata());
   assert.equal(rows.length, 34); assert(rows.every(row => row.pixelReduction === 0));
+});
+
+function sharedBCaptures() {
+  const [before, after] = captures();
+  for (const entry of after) entry.metrics.resources.textures = 4;
+  return { before, after, data: { mode: 'regression', baseSha: g1Base.sha, headSha: sharedB.sha, validationSha: sharedB.sha,
+    implementations: { main: mobileSourceMetadata(g1Base), pr: mobileSourceMetadata(sharedB) } } };
+}
+
+test('only the reviewed shared-B source tree accepts exactly one crown map and no program increase', () => {
+  const { before, after, data } = sharedBCaptures();
+  const rows = compareMobileCaptures(before, after, data);
+  assert.equal(rows.length, 34);
+  assert(rows.every(row => row.resourceTransition === 'shared-crown-B: texture +1, all other resources exact'));
+  for (const field of ['calls', 'triangles', 'geometries', 'textures', 'programs']) {
+    const pair = sharedBCaptures(); pair.after[0].metrics.resources[field]++;
+    assert.throws(() => compareMobileCaptures(pair.before, pair.after, pair.data), /resource regression/, field);
+  }
+  const absent = sharedBCaptures(); absent.after[0].metrics.resources.textures = 3;
+  assert.throws(() => compareMobileCaptures(absent.before, absent.after, absent.data), /resource regression/);
+  const badBase = sharedBCaptures(); badBase.before[0].metrics.resources.textures = 4;
+  assert.throws(() => compareMobileCaptures(badBase.before, badBase.after, badBase.data), /verified three-texture base/);
+});
+
+test('unknown runtime/build identities and misleading flags cannot obtain the crown-map delta', () => {
+  for (const target of ['main', 'pr']) for (const field of ['sourceTree', 'terrainBlob', 'crownTextureBlob', 'lockBlob', 'indexBlob', 'viteBlob']) {
+    const pair = sharedBCaptures(); pair.data.implementations[target][field] = 'b'.repeat(40);
+    assert.throws(() => compareMobileCaptures(pair.before, pair.after, pair.data), /resource regression/, `${target}.${field}`);
+  }
+  for (const field of ['baseSha', 'validationSha']) {
+    const pair = sharedBCaptures(); pair.data[field] = 'b'.repeat(40);
+    assert.throws(() => compareMobileCaptures(pair.before, pair.after, pair.data), /resource regression/);
+  }
+  const [before, after] = captures(), data = metadata();
+  data.resourceTransition = 'shared-crown-B'; after[0].metrics.resources.textures++;
+  assert.throws(() => compareMobileCaptures(before, after, data), /resource regression/);
+});
+
+test('subsequent textured-to-textured PRs retain exact resources with no recurring +1 allowance', () => {
+  const { before, after, data } = sharedBCaptures();
+  data.baseSha = sharedB.sha; data.implementations.main = mobileSourceMetadata(sharedB);
+  for (const entry of before) entry.metrics.resources.textures = 4;
+  const rows = compareMobileCaptures(before, after, data);
+  assert(rows.every(row => !row.resourceTransition));
+  after[0].metrics.resources.textures++;
+  assert.throws(() => compareMobileCaptures(before, after, data), /resource regression/);
+});
+
+test('historical resolution improvement never inherits the crown texture allowance', () => {
+  const [before, after] = captures(true); after[0].metrics.resources.textures++;
+  assert.throws(() => compareMobileCaptures(before, after, metadata(true)), /resource regression/);
+});
+
+test('runtime tree, terrain/texture and build-input provenance is read from Git and checked against working files', async () => {
+  const working = await readMobileImplementation(await mobileGit('rev-parse', 'HEAD'));
+  await assertMobileWorkingSource(working);
+  for (const field of ['terrainBlob', 'crownTextureBlob', 'lockBlob', 'indexBlob', 'viteBlob', 'sourceTree']) {
+    await assert.rejects(assertMobileWorkingSource({ ...working, [field]: 'b'.repeat(40) }), /differs/);
+  }
+  const dir = await mkdtemp(join(tmpdir(), 'barb-crown-provenance-'));
+  try {
+    const pair = sharedBCaptures(), image = fileURLToPath(new URL('./fixtures/fish-assets/transparent-test.png', import.meta.url));
+    pair.data.headSha = pair.data.validationSha = working.sha;
+    pair.data.implementations.pr = mobileSourceMetadata(working);
+    pair.data.implementations.pr.sourceTree = 'b'.repeat(40);
+    for (const entry of pair.after) entry.metrics.resources.textures = 3; // Let exact resource checks reach source revalidation.
+    for (const entry of [...pair.before, ...pair.after]) entry.image = image;
+    await assert.rejects(writeMobileComparison(pair.before, pair.after, join(dir, 'forged.html'), pair.data), /implementation provenance differs/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test('final gate requires all 34 pairs, their report, provenance and every image/record', () => {
