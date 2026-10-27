@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { LAKE, shoreRadius, randomGenerator } from './config.js';
 import { sceneryNoise, ridgeNoise } from './scenery-noise.js';
+import { createConiferTexture, CONIFER_TEXTURE_MEAN } from './conifer-texture.js';
 
 // More samples near the waterline, with the original outer skirt extent.
 // Neither this mesh nor its height sampler participates in lake collision.
@@ -50,6 +51,7 @@ function closeNormals(geometry, columns, rows) {
 
 function createCrown(broadleaf) {
   const positions = [], colors = [], indices = [], sides = 7, levels = 14;
+  const uvs = [];
   const profile = [0.60, 0.88, 0.80, 0.84, 0.70, 0.75, 0.60, 0.60, 0.48, 0.46, 0.35, 0.29, 0.21, 0.13, 0];
   for (let level = 0; level <= levels; level++) {
     const t = level / levels;
@@ -68,6 +70,7 @@ function createCrown(broadleaf) {
       const light = broadleaf ? 0.76 + t * 0.24 : 0.78 + t * 0.17
         + envelope * (0.04 * Math.sin(angle * 3 + t * 18) + 0.025 * Math.cos(angle * 2 - t * 11));
       colors.push(light * 0.97, light, light * 0.94);
+      if (!broadleaf) uvs.push(side / sides, t);
       if (level < levels && side < sides) {
         const a = level * (sides + 1) + side, b = a + sides + 1;
         indices.push(a, b, a + 1, a + 1, b, b + 1);
@@ -77,6 +80,7 @@ function createCrown(broadleaf) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  if (!broadleaf) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices); geometry.computeVertexNormals(); closeNormals(geometry, sides + 1, levels + 1);
   return geometry;
 }
@@ -111,7 +115,11 @@ export function createTerrain() {
 
   const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.5, 1, 5), new THREE.MeshStandardMaterial({ color: '#655a49', roughness: 1 }), 850);
   const foliageMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
-  const conifers = new THREE.InstancedMesh(createCrown(false), foliageMaterial, 650);
+  const coniferMaterial = foliageMaterial.clone(), coniferTexture = createConiferTexture();
+  coniferMaterial.map = coniferTexture;
+  coniferMaterial.color.setScalar(1 / CONIFER_TEXTURE_MEAN);
+  coniferMaterial.addEventListener('dispose', () => coniferTexture.dispose());
+  const conifers = new THREE.InstancedMesh(createCrown(false), coniferMaterial, 650);
   const broadleaves = new THREE.InstancedMesh(createCrown(true), foliageMaterial, 200);
   trunks.name = 'tree-trunks'; conifers.name = 'tree-conifers'; broadleaves.name = 'tree-broadleaves';
   const dummy = new THREE.Object3D(), treeColor = new THREE.Color();

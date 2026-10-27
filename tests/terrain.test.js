@@ -6,6 +6,7 @@ import { createTerrain, terrainHeightAt } from '../src/world/terrain.js';
 import { LAKE, shoreRadius } from '../src/world/config.js';
 import { FISHING_SPOTS } from '../src/world/fishing-spots.js';
 import { isNavigableBoatPosition } from '../src/game/boat.js';
+import { createConiferTexture, CONIFER_TEXTURE_MEAN } from '../src/world/conifer-texture.js';
 
 const BASELINE_TERRAIN_TRIANGLES = 195096;
 const named = (terrain, name) => {
@@ -74,7 +75,7 @@ test('scenery geometry, instance transforms and colors are deterministic and fin
   } finally { dispose(first); dispose(second); }
 });
 
-test('850 rooted trees share foliage resources and stay outside the sailing area', () => {
+test('850 rooted trees share resources within each species and stay outside the sailing area', () => {
   const terrain = createTerrain();
   try {
     const trunks = named(terrain, 'tree-trunks');
@@ -83,7 +84,10 @@ test('850 rooted trees share foliage resources and stay outside the sailing area
     assert.equal(trunks.count, 850);
     assert.deepEqual(crowns.map(mesh => mesh.count), [650, 200]);
     assert.ok(crowns.every(mesh => mesh.isInstancedMesh));
-    assert.equal(crowns[0].material, crowns[1].material);
+    // v2 intentionally isolates one conifer albedo map from untextured broadleaves.
+    assert.notEqual(crowns[0].material, crowns[1].material);
+    assert.ok(crowns[0].material.map.isDataTexture);
+    assert.equal(crowns[1].material.map, null);
     assert.equal(named(terrain, 'shore-rocks').count, 90);
     const matrix = new THREE.Matrix4(), roots = [];
     for (let i = 0; i < trunks.count; i++) {
@@ -175,11 +179,12 @@ test('scenery remains inside the mesh, triangle and resource budgets', () => {
       + (mesh.geometry.index?.count ?? mesh.geometry.attributes.position.count) / 3 * (mesh.isInstancedMesh ? mesh.count : 1), 0);
     assert.ok(triangles <= BASELINE_TERRAIN_TRIANGLES * 1.15, `${triangles} scenery triangles`);
     assert.ok(new Set(meshes.map(mesh => mesh.geometry)).size <= 8);
-    assert.ok(new Set(meshes.map(mesh => mesh.material)).size <= 7);
+    assert.equal(new Set(meshes.map(mesh => mesh.material)).size, 8, 'one isolated conifer material added to G-1');
     for (const mesh of meshes) {
       assert.equal(mesh.material.type, 'MeshStandardMaterial');
       assert.equal(mesh.material.fog, true);
-      assert.equal(mesh.material.map, null, mesh.name);
+      if (mesh.name === 'tree-conifers') assert.ok(mesh.material.map.isDataTexture);
+      else assert.equal(mesh.material.map, null, mesh.name);
     }
   } finally { dispose(terrain); }
 });
@@ -213,13 +218,14 @@ test('visual refinement preserves the public shore, navigation margin and three 
 });
 
 // Byte fingerprints from main 6c92a1c6d004580144db72011bf5999fa5a2e651,
-// Three.js 0.186.1. G-1 may change only conifer position/color/normal values.
+// with the conifer shape from G-1 ba5d6f0c7db46ad7391fa988bb4e31b71a82ebf4.
+// v2 may add conifer UVs but must preserve every existing geometry/instance byte.
 // Include every untouched geometry and all instance buffers, including rocks:
 // a change to PRNG consumption must not silently move or recolor later objects.
 const g0Buffers = {
   'lake-shore': ['1d057bba361609f35aaa0cd05217e2c6c5f84d857f7d44aac01c9688678ec8c3'],
   'tree-trunks': ['f7a28dfe414427abe4e15f453f7dfff9705205a0ff0166d2934b0e4155e60262', '9ac17a09345940b55e9171bdee04296279a68ffbac1f3bceed40eb5125dba738'],
-  'tree-conifers': [null, '752e9686811a57ca406b1cf6a9b6131b6e84cce1e335d8fdd1d1d7abf8d9fff9'],
+  'tree-conifers': ['4c04484a352d58ef885edcc92eb9c556fc8f4dd9a99f67e5e0379eec5bad34b3', '752e9686811a57ca406b1cf6a9b6131b6e84cce1e335d8fdd1d1d7abf8d9fff9'],
   'tree-broadleaves': ['986ed0dd486d323612e664efa222a5b615b76c22eb4bfe651bbe9216f623725e', '495771cde44a1cabfc57c268c8a79e11e6d19d7c409d0dc764afa66182c33e19'],
   'shore-rocks': ['70da1a6fc2e69bca8c96dde13fca8e6078aa259d2fc0d2fac13eb59e225347c2', '5101bef8fc1ea21afd0be2365a8d54882a8d5feaedc1839b4d8039775aa6b104'],
   'mountain-ridge-0': ['a59e8ff8ea19c797a393ae7589108b139c764b5fc7887233dec75db7c97b18f1'],
@@ -232,17 +238,17 @@ const bufferDigest = arrays => {
   return hash.digest('hex');
 };
 
-test('G-1 preserves all G-0 instance buffers, other geometry bytes and material configuration', () => {
+test('v2 preserves G-1 shape, all G-0 instance buffers and other geometry/material configuration', () => {
   const terrain = createTerrain();
   try {
     assert.deepEqual(terrain.children.map(mesh => mesh.name), Object.keys(g0Buffers));
     assert.equal(new Set(terrain.children.map(mesh => mesh.geometry)).size, 8);
-    assert.equal(new Set(terrain.children.map(mesh => mesh.material)).size, 7);
-    assert.equal(named(terrain, 'tree-conifers').material, named(terrain, 'tree-broadleaves').material);
+    assert.equal(new Set(terrain.children.map(mesh => mesh.material)).size, 8);
+    assert.notEqual(named(terrain, 'tree-conifers').material, named(terrain, 'tree-broadleaves').material);
     for (const mesh of terrain.children) {
       const [geometryDigest, instanceDigest] = g0Buffers[mesh.name], geometry = mesh.geometry;
       if (geometryDigest) assert.equal(bufferDigest([
-        ...Object.keys(geometry.attributes).sort().map(name => geometry.attributes[name].array),
+        ...Object.keys(geometry.attributes).filter(name => mesh.name !== 'tree-conifers' || name !== 'uv').sort().map(name => geometry.attributes[name].array),
         ...(geometry.index ? [geometry.index.array] : []),
       ]), geometryDigest, `${mesh.name} geometry bytes`);
       if (instanceDigest) assert.equal(bufferDigest([
@@ -261,7 +267,9 @@ test('G-1 preserves all G-0 instance buffers, other geometry bytes and material 
       assert.equal(mesh.material.depthWrite, true);
       assert.equal(mesh.material.roughness, 1);
       assert.equal(mesh.material.metalness, 0);
-      assert.equal(Object.values(mesh.material).some(value => value?.isTexture), false);
+      const textures = Object.values(mesh.material).filter(value => value?.isTexture);
+      assert.equal(textures.length, mesh.name === 'tree-conifers' ? 1 : 0);
+      if (mesh.name === 'tree-conifers') near(mesh.material.color.r, 1 / CONIFER_TEXTURE_MEAN, 'albedo mean compensation');
     }
   } finally { dispose(terrain); }
 });
@@ -270,7 +278,7 @@ test('conifer crown keeps 196 outward-wound triangles and a closed, unit-normal 
   const terrain = createTerrain();
   try {
     const geometry = named(terrain, 'tree-conifers').geometry;
-    assert.deepEqual(Object.keys(geometry.attributes).sort(), ['color', 'normal', 'position']);
+    assert.deepEqual(Object.keys(geometry.attributes).sort(), ['color', 'normal', 'position', 'uv']);
     const positions = geometry.attributes.position, normals = geometry.attributes.normal;
     assert.equal(positions.count, 120);
     assert.equal(geometry.index.count, 588);
@@ -310,4 +318,59 @@ test('conifer crown keeps 196 outward-wound triangles and a closed, unit-normal 
     }
     assert.equal(collapsedTipFaces, 7);
   } finally { dispose(terrain); }
+});
+
+test('conifer UV seam wraps an integer tile count without changing geometry or broadleaf UVs', () => {
+  const terrain = createTerrain();
+  try {
+    const conifer = named(terrain, 'tree-conifers'), uv = conifer.geometry.attributes.uv;
+    assert.equal(uv.count, 120); assert.equal(uv.itemSize, 2);
+    assert.equal(named(terrain, 'tree-broadleaves').geometry.attributes.uv, undefined);
+    for (let row = 0; row < 15; row++) {
+      assert.equal(uv.getX(row * 8), 0); assert.equal(uv.getX(row * 8 + 7), 1);
+      assert.equal(uv.getY(row * 8), uv.getY(row * 8 + 7));
+    }
+    finite(uv.array, 'conifer UV');
+    assert.deepEqual(conifer.material.map.repeat.toArray(), [3, 4]);
+  } finally { dispose(terrain); }
+});
+
+test('leaf presets are deterministic opaque mipmapped patches with a common linear mean', () => {
+  const textures = ['A', 'A', 'B'].map(createConiferTexture);
+  try {
+    assert.deepEqual(textures[0].image.data, textures[1].image.data);
+    assert.notDeepEqual(textures[0].image.data, textures[2].image.data);
+    const variations = [];
+    for (const texture of textures) {
+      assert.equal(texture.image.width, 64); assert.equal(texture.image.height, 64);
+      assert.equal(texture.image.data.byteLength, 16384);
+      assert.equal(texture.format, THREE.RGBAFormat); assert.equal(texture.type, THREE.UnsignedByteType);
+      assert.equal(texture.colorSpace, THREE.SRGBColorSpace);
+      assert.equal(texture.wrapS, THREE.RepeatWrapping); assert.equal(texture.wrapT, THREE.RepeatWrapping);
+      assert.equal(texture.generateMipmaps, true); assert.equal(texture.magFilter, THREE.LinearFilter);
+      assert.equal(texture.minFilter, THREE.LinearMipmapLinearFilter); assert.equal(texture.anisotropy, 1);
+      const values = [];
+      for (let i = 0; i < 4096; i++) {
+        const data = texture.image.data;
+        assert.equal(data[i * 4 + 3], 255);
+        assert.equal(data[i * 4], data[i * 4 + 1]); assert.equal(data[i * 4], data[i * 4 + 2]);
+        values.push(new THREE.Color().setRGB(data[i * 4] / 255, 0, 0, THREE.SRGBColorSpace).r);
+      }
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      near(mean, CONIFER_TEXTURE_MEAN, 'linear albedo mean', 0.001);
+      const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
+      const adjacent = values.reduce((sum, value, i) => sum + (value - values[Math.floor(i / 64) * 64 + (i + 1) % 64]) ** 2, 0) / values.length;
+      assert.ok(adjacent < variance * 0.4, 'spatially coherent patches, not independent pixel noise');
+      variations.push(variance);
+    }
+    assert.ok(variations[2] > variations[0], 'B has more contrast than A');
+    assert.throws(() => createConiferTexture('unknown'), RangeError);
+  } finally { textures.forEach(texture => texture.dispose()); }
+});
+
+test('the conifer material owns and disposes its one texture through existing material cleanup', () => {
+  const terrain = createTerrain(), texture = named(terrain, 'tree-conifers').material.map;
+  let disposed = 0; texture.addEventListener('dispose', () => disposed++);
+  dispose(terrain);
+  assert.equal(disposed, 1);
 });
