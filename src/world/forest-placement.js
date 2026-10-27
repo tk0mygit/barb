@@ -25,7 +25,11 @@ export function createForestPlacement() {
     if (offset > 75) {
       let anchor, distance = 90;
       for (const tree of groves) {
-        const d = Math.hypot(targetX - tree.x, targetZ - tree.z);
+        const dx = targetX - tree.x, dz = targetZ - tree.z;
+        // Reject distant groves before the more expensive exact distance.
+        // This preserves the selected anchor and every resulting position.
+        if (Math.abs(dx) >= distance || Math.abs(dz) >= distance) continue;
+        const d = Math.hypot(dx, dz);
         if (d < distance) { anchor = tree; distance = d; }
       }
       const spacing = 12 + (id * 0.618033988749895 % 1) * 5;
