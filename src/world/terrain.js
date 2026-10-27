@@ -50,15 +50,23 @@ function closeNormals(geometry, columns, rows) {
 
 function createCrown(broadleaf) {
   const positions = [], colors = [], indices = [], sides = 7, levels = 14;
-  const profile = [0.48, 0.82, 0.61, 0.94, 0.64, 0.81, 0.51, 0.67, 0.4, 0.49, 0.26, 0.3, 0.13, 0.13, 0];
+  const profile = [0.60, 0.88, 0.80, 0.84, 0.70, 0.75, 0.60, 0.60, 0.48, 0.46, 0.35, 0.29, 0.21, 0.13, 0];
   for (let level = 0; level <= levels; level++) {
     const t = level / levels;
     for (let side = 0; side <= sides; side++) {
       const angle = (side % sides) / sides * tau;
-      const edge = 1 + (broadleaf ? 0.23 : 0.13) * Math.sin(angle * 3 + t * 9) + 0.09 * Math.cos(angle * 2 - t * 6);
+      // Stagger bough tips around the crown instead of stacking sharp skirts
+      // at the same height. End rings stay fixed; the broadleaf path is unchanged.
+      const envelope = Math.sin(Math.PI * t);
+      const direction = broadleaf ? angle : angle + 0.11 * Math.sin(t * 8) + 0.035 * Math.sin(angle * 3 + t * 13);
+      const height = broadleaf || level === 0 || level === levels ? t
+        : t + envelope * (0.018 * Math.sin(angle * 3 + t * 18) + 0.008 * Math.cos(angle * 2 - t * 11));
+      const edge = broadleaf ? 1 + 0.23 * Math.sin(angle * 3 + t * 9) + 0.09 * Math.cos(angle * 2 - t * 6)
+        : 1 + 0.10 * Math.sin(angle * 3 + t * 18) + 0.07 * Math.cos(angle * 2 - t * 11);
       const radius = (broadleaf ? Math.sin(Math.PI * t) ** 0.65 * (0.94 + Math.sin(t * 23) * 0.1) : profile[level]) * edge;
-      positions.push(Math.cos(angle) * radius + Math.sin(t * 3.1) * 0.12, t, Math.sin(angle) * radius);
-      const light = broadleaf ? 0.76 + t * 0.24 : 0.70 + t * 0.25 + (level % 2 ? 0.05 : 0);
+      positions.push(Math.cos(direction) * radius + Math.sin(t * 3.1) * 0.12, height, Math.sin(direction) * radius);
+      const light = broadleaf ? 0.76 + t * 0.24 : 0.78 + t * 0.17
+        + envelope * (0.04 * Math.sin(angle * 3 + t * 18) + 0.025 * Math.cos(angle * 2 - t * 11));
       colors.push(light * 0.97, light, light * 0.94);
       if (level < levels && side < sides) {
         const a = level * (sides + 1) + side, b = a + sides + 1;
