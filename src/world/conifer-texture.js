@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 
-// Local preview presets, not a selected production treatment. Both use the
-// same mapping/material; only their deterministic albedo pixels differ.
-export const CONIFER_TEXTURE_VARIANT = 'B';
+// Accepted B albedo, shared by both crown species. No runtime preset changes.
 export const CONIFER_TEXTURE_MEAN = 0.68;
 const size = 64;
 const blend = t => t * t * (3 - 2 * t);
@@ -21,10 +19,9 @@ function noise(x, y, period, seed) {
 }
 const encode = value => Math.round(255 * (1.055 * value ** (1 / 2.4) - 0.055));
 
-export function createConiferTexture(variant = CONIFER_TEXTURE_VARIANT) {
-  if (variant !== 'A' && variant !== 'B') throw new RangeError('Unknown conifer texture preset');
+export function createConiferTexture() {
   const field = new Float32Array(size * size);
-  const cells = variant === 'A' ? 7 : 12, amplitude = variant === 'A' ? 0.14 : 0.24;
+  const cells = 12, amplitude = 0.24;
   let sum = 0, min = Infinity, max = -Infinity;
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const u = x / size, v = y / size;
@@ -39,12 +36,12 @@ export function createConiferTexture(variant = CONIFER_TEXTURE_VARIANT) {
   const data = new Uint8Array(size * size * 4);
   for (let i = 0; i < field.length; i++) {
     // Neutral albedo modulation: existing vertex/instance colors supply green.
-    // Both presets have the same linear mean, compensated by one material gain.
+    // Preserve B's linear mean, compensated by the shared material gain.
     const value = encode(CONIFER_TEXTURE_MEAN + amplitude * (field[i] - mean) / extent);
     data.set([value, value, value, 255], i * 4);
   }
   const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, THREE.UnsignedByteType);
-  texture.name = `conifer-albedo-${variant}`;
+  texture.name = 'foliage-albedo-B';
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(3, 4);
