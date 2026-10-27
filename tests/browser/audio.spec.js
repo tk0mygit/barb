@@ -444,37 +444,63 @@ for (const touch of [false, true]) {
   });
 }
 
-for (const fail of [false, true]) {
-  test(`bite notification retains timing and hook input with ambient ON (audio failure=${fail})`, async ({ page }) => {
-    await prefs(page, enabled); await page.addInitScript(installAudioProbe, {}); await setup(page, 90);
-    await page.locator('#fish-button').click(); await tick(page); await assertMix(page);
-    await page.locator('#cast-button').click();
-    // The user may start dragging while the camera levels. Keep that contact
-    // held through the real preparation update, then release to cast.
-    await page.mouse.move(600, 400); await page.mouse.down(); await page.mouse.move(600, 250);
-    await tick(page);
-    const phase = page.locator('#fishing-panel'); await expect(phase).toHaveAttribute('data-phase', 'aim');
-    expect(await page.locator('#scene').evaluate(canvas => {
-      const down = window.e2eDiagnostics.events.findLast(event => event.type === 'pointerdown' && event.target === 'scene');
-      return canvas.hasPointerCapture(down.pointerId);
-    })).toBe(true);
-    await page.mouse.up();
-    for (let i = 0; i < 4; i++) await tick(page);
-    await expect(phase).toHaveAttribute('data-phase', 'lure');
-    await page.evaluate(fail => { window.audioProbe.failGain = fail; }, fail);
-    for (let i = 0; i < 120 && await phase.getAttribute('data-phase') !== 'bite'; i++) await tick(page);
-    await expect(phase).toHaveAttribute('data-phase', 'bite');
-    const notification = await page.evaluate(() => {
-      const oscillator = window.audioProbe.nodes.find(n => n.type === 'oscillator');
-      return { count: window.audioProbe.nodes.filter(n => n.type === 'oscillator').length,
-        pitch: oscillator?.frequency.value, stopped: oscillator?.stopped };
+for (const touch of [false, true]) for (const ambient of [false, true]) for (const fail of [false, true]) {
+  test('Firefly bite: ' + (touch ? 'touch' : 'mouse') + ', ambient=' + ambient + ', allocation failure=' + fail,
+    async ({ createContext }, info) => {
+      const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 },
+        hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+      const page = await context.newPage(), requests = [];
+      page.on('request', request => { if (/\/waterdrop[^/]*\.wav$/.test(request.url())) requests.push(request.url()); });
+      await prefs(page, { ...enabled, enabled: ambient, volume: ambient ? 60 : 0 });
+      await page.addInitScript(installAudioProbe, {}); await setup(page, 90);
+      const activate = locator => touch ? locator.tap() : locator.click();
+      const cdp = await context.newCDPSession(page), x = touch ? 200 : 600, y = touch ? 480 : 400;
+      const down = () => touch
+        ? cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+        : page.mouse.move(x, y).then(() => page.mouse.down());
+      const move = () => touch
+        ? cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - 150 }] })
+        : page.mouse.move(x, y - 150);
+      const up = () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : page.mouse.up();
+      try {
+        await activate(page.locator('#fish-button')); await tick(page);
+        await expect.poll(async () => (await audioSnapshot(page)).biteDecoded.length).toBe(1);
+        if (ambient) await assertMix(page); else expect((await audioSnapshot(page)).sources).toBe(0);
+        expect(requests).toHaveLength(1);
+        await activate(page.locator('#cast-button')); await down(); await move(); await tick(page);
+        const phase = page.locator('#fishing-panel'); await expect(phase).toHaveAttribute('data-phase', 'aim');
+        expect(await page.locator('#scene').evaluate(canvas => {
+          const down = window.e2eDiagnostics.events.findLast(event => event.type === 'pointerdown' && event.target === 'scene');
+          return canvas.hasPointerCapture(down.pointerId);
+        })).toBe(true);
+        await up();
+        for (let i = 0; i < 4; i++) await tick(page);
+        await expect(phase).toHaveAttribute('data-phase', 'lure');
+        await page.evaluate(fail => { window.audioProbe.failGain = fail; }, fail);
+        for (let i = 0; i < 120 && await phase.getAttribute('data-phase') !== 'bite'; i++) await tick(page);
+        await expect(phase).toHaveAttribute('data-phase', 'bite');
+        const notification = await page.evaluate(() => {
+          const voices = window.audioProbe.nodes.filter(n => n.type === 'source' && n.audioProbeKind === 'bite');
+          const source = voices.at(-1);
+          return { count: voices.length, oscillators: window.audioProbe.nodes.filter(n => n.type === 'oscillator').length,
+            started: source?.started ?? false, disconnected: source?.disconnected,
+            duration: source?.buffer?.duration, offset: source?.offset, scheduledDuration: source?.stopTime - source?.startWhen };
+        });
+        expect(notification.count).toBe(1); expect(notification.oscillators).toBe(0);
+        if (fail) { expect(notification.started).toBe(false); expect(notification.disconnected).toBe(true); }
+        else {
+          expect(notification.started).toBe(true); expect(notification.duration).toBe(1);
+          expect(notification.offset).toBe(0.02); expect(notification.scheduledDuration).toBeCloseTo(0.98, 8);
+        }
+        // Keep the one-second hook live while the 0.98-second sound is still playing.
+        if (touch) await page.touchscreen.tap(x, y); else { await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.up(); }
+        await page.clock.fastForward(16);
+        await expect(phase).toHaveAttribute('data-phase', 'fight');
+        expect(requests).toHaveLength(1);
+        expect((await audioSnapshot(page)).biteDecoded).toHaveLength(1);
+        await expect(page.locator('#error')).toBeHidden();
+      } finally { await attachAudioDiagnostics(page, info); }
     });
-    expect(notification.count).toBe(1);
-    if (!fail) { expect(notification.pitch).toBe(1320); expect(notification.stopped).toBe(true); }
-    await page.mouse.down(); await page.mouse.up(); await page.clock.fastForward(16);
-    await expect(phase).toHaveAttribute('data-phase', 'fight');
-    await expect(page.locator('#error')).toBeHidden();
-  });
 }
 
 for (const [seconds, mode, bgm, nature] of [[270, '夜のBGM', 1, NATURE_BASE_GAIN], [2790, '霧の夜のBGM', 1, NATURE_BASE_GAIN], [630, '濃霧の自然音', 0, 1]]) {

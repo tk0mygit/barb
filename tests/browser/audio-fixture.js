@@ -42,9 +42,28 @@ export function installAudioProbe({ native = false, reject = false, pending = fa
   const Native = window.AudioContext;
   const bioId = buffer => ({ 2.1: 'bird-a', 2.55: 'bird-b', 2.85: 'bird-c',
     3.6: 'suzumushi-a', 4.1: 'suzumushi-b', 3.85: 'suzumushi-c' })[Number(buffer?.duration?.toFixed(2))];
+  const observeBuffer = (source, nativeSource = false) => {
+    const property = nativeSource ? Object.getOwnPropertyDescriptor(AudioBufferSourceNode.prototype, 'buffer') : null;
+    let current;
+    Object.defineProperty(source, 'buffer', {
+      configurable: true,
+      get: () => property ? property.get.call(source) : current,
+      set(buffer) {
+        if (property) property.set.call(source, buffer); else current = buffer;
+        if (!buffer) return; // Preserve identity after teardown clears the PCM.
+        source.bioId = bioId(buffer);
+        source.audioProbeKind = source.bioId ? 'bio' : buffer.duration === 1 ? 'bite' : 'unclassified';
+      },
+    });
+    return source;
+  };
   const sourceStarted = value => {
     if ((value.audioProbeType ?? value.type) !== 'source' || value.loop) return;
     value.bioId = bioId(value.buffer);
+    if (!value.bioId) {
+      record('bite-start', { duration: value.buffer?.duration, offset: value.offset, scheduled: value.startWhen });
+      return;
+    }
     const voice = value.bioId?.startsWith('suzumushi-') ? value.connections[0]?.connections[0] : value.connections[0];
     record('bio-start', { sourceId: value.bioId, seconds: window.lightingProbe?.last?.mistTime,
       gain: voice?.gain.value, duration: value.buffer?.duration });
@@ -66,12 +85,14 @@ export function installAudioProbe({ native = false, reject = false, pending = fa
           const create = this[method].bind(this);
           this[method] = () => {
             const value = create(); value.audioProbeType = type; value.connections = []; value.disconnected = false;
+            if (type === 'source') observeBuffer(value, true);
             const connect = value.connect.bind(value), disconnect = value.disconnect.bind(value);
             value.connect = next => { value.connections.push(next); return connect(next); };
             value.disconnect = () => { value.connections = []; value.disconnected = true; return disconnect(); };
             if (value.start) {
               const start = value.start.bind(value), stop = value.stop.bind(value);
-              value.start = (...args) => { const result = start(...args); value.started = true; sourceStarted(value); record('source-start', { kind: type }); return result; };
+              value.start = (...args) => { const result = start(...args); value.started = true;
+                value.startWhen = args[0]; value.offset = args[1]; sourceStarted(value); record('source-start', { kind: type }); return result; };
               value.stop = (...args) => { const result = stop(...args); value.stopped = true; return result; };
             }
             probe.nodes.push(value); record('node-created', { kind: type }); return value;
@@ -97,7 +118,7 @@ export function installAudioProbe({ native = false, reject = false, pending = fa
     const node = { type, connections: [], disconnected: false,
       connect(next) { this.connections.push(next); return next; }, disconnect() { this.connections = []; this.disconnected = true; },
       start(when, offset) {
-        this.started = true; this.offset = offset; sourceStarted(this); record('source-start', { kind: type });
+        this.started = true; this.startWhen = when; this.offset = offset; sourceStarted(this); record('source-start', { kind: type });
         if (type === 'source' && !this.loop && this.buffer) endTimer = setTimeout(finish, this.buffer.duration * 1000);
       },
       stop(time) {
@@ -107,6 +128,7 @@ export function installAudioProbe({ native = false, reject = false, pending = fa
           if (!this.ended && this.onended) endTimer = setTimeout(finish, Math.max(0, (time ?? 0) - context.currentTime) * 1000);
         }
       } };
+    if (type === 'source') observeBuffer(node);
     probe.nodes.push(node); record('node-created', { kind: type }); return node;
   }
   window.AudioContext = class extends EventTarget {
@@ -129,10 +151,23 @@ export function installAudioProbe({ native = false, reject = false, pending = fa
     createOscillator() { return Object.assign(node('oscillator', this), { frequency: parameter() }); }
     decodeAudioData(bytes) {
       if (probe.failDecode) return Promise.reject(Error('test decode failure'));
-      const view = new DataView(bytes), frames = view.getUint32(40, true) / 2, data = new Float32Array(frames);
-      for (let i = 0; i < frames; i++) data[i] = view.getInt16(44 + i * 2, true) / 32768;
-      const buffer = { sampleRate: 44100, length: frames, numberOfChannels: 1, duration: frames / 44100, getChannelData: () => data };
-      probe.decoded.push({ id: bioId(buffer), frames, sampleRate: 44100 });
+      const view = new DataView(bytes);
+      let channels, sourceRate, dataOffset, dataBytes;
+      for (let p = 12; p + 8 <= view.byteLength;) {
+        const tag = String.fromCharCode(...new Uint8Array(bytes, p, 4)), size = view.getUint32(p + 4, true);
+        if (tag === 'fmt ') { channels = view.getUint16(p + 10, true); sourceRate = view.getUint32(p + 12, true); }
+        if (tag === 'data') { dataOffset = p + 8; dataBytes = size; }
+        p += 8 + size + size % 2;
+      }
+      const sourceFrames = dataBytes / channels / 2, frames = Math.round(sourceFrames * this.sampleRate / sourceRate);
+      const data = Array.from({ length: channels }, (_, c) => Float32Array.from({ length: frames }, (_, i) => {
+        const position = Math.min(sourceFrames - 1, i * sourceRate / this.sampleRate), a = Math.floor(position);
+        const value = frame => view.getInt16(dataOffset + (frame * channels + c) * 2, true) / 32768;
+        return value(a) + (value(Math.min(sourceFrames - 1, a + 1)) - value(a)) * (position - a);
+      }));
+      const buffer = { sampleRate: this.sampleRate, length: frames, numberOfChannels: channels,
+        duration: frames / this.sampleRate, getChannelData: c => data[c] };
+      probe.decoded.push({ id: bioId(buffer), frames, sampleRate: this.sampleRate });
       return probe.holdDecode ? new Promise(resolve => probe.decodeWaiters.push(() => resolve(buffer))) : Promise.resolve(buffer);
     }
     createBuffer(channels, length, rate) {
@@ -146,7 +181,8 @@ export const audioSnapshot = page => page.evaluate(() => {
   const probe = window.audioProbe;
   const allSources = probe.nodes.filter(n => (n.audioProbeType ?? n.type) === 'source');
   const sources = allSources.filter(n => n.loop === true && !n.disconnected);
-  const bio = allSources.filter(n => n.loop === false && !n.disconnected);
+  const bio = allSources.filter(n => n.loop === false && n.bioId && !n.disconnected);
+  const bites = allSources.filter(n => n.audioProbeKind === 'bite');
   const bioChains = bio.map(n => {
     const envelope = n.bioId?.startsWith('suzumushi-') ? n.connections[0] : undefined;
     return { envelope, voice: envelope ? envelope.connections[0] : n.connections[0] };
@@ -158,8 +194,11 @@ export const audioSnapshot = page => page.evaluate(() => {
   return {
     contexts: probe.contexts.length, states: probe.contexts.map(context => context.state),
     sources: sources.length, totalSources: allSources.filter(n => n.loop === true).length,
-    bioSources: bio.length, totalBioSources: allSources.filter(n => n.loop === false).length,
-    bioGains: bioChains.map(n => n.voice?.gain.value), bioIds: bio.map(n => n.bioId), decoded: probe.decoded,
+    bioSources: bio.length, totalBioSources: allSources.filter(n => n.loop === false && n.bioId).length,
+    bioGains: bioChains.map(n => n.voice?.gain.value), bioIds: bio.map(n => n.bioId),
+    decoded: probe.decoded.filter(n => n.id), allDecoded: probe.decoded,
+    biteDecoded: probe.decoded.filter(n => !n.id), biteSources: bites.filter(n => !n.disconnected).length,
+    totalBiteSources: bites.length,
     bioGainNodes: bioGainSet.size, bioEnvelopeNodes: bioChains.filter(n => n.envelope).length,
     bioEnvelopes: bioChains.map(n => n.envelope?.gain.events ?? null),
     bioDestinationConnected: bioChains.every(n => n.voice?.connections.length === 1

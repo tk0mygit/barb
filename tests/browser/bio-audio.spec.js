@@ -69,13 +69,15 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 390
         expect(ended.bioSources).toBe(0); expect(ended.totalGainNodes).toBe(4); expect(ended.liveNodes).toBe(7);
       }
       expect([...used].sort()).toEqual(['bird-a', 'bird-b', 'bird-c', 'suzumushi-a', 'suzumushi-b', 'suzumushi-c']);
-      expect(requests).toHaveLength(6); expect(new Set(requests).size).toBe(6);
+      // Six bio assets plus the independently prefetched notification WAV.
+      expect(requests.filter(url => /\/waterdrop[^/]*\.wav$/.test(url))).toHaveLength(1);
+      expect(requests).toHaveLength(7); expect(new Set(requests).size).toBe(7);
       await soundScreen(page, viewport.touch); await tick(page);
       expect((await audioSnapshot(page)).sources).toBe(0);
       if (viewport.touch) await page.locator('#collection-close').tap(); else await page.locator('#collection-close').click();
       await tick(page);
       expect((await audioSnapshot(page)).sources).toBe(3); expect((await audioSnapshot(page)).decoded).toHaveLength(6);
-      expect(requests).toHaveLength(6);
+      expect(requests).toHaveLength(7);
       expect(await page.evaluate(() => window.audioProbe.nodes.filter(n => n.type === 'source' && n.loop === false)
         .every(n => n.disconnected && n.buffer === null && n.onended === null))).toBe(true);
       const path = info.outputPath('integrated-bio-calls.json'); writeFileSync(path, JSON.stringify({ observations, requests }, null, 2));
@@ -90,7 +92,8 @@ test('stopping during first decode discards the old call; OFF clears the bank an
     await page.addInitScript(installAudioProbe, {});
     await page.addInitScript(() => { window.audioProbe.holdDecode = true; });
     await setup(page, 0); await page.locator('#fish-button').click(); await tick(page);
-    await expect.poll(() => page.evaluate(() => window.audioProbe.decodeWaiters.length)).toBe(3);
+    // Three bio decoders and the independent notification decoder are pending.
+    await expect.poll(() => page.evaluate(() => window.audioProbe.decodeWaiters.length)).toBe(4);
     const first = createBioCyclePlan(0).events[0];
     await advanceTo(page, first.scheduledSeconds - .1); await tick(page);
     expect((await audioSnapshot(page)).bioSources).toBe(0);
@@ -188,7 +191,10 @@ test('active one-shot obeys menu/blur/hidden/page/mute/OFF/context/WebGL stops a
 for (const mode of ['http', 'decode']) {
   test(`${mode} bio failures preserve BGM and retry after game-time backoff`, async ({ page }, info) => {
     let failing = true, count = 0;
-    if (mode === 'http') await page.route('**/*.wav', route => { count++; return failing ? route.fulfill({ status: 503, body: 'intentional' }) : route.continue(); });
+    if (mode === 'http') await page.route('**/*.wav', route => {
+      if (/\/waterdrop[^/]*\.wav$/.test(route.request().url())) return route.continue();
+      count++; return failing ? route.fulfill({ status: 503, body: 'intentional' }) : route.continue();
+    });
     try {
       await enable(page);
       if (mode === 'decode') {

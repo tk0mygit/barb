@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createGameClock } from '../src/game/game-clock.js';
 import { sampleNightFog, FOG_TYPE } from '../src/world/night-fog.js';
 import { sampleAudioMix, NATURE_BASE_GAIN } from '../src/audio/audio-mix.js';
@@ -7,8 +8,11 @@ import { createAudioSession } from '../src/audio/audio-session.js';
 import { createAmbientAudio } from '../src/audio/ambient-audio.js';
 import { createAmbientPlayer, AMBIENT_GAIN, AUDIO_FADE_SECONDS } from '../src/audio/ambient-player.js';
 import { createGeneratedBuffers } from '../src/audio/generated-sources.js';
-import { createFishingAudio } from '../src/ui/fishing-audio.js';
+import { createFishingAudio, BITE_GAIN, BITE_OFFSET_SECONDS } from '../src/ui/fishing-audio.js';
 import { fakeContext, fakeTimers } from './helpers/audio-fakes.js';
+import { biteContext, fetchBite, readPcm, biteWav } from './helpers/bite-audio-fixture.js';
+import { BIO_VARIANTS } from '../src/audio/bio-source-assets.js';
+import { BIO_VOICE_GAIN } from '../src/audio/bio-player.js';
 
 const at = seconds => createGameClock(undefined, { elapsedSeconds: seconds }).state;
 const near = (a, b, epsilon = 1e-8) => assert.ok(Math.abs(a - b) < epsilon, `${a} != ${b}`);
@@ -195,18 +199,23 @@ test('controller pauses compose, mute/off stay cheap, storage failure stays inde
   ambient.dispose(); session.dispose();
 });
 
-test('bite keeps the original pitch, 0.12 gain and 0.32s timing on its own path; all failures are contained', async () => {
-  const context = fakeContext(), session = createAudioSession({ createContext: () => context });
-  const bite = createFishingAudio({ session }); bite.bite(); assert.equal(context.nodes.length, 0);
-  await bite.unlock(); bite.bite();
-  const [oscillator, gain] = context.nodes;
-  assert.deepEqual(oscillator.frequency.events, [['set', 880, 1], ['linear', 1320, 1.16]]);
-  assert.deepEqual(gain.gain.events, [['set', 0.0001, 1], ['exponential', 0.12, 1.02], ['exponential', 0.0001, 1.3]]);
-  assert.equal(oscillator.stopTime, 1.32); assert.equal(gain.connections[0], context.destination);
-  oscillator.onended(); assert.ok(oscillator.disconnected && gain.disconnected);
+test('bite uses prepared Firefly PCM once on its own path; all failures are contained', async () => {
+  const context = biteContext(), session = createAudioSession({ createContext: () => context });
+  const bite = createFishingAudio({ session, fetcher: fetchBite });
+  bite.bite(); assert.equal(context.nodes.length, 0);
+  await bite.unlock(); assert.equal(await bite.preload(), true); bite.bite();
+  const [source, gain] = context.nodes;
+  assert.equal(source.type, 'source'); assert.equal(source.loop, false);
+  assert.equal(source.buffer.duration, 1); assert.equal(source.startWhen, context.currentTime);
+  assert.equal(source.offset, BITE_OFFSET_SECONDS);
+  near(source.stopTime, 1 + source.buffer.duration - BITE_OFFSET_SECONDS);
+  assert.deepEqual(gain.gain.events, [['set', 0, 1], ['linear', BITE_GAIN, 1.001],
+    ['set', BITE_GAIN, 1.975], ['linear', 0, 1.98]]);
+  assert.equal(gain.connections[0], context.destination);
+  source.onended(); assert.ok(source.disconnected && gain.disconnected); assert.equal(source.buffer, null);
   context.createGain = () => { throw Error('allocation'); };
   assert.doesNotThrow(() => bite.bite()); assert.ok(context.nodes.at(-1).disconnected);
-  context.change('interrupted'); assert.doesNotThrow(() => bite.bite()); session.dispose();
+  context.change('interrupted'); assert.doesNotThrow(() => bite.bite()); bite.dispose(); session.dispose();
 });
 
 test('original buffers have bounded memory/peaks, smooth seams, distinct music and no recurring allocations', () => {
@@ -253,12 +262,23 @@ test('layered PCM bounds target/independent-ramp peaks and normal RMS increase b
   const bound = AMBIENT_GAIN * Math.max(Math.max(peaks.day, peaks.night)
     + NATURE_BASE_GAIN * peaks.nature, peaks.nature);
   assert.ok(bound < 0.04, `ambient peak bound ${bound}`);
-  assert.ok(bound + 0.12 < 0.16, `ambient + independent bite peak bound ${bound + 0.12}`);
+  const bitePeak = Math.max(...readPcm(biteWav).data.map(data => data.reduce((peak, value) => Math.max(peak, Math.abs(value)), 0))) * BITE_GAIN;
+  near(bitePeak, 0.196875);
+  assert.ok(bound + bitePeak < 0.24, `ambient + measured bite peak bound ${bound + bitePeak}`);
   // Retargets may leave channels at different points in their 80ms ramps.
   // Each stays in [0, 1], so this conservative bound also covers rapid jumps.
   const rampBound = AMBIENT_GAIN * (peaks.day + peaks.night + peaks.nature);
   assert.ok(rampBound < 0.1, `independent ramp peak bound ${rampBound}`);
-  assert.ok(rampBound + 0.12 < 0.22, `ramp + independent bite peak bound ${rampBound + 0.12}`);
+  assert.ok(rampBound + bitePeak < 0.30, `ramp + measured bite peak bound ${rampBound + bitePeak}`);
+  const bioPeak = Math.max(...BIO_VARIANTS.map(variant => readPcm(readFileSync(
+    new URL('../src/assets/audio/bio/' + variant.file, import.meta.url))).data[0]
+    .reduce((peak, value) => Math.max(peak, Math.abs(value)), 0)));
+  const bioBound = bioPeak * BIO_VOICE_GAIN * AMBIENT_GAIN; // At most one bio voice at volume 100.
+  assert.ok(bioBound < 0.021);
+  assert.ok(bound + bitePeak + bioBound < 0.27);
+  assert.ok(rampBound + bitePeak + bioBound < 0.32);
+  // The decoder accepts resampling overshoot only up to 1.25 (bite output 0.25).
+  assert.ok(rampBound + 1.25 * BITE_GAIN + bioBound < 0.37);
   for (const kind of ['day', 'night']) {
     const relativeDb = 20 * Math.log10(NATURE_BASE_GAIN * rms.nature / rms[kind]);
     assert.ok(relativeDb > -15.3 && relativeDb < -13.6, `${kind}: nature relative RMS ${relativeDb}dB`);

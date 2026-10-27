@@ -6,7 +6,8 @@ async function loadAudioModules(page) {
   // fixture. No game hooks or source changes are needed for offline rendering.
   await page.route('**/barb/src/**', route => {
     const path = new URL(route.request().url()).pathname.replace('/barb/', '../../');
-    return route.fulfill({ body: readFileSync(new URL(path, import.meta.url)), contentType: 'text/javascript' });
+    const contentType = path.endsWith('.json') ? 'application/json' : path.endsWith('.wav') ? 'audio/wav' : 'text/javascript';
+    return route.fulfill({ body: readFileSync(new URL(path, import.meta.url)), contentType });
   });
   await page.route('**/barb/audio-gain.html', route => route.fulfill({ body: '<!doctype html><title>Offline gain verification</title>', contentType: 'text/html' }));
   await page.goto('./audio-gain.html');
@@ -185,4 +186,100 @@ test('native production PCM bounds layered output and all twilight/dense transit
     expect(changeDb).toBeGreaterThanOrEqual(0); expect(changeDb).toBeLessThan(0.2);
   }
   expect(results[1].rms).toBeCloseTo(results[2].rms, 8);
+});
+
+test('native Firefly bite output has prompt onset, bounded peaks and full release at 44.1/48kHz', async ({ page }, info) => {
+  await loadAudioModules(page);
+  const results = await page.evaluate(async () => {
+    const { createFishingAudio } = await import('./src/ui/fishing-audio.js');
+    const { createAmbientPlayer } = await import('./src/audio/ambient-player.js');
+    const { sampleAudioMix } = await import('./src/audio/audio-mix.js');
+    const { createGameClock } = await import('./src/game/game-clock.js');
+    const { sampleBioGain } = await import('./src/audio/bio-player.js');
+    const results = [];
+    for (const rate of [44100, 48000]) for (const [scene, seconds] of [['isolated', 0], ['day', 90], ['night', 270], ['dense', 990]]) {
+      const offline = new OfflineAudioContext(2, Math.round(rate * 1.1), rate), nodes = [];
+      let fetches = 0, decodes = 0;
+      const context = Object.assign(new EventTarget(), {
+        state: 'running', sampleRate: rate, destination: offline.destination,
+        createBuffer: (...args) => offline.createBuffer(...args),
+        decodeAudioData: bytes => { decodes++; return offline.decodeAudioData(bytes); },
+      });
+      Object.defineProperty(context, 'currentTime', { get: () => offline.currentTime });
+      for (const [method, kind] of [['createGain', 'gain'], ['createBufferSource', 'source']]) context[method] = () => {
+        const node = offline[method](), disconnect = node.disconnect.bind(node);
+        node.disconnected = false; node.kind = kind;
+        node.disconnect = () => { node.disconnected = true; return disconnect(); };
+        if (kind === 'source') {
+          const start = node.start.bind(node);
+          node.start = (...args) => { node.startWhen = args[0]; node.offset = args[1]; return start(...args); };
+        }
+        nodes.push(node); return node;
+      };
+      const session = { context, status: 'ready', subscribe: () => () => {} };
+      const bite = createFishingAudio({ session, fetcher: (...args) => { fetches++; return fetch(...args); } });
+      if (!await bite.preload()) throw Error('Notification failed to prepare');
+      const player = createAmbientPlayer();
+      let bio;
+      if (scene !== 'isolated') {
+        const clock = createGameClock(undefined, { elapsedSeconds: seconds }).state, mix = sampleAudioMix(clock);
+        player.play(context, mix, 100, seconds);
+        const file = scene === 'day' ? 'bird-a' : 'suzumushi-a';
+        const pcm = await offline.decodeAudioData(await (await fetch('./src/assets/audio/bio/wav/' + file + '.wav')).arrayBuffer());
+        bio = offline.createBufferSource(); bio.buffer = pcm;
+        const gain = offline.createGain(); gain.gain.value = sampleBioGain(mix, 100, clock.timeOfDay);
+        bio.connect(gain).connect(offline.destination); bio.start(0);
+      }
+      const preparedFetches = fetches, preparedDecodes = decodes;
+      bite.bite();
+      const source = nodes.find(n => n.kind === 'source' && !n.loop);
+      const ended = new Promise(resolve => source.addEventListener('ended', resolve, { once: true }));
+      const decodedBytes = source.buffer.length * source.buffer.numberOfChannels * 4;
+      const decodedFrames = source.buffer.length, decodedDuration = source.buffer.duration;
+      const rendered = await offline.startRendering(); await ended;
+      let peak = 0, energy = 0, nonFinite = 0, clipped = 0, first = Infinity, tailPeak = 0;
+      for (let c = 0; c < rendered.numberOfChannels; c++) {
+        const data = rendered.getChannelData(c);
+        for (let i = 0; i < data.length; i++) {
+          const v = data[i];
+          peak = Math.max(peak, Math.abs(v));
+          if (i < Math.round(rate * .98)) energy += v * v;
+          if (!Number.isFinite(v)) nonFinite++;
+          if (Math.abs(v) >= 1) clipped++;
+          if (Math.abs(v) > .01) first = Math.min(first, i / rate);
+          if (i >= Math.ceil(rate * .981)) tailPeak = Math.max(tailPeak, Math.abs(v));
+        }
+      }
+      const liveNotificationNodes = nodes.filter(n => !n.disconnected).length - (scene === 'isolated' ? 0 : 7);
+      results.push({ rate, scene, peak, rms: Math.sqrt(energy / (Math.round(rate * .98) * 2)), nonFinite, clipped,
+        firstAboveMinus40Seconds: first, tailPeak, fetches, decodes, preparedFetches, preparedDecodes,
+        scheduledStart: source.startWhen, offset: source.offset, decodedBytes, decodedFrames, decodedDuration, liveNotificationNodes,
+        sourceBufferReleased: source.buffer === null });
+      bite.dispose(); player.dispose(); if (bio) { bio.stop(); bio.disconnect(); bio.buffer = null; }
+    }
+    return results;
+  });
+  const path = info.outputPath('native-bite-output.json');
+  writeFileSync(path, JSON.stringify(results, null, 2));
+  await info.attach('native-bite-output', { path, contentType: 'application/json' });
+  expect(results).toHaveLength(8);
+  for (const result of results) {
+    expect(result.nonFinite).toBe(0); expect(result.clipped).toBe(0);
+    expect(result.peak).toBeGreaterThan(.05); expect(result.peak).toBeLessThan(.32);
+    expect(result.fetches).toBe(1); expect(result.decodes).toBe(1);
+    expect(result.preparedFetches).toBe(1); expect(result.preparedDecodes).toBe(1);
+    expect(result.scheduledStart).toBe(0); expect(result.offset).toBe(.02);
+    // Native 48k -> 44.1k resampling measured 44,099 frames in Chromium 154.
+    // Retain a one-frame duration bound instead of assuming an exact 1s buffer.
+    expect(result.decodedFrames).toBeGreaterThanOrEqual(result.rate === 48000 ? result.rate : result.rate - 1);
+    expect(result.decodedFrames).toBeLessThanOrEqual(result.rate);
+    expect(result.decodedBytes).toBe(result.decodedFrames * 2 * 4);
+    expect(result.liveNotificationNodes).toBe(0); expect(result.sourceBufferReleased).toBe(true);
+    if (result.scene === 'isolated') {
+      expect(result.peak).toBeLessThan(.25);
+      expect(result.firstAboveMinus40Seconds).toBeGreaterThan(0);
+      expect(result.firstAboveMinus40Seconds).toBeLessThan(.02);
+      expect(result.tailPeak).toBe(0);
+    }
+  }
 });
