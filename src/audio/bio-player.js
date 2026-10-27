@@ -5,11 +5,21 @@ import { sampleAudioMix } from './audio-mix.js';
 import { FOG_TYPE } from '../world/night-fog.js';
 import { GAME_CLOCK_CONFIG } from '../game/game-clock.js';
 
-export const BIO_VOICE_GAIN = .45;
+export const BIO_VOICE_GAIN = 0.36;
 export const BIO_DENSE_FACTOR = .4;
 export const BIO_FADE_SECONDS = .04;
+export const BIO_SUZUMUSHI_FADE_IN_SECONDS = .5;
+export const BIO_SUZUMUSHI_FADE_OUT_SECONDS = .75;
 export const BIO_PRELOAD_SECONDS = 30;
 export const BIO_RETRY_SECONDS = 15;
+
+// Shared control points; Web Audio interpolates between them on its own clock.
+// Keep this natural envelope separate from the voice's 40ms control ramps.
+const suzumushiAttack = Float32Array.from({ length: 129 }, (_, i) => {
+  const t = i / 128;
+  return t * t * (3 - 2 * t);
+});
+const suzumushiRelease = Float32Array.from(suzumushiAttack, value => 1 - value);
 
 export function sampleBioGain(mix, volume, timeOfDay) {
   const dense = timeOfDay === 'night' && mix.fogType === FOG_TYPE.DENSE_FOG ? mix.intensity : 0;
@@ -37,6 +47,7 @@ export function createBioPlayer({ clock, makeFactory = createBioSourceFactory, s
     entry.source.onended = null;
     try { entry.source.stop(); } catch { /* ended or unavailable context */ }
     try { entry.source.disconnect(); } catch { /* best effort teardown */ }
+    try { entry.envelope?.disconnect(); } catch { /* partial allocation */ }
     try { entry.gain?.disconnect(); } catch { /* partial allocation */ }
     entry.source.buffer = null; entry.ramp = null;
     counts.released++; detachUnusedContext();
@@ -121,15 +132,26 @@ export function createBioPlayer({ clock, makeFactory = createBioSourceFactory, s
     let entry;
     try {
       const source = context.createBufferSource();
-      entry = { source, context, event, gain: null, ramp: null, stopping: false };
+      entry = { source, context, event, gain: null, envelope: null, ramp: null, stopping: false };
       voice = entry; // Track the source before any later allocation can fail.
       const gain = entry.gain = context.createGain();
       source.buffer = buffer; source.loop = false;
       gain.gain.setValueAtTime(0, context.currentTime);
-      source.connect(gain).connect(context.destination);
+      if (event.sourceId.startsWith('suzumushi-')) {
+        const envelope = entry.envelope = context.createGain();
+        source.connect(envelope).connect(gain);
+      } else source.connect(gain);
+      gain.connect(context.destination);
       source.onended = () => release(entry);
+      const startTime = context.currentTime;
+      if (entry.envelope) {
+        const envelope = entry.envelope.gain;
+        envelope.setValueCurveAtTime(suzumushiAttack, startTime, BIO_SUZUMUSHI_FADE_IN_SECONDS);
+        envelope.setValueCurveAtTime(suzumushiRelease,
+          startTime + buffer.duration - BIO_SUZUMUSHI_FADE_OUT_SECONDS, BIO_SUZUMUSHI_FADE_OUT_SECONDS);
+      }
       ramp(entry, sampleBioGain(sampleAudioMix(now), volume, event.timeOfDay));
-      source.start(context.currentTime); counts.starts++;
+      source.start(startTime); counts.starts++;
     } catch { counts.playbackFailures++; release(entry); }
   }
   function request(event, now) {

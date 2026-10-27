@@ -11,6 +11,7 @@ export function fakeContext({ deferResume = false } = {}) {
     const value = { value: 0, events: [], cancelAndHoldAtTime(time) { this.events.push(['hold', time]); },
       cancelScheduledValues(time) { this.events.push(['cancel', time]); },
       setValueAtTime(v, t) { this.value = v; this.events.push(['set', v, t]); },
+      setValueCurveAtTime(values, t, duration) { this.value = values.at(-1); this.events.push(['curve', Array.from(values), t, duration]); },
       setTargetAtTime(v, t, constant) { this.value = v; this.events.push(['target', v, t, constant]); },
       linearRampToValueAtTime(v, t) { this.value = v; this.events.push(['linear', v, t]); },
       exponentialRampToValueAtTime(v, t) { this.value = v; this.events.push(['exponential', v, t]); } };

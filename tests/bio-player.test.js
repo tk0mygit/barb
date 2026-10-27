@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setImmediate as turn } from 'node:timers/promises';
 import { createGameClock } from '../src/game/game-clock.js';
-import { createBioPlayer, sampleBioGain, BIO_FADE_SECONDS, BIO_RETRY_SECONDS } from '../src/audio/bio-player.js';
+import { createBioPlayer, sampleBioGain, BIO_VOICE_GAIN, BIO_FADE_SECONDS, BIO_RETRY_SECONDS,
+  BIO_SUZUMUSHI_FADE_IN_SECONDS, BIO_SUZUMUSHI_FADE_OUT_SECONDS } from '../src/audio/bio-player.js';
 import { createBioCyclePlan } from '../src/audio/bio-schedule.js';
 import { BIO_VARIANTS } from '../src/audio/bio-sources.js';
 import { sampleAudioMix } from '../src/audio/audio-mix.js';
@@ -64,9 +65,11 @@ test('six variants start only at scheduled events, non-looping, on the supplied 
     h.update(event.scheduledSeconds); await turn();
     const source = h.live().find(n => n.type === 'source');
     assert(source, event.eventId); assert.equal(source.buffer, buffers.get(event.sourceId)); assert.equal(source.loop, false);
-    assert.equal(h.player.state.activeVoices, 1); assert.equal(h.live().length, 2);
-    assert.equal(source.connections[0].connections[0], h.context.destination);
-    h.update(event.scheduledSeconds); await turn(); assert.equal(h.live().length, 2);
+    const cricket = event.sourceId.startsWith('suzumushi-'), nodeCount = cricket ? 3 : 2;
+    assert.equal(h.player.state.activeVoices, 1); assert.equal(h.live().length, nodeCount);
+    const voiceGain = cricket ? source.connections[0].connections[0] : source.connections[0];
+    assert.equal(voiceGain.connections[0], h.context.destination);
+    h.update(event.scheduledSeconds); await turn(); assert.equal(h.live().length, nodeCount);
     h.end(); assert.equal(h.live().length, 0); assert.equal(source.buffer, null); assert.equal(source.onended, null);
   }
   assert.equal(h.player.state.starts, events.length); assert.equal(h.player.state.released, events.length);
@@ -132,16 +135,30 @@ for (const stop of ['menu', 'off', 'mute', 'interrupted', 'dispose']) {
   });
 }
 
-test('partial allocation and start failures release every node and are isolated from future events', async () => {
-  for (const mode of ['gain', 'start', 'connect']) {
-    const h = setup(); h.update(0); await turn();
+test('partial allocation, connection, automation and start failures release every bird/cricket node', async () => {
+  for (const kind of ['bird-', 'suzumushi-']) for (const mode of ['source', 'gain', 'start', 'connect',
+    ...(kind === 'suzumushi-' ? ['envelope-gain', 'envelope-connect', 'curve'] : [])]) {
+    const event = createBioCyclePlan(0).events.find(e => e.sourceId.startsWith(kind));
+    const h = setup({ seconds: event.scheduledSeconds - .01 }); h.update(); await turn();
     const gain = h.context.createGain, source = h.context.createBufferSource;
-    if (mode === 'gain') h.context.createGain = () => { throw Error('intentional gain failure'); };
+    let gains = 0;
+    if (mode === 'source') h.context.createBufferSource = () => { throw Error('intentional source failure'); };
+    else if (['gain', 'envelope-gain', 'envelope-connect', 'curve'].includes(mode)) h.context.createGain = () => {
+      gains++;
+      if (mode === 'gain' || (mode === 'envelope-gain' && gains === 2)) throw Error('intentional gain failure');
+      const node = gain();
+      if (gains === 2 && mode === 'envelope-connect') node.connect = () => { throw Error('intentional envelope connect failure'); };
+      if (gains === 2 && mode === 'curve') node.gain.setValueCurveAtTime = () => { throw Error('intentional curve failure'); };
+      return node;
+    };
     else h.context.createBufferSource = () => {
       const node = source(); node[mode] = () => { throw Error(`intentional ${mode} failure`); }; return node;
     };
-    const event = createBioCyclePlan(0).events[0]; h.update(event.scheduledSeconds - .01); h.update(event.scheduledSeconds); await turn();
+    h.update(event.scheduledSeconds); await turn();
     assert.equal(h.live().length, 0); assert.equal(h.player.state.starts, 0); assert.equal(h.player.state.playbackFailures, 1);
+    for (const node of h.context.nodes.filter(n => n.type === 'source')) {
+      assert.equal(node.buffer, null); assert.equal(node.onended, null);
+    }
     h.context.createGain = gain; h.context.createBufferSource = source; h.player.dispose();
   }
 });
@@ -150,12 +167,12 @@ test('40ms stop fades track the actual in-flight ramp, preserve caches, and rele
   const h = setup(); h.update(0); await turn();
   const event = createBioCyclePlan(0).events[0]; h.update(event.scheduledSeconds - .01); h.update(event.scheduledSeconds); await turn();
   const source = h.live().find(n => n.type === 'source'), gain = source.connections[0].gain;
-  close(gain.value, .054);
+  close(gain.value, .0432);
   h.context.currentTime += BIO_FADE_SECONDS / 2;
   // Controller stop takes the same time; do not advance game/context clocks.
   h.player.update({ context: h.context, mix: sampleAudioMix(h.clock.state), volume: 40, enabled: true, playing: false, ready: true });
   const [cancel, anchor, end] = gain.events.slice(-3);
-  assert.equal(cancel[0], 'cancel'); close(anchor[1], .027); close(end[1], 0);
+  assert.equal(cancel[0], 'cancel'); close(anchor[1], .0216); close(end[1], 0);
   close(end[2] - anchor[2], BIO_FADE_SECONDS);
   close(source.stopTime, h.context.currentTime + BIO_FADE_SECONDS);
   assert.equal(h.player.state.activeVoices, 1); h.end(); assert.equal(h.live().length, 0);
@@ -194,10 +211,81 @@ test('factory-construction failure is also bounded by backoff', () => {
 });
 
 test('shared fog intensity attenuates only night dense calls to 40%, with continuous existing fades', () => {
-  for (const seconds of [90, 270, 2790]) close(sampleBioGain(sampleAudioMix(at(seconds)), 100, at(seconds).timeOfDay), .135);
+  assert.equal(BIO_VOICE_GAIN, .36);
+  for (const seconds of [90, 270, 2790]) {
+    close(sampleBioGain(sampleAudioMix(at(seconds)), 100, at(seconds).timeOfDay), .108);
+    close(sampleBioGain(sampleAudioMix(at(seconds)), 40, at(seconds).timeOfDay), .0432);
+  }
   for (const [seconds, factor] of [[900, 1], [906, .7], [912, .4], [1068, .4], [1074, .7], [1080, 1]])
-    close(sampleBioGain(sampleAudioMix(at(seconds)), 100, at(seconds).timeOfDay), .135 * factor);
-  close(sampleBioGain(sampleAudioMix(at(990)), 40, 'night'), .0216);
+    close(sampleBioGain(sampleAudioMix(at(seconds)), 100, at(seconds).timeOfDay), .108 * factor);
+  close(sampleBioGain(sampleAudioMix(at(990)), 40, 'night'), .01728);
+});
+
+for (const id of ['suzumushi-a', 'suzumushi-b', 'suzumushi-c']) {
+  test(`${id} has one smooth 0.5s attack and 0.75s release timed from the decoded buffer`, async () => {
+    const event = createBioCyclePlan(0).events.find(e => e.sourceId === id);
+    // Deliberately differ from the plan/manifest: automation must use AudioBuffer.duration.
+    const decoded = { ...buffers.get(id), duration: buffers.get(id).duration + .125 };
+    const h = setup({ seconds: event.scheduledSeconds - .01,
+      makeFactory: () => ({ get: async key => key === id ? decoded : buffers.get(key), dispose() {} }) });
+    h.update(); await turn(); h.update(event.scheduledSeconds); await turn();
+    const source = h.live().find(n => n.type === 'source'), envelope = source.connections[0];
+    const voice = envelope.connections[0], curves = envelope.gain.events;
+    assert.equal(h.live().length, 3); assert.equal(voice.connections[0], h.context.destination);
+    assert.equal(curves.length, 2); assert(curves.every(e => e[0] === 'curve'));
+    const [attack, release] = curves;
+    close(attack[2], source.startedAt); close(attack[3], .5); close(BIO_SUZUMUSHI_FADE_IN_SECONDS, .5);
+    close(release[2], source.startedAt + decoded.duration - .75);
+    close(release[3], .75); close(BIO_SUZUMUSHI_FADE_OUT_SECONDS, .75);
+    close(attack[1][0], 0); close(attack[1].at(-1), 1);
+    close(release[1][0], 1); close(release[1].at(-1), 0);
+    const intervals = attack[1].length - 1;
+    close(attack[1][intervals / 4], .15625); close(attack[1][intervals / 2], .5); close(attack[1][intervals * 3 / 4], .84375);
+    assert(attack[1][1] < 1 / intervals); assert(release[2] >= attack[2] + attack[3]);
+    for (let i = 1; i < attack[1].length; i++) {
+      assert(attack[1][i] >= attack[1][i - 1]); assert(release[1][i] <= release[1][i - 1]);
+    }
+    const reservation = structuredClone(curves);
+    for (let i = 1; i <= 20; i++) h.update(event.scheduledSeconds + i / 10, {
+      volume: i % 2 ? 100 : 40, mix: { ...sampleAudioMix(at(990)), intensity: (i % 3) / 2 },
+    });
+    assert.deepEqual(envelope.gain.events, reservation, 'volume/fog/frame updates never rebook the natural envelope');
+    assert(voice.gain.events.length > 3, 'voice volume ramps still update independently');
+    h.end(); assert.equal(h.live().length, 0); assert.equal(source.buffer, null); assert.equal(source.onended, null);
+    h.player.dispose();
+  });
+}
+
+test('birds retain the original single voice gain and 40ms attack without a natural envelope', async () => {
+  for (const id of ['bird-a', 'bird-b', 'bird-c']) {
+    const event = createBioCyclePlan(0).events.find(e => e.sourceId === id);
+    const h = setup({ seconds: event.scheduledSeconds - .01 }); h.update(); await turn();
+    h.update(event.scheduledSeconds); await turn();
+    const source = h.live().find(n => n.type === 'source'), voice = source.connections[0];
+    assert.equal(h.live().length, 2); assert.equal(voice.connections[0], h.context.destination);
+    assert(voice.gain.events.every(e => e[0] !== 'curve'));
+    const [, anchor, target] = voice.gain.events.slice(-3);
+    close(target[2] - anchor[2], .04); close(target[1], .0432);
+    h.end(); h.player.dispose(); assert.equal(h.live().length, 0);
+  }
+});
+
+test('forced cricket stops during attack, sustain and release use only the 40ms voice ramp and free all three nodes', async () => {
+  const event = createBioCyclePlan(0).events.find(e => e.sourceId === 'suzumushi-a');
+  for (const offset of [.25, 1, buffers.get(event.sourceId).duration - .3]) {
+    const h = setup({ seconds: event.scheduledSeconds - .01 }); h.update(); await turn();
+    h.update(event.scheduledSeconds); await turn();
+    const source = h.live().find(n => n.type === 'source'), envelope = source.connections[0], voice = envelope.connections[0];
+    const reservation = structuredClone(envelope.gain.events);
+    h.context.currentTime = source.startedAt + offset;
+    h.player.update({ context: h.context, mix: sampleAudioMix(h.clock.state), volume: 40, enabled: true, playing: false, ready: true });
+    const [cancel, anchor, target] = voice.gain.events.slice(-3);
+    assert.equal(cancel[0], 'cancel'); close(anchor[1], .0432); close(target[1], 0);
+    close(target[2] - anchor[2], .04); close(source.stopTime - h.context.currentTime, .04);
+    assert.deepEqual(envelope.gain.events, reservation); assert.equal(h.live().length, 3);
+    h.end(); assert.equal(h.live().length, 0); assert.equal(source.buffer, null); assert.equal(source.onended, null);
+    h.player.dispose();
+  }
 });
 
 test('30 minutes retain at most six buffers and one voice, with no repeated preload; long frames are measured and dropped', async t => {
@@ -211,7 +299,7 @@ test('30 minutes retain at most six buffers and one voice, with no repeated prel
     maxNodes = Math.max(maxNodes, h.live().length); maxPCM = Math.max(maxPCM, h.player.state.pcmBytes);
     assert(h.player.state.activeVoices <= 1); assert(h.player.state.decodedCount <= 6); assert(h.player.state.retainedCycles <= 1);
   }
-  assert.equal(maxNodes, 2); assert.equal(maxPCM, 3360420); assert.equal(h.banks[0].gets.length, 6);
+  assert.equal(maxNodes, 3); assert.equal(maxPCM, 3360420); assert.equal(h.banks[0].gets.length, 6);
   assert(h.player.state.starts > 80);
   const before = h.player.state.starts;
   for (let i = 0; i < 10; i++) h.update(1801 + i);
