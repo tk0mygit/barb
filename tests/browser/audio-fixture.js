@@ -45,8 +45,9 @@ export function installAudioProbe({ native = false, reject = false, pending = fa
   const sourceStarted = value => {
     if ((value.audioProbeType ?? value.type) !== 'source' || value.loop) return;
     value.bioId = bioId(value.buffer);
+    const voice = value.bioId?.startsWith('suzumushi-') ? value.connections[0]?.connections[0] : value.connections[0];
     record('bio-start', { sourceId: value.bioId, seconds: window.lightingProbe?.last?.mistTime,
-      gain: value.connections[0]?.gain.value, duration: value.buffer?.duration });
+      gain: voice?.gain.value, duration: value.buffer?.duration });
   };
   if (native) {
     window.AudioContext = class extends Native {
@@ -85,8 +86,9 @@ export function installAudioProbe({ native = false, reject = false, pending = fa
     return;
   }
   function parameter() {
-    return { value: 0, cancelAndHoldAtTime() {}, cancelScheduledValues() {},
+    return { value: 0, events: [], cancelAndHoldAtTime() {}, cancelScheduledValues() {},
       setValueAtTime(value) { this.value = value; }, linearRampToValueAtTime(value) { this.value = value; },
+      setValueCurveAtTime(values, time, duration) { this.value = values.at(-1); this.events.push({ values: Array.from(values), time, duration }); },
       setTargetAtTime(value) { this.value = value; }, exponentialRampToValueAtTime(value) { this.value = value; } };
   }
   function node(type, context) {
@@ -145,14 +147,23 @@ export const audioSnapshot = page => page.evaluate(() => {
   const allSources = probe.nodes.filter(n => (n.audioProbeType ?? n.type) === 'source');
   const sources = allSources.filter(n => n.loop === true && !n.disconnected);
   const bio = allSources.filter(n => n.loop === false && !n.disconnected);
-  const bioGainSet = new Set(bio.map(n => n.connections[0]).filter(Boolean));
+  const bioChains = bio.map(n => {
+    const envelope = n.bioId?.startsWith('suzumushi-') ? n.connections[0] : undefined;
+    return { envelope, voice: envelope ? envelope.connections[0] : n.connections[0] };
+  });
+  const bioGainSet = new Set(bioChains.flatMap(n => [n.envelope, n.voice])
+    .filter(n => (n?.audioProbeType ?? n?.type) === 'gain'));
   const gains = sources.map(n => n.connections[0]);
   const master = gains[0]?.connections[0];
   return {
     contexts: probe.contexts.length, states: probe.contexts.map(context => context.state),
     sources: sources.length, totalSources: allSources.filter(n => n.loop === true).length,
     bioSources: bio.length, totalBioSources: allSources.filter(n => n.loop === false).length,
-    bioGains: bio.map(n => n.connections[0]?.gain.value), bioIds: bio.map(n => n.bioId), decoded: probe.decoded,
+    bioGains: bioChains.map(n => n.voice?.gain.value), bioIds: bio.map(n => n.bioId), decoded: probe.decoded,
+    bioGainNodes: bioGainSet.size, bioEnvelopeNodes: bioChains.filter(n => n.envelope).length,
+    bioEnvelopes: bioChains.map(n => n.envelope?.gain.events ?? null),
+    bioDestinationConnected: bioChains.every(n => n.voice?.connections.length === 1
+      && n.voice.connections[0] === probe.contexts.at(-1)?.destination),
     startedSources: sources.filter(n => n.started).length,
     gains: Object.fromEntries(sources.map((n, i) => [n.buffer?.kind ?? i, n.connections[0]?.gain.value])),
     // Preserve the original exact gain-count assertion, excluding only gains

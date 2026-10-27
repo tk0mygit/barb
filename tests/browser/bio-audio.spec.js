@@ -29,6 +29,18 @@ async function callAt(page, event, expectedContexts = 1) {
   const actual = await audioSnapshot(page);
   expect(actual.sources).toBe(3); expect(actual.startedSources).toBe(3); expect(actual.gainNodes).toBe(4);
   expect(actual.bioSources).toBe(1); expect(actual.bioIds).toEqual([event.sourceId]);
+  const cricket = event.sourceId.startsWith('suzumushi-');
+  expect(actual.bioGainNodes).toBe(cricket ? 2 : 1); expect(actual.bioEnvelopeNodes).toBe(cricket ? 1 : 0);
+  expect(actual.totalGainNodes).toBe(cricket ? 6 : 5); expect(actual.liveNodes).toBe(cricket ? 10 : 9);
+  expect(actual.bioDestinationConnected).toBe(true);
+  if (cricket) {
+    const [attack, release] = actual.bioEnvelopes[0];
+    expect(actual.bioEnvelopes[0]).toHaveLength(2);
+    expect(attack.duration).toBe(.5); expect(release.duration).toBe(.75);
+    expect(release.time - attack.time).toBeCloseTo(event.durationSeconds - .75, 8);
+    expect(attack.values[0]).toBe(0); expect(attack.values.at(-1)).toBe(1);
+    expect(release.values[0]).toBe(1); expect(release.values.at(-1)).toBe(0);
+  } else expect(actual.bioEnvelopes).toEqual([null]);
   expect(actual.contexts).toBe(expectedContexts);
   const now = await elapsed(page);
   expect(now).toBeGreaterThanOrEqual(event.scheduledSeconds); expect(now).toBeLessThanOrEqual(event.latestStartSeconds);
@@ -48,12 +60,13 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 390
         if (used.has(event.sourceId)) continue;
         used.add(event.sourceId);
         const actual = await callAt(page, event); observations.push({ event, actualSeconds: await elapsed(page), gain: actual.bioGains[0] });
-        expect(actual.bioGains[0]).toBeCloseTo(.054, 8);
+        expect(actual.bioGains[0]).toBeCloseTo(.0432, 8);
         await page.clock.fastForward((event.durationSeconds + .3) * 1000);
         // This deliberate long frame can request a stop fade before a fake
         // source's timer fires. Advance its defined audio teardown interval.
         await page.clock.fastForward((BIO_FADE_SECONDS + 1 / 60) * 1000);
-        expect((await audioSnapshot(page)).bioSources).toBe(0);
+        const ended = await audioSnapshot(page);
+        expect(ended.bioSources).toBe(0); expect(ended.totalGainNodes).toBe(4); expect(ended.liveNodes).toBe(7);
       }
       expect([...used].sort()).toEqual(['bird-a', 'bird-b', 'bird-c', 'suzumushi-a', 'suzumushi-b', 'suzumushi-c']);
       expect(requests).toHaveLength(6); expect(new Set(requests).size).toBe(6);
@@ -99,7 +112,7 @@ for (const [cycle, factor] of [[0, 1], [1, .4], [7, 1]]) {
     try {
       await enable(page, event.scheduledSeconds - 1);
       const actual = await callAt(page, event);
-      expect(actual.bioGains[0]).toBeCloseTo(.054 * factor, 8);
+      expect(actual.bioGains[0]).toBeCloseTo(.0432 * factor, 8);
       const dense = await page.evaluate(() => window.lightingProbe.denseFade);
       expect(dense).toBe(factor === 1 ? 0 : 1);
       expect(actual.master).toBeCloseTo(.12, 8);
