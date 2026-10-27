@@ -5,14 +5,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compareMobileCaptures, compareMobileCapturePair, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
-import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera, assertMobileWorkingSource } from '../scripts/lib/mobile-comparison-source.js';
+import { HISTORICAL_MOBILE_BASE, mobileGit, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera, assertMobileWorkingSource } from '../scripts/lib/mobile-comparison-source.js';
 import { createCameraRig } from '../src/rendering/camera.js';
 import { validateMobileEvidence } from '../scripts/ci-summary.js';
 
 const MAIN = 'a22ce01531befa55230fb186579731b8a3b9aeb6';
 const current = await readMobileImplementation(MAIN), legacy = await readMobileImplementation(HISTORICAL_MOBILE_BASE);
 const g1Base = await readMobileImplementation('6c92a1c6d004580144db72011bf5999fa5a2e651');
-const sharedB = await readMobileImplementation('35d8fd33f41b8a3321d629e09bbf77423911ca41');
+// Synthetic reviewed-source fixture: no dependency on a WIP commit surviving
+// squash merge or branch deletion. Real working/Git provenance is tested below.
+const sharedB = { ...g1Base, sha: 'f'.repeat(40),
+  sourceTree: 'b2b8cd1d51494a6332633c59f1ad580cd489a151',
+  terrainBlob: '4035462c3a09c46e20510e86a663da9d772a5d07',
+  crownTextureBlob: 'f867ba84e5ed9727004ba313232078d61469c25d' };
 const profiles = {
   portrait: { width: 390, height: 844, dpr: 2, touch: true }, landscape: { width: 844, height: 390, dpr: 2, touch: true },
   small: { width: 360, height: 740, dpr: 3, touch: true }, pc: { width: 1280, height: 800, dpr: 1 }, 'pc-hidpi': { width: 1280, height: 800, dpr: 2 },
@@ -126,13 +131,16 @@ test('historical resolution improvement never inherits the crown texture allowan
 });
 
 test('runtime tree, terrain/texture and build-input provenance is read from Git and checked against working files', async () => {
-  await assertMobileWorkingSource(sharedB);
+  const working = await readMobileImplementation(await mobileGit('rev-parse', 'HEAD'));
+  await assertMobileWorkingSource(working);
   for (const field of ['terrainBlob', 'crownTextureBlob', 'lockBlob', 'indexBlob', 'viteBlob', 'sourceTree']) {
-    await assert.rejects(assertMobileWorkingSource({ ...sharedB, [field]: 'b'.repeat(40) }), /differs/);
+    await assert.rejects(assertMobileWorkingSource({ ...working, [field]: 'b'.repeat(40) }), /differs/);
   }
   const dir = await mkdtemp(join(tmpdir(), 'barb-crown-provenance-'));
   try {
     const pair = sharedBCaptures(), image = fileURLToPath(new URL('./fixtures/fish-assets/transparent-test.png', import.meta.url));
+    pair.data.headSha = pair.data.validationSha = working.sha;
+    pair.data.implementations.pr = mobileSourceMetadata(working);
     pair.data.implementations.pr.sourceTree = 'b'.repeat(40);
     for (const entry of pair.after) entry.metrics.resources.textures = 3; // Let exact resource checks reach source revalidation.
     for (const entry of [...pair.before, ...pair.after]) entry.image = image;
