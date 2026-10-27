@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // Local preview presets, not a selected production treatment. Both use the
 // same mapping/material; only their deterministic albedo pixels differ.
-export const CONIFER_TEXTURE_VARIANT = 'A';
+export const CONIFER_TEXTURE_VARIANT = 'B';
 export const CONIFER_TEXTURE_MEAN = 0.68;
 const size = 64;
 const blend = t => t * t * (3 - 2 * t);
