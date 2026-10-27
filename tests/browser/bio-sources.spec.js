@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { build } from 'vite';
 import { test, expect } from './diagnostics-fixture.js';
 import { BIO_VARIANTS } from '../../src/audio/bio-source-assets.js';
+import { biteWav } from '../helpers/bite-audio-fixture.js';
 
 test('isolated Vite bundle keeps /barb/ URLs and native decoding/cache at 44.1/48kHz without playback nodes', async ({ page }, info) => {
   const outDir = info.outputPath('isolated-bundle');
@@ -83,13 +84,32 @@ test('isolated Vite bundle keeps /barb/ URLs and native decoding/cache at 44.1/4
   }
 });
 
-test('integrated game build emits exactly the six original WAV payloads under the Vite base', () => {
-  const assets = readdirSync('dist/assets');
-  const wav = assets.filter(file => file.endsWith('.wav'));
-  expect(wav).toHaveLength(6);
+test('integrated game build emits exactly six bio WAVs and one Firefly bite under the Vite base', async ({ page }, info) => {
+  const wav = readdirSync('dist/assets').filter(file => file.endsWith('.wav'));
+  expect(wav).toHaveLength(7);
+  const payloads = [];
   for (const v of BIO_VARIANTS) {
-    const file = wav.find(name => name.startsWith(`${v.id}-`));
-    expect(file, v.id).toBeTruthy();
-    expect(createHash('sha256').update(readFileSync(join('dist/assets', file))).digest('hex')).toBe(v.sha256);
+    const matches = wav.filter(name => name.startsWith(v.id + '-'));
+    expect(matches, v.id).toHaveLength(1);
+    const bytes = readFileSync(join('dist/assets', matches[0])), sha256 = createHash('sha256').update(bytes).digest('hex');
+    expect(sha256).toBe(v.sha256);
+    payloads.push({ id: v.id, file: matches[0], bytes: bytes.length, sha256 });
   }
+  const bite = wav.filter(name => /^waterdrop-[\w-]+\.wav$/.test(name));
+  expect(bite).toHaveLength(1);
+  const bytes = readFileSync(join('dist/assets', bite[0]));
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  expect(bytes).toEqual(biteWav);
+  expect(sha256).toBe('bf4b486ec972012fb5d6529b91f3586451245c0dae2ec25f3ca6b65e7db998ad');
+  payloads.push({ id: 'bite-waterdrop', file: bite[0], bytes: bytes.length, sha256 });
+  const expectedPath = '/barb/assets/' + bite[0];
+  const responsePromise = page.waitForResponse(response => new URL(response.url()).pathname === expectedPath);
+  await page.goto('./');
+  const response = await responsePromise;
+  expect(response.ok()).toBe(true);
+  expect(new URL(response.url()).pathname).toBe(expectedPath);
+  expect(await response.body()).toEqual(bytes);
+  const report = info.outputPath('integrated-wav-payloads.json');
+  writeFileSync(report, JSON.stringify({ payloads, notificationURL: response.url() }, null, 2));
+  await info.attach('integrated-wav-payloads', { path: report, contentType: 'application/json' });
 });

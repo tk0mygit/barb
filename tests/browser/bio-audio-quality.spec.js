@@ -160,7 +160,7 @@ for (const id of ['suzumushi-a', 'suzumushi-b', 'suzumushi-c']) {
 }
 
 for (const [name, gameStart] of [['day', 90], ['night-clear', 240], ['night-dense', 960]]) {
-  test(`native real WAV/BGM/nature/bite mix peak and audition output: ${name}`, async ({ page }, info) => {
+  test('native real WAV/BGM/nature/bite mix peak and audition output: ' + name, async ({ page }, info) => {
     await modules(page);
     const result = await page.evaluate(async ({ gameStart }) => {
       const { createBioPlayer } = await import('./src/audio/bio-player.js');
@@ -170,61 +170,129 @@ for (const [name, gameStart] of [['day', 90], ['night-clear', 240], ['night-dens
       const { sampleAudioMix } = await import('./src/audio/audio-mix.js');
       const { createGameClock } = await import('./src/game/game-clock.js');
       const rate = 48000, seconds = 30, offline = new OfflineAudioContext(1, rate * seconds, rate);
-      const sources = []; let maxBio = 0, maxLoops = 0;
-      const context = { sampleRate: rate, get state() { return offline.state === 'closed' ? 'closed' : 'running'; }, get currentTime() { return offline.currentTime; },
-        destination: offline.destination, addEventListener() {}, removeEventListener() {},
-        createBuffer: (...args) => offline.createBuffer(...args), decodeAudioData: (...args) => offline.decodeAudioData(...args),
-        createGain: () => offline.createGain(), createOscillator: () => offline.createOscillator(),
+      const sources = [], gains = [], bioBuffers = new Set(), stateListeners = new Set(), subscribers = new Set();
+      let maxBio = 0, maxBite = 0, maxLoops = 0, maxSources = 0, decodes = 0, stats;
+      const context = new EventTarget(), add = context.addEventListener.bind(context), remove = context.removeEventListener.bind(context);
+      // Offline suspend/resume controls test frames, not a realtime interruption.
+      // Keep native closure observable instead of presenting a permanently ready context.
+      Object.defineProperties(context, {
+        state: { get: () => offline.state === 'closed' ? 'closed' : 'running' },
+        currentTime: { get: () => offline.currentTime },
+      });
+      Object.assign(context, { sampleRate: rate, destination: offline.destination,
+        addEventListener(type, listener, options) { if (type === 'statechange') stateListeners.add(listener); add(type, listener, options); },
+        removeEventListener(type, listener, options) { if (type === 'statechange') stateListeners.delete(listener); remove(type, listener, options); },
+        createBuffer: (...args) => offline.createBuffer(...args),
+        decodeAudioData: (...args) => { decodes++; return offline.decodeAudioData(...args); },
+        createGain() {
+          const gain = offline.createGain(), disconnect = gain.disconnect.bind(gain);
+          gain.detached = false; gains.push(gain);
+          gain.disconnect = () => { gain.detached = true; disconnect(); }; return gain;
+        },
         createBufferSource() {
-          const s = offline.createBufferSource(); s.live = true; sources.push(s);
-          const disconnect = s.disconnect.bind(s); s.disconnect = () => { s.live = false; disconnect(); }; return s;
-        } };
-      const factory = createBioSourceFactory(context);
-      await Promise.all(BIO_VARIANTS.map(v => factory.get(v.id))); // eliminate test I/O timing, use native decoded originals
-      const clock = createGameClock(undefined, { elapsedSeconds: gameStart });
-      const bio = createBioPlayer({ clock, makeFactory: () => factory });
-      const ambient = createAmbientPlayer(), bite = createFishingAudio({ session: { context } });
-      const update = () => {
-        const state = clock.state, mix = sampleAudioMix(state);
-        ambient.play(context, mix, 100, state.elapsedSeconds);
-        bio.update({ context, mix, volume: 100, enabled: true, playing: true, ready: true });
+          const source = offline.createBufferSource(), start = source.start.bind(source), disconnect = source.disconnect.bind(source);
+          source.live = true; sources.push(source);
+          source.start = (...args) => {
+            const pcm = source.buffer;
+            source.voiceKind = source.loop ? 'loop' : bioBuffers.has(pcm) ? 'bio'
+              : pcm?.numberOfChannels === 2 && Math.abs(pcm.duration - 1) <= 2 / rate ? 'bite' : 'unknown';
+            source.startWhen = args[0] ?? context.currentTime; source.offset = args[1] ?? 0;
+            source.bufferSeconds = pcm?.duration; return start(...args);
+          };
+          source.disconnect = () => { source.live = false; disconnect(); }; return source;
+        },
+      });
+      const forwardState = () => context.dispatchEvent(new Event('statechange'));
+      offline.addEventListener('statechange', forwardState);
+      const session = {
+        context,
+        get status() { return context.state === 'running' ? 'ready' : 'interrupted'; },
+        subscribe(listener) {
+          const notify = () => listener(); subscribers.add(notify); context.addEventListener('statechange', notify);
+          return () => { subscribers.delete(notify); context.removeEventListener('statechange', notify); };
+        },
+        unlock: async () => context.state === 'running',
       };
-      update(); for (let i = 0; i < 8; i++) await Promise.resolve();
-      let pending = offline.suspend(1 / 30), prior = 0;
-      const rendered = offline.startRendering();
-      let bitten = false;
-      for (let frame = 1; frame < seconds * 30; frame++) {
-        await pending;
-        const now = offline.currentTime; clock.step(now - prior); prior = now;
-        update(); await Promise.resolve();
-        if (!bitten && now >= 7.2) { bite.bite(); bitten = true; }
-        maxBio = Math.max(maxBio, sources.filter(s => s.live && s.loop === false).length);
-        maxLoops = Math.max(maxLoops, sources.filter(s => s.live && s.loop === true).length);
-        if (frame + 1 < seconds * 30) pending = offline.suspend((frame + 1) / 30);
-        await offline.resume();
+      const factory = createBioSourceFactory(context), clock = createGameClock(undefined, { elapsedSeconds: gameStart });
+      const bio = createBioPlayer({ clock, makeFactory: () => factory }), ambient = createAmbientPlayer();
+      let bite;
+      try {
+        for (const buffer of await Promise.all(BIO_VARIANTS.map(v => factory.get(v.id)))) bioBuffers.add(buffer);
+        const bioDecodes = decodes, requests = [];
+        bite = createFishingAudio({ session, fetcher: (url, options) => { requests.push(url); return fetch(url, options); } });
+        const prepared = await bite.preload(); // Real Firefly WAV, native decoder; never substitute synthetic PCM.
+        if (!prepared) throw Error('Native Firefly bite preload failed');
+        const biteDecodes = decodes - bioDecodes, readyBeforeRender = session.status;
+        const update = () => {
+          const state = clock.state, mix = sampleAudioMix(state);
+          ambient.play(context, mix, 100, state.elapsedSeconds);
+          bio.update({ context, mix, volume: 100, enabled: true, playing: true, ready: true });
+        };
+        update(); for (let i = 0; i < 8; i++) await Promise.resolve();
+        let pending = offline.suspend(1 / 30), prior = 0;
+        const rendered = offline.startRendering();
+        let bitten = false;
+        for (let frame = 1; frame < seconds * 30; frame++) {
+          await pending;
+          const now = offline.currentTime; clock.step(now - prior); prior = now;
+          update(); await Promise.resolve();
+          if (!bitten && now >= 7.2) { bite.bite(); bitten = true; }
+          maxBio = Math.max(maxBio, sources.filter(s => s.live && s.voiceKind === 'bio').length);
+          maxBite = Math.max(maxBite, sources.filter(s => s.live && s.voiceKind === 'bite').length);
+          maxLoops = Math.max(maxLoops, sources.filter(s => s.live && s.voiceKind === 'loop').length);
+          maxSources = Math.max(maxSources, sources.filter(s => s.live).length);
+          if (frame + 1 < seconds * 30) pending = offline.suspend((frame + 1) / 30);
+          await offline.resume();
+        }
+        const data = (await rendered).getChannelData(0), notification = sources.filter(s => s.voiceKind === 'bite');
+        const cue = notification[0];
+        let peak = 0, rms = 0, clipped = 0, nonFinite = 0, maximumStep = 0, biteWindowPeak = 0;
+        for (let i = 0; i < data.length; i++) {
+          const value = data[i]; peak = Math.max(peak, Math.abs(value)); rms += value * value;
+          if (!Number.isFinite(value)) nonFinite++;
+          if (Math.abs(value) >= 1) clipped++; if (i) maximumStep = Math.max(maximumStep, Math.abs(value - data[i - 1]));
+          if (cue && i / rate >= cue.startWhen && i / rate < cue.startWhen + cue.bufferSeconds - cue.offset)
+            biteWindowPeak = Math.max(biteWindowPeak, Math.abs(value));
+        }
+        stats = { peak, rms: Math.sqrt(rms / data.length), clipped, nonFinite, maximumStep, maxBio, maxBite, maxLoops, maxSources,
+          bio: bio.state, rawFirstSample: data[0], gameStart, volume: 100, rate, seconds, biteAtAudioSeconds: cue?.startWhen,
+          unknownSources: sources.filter(s => !['loop', 'bio', 'bite'].includes(s.voiceKind)).length,
+          bioSources: sources.filter(s => s.voiceKind === 'bio').length,
+          bite: { prepared, readyBeforeRender, requests, bioDecodes, biteDecodes, totalDecodes: decodes,
+            sourceCount: notification.length, offset: cue?.offset, sourceSeconds: cue?.bufferSeconds, windowPeak: biteWindowPeak } };
+        return { stats, samples: Array.from(data) };
+      } finally {
+        bite?.dispose(); bio.dispose(); ambient.dispose(); factory.dispose(); bioBuffers.clear();
+        offline.removeEventListener('statechange', forwardState);
+        if (stats) stats.afterDispose = { bioVoices: bio.state.activeVoices, pcmBytes: bio.state.pcmBytes,
+          connectedSources: sources.filter(s => s.live).length,
+          handlersReleased: sources.every(s => s.onended === null), buffersReleased: sources.every(s => s.buffer === null),
+          biteVoices: sources.filter(s => s.live && s.voiceKind === 'bite').length,
+          allGainsDetached: gains.every(gain => gain.detached), sessionSubscriptions: subscribers.size,
+          contextListeners: stateListeners.size, biteUnavailable: await bite.preload() === false };
       }
-      const data = (await rendered).getChannelData(0);
-      let peak = 0, rms = 0, clipped = 0, maximumStep = 0;
-      for (let i = 0; i < data.length; i++) {
-        const value = data[i]; peak = Math.max(peak, Math.abs(value)); rms += value * value;
-        if (Math.abs(value) >= 1) clipped++; if (i) maximumStep = Math.max(maximumStep, Math.abs(value - data[i - 1]));
-      }
-      const stats = { peak, rms: Math.sqrt(rms / data.length), clipped, maximumStep, maxBio, maxLoops,
-        bio: bio.state, rawFirstSample: data[0], gameStart, volume: 100, rate, seconds, biteAtAudioSeconds: 7.2 };
-      bio.dispose(); ambient.dispose();
-      stats.afterDispose = { bioVoices: bio.state.activeVoices, pcmBytes: bio.state.pcmBytes,
-        connectedSources: sources.filter(s => s.live).length,
-        handlersReleased: sources.every(s => s.onended === null), buffersReleased: sources.every(s => s.buffer === null) };
-      return { stats, samples: Array.from(data) };
     }, { gameStart });
-    const json = info.outputPath(`bio-${name}.json`), wav = info.outputPath(`bio-${name}.wav`);
+    const json = info.outputPath('bio-' + name + '.json'), wav = info.outputPath('bio-' + name + '.wav');
     writeFileSync(json, JSON.stringify(result.stats, null, 2)); writeFileSync(wav, wav16(result.samples, result.stats.rate));
-    await info.attach(`bio-${name}-metrics`, { path: json, contentType: 'application/json' });
-    await info.attach(`bio-${name}-audition`, { path: wav, contentType: 'audio/wav' });
+    await info.attach('bio-' + name + '-metrics', { path: json, contentType: 'application/json' });
+    await info.attach('bio-' + name + '-audition', { path: wav, contentType: 'audio/wav' });
     expect(result.stats.peak).toBeGreaterThan(.05); expect(result.stats.peak).toBeLessThan(.25);
-    expect(result.stats.clipped).toBe(0); expect(Math.abs(result.stats.rawFirstSample)).toBe(0);
-    expect(result.stats.maxLoops).toBe(3); expect(result.stats.maxBio).toBe(1);
-    expect(result.stats.bio.starts).toBeGreaterThan(0);
-    expect(result.stats.afterDispose).toEqual({ bioVoices: 0, pcmBytes: 0, connectedSources: 0, handlersReleased: true, buffersReleased: true });
+    expect(result.stats.clipped).toBe(0); expect(result.stats.nonFinite).toBe(0); expect(Math.abs(result.stats.rawFirstSample)).toBe(0);
+    expect(Number.isFinite(result.stats.rms)).toBe(true);
+    expect(result.stats.maxLoops).toBe(3); expect(result.stats.maxBio).toBe(1); expect(result.stats.maxBite).toBe(1);
+    expect(result.stats.maxSources).toBeLessThanOrEqual(5); expect(result.stats.unknownSources).toBe(0);
+    expect(result.stats.bio.starts).toBeGreaterThan(0); expect(result.stats.bioSources).toBe(result.stats.bio.starts);
+    expect(result.stats.bite.prepared).toBe(true); expect(result.stats.bite.readyBeforeRender).toBe('ready');
+    expect(result.stats.bite.requests).toHaveLength(1);
+    expect(new URL(result.stats.bite.requests[0]).pathname).toBe('/barb/src/assets/audio/bite/waterdrop.wav');
+    expect(result.stats.bite.bioDecodes).toBe(6); expect(result.stats.bite.biteDecodes).toBe(1); expect(result.stats.bite.totalDecodes).toBe(7);
+    expect(result.stats.bite.sourceCount).toBe(1); expect(result.stats.bite.offset).toBe(.02);
+    expect(result.stats.bite.sourceSeconds).toBe(1);
+    expect(result.stats.biteAtAudioSeconds).toBeGreaterThanOrEqual(7.2);
+    expect(result.stats.biteAtAudioSeconds).toBeLessThanOrEqual(7.2 + 128 / result.stats.rate);
+    // Stereo-to-mono PCM peak 0.89453125 * 0.2, with <0.061 background headroom.
+    expect(result.stats.bite.windowPeak).toBeGreaterThan(.11); expect(result.stats.bite.windowPeak).toBeLessThan(.25);
+    expect(result.stats.afterDispose).toEqual({ bioVoices: 0, pcmBytes: 0, connectedSources: 0, handlersReleased: true, buffersReleased: true,
+      biteVoices: 0, allGainsDetached: true, sessionSubscriptions: 0, contextListeners: 0, biteUnavailable: true });
   });
 }
