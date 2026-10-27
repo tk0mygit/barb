@@ -293,3 +293,77 @@ test('layered PCM bounds target/independent-ramp peaks and normal RMS increase b
     assert.ok(peak < 0.04, `${kind}: mixed peak ${peak}`);
   }
 });
+
+
+// Golden observations of accepted F-0 solo/night-b.wav (SHA documented in
+// night-source.js); these are reference data, not a second synthesis algorithm.
+test('night B preserves the accepted score, level, phase and short seam correction', () => {
+  const context = fakeContext(), buffers = createGeneratedBuffers(context);
+  const data = buffers.night.getChannelData(0), repeated = createGeneratedBuffers(fakeContext()).night;
+  assert.equal(buffers.night.sampleRate, 22050); assert.equal(buffers.night.numberOfChannels, 1);
+  assert.equal(data.length, 529200); assert.equal(buffers.night.duration, 24);
+  assert.deepEqual(data, repeated.getChannelData(0));
+  const approvedSamples = [
+    -0.0087890625, 0.0117492676, -0.0237426758, 0.0275573730, -0.0250854492, 0.0154418945, -0.0253295898, -0.0086975098,
+    0.0211791992, -0.0127563477, -0.0012512207, 0.0164184570, -0.0219421387, 0.0065307617, 0.0010986328, 0.0015563965,
+    0.0030212402, -0.0493774414, 0.0193786621, -0.0012207031, -0.0013122559, 0.0111999512, -0.0296325684, 0.0297851562,
+    -0.0250244141, 0.0043029785, 0.0314331055, -0.0454406738, 0.0213317871, -0.0001525879, -0.0060729980, 0.0164489746,
+    -0.0190124512, 0.0094909668, -0.0138854980, 0.0393676758, 0.0319824219, -0.0093383789, 0.0459289551, -0.0153808594,
+    0.0204467773, 0.0344848633, -0.0391235352, 0.0292663574, -0.0020751953, -0.0040893555, 0.0247802734, -0.0200500488,
+    0.0045471191, -0.0073242188, -0.0169677734, -0.0133972168, -0.0010375977, 0.0425720215, -0.0329284668, 0.0105895996,
+    0.0119323730, -0.0398864746, 0.0403137207, -0.0133056641, -0.0084838867, 0.0043640137, -0.0046386719, -0.0014953613,
+    -0.0039672852, 0.0161132812, -0.0095214844, 0.0254821777, -0.0022583008, -0.0188598633, 0.0297851562, -0.0365905762,
+    0.0218200684, 0.0296020508, -0.0283203125, -0.0005493164, 0.0142211914, -0.0153503418, 0.0248413086, -0.0175781250,
+    -0.0049743652, 0.0041503906, 0.0098266602, -0.0031127930, -0.0342407227, 0.0408325195, -0.0318908691, 0.0117492676,
+    0.0231018066, -0.0355834961, 0.0273742676, -0.0217590332, 0.0054016113, 0.0243225098, -0.0320739746, 0.0138854980,
+  ];
+  approvedSamples.forEach((value, i) => near(data[221 + (i * 7919 + 173) % (data.length - 221)], value, 1 / 32768 + 1e-8));
+  const approvedSecondRms = [
+    // First observation excludes the 221-sample intentional seam correction.
+    0.0249281587, 0.0246711024, 0.0367444657, 0.0312966753, 0.0269346094, 0.0265661144,
+    0.0312063399, 0.0263114686, 0.0244886215, 0.0235403080, 0.0231517289, 0.0228787067,
+    0.0287679761, 0.0294110092, 0.0248018780, 0.0233790238, 0.0228549237, 0.0254853203,
+    0.0265598813, 0.0238122219, 0.0231173981, 0.0251379191, 0.0279754580, 0.0257497829,
+  ];
+  let energy = 0, dc = 0, peak = 0, minimumWindowRms = Infinity;
+  for (let second = 0; second < 24; second++) {
+    let localEnergy = 0;
+    for (let i = second * 22050; i < (second + 1) * 22050; i++) {
+      const value = data[i];
+      if (i >= 221) localEnergy += value * value;
+      energy += value * value; dc += value; peak = Math.max(peak, Math.abs(value));
+    }
+    near(Math.sqrt(localEnergy / (22050 - (second === 0 ? 221 : 0))), approvedSecondRms[second], 2e-7);
+  }
+  near(Math.sqrt(energy / data.length), .02643965138531395, 2e-7);
+  near(peak, .09246826171875, 1 / 32768); assert.ok(Math.abs(dc / data.length) < 1e-6);
+  for (let i = 0; i + 1103 <= data.length; i += 1103) {
+    let local = 0; for (let j = i; j < i + 1103; j++) local += data[j] ** 2;
+    minimumWindowRms = Math.min(minimumWindowRms, Math.sqrt(local / 1103));
+  }
+  assert.ok(minimumWindowRms > .02, `night 50ms RMS ${minimumWindowRms}`);
+  near(data[0], data.at(-1), 1e-6);
+  // With the endpoints equal, the two wrap curvatures reduce to these slopes.
+  assert.ok(Math.abs(data[1] - data[0]) < .00015);
+  assert.ok(Math.abs(data.at(-1) - data.at(-2)) < .00015);
+});
+
+test('accepted night keeps one real PCM bank across updates/menu and frees it on OFF/context replacement', () => {
+  const context = fakeContext(); context.change('running');
+  const timers = fakeTimers(); let generations = 0;
+  const player = createAmbientPlayer({ ...timers, makeBuffers(owner) {
+    generations++; const buffers = createGeneratedBuffers(owner);
+    assert.equal(Object.values(buffers).reduce((sum, buffer) => sum + buffer.length * 4, 0), 6350400);
+    return buffers;
+  } });
+  for (let i = 0; i < 120; i++) player.play(context, sampleAudioMix(at(240 + i / 60)), i % 2 ? 40 : 100, 240 + i / 60);
+  assert.equal(generations, 1); assert.equal(context.nodes.filter(n => n.type === 'source').length, 3);
+  player.stop(); timers.flush(); player.play(context, sampleAudioMix(at(241.337)), 40, 241.337);
+  assert.equal(generations, 1); near(context.nodes.filter(n => n.type === 'source').at(-1).offset, 241.337 % 24);
+  player.stop({ freeBuffers: true }); timers.flush();
+  assert.ok(context.nodes.filter(n => n.type === 'source').every(n => n.buffer === null && n.disconnected));
+  player.play(context, sampleAudioMix(at(242)), 40, 242); assert.equal(generations, 2);
+  const next = fakeContext(); next.change('running'); player.play(next, sampleAudioMix(at(243)), 40, 243);
+  assert.equal(generations, 3); assert.ok(context.nodes.every(n => n.disconnected));
+  player.dispose(); assert.ok(next.nodes.filter(n => n.type === 'source').every(n => n.buffer === null && n.disconnected));
+});

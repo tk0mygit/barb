@@ -159,17 +159,17 @@ for (const id of ['suzumushi-a', 'suzumushi-b', 'suzumushi-c']) {
   });
 }
 
-for (const [name, gameStart] of [['day', 90], ['night-clear', 240], ['night-dense', 960]]) {
-  test('native real WAV/BGM/nature/bite mix peak and audition output: ' + name, async ({ page }, info) => {
+for (const rate of [48000, 44100]) for (const [name, gameStart] of [['day', 90], ['night-clear', 240], ['night-dense', 960]]) {
+  test('native real WAV/BGM/nature/bite mix peak and audition output: ' + name + ' ' + rate + 'Hz', async ({ page }, info) => {
     await modules(page);
-    const result = await page.evaluate(async ({ gameStart }) => {
+    const result = await page.evaluate(async ({ gameStart, rate }) => {
       const { createBioPlayer } = await import('./src/audio/bio-player.js');
       const { createBioSourceFactory, BIO_VARIANTS } = await import('./src/audio/bio-sources.js');
       const { createAmbientPlayer } = await import('./src/audio/ambient-player.js');
       const { createFishingAudio } = await import('./src/ui/fishing-audio.js');
       const { sampleAudioMix } = await import('./src/audio/audio-mix.js');
       const { createGameClock } = await import('./src/game/game-clock.js');
-      const rate = 48000, seconds = 30, offline = new OfflineAudioContext(1, rate * seconds, rate);
+      const seconds = 30, offline = new OfflineAudioContext(1, rate * seconds, rate);
       const sources = [], gains = [], bioBuffers = new Set(), stateListeners = new Set(), subscribers = new Set();
       let maxBio = 0, maxBite = 0, maxLoops = 0, maxSources = 0, decodes = 0, stats;
       const context = new EventTarget(), add = context.addEventListener.bind(context), remove = context.removeEventListener.bind(context);
@@ -271,7 +271,7 @@ for (const [name, gameStart] of [['day', 90], ['night-clear', 240], ['night-dens
           allGainsDetached: gains.every(gain => gain.detached), sessionSubscriptions: subscribers.size,
           contextListeners: stateListeners.size, biteUnavailable: await bite.preload() === false };
       }
-    }, { gameStart });
+    }, { gameStart, rate });
     const json = info.outputPath('bio-' + name + '.json'), wav = info.outputPath('bio-' + name + '.wav');
     writeFileSync(json, JSON.stringify(result.stats, null, 2)); writeFileSync(wav, wav16(result.samples, result.stats.rate));
     await info.attach('bio-' + name + '-metrics', { path: json, contentType: 'application/json' });
@@ -287,7 +287,13 @@ for (const [name, gameStart] of [['day', 90], ['night-clear', 240], ['night-dens
     expect(new URL(result.stats.bite.requests[0]).pathname).toBe('/barb/src/assets/audio/bite/waterdrop.wav');
     expect(result.stats.bite.bioDecodes).toBe(6); expect(result.stats.bite.biteDecodes).toBe(1); expect(result.stats.bite.totalDecodes).toBe(7);
     expect(result.stats.bite.sourceCount).toBe(1); expect(result.stats.bite.offset).toBe(.02);
-    expect(result.stats.bite.sourceSeconds).toBe(1);
+    if (rate === 48000) expect(result.stats.bite.sourceSeconds).toBe(1);
+    else {
+      // The added 44.1kHz case allows the same native one-frame conversion
+      // bound as audio-gain.spec.js; keep the existing 48kHz equality above.
+      expect(result.stats.bite.sourceSeconds).toBeGreaterThanOrEqual(1 - 1 / rate);
+      expect(result.stats.bite.sourceSeconds).toBeLessThanOrEqual(1);
+    }
     expect(result.stats.biteAtAudioSeconds).toBeGreaterThanOrEqual(7.2);
     expect(result.stats.biteAtAudioSeconds).toBeLessThanOrEqual(7.2 + 128 / result.stats.rate);
     // Stereo-to-mono PCM peak 0.89453125 * 0.2, with <0.061 background headroom.

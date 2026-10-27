@@ -1,5 +1,7 @@
 // Original procedural placeholders. No recordings, samples, imported melodies
 // or network assets. This factory is the replacement boundary for future files.
+import { fillNightSource } from './night-source.js';
+
 export const AUDIO_LOOP_SECONDS = 24;
 const RATE = 22050;
 const TAU = Math.PI * 2;
@@ -27,12 +29,12 @@ export function createGeneratedBuffers(context) {
   for (const mode of ['day', 'night', 'nature']) {
     const buffer = context.createBuffer(1, RATE * AUDIO_LOOP_SECONDS, RATE);
     const data = buffer.getChannelData(0);
-    if (mode !== 'nature') {
-      const notes = mode === 'day'
-        ? [261.63, 329.63, 293.66, 392, 329.63, 293.66, 246.94, 293.66]
-        : [164.81, 0, 196, 146.83, 0, 174.61, 130.81, 0];
+    if (mode === 'night') {
+      fillNightSource(data);
+    } else if (mode === 'day') {
+      const notes = [261.63, 329.63, 293.66, 392, 329.63, 293.66, 246.94, 293.66];
       notes.forEach((frequency, i) => { if (frequency) tone(data, i * 3, 2.8, frequency, 0.075); });
-      const roots = mode === 'day' ? [130.81, 146.83, 164.81, 146.83] : [65.41, 73.42, 87.31, 73.42];
+      const roots = [130.81, 146.83, 164.81, 146.83];
       roots.forEach((root, i) => {
         // Keep chord centres and melody, but overlap the quiet chord edges.
         // Equal per-note energy avoids raising the whole BGM to fill valleys.

@@ -136,8 +136,8 @@ test('native production PCM bounds layered output and all twilight/dense transit
     const { createAmbientPlayer } = await import('./src/audio/ambient-player.js');
     const { sampleAudioMix } = await import('./src/audio/audio-mix.js');
     const { createGameClock } = await import('./src/game/game-clock.js');
-    const results = [], rate = 22050, duration = 24.24;
-    for (const [name, start, transition] of [['day', 60, false], ['night-clear', 240, false],
+    const results = [], duration = 24.24;
+    for (const rate of [22050, 44100, 48000]) for (const [name, start, transition] of [['day', 60, false], ['night-clear', 240, false],
       ['night-fog', 2790, false], ['night-dense-fog', 960, false], ['sunset', 168, true],
       ['sunrise', 348, true], ['dense-fog-arrives', 896, true], ['dense-fog-clears', 1064, true]]) {
       const offline = new OfflineAudioContext(1, Math.round(rate * duration), rate);
@@ -167,7 +167,7 @@ test('native production PCM bounds layered output and all twilight/dense transit
         // A complete 24s loop after the player's initial fade.
         if (i >= Math.round(0.12 * rate) && i < Math.round(24.12 * rate)) energy += data[i] ** 2;
       }
-      results.push({ name, start, peak, maximumStep, clipped, nonFinite, rms: Math.sqrt(energy / (rate * 24)) });
+      results.push({ name, rate, start, peak, maximumStep, clipped, nonFinite, rms: Math.sqrt(energy / (rate * 24)) });
       player.dispose();
     }
     return results;
@@ -175,17 +175,69 @@ test('native production PCM bounds layered output and all twilight/dense transit
   const path = info.outputPath('native-layered-pcm.json');
   writeFileSync(path, JSON.stringify(results, null, 2));
   await info.attach('native-layered-pcm', { path, contentType: 'application/json' });
-  expect(results).toHaveLength(8);
+  expect(results).toHaveLength(24);
   for (const result of results) {
     expect(result.nonFinite).toBe(0); expect(result.clipped).toBe(0);
     expect(result.peak).toBeGreaterThan(0.001); expect(result.peak).toBeLessThan(0.04);
     expect(result.maximumStep).toBeLessThan(0.0061);
   }
-  for (const [index, originalRms] of [[0, 0.031305474682915224], [1, 0.02641287173963192], [2, 0.02641287173963192]]) {
-    const changeDb = 20 * Math.log10(results[index].rms / (originalRms * 0.3));
-    expect(changeDb).toBeGreaterThanOrEqual(0); expect(changeDb).toBeLessThan(0.2);
+  for (const rate of [22050, 44100, 48000]) {
+    const atRate = results.filter(result => result.rate === rate);
+    for (const [index, originalRms] of [[0, 0.031305474682915224], [1, 0.02643966012632178], [2, 0.02643966012632178]]) {
+      const changeDb = 20 * Math.log10(atRate[index].rms / (originalRms * 0.3));
+      expect(changeDb).toBeGreaterThanOrEqual(0); expect(changeDb).toBeLessThan(0.2);
+    }
+    expect(atRate[1].rms).toBeCloseTo(atRate[2].rms, 8);
   }
-  expect(results[1].rms).toBeCloseTo(results[2].rms, 8);
+});
+
+test('night B loops through 24/48 seconds at 44.1/48kHz without seam impulses or silence', async ({ page }, info) => {
+  await loadAudioModules(page);
+  const results = await page.evaluate(async () => {
+    const { createGeneratedBuffers } = await import('./src/audio/generated-sources.js');
+    const results = [];
+    for (const rate of [44100, 48000]) for (const offset of [0, 1.337]) {
+      const offline = new OfflineAudioContext(1, rate * 50, rate);
+      const buffer = createGeneratedBuffers(offline).night, source = offline.createBufferSource();
+      source.buffer = buffer; source.loop = true; source.connect(offline.destination); source.start(0, offset);
+      const data = (await offline.startRendering()).getChannelData(0);
+      let peak = 0, energy = 0, clipped = 0, nonFinite = 0;
+      for (const value of data) {
+        peak = Math.max(peak, Math.abs(value)); energy += value * value;
+        if (Math.abs(value) >= 1) clipped++; if (!Number.isFinite(value)) nonFinite++;
+      }
+      const seams = [24, 48].map(seconds => {
+        const index = Math.round((seconds - offset) * rate), halfWindow = Math.round(rate * .1);
+        let localEnergy = 0, curvature = 0, step = 0;
+        for (let i = index - halfWindow; i < index + halfWindow; i++) localEnergy += data[i] ** 2;
+        // Cover several interpolation samples, not just one boundary position.
+        for (let i = index - 4; i <= index + 4; i++) {
+          step = Math.max(step, Math.abs(data[i] - data[i - 1]));
+          curvature = Math.max(curvature, Math.abs(data[i + 1] - 2 * data[i] + data[i - 1]));
+        }
+        return { seconds, index, step, curvature, rms200ms: Math.sqrt(localEnergy / (2 * halfWindow)),
+          samples: Array.from(data.subarray(index - 8, index + 9)) };
+      });
+      results.push({ rate, offset, bufferRate: buffer.sampleRate, frames: buffer.length, peak,
+        rms: Math.sqrt(energy / data.length), clipped, nonFinite, seams });
+      source.disconnect(); source.buffer = null;
+    }
+    return results;
+  });
+  const path = info.outputPath('native-night-b-loops.json');
+  writeFileSync(path, JSON.stringify(results, null, 2));
+  await info.attach('native-night-b-loops', { path, contentType: 'application/json' });
+  expect(results).toHaveLength(4);
+  for (const result of results) {
+    expect(result.bufferRate).toBe(22050); expect(result.frames).toBe(529200);
+    expect(result.clipped).toBe(0); expect(result.nonFinite).toBe(0);
+    expect(result.peak).toBeLessThan(.094); expect(result.rms).toBeGreaterThan(.025); expect(result.rms).toBeLessThan(.028);
+    for (const seam of result.seams) {
+      expect(seam.step).toBeLessThan(.0002); expect(seam.curvature).toBeLessThan(.00015);
+      expect(seam.rms200ms).toBeGreaterThan(.022); expect(seam.rms200ms).toBeLessThan(.028);
+    }
+    result.seams[0].samples.forEach((sample, index) => expect(sample).toBeCloseTo(result.seams[1].samples[index], 7));
+  }
 });
 
 test('native Firefly bite output has prompt onset, bounded peaks and full release at 44.1/48kHz', async ({ page }, info) => {
