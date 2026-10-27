@@ -24,10 +24,14 @@ test('accompaniment remains present across every chord/loop boundary without rai
   }
 });
 
-test('night melody retains its rests while accompaniment bridges them', () => {
+test('accepted night B retains its unequal rests while the E/B pedal bridges them', () => {
   const buffer = buffers.night, data = buffer.getChannelData(0), rate = buffer.sampleRate;
   const window = Math.round(rate * 0.3);
-  const note = rms(data, Math.round(rate * 1.35), window);
-  const rest = rms(data, Math.round(rate * 4.35), window);
-  assert.ok(rest > 0.005 && rest < note * 0.7, `note ${note}, rest ${rest}`);
+  // F-0 B's first phrase is at 2s and its long rests precede 12.5s/17.6s.
+  // The old 1.35s note / 4.35s rest belonged to the replaced night score.
+  const note = rms(data, Math.round(rate * 2.15), window);
+  for (const seconds of [11.3, 16.3]) {
+    const rest = rms(data, Math.round(rate * seconds), window);
+    assert.ok(rest > 0.005 && rest < note * 0.7, `note ${note}, rest ${rest}`);
+  }
 });
