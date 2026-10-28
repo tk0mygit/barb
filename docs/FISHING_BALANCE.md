@@ -95,3 +95,57 @@ Phase 3A-3aの[釣りポイント](FISHING_SPOTS.md)はアタリ発生率のみ�
 売却・所持金・買取人は[Phase 3B-2](FISH_SALES.md)で追加しています。売却履歴・所持金は自動保存し、買取人の一時通知は復元しません。
 
 装備の購入APIと釣り性能はPhase 3C-1A〜1Cで実装済みです。キャスト準備時に固定し、途中の購入は次の準備から反映します。全12種・体長3通り・30/60/144fpsで、ロッド／リールLv.1／5の4組合せを検証しています。最大強化時は5.52〜11.57秒で捕獲し、大型魚の連続巻き取りによるライン切れ・放置による緩み逃走も維持しています。条件・測定値は[装備性能](EQUIPMENT_UPGRADES.md)を参照してください。
+
+## 独立した遭遇モデルのデータ契約（Phase 5A-1）
+
+`src/game/encounter-model.js` の `createEncounterModel(config)` は、魚種数に依存しない純粋なfactoryです。
+公開ゲームは従来の `fish-encounters.js` を使用します。既存export・未登録魚種の中立fallback・返却値の可変性は維持します。
+新モデルはゲームへ接続しておらず、装備Lv別の倍率も定義していません。
+
+必須設定は次の6項目です。すべての魚種・ルアーと全セルを明示します。
+
+| 設定 | 契約 |
+| --- | --- |
+| `registry` | `createFishSpeciesRegistry(...)` の返すregistry、または同じ魚種定義を持つ `{ species: [...] }`。順序はこの配列が一次情報。`get` による再lookupは行わない |
+| `baseWeights` | 全魚種ID → 基本weight |
+| `lures` | 順序付きの `{ id, affinities: { 全魚種ID: 係数 } }` 配列。既存の `LURES` も渡せる。ヒット倍率などは抽選に使用しない |
+| `environmentAffinities` | 全魚種ID → `{ depth: { shallow, mid, deep }, time: { day, night } }` |
+| `lureDepthExponents` | 全ルアーID → `{ shallow, mid, deep }`。値は水深適性の指数 |
+| `tiers` | 全魚種ID → `Common` / `Uncommon` / `Rare`。追加魚種にも明示登録が必要 |
+
+`fish-rarity.js` の `FISH_RARITY` は承認済み12種の固定分類です。
+Commonは `black-bass`・`smallmouth-bass`・`bluegill`・`rainbow-trout`・`european-perch`、
+Uncommonは `brown-trout`・`iwana`・`walleye`・`catfish`、Rareは `northern-pike`・`alligator-gar`・`arowana`。
+これはゲーム上の補正分類であり、生物学的な希少度ではありません。魚種定義へのプロパティ追加やweight変更はありません。
+`getFishTier(id)` は未知IDを拒否し、`defineFishRarity(speciesIds, tiers)` は全件網羅・有効Tier・既存12種の固定対応を検証します。
+
+| メソッド | 返却値・動作 |
+| --- | --- |
+| `getProbabilities(lureId, conditions, modifiers?)` | 魚種順の `{ speciesId, weight, probability }` 配列 |
+| `sample(lureId, random, conditions, modifiers?)` | 魚種乱数を正確に1回消費し、注入registry由来の魚を返す。乱数の既定値は `Math.random` |
+| `audit(lureId, conditions, modifiers?)` | `{ lureId, conditions, totalWeight, entries }`。各行にTier、基本weight、ルアー適性、水深適性・指数・累乗結果、昼夜適性、環境係数、modifier、有効weight、確率を含む |
+
+3メソッドは同一の計算経路を使用します。旧経路の浮動小数点演算順に合わせ、
+`(baseWeight * lureAffinity) * ((depthAffinity ** lureDepthExponent) * timeAffinity) * modifier` を計算します。
+重み・総和・確率は有限正数を要求し、確率合計誤差は `1e-12` 以内です。
+乱数は有限の `[0, 1)` のみを受け付け、累積区間は `roll < cumulative` と末尾丸め救済を維持します。
+
+`conditions` の `depthM`・`timeOfDay`・記録用 `cycleProgress` は旧 `normalizeEncounterConditions` と同じ意味です。
+省略・不正な個々の条件はその補正を1にします。設定の欠落は中立化せず例外にします。
+`modifiers` は任意の部分的な `{ 魚種ID: 乗数 }` で、省略または未指定IDは1です。Tierを自動的に倍率へ変換しません。
+未知ID、0、負数、非有限値、数値文字列などを拒否し、設定や他の呼び出しに状態を残しません。
+
+型の誤り・必須項目欠落・疎配列は `TypeError`、重複ID・未知キー/Tier・不正範囲・計算時のoverflow/underflowは `RangeError` です。
+エラーには対象フィールドやIDを含めます。全係数を数値の有限正数として検証し、不明ルアーと不正な乱数は `RangeError` にします。
+入力は防御コピーし、`definitions` と全返却値を再帰的にfreezeします。
+深くfreeze済みの魚種定義は注入registryと同じ参照を維持し、可変の魚種定義は独立したfreeze済みコピーを返します。
+
+開発時の監査は次のコマンドでJSONを出力します。生成物はコミットしません。
+
+```bash
+node scripts/audit-encounters.mjs > /tmp/barb-encounters.json
+```
+
+現在の本番定義を直接読み、4ルアー順×水深1/5/12m×day/night×魚種順の288行を出力します。
+各行で条件・魚種・補正構成・総weight・確率を追跡できます。
+`tests/encounter-model.test.js` はこの出力、旧12種の288セル一致、Node内だけの架空36種864セル、厳密なデータ検証とモデルの独立性を検証します。
