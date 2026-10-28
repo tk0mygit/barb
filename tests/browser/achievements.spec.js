@@ -90,7 +90,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen a
   await expect(card(page, 'equipment-max').locator('.achievement-progress')).toHaveText('ロッドLv.5・リールLv.5 / 両方Lv.5');
   await expect(page.locator('.achievement-card[data-unlocked="true"]')).toHaveCount(12);
   for (const definition of NORMAL_ACHIEVEMENTS.slice(0, 10)) {
-    await expect(page.locator(`[data-achievement-id="${definition.id}"]`)).toHaveAttribute('data-unlocked', 'true');
+    await expect(page.locator(`.achievement-card[data-achievement-id="${definition.id}"]`)).toHaveAttribute('data-unlocked', 'true');
   }
   await expect(card(page, 'rod-level-5').locator('.achievement-progress')).toHaveText('ロッドLv.5 / Lv.5');
   await expect(card(page, 'reel-level-5').locator('.achievement-progress')).toHaveText('リールLv.5 / Lv.5');

@@ -87,8 +87,10 @@ for (const touch of [false, true]) {
     await openEquipment(page, click); await assertBalance(page, 0);
     // Preserve the complete old Lv.1–5 purchase/performance checks above,
     // then buy the extension through the same production DOM confirmation.
+    await click(page.locator('#collection-close'));
     await page.evaluate(() => fixture.fund(68200));
     const funded = await page.evaluate(() => fixture.collection.snapshot);
+    await openEquipment(page, click);
     balance = 68200;
     const rows = [
       [6, 4200, 44, 21, 133, 122], [7, 5200, 48, 26, 143, 128],

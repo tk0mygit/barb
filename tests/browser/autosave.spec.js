@@ -53,7 +53,10 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fixed leg
     hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
   const page = await context.newPage();
   const click = locator => touch ? locator.tap() : locator.click();
-  await installPausedClock(page); await seed(page, legacySlots); await ready(page);
+  await installPausedClock(page); await seed(page, legacySlots); await page.goto('./');
+  // Production readiness is published by the first animation frame.
+  await page.clock.runFor(16); await expect(page.locator('#status')).toBeHidden();
+  await expect(page.locator('#error')).toBeHidden();
   expect(await slots(page)).toEqual(legacySlots);
   await expect(page.locator('#achievement-notice')).toBeHidden();
   await click(page.locator('#menu-button')); await click(page.locator('[data-view="achievements"]'));
@@ -74,7 +77,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fixed leg
   expect(before.data.collection.catches).toEqual(original.collection.catches);
   expect(before.data.achievements.unlocked.filter(award => original.achievements.unlocked.some(old => old.id === award.id)))
     .toEqual(original.achievements.unlocked);
-  await page.reload(); await expect(page.locator('#status')).toBeHidden();
+  await page.reload(); await page.clock.runFor(16); await expect(page.locator('#status')).toBeHidden();
   await expect(page.locator('#achievement-notice')).toBeHidden();
   await click(page.locator('#menu-button')); await click(page.locator('[data-view="equipment"]'));
   await expect(page.locator('[data-equipment="rod"] h3')).toHaveText('ロッド · Lv.10');
