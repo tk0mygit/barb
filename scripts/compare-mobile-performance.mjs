@@ -15,9 +15,26 @@ const SHARED_B = {
   build: { lockBlob: '47245ebaa299d7e7521020579099984095cc556d', indexBlob: '4f4a23265ef8e4a7bf2e74afedd5fc41ce585651', viteBlob: 'b0d324b56a47ba5b7ff1b0580db1f6a9f2d3fcb3' },
 };
 
-function expectedResources(before, metadata) {
+const FOREST_DENSITY = {
+  baseSha: '89de7dd3ba9fdfb3bb736c9d23ab62e7fdfc6b02',
+  before: { sourceTree: '1c769c1d52837741b46449e992037b46db83011c', terrainBlob: '92e5dd83fbfedfd0b3f50d6528375e66c8299e8f', crownTextureBlob: 'f867ba84e5ed9727004ba313232078d61469c25d' },
+  after: { sourceTree: '62a706d6e942b955a8100022677cb343fbe56c21', terrainBlob: 'd2cd4ccf2a97d788c807f778c300ba4d1414641d', crownTextureBlob: 'f867ba84e5ed9727004ba313232078d61469c25d' },
+};
+
+export function expectedMobileResources(before, metadata) {
   const { main, pr } = metadata.implementations;
   const matches = (source, identity) => Object.entries(identity).every(([key, value]) => source[key] === value);
+  const density = metadata.mode === 'regression' && metadata.baseSha === FOREST_DENSITY.baseSha
+    && main.sha === metadata.baseSha && pr.sha === metadata.validationSha
+    && matches(main, FOREST_DENSITY.before) && matches(pr, FOREST_DENSITY.after)
+    && matches(main, SHARED_B.build) && matches(pr, SHARED_B.build);
+  if (density) {
+    assert.equal(before.textures, 4, 'Forest transition requires the verified shared-B base');
+    // 250 additional instances, exactly 20 trunk + 196 crown triangles each.
+    // Whole src/build identities bind the exception to this one transition.
+    return { resources: { ...before, triangles: before.triangles + 250 * 216 },
+      transition: 'forest-G2.5: triangles +54000, all other resources exact' };
+  }
   const sharedB = metadata.mode === 'regression' && metadata.baseSha === SHARED_B.baseSha
     && main.sha === metadata.baseSha && pr.sha === metadata.validationSha
     && matches(main, SHARED_B.before) && matches(pr, SHARED_B.after)
@@ -111,7 +128,7 @@ export function compareMobileCapturePair(b, a, metadata) {
         checkCamera(a.metrics.camera, { position: [10, 2.15, 21.25], quaternion: [0, 0, 0, 1], aspect: a.metrics.camera.aspect }, b.id);
       }
     } else assert.deepEqual(a.metrics.camera, b.metrics.camera, `${b.id}: camera differs`);
-    const expected = expectedResources(b.metrics.resources, metadata);
+    const expected = expectedMobileResources(b.metrics.resources, metadata);
     assert.deepEqual(a.metrics.resources, expected.resources, `${b.id}: resource regression`);
     const pixelReduction = (1 - a.metrics.pixels / b.metrics.pixels) * 100;
     if (metadata.mode === 'regression') {

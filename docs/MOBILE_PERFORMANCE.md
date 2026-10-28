@@ -1,5 +1,24 @@
 # スマートフォンの描画とファイトHUD（Phase 4C-2A）
 
+## Phase 4.5 G-2.5 の森林増量
+
+G-2 main `89de7dd3ba9fdfb3bb736c9d23ab62e7fdfc6b02` から固定1,100本へ増量する比較だけは、
+双方の完全SHA・src tree/terrain/共有B texture blob・lock/index/Vite設定を照合し、
+250本×216＝54,000 trianglesの正確な差分を要求します。calls/geometries/textures/programs、
+解像度・HUD・camera/source・保存時計の既存契約は維持します。無関係な+1、巨大増分、
+未知source、導入後のPR、historical-improvementへこの増分を持ち越しません。
+旧G-1のtexture移行例外も拡張しません。
+
+850/1,000/1,100/1,200本の4列画像・資源JSON・初回/継続窓・近傍距離は任意レビュー用
+`scripts/review-forest-density.mjs` で別成果物へ保存します。内訳・固定予算・メモリ・実行条件は
+[LAKE_SCENERY.md](LAKE_SCENERY.md) のG-2.5節を参照してください。行列/色のCPU・GPU bufferは
+各35,000 bytes増えます。draw callsが同じでも頂点処理・ラスタライズは増えるため、性能同値とは扱いません。
+SwiftShaderのNode/CDP時間は実機FPS/GPU時間と区別し、初回遅延と継続の分布を別に記録します。
+G-3ではPC/Android実機の高DPR縦横、通常/濃霧、昼夜・操船/FPS・長時間のメモリ・発熱を確認し、
+以後のゲーム処理追加への余力を優先します。遅延時の固定減量候補は1,000本です。1,200本も同条件の比較資料に残します。
+
+以下は4C-2Aの歴史的な比較・検証記録です。
+
 比較元は最新main `d8cbbe8c9bbeace7345cab789ebe5b066270fa84`。
 4C-1Aの自然湖と4C-1Bの12魚種PNGを維持し、描画解像度とDOM配置を調整する工程です。
 実機のFPS・発熱・操作感の受入とPhase 4C全体の終了判定は4C-2Bに残します。
