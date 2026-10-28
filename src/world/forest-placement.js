@@ -1,5 +1,5 @@
 import { shoreRadius } from './config.js';
-import { ridgeNoise } from './scenery-noise.js';
+import { ridgeNoise, sceneryNoise } from './scenery-noise.js';
 
 const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 const cellSize = 16;
@@ -9,7 +9,7 @@ const cellSize = 16;
 export function createForestPlacement() {
   const cells = new Map(), groves = [];
   const key = (x, z) => `${x},${z}`;
-  return (id, x, z, crownRadius) => {
+  const place = (id, x, z, crownRadius) => {
     const angle = Math.atan2(z, x);
     const fraction = (Math.hypot(x, z) - shoreRadius(angle) - 11) / 168;
     // A wider near-shore belt and a taper into the upper slope. Both edges
@@ -66,4 +66,37 @@ export function createForestPlacement() {
     if (Math.hypot(best.x, best.z) - shoreRadius(Math.atan2(best.z, best.x)) > 80) groves.push(best);
     return best;
   };
+  // Append only, after all 850 legacy calls. The same cells protect both old
+  // and new trees. No grove rescan, PRNG consumption or per-frame work is added.
+  place.add = (id, x, z, crownRadius, grounded) => {
+    const angle = Math.atan2(z, x);
+    const fraction = (Math.hypot(x, z) - shoreRadius(angle) - 11) / 168;
+    const offset = 18 + 12 * ridgeNoise(angle, 13, 947) + 120 * fraction ** 1.4;
+    const radius = shoreRadius(angle) + offset;
+    const targetX = Math.cos(angle) * radius, targetZ = Math.sin(angle) * radius;
+    for (let attempt = 0; attempt < 384; attempt++) {
+      const spread = 2.5 * Math.sqrt(attempt), direction = (id + attempt) * goldenAngle;
+      const px = targetX + Math.cos(direction) * spread, pz = targetZ + Math.sin(direction) * spread;
+      const r = Math.hypot(px, pz), bank = r - shoreRadius(Math.atan2(pz, px));
+      if (bank < 10 + crownRadius || bank > 160 || r + crownRadius > 378) continue;
+      // Keep coherent openings instead of filling every angular strip evenly.
+      if (sceneryNoise(px * 0.028, pz * 0.028, 311) < 0.35) continue;
+      const cx = Math.floor(px / cellSize), cz = Math.floor(pz / cellSize);
+      let separated = true;
+      for (let dx = -1; dx <= 1 && separated; dx++) for (let dz = -1; dz <= 1 && separated; dz++) {
+        for (const tree of cells.get(key(cx + dx, cz + dz)) ?? []) {
+          if (Math.hypot(px - tree.x, pz - tree.z) < Math.max(3.8, (crownRadius + tree.radius) * 0.6)) {
+            separated = false; break;
+          }
+        }
+      }
+      if (!separated || !grounded(px, pz)) continue;
+      const tree = { x: px, z: pz, radius: crownRadius }, cell = key(cx, cz);
+      if (!cells.has(cell)) cells.set(cell, []);
+      cells.get(cell).push(tree);
+      return tree;
+    }
+    throw new Error(`No safe additional forest candidate for ID ${id}`);
+  };
+  return place;
 }
