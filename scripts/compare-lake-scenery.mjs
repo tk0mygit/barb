@@ -3,7 +3,8 @@ import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 import { PerspectiveCamera, Vector3 } from 'three';
-import { readMobileImplementation, replayMobileCamera } from './lib/mobile-comparison-source.js';
+import { readMobileImplementation, replayMobileCamera, mobileSourceMetadata } from './lib/mobile-comparison-source.js';
+import { expectedMobileResources } from './compare-mobile-performance.mjs';
 
 // The scenery capture uses the real camera, including its ordinary settling.
 // Verify that pose against its exact source before comparing the two views.
@@ -85,9 +86,16 @@ export async function writeComparison(main, pr, destination, mainLabel = 'main d
     const cameraProjectionDelta = compareSceneryCameras(before.metrics, after.metrics, id);
     const a = before.metrics.resources, b = after.metrics.resources;
     const delta = Object.fromEntries(Object.keys(a).map(field => [field, b[field] - a[field]]));
-    assert.ok(delta.calls <= 3, `${id}: draw call increase exceeds +3`);
-    assert.ok(b.triangles <= a.triangles * 1.15, `${id}: triangle increase exceeds 15%`);
+    const main = sources.get(before.metrics.cameraEvidence.sha), candidate = sources.get(after.metrics.cameraEvidence.sha);
+    const expected = expectedMobileResources(a, { mode: 'regression', baseSha: main.sha, validationSha: candidate.sha,
+      implementations: { main: mobileSourceMetadata(main), pr: mobileSourceMetadata(candidate) } });
+    if (expected.transition?.startsWith('forest-G2.5:')) assert.deepEqual(b, expected.resources, `${id}: exact forest resource transition`);
+    else {
+      assert.ok(delta.calls <= 3, `${id}: draw call increase exceeds +3`);
+      assert.ok(b.triangles <= a.triangles * 1.15, `${id}: triangle increase exceeds 15%`);
+    }
     const result = { id, before: before.metrics, after: after.metrics, delta, cameraProjectionDelta,
+      ...(expected.transition?.startsWith('forest-G2.5:') ? { resourceTransition: expected.transition } : {}),
       triangleIncreasePercent: (b.triangles / a.triangles - 1) * 100 };
     comparisons.push(result);
     figures.push(`<section><h2>${id}</h2><p>Draw calls ${a.calls} → ${b.calls}; triangles ${a.triangles.toLocaleString('en-US')} → ${b.triangles.toLocaleString('en-US')} (${result.triangleIncreasePercent.toFixed(2)}%); geometries ${a.geometries} → ${b.geometries}; textures ${a.textures} → ${b.textures}; programs ${a.programs} → ${b.programs}.</p><div class="pair"><figure><figcaption>${mainLabel}</figcaption><img src="data:image/png;base64,${before.image}"></figure><figure><figcaption>Phase 4C-1A</figcaption><img src="data:image/png;base64,${after.image}"></figure></div><details><summary>Measurement JSON</summary><pre>${JSON.stringify(result, null, 2)}</pre></details></section>`);

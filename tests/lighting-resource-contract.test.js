@@ -23,8 +23,8 @@ test('cold and first-cast contracts distinguish allocation history from recreate
   assertColdFishingResources(cold);
   assertLureInitialization(cold, lure);
   assertStableResourceIdentities(lure, structuredClone(lure));
-  assert.deepEqual(expectedColdNightResources(false), { calls: 31, triangles: 221444, geometries: 20, textures: 4, programs: 10 });
-  assert.deepEqual(expectedColdNightResources(true), { calls: 34, triangles: 227588, geometries: 21, textures: 4, programs: 11 });
+  assert.deepEqual(expectedColdNightResources(false), { calls: 31, triangles: 275444, geometries: 20, textures: 4, programs: 10 });
+  assert.deepEqual(expectedColdNightResources(true), { calls: 34, triangles: 281588, geometries: 21, textures: 4, programs: 11 });
 });
 
 test('cold startup rejects a missing shared map or any second crown texture', () => {

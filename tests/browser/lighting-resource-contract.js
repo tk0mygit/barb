@@ -29,7 +29,8 @@ export function assertColdFishingResources(snapshot) {
 // and two marker shader variants uploaded by the old first BOAT render. Remove
 // that identified initialization history, retaining the exact draw/texture cost.
 export function expectedColdNightResources(fog) {
-  return { calls: 31 + (fog ? 3 : 0), triangles: 221444 + (fog ? 6144 : 0),
+  // G-2.5: fixed 1100 trees, only the approved 250 * 216 triangle delta.
+  return { calls: 31 + (fog ? 3 : 0), triangles: 275444 + (fog ? 6144 : 0),
     geometries: 24 - FISHING_GEOMETRY_TYPES.length + (fog ? 1 : 0),
     // Shared B replaces the old untextured foliage program; it adds one map,
     // not a second material/program variant as the conifer-only preview did.

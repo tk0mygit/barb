@@ -7,6 +7,7 @@ import { LAKE, shoreRadius } from '../src/world/config.js';
 import { FISHING_SPOTS } from '../src/world/fishing-spots.js';
 import { isNavigableBoatPosition } from '../src/game/boat.js';
 import { createConiferTexture, CONIFER_TEXTURE_MEAN } from '../src/world/conifer-texture.js';
+import { createForestPlacement } from '../src/world/forest-placement.js';
 
 const BASELINE_TERRAIN_TRIANGLES = 195096;
 const named = (terrain, name) => {
@@ -75,14 +76,14 @@ test('scenery geometry, instance transforms and colors are deterministic and fin
   } finally { dispose(first); dispose(second); }
 });
 
-test('850 rooted trees share B foliage resources and stay outside the sailing area', () => {
+test('1100 rooted trees share B foliage resources and stay outside the sailing area', () => {
   const terrain = createTerrain();
   try {
     const trunks = named(terrain, 'tree-trunks');
     const crowns = ['tree-conifers', 'tree-broadleaves'].map(name => named(terrain, name));
     assert.ok(trunks.isInstancedMesh);
-    assert.equal(trunks.count, 850);
-    assert.deepEqual(crowns.map(mesh => mesh.count), [650, 200]);
+    assert.equal(trunks.count, 1100);
+    assert.deepEqual(crowns.map(mesh => mesh.count), [843, 257]);
     assert.ok(crowns.every(mesh => mesh.isInstancedMesh));
     assert.equal(crowns[0].material, crowns[1].material);
     assert.ok(crowns[0].material.map.isDataTexture);
@@ -176,8 +177,16 @@ test('scenery remains inside the mesh, triangle and resource budgets', () => {
     assert.ok(meshes.every(mesh => mesh.parent === terrain), 'no individual tree meshes');
     const triangles = meshes.reduce((sum, mesh) => sum
       + (mesh.geometry.index?.count ?? mesh.geometry.attributes.position.count) / 3 * (mesh.isInstancedMesh ? mesh.count : 1), 0);
-    assert.ok(triangles <= BASELINE_TERRAIN_TRIANGLES * 1.15, `${triangles} scenery triangles`);
-    assert.equal(triangles, 196312, 'G-1 exact scenery triangle count');
+    // Only the PM-approved 250 * 216 tree triangles extend the old ceiling.
+    // Keep the pre-existing 15% defense for all other scenery.
+    assert.ok(triangles - 250 * 216 <= BASELINE_TERRAIN_TRIANGLES * 1.15, `${triangles} scenery triangles`);
+    assert.ok(triangles <= 250312, 'G-2.5 hard maximum');
+    assert.equal(triangles, 196312 + 250 * 216, 'exact G-2 baseline plus approved tree triangles');
+    assert.equal(triangles, 250312, 'G-2.5 exact scenery triangle count');
+    for (const name of ['tree-conifers', 'tree-broadleaves']) assert.equal(named(terrain, name).geometry.index.count / 3, 196);
+    assert.equal(named(terrain, 'tree-trunks').geometry.index.count / 3, 20);
+    const instanceBytes = meshes.filter(mesh => mesh.name.startsWith('tree-')).reduce((sum, mesh) => sum + mesh.instanceMatrix.array.byteLength + (mesh.instanceColor?.array.byteLength ?? 0), 0);
+    assert.equal(instanceBytes, 850 * 140 + 250 * 140, 'matrix/color storage: exactly 35,000 additional bytes per CPU/GPU copy');
     assert.ok(new Set(meshes.map(mesh => mesh.geometry)).size <= 8);
     assert.equal(new Set(meshes.map(mesh => mesh.geometry)).size, 8);
     assert.equal(new Set(meshes.map(mesh => mesh.material)).size, 7, 'one shared B foliage material');
@@ -237,6 +246,87 @@ const bufferDigest = arrays => {
   return hash.digest('hex');
 };
 
+test('all G-2 legacy IDs retain their complete matrix and color byte prefixes', () => {
+  // Extracted before implementation from main 89de7dd3ba9fdfb3bb736c9d23ab62e7fdfc6b02.
+  const prefixes = {
+    'tree-trunks': [850, '7d66ca8c679b72924a8afb0b6550c5e3d4526c16517289b549b78e14cfc11181', null],
+    'tree-conifers': [650, '0f690cf3e7752a487bce68ff681d0c5985a7edd2ea1e897e27ab10fb53913ba2', 'd13e4864b19a3395cdf2f00e4a3b6bc3785f4ce0de65bf9f0807c8d4a76edda4'],
+    'tree-broadleaves': [200, 'f539b945209e3079783c29f233e5f2d12174712d83582cfcf05daaeed5bf7904', '182eaacccc3c9621af78ad97922a124ad11925a601b7b7199e666f4b538159a9'],
+  };
+  const terrain = createTerrain();
+  try {
+    for (const [name, [count, matrices, colors]] of Object.entries(prefixes)) {
+      const mesh = named(terrain, name);
+      assert.equal(bufferDigest([mesh.instanceMatrix.array.subarray(0, count * 16)]), matrices, `${name} complete ordered G-2 matrices`);
+      assert.equal(mesh.instanceColor ? bufferDigest([mesh.instanceColor.array.subarray(0, count * 3)]) : null, colors, `${name} G-2 colors`);
+    }
+  } finally { dispose(terrain); }
+});
+
+test('250 independent appended IDs are grounded, separated and clear of water, spots and mountains', () => {
+  const terrain = createTerrain();
+  try {
+    const trunks = named(terrain, 'tree-trunks'), matrix = new THREE.Matrix4();
+    const ground = named(terrain, 'lake-shore'); ground.updateMatrixWorld();
+    const ray = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0));
+    // Inverse of the interleaved 270:80 schedule, independently enumerated by
+    // broadleaf ordinal. Old crown indices 0..649 / 0..199 stay reserved.
+    const broadleafIds = new Set(Array.from({ length: 80 }, (_, i) => 849 + Math.ceil((i + 1) * 35 / 8)));
+    let coniferIndex = 650, broadleafIndex = 200;
+    const trees = [], bands = [0, 0, 0, 0, 0], sectors = Array(12).fill(0);
+    for (let id = 0; id < 1100; id++) {
+      const added = id >= 850, broadleaf = added ? broadleafIds.has(id) : id >= 650;
+      const index = added ? (broadleaf ? broadleafIndex++ : coniferIndex++) : broadleaf ? id - 650 : id;
+      const foliage = named(terrain, broadleaf ? 'tree-broadleaves' : 'tree-conifers');
+      trunks.getMatrixAt(id, matrix);
+      const root = new THREE.Vector3(0, -0.5, 0).applyMatrix4(matrix);
+      const rootY = root.y, h = matrix.elements[5] / 0.56;
+      foliage.getMatrixAt(index, matrix);
+      assert.equal(matrix.elements[12], root.x, `ID ${id} crown X`);
+      assert.equal(matrix.elements[14], root.z, `ID ${id} crown Z`);
+      near(matrix.elements[13], rootY + h * (broadleaf ? 0.36 : 0.13), `ID ${id} crown height`, 5e-6);
+      const nominalRadius = Math.max(Math.hypot(matrix.elements[0], matrix.elements[2]), Math.hypot(matrix.elements[8], matrix.elements[10])) * (broadleaf ? 1.3 : 1.1);
+      trees.push({ root, nominalRadius });
+      if (!added) continue;
+      const angle = (Math.atan2(root.z, root.x) + Math.PI * 2) % (Math.PI * 2);
+      const offset = Math.hypot(root.x, root.z) - shoreRadius(angle);
+      assert.ok(offset >= 10 + nominalRadius - 1e-4 && offset <= 160 + 1e-4, `ID ${id} near/middle belt`);
+      bands[offset < 40 ? 0 : offset < 90 ? 1 : offset < 140 ? 2 : offset < 190 ? 3 : 4]++;
+      sectors[Math.floor(angle / (Math.PI * 2) * 12)]++;
+      assert.equal(isNavigableBoatPosition(root), false, `ID ${id} navigation boundary`);
+      for (const spot of FISHING_SPOTS) assert.ok(Math.hypot(root.x - spot.x, root.z - spot.z) > spot.radius + nominalRadius, `ID ${id} spot ${spot.id}`);
+      ray.ray.origin.set(root.x, 1000, root.z);
+      const hit = ray.intersectObject(ground, false)[0];
+      assert.ok(hit, `rendered slope below added ID ${id}`);
+      near(rootY, hit.point.y, `ID ${id} exact triangle grounding`, 2e-4);
+      for (let v = 0; v < foliage.geometry.attributes.position.count; v++) {
+        const p = vector(foliage.geometry.attributes.position, v).applyMatrix4(matrix), y = terrainHeightAt(p.x, p.z);
+        assert.ok(Number.isFinite(y) && p.y > y, `added crown ${id}/${v} above finite terrain`);
+        assert.ok(Math.hypot(p.x, p.z) > shoreRadius(Math.atan2(p.z, p.x)) + 6, `added crown ${id}/${v} shoreline`);
+        assert.ok(Math.hypot(p.x, p.z) < 385, `added crown ${id}/${v} mountain foot`);
+      }
+    }
+    assert.equal(coniferIndex, 843); assert.equal(broadleafIndex, 257);
+    for (let i = 850; i < trees.length; i++) for (let j = 0; j < i; j++) {
+      const a = trees[i], b = trees[j], d = Math.hypot(a.root.x - b.root.x, a.root.z - b.root.z);
+      assert.ok(d >= 3.8 - 1e-4, `added roots ${i}/${j}`);
+      assert.ok(d >= (a.nominalRadius + b.nominalRadius) * 0.6 - 1e-4, `added crown spacing ${i}/${j}`);
+    }
+    assert.ok(bands[0] > 50 && bands[1] > 80 && bands[2] > 30, 'fill near and middle gaps with depth');
+    assert.equal(bands[4], 0, 'no additional outer wall');
+    assert.ok(sectors.every(count => count > 5), 'additional trees around all shores');
+    assert.ok(Math.max(...sectors) - Math.min(...sectors) > 10, 'retain irregular openings');
+  } finally { dispose(terrain); }
+});
+
+test('additional placement has bounded search and refuses an unsafe fallback', () => {
+  const place = createForestPlacement();
+  let checked = 0;
+  assert.throws(() => place.add(850, 200, 0, 5, () => { checked++; return false; }), /No safe additional forest candidate for ID 850/);
+  assert.ok(checked > 0 && checked <= 384);
+  assert.deepEqual(place.add(850, 200, 0, 5, () => true), createForestPlacement().add(850, 200, 0, 5, () => true));
+});
+
 test('placement preserves every G-1 geometry, rock instance and shared B resource', () => {
   const terrain = createTerrain();
   try {
@@ -286,13 +376,14 @@ test('tree IDs retain G-1 rotation, scale and instanceColor bytes while translat
   try {
     const trunks = named(terrain, 'tree-trunks'), trunk = new THREE.Matrix4(), crown = new THREE.Matrix4();
     for (const [name, [transformDigest, colorDigest]] of Object.entries(attributes)) {
-      const mesh = named(terrain, name);
-      const linear = new Float32Array(Array.from(mesh.instanceMatrix.array).filter((_, i) => ![12, 13, 14].includes(i % 16)));
+      const mesh = named(terrain, name), legacyCount = name === 'tree-trunks' ? 850 : name === 'tree-conifers' ? 650 : 200;
+      const prefix = mesh.instanceMatrix.array.subarray(0, legacyCount * 16);
+      const linear = new Float32Array(Array.from(prefix).filter((_, i) => ![12, 13, 14].includes(i % 16)));
       assert.equal(bufferDigest([linear]), transformDigest, `${name} ordered G-1 non-translation bytes`);
-      assert.equal(mesh.instanceColor ? bufferDigest([mesh.instanceColor.array]) : null, colorDigest, `${name} ordered G-1 colors`);
-      assert.notEqual(bufferDigest([mesh.instanceMatrix.array, ...(mesh.instanceColor ? [mesh.instanceColor.array] : [])]), g0Buffers[name][1], `${name} was relocated`);
+      assert.equal(mesh.instanceColor ? bufferDigest([mesh.instanceColor.array.subarray(0, legacyCount * 3)]) : null, colorDigest, `${name} ordered G-1 colors`);
+      assert.notEqual(bufferDigest([prefix, ...(mesh.instanceColor ? [mesh.instanceColor.array.subarray(0, legacyCount * 3)] : [])]), g0Buffers[name][1], `${name} was relocated`);
       if (name === 'tree-trunks') continue;
-      for (let i = 0; i < mesh.count; i++) {
+      for (let i = 0; i < legacyCount; i++) {
         const broadleaf = name === 'tree-broadleaves';
         trunks.getMatrixAt(i + (broadleaf ? 650 : 0), trunk); mesh.getMatrixAt(i, crown);
         assert.equal(crown.elements[12], trunk.elements[12], `${name} ${i} trunk ID X`);
@@ -304,12 +395,12 @@ test('tree IDs retain G-1 rotation, scale and instanceColor bytes while translat
   } finally { dispose(terrain); }
 });
 
-test('forest belts retain openings, extend onto slopes and avoid dense root collisions', () => {
+test('legacy 850 forest belts retain openings, extend onto slopes and avoid dense root collisions', () => {
   const terrain = createTerrain();
   try {
     const trunks = named(terrain, 'tree-trunks'), matrix = new THREE.Matrix4(), trees = [];
     const bands = [0, 0, 0, 0, 0], sectors = Array(12).fill(0);
-    for (let id = 0; id < trunks.count; id++) {
+    for (let id = 0; id < 850; id++) {
       trunks.getMatrixAt(id, matrix);
       const root = new THREE.Vector3(0, -0.5, 0).applyMatrix4(matrix);
       const angle = (Math.atan2(root.z, root.x) + Math.PI * 2) % (Math.PI * 2);

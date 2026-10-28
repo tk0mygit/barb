@@ -18,6 +18,9 @@ const sharedB = { ...g1Base, sha: 'f'.repeat(40),
   sourceTree: 'b2b8cd1d51494a6332633c59f1ad580cd489a151',
   terrainBlob: '4035462c3a09c46e20510e86a663da9d772a5d07',
   crownTextureBlob: 'f867ba84e5ed9727004ba313232078d61469c25d' };
+const g2Base = await readMobileImplementation('89de7dd3ba9fdfb3bb736c9d23ab62e7fdfc6b02');
+const densitySource = { ...g2Base, sha: 'e'.repeat(40),
+  sourceTree: '62a706d6e942b955a8100022677cb343fbe56c21', terrainBlob: 'd2cd4ccf2a97d788c807f778c300ba4d1414641d' };
 const profiles = {
   portrait: { width: 390, height: 844, dpr: 2, touch: true }, landscape: { width: 844, height: 390, dpr: 2, touch: true },
   small: { width: 360, height: 740, dpr: 3, touch: true }, pc: { width: 1280, height: 800, dpr: 1 }, 'pc-hidpi': { width: 1280, height: 800, dpr: 2 },
@@ -85,6 +88,50 @@ function sharedBCaptures() {
   return { before, after, data: { mode: 'regression', baseSha: g1Base.sha, headSha: sharedB.sha, validationSha: sharedB.sha,
     implementations: { main: mobileSourceMetadata(g1Base), pr: mobileSourceMetadata(sharedB) } } };
 }
+
+function densityCaptures() {
+  const [before, after] = captures();
+  for (const entry of [...before, ...after]) entry.metrics.resources.textures = 4;
+  for (const entry of after) entry.metrics.resources.triangles += 54000;
+  return { before, after, data: { mode: 'regression', baseSha: g2Base.sha, headSha: densitySource.sha, validationSha: densitySource.sha,
+    implementations: { main: mobileSourceMetadata(g2Base), pr: mobileSourceMetadata(densitySource) } } };
+}
+
+test('only the exact G-2 to G-2.5 runtime/build transition permits 250 * 216 triangles across all 34 pairs', () => {
+  const p = densityCaptures(), rows = compareMobileCaptures(p.before, p.after, p.data);
+  assert.equal(rows.length, 34);
+  assert(rows.every(row => row.resourceTransition === 'forest-G2.5: triangles +54000, all other resources exact'));
+  for (const delta of [0, 1, 32400, 53999, 54001, 75600, 151200, 1e9]) {
+    const pair = densityCaptures(); pair.after[0].metrics.resources.triangles = pair.before[0].metrics.resources.triangles + delta;
+    assert.throws(() => compareMobileCaptures(pair.before, pair.after, pair.data), /resource regression/, `delta ${delta}`);
+  }
+  for (const field of ['calls', 'geometries', 'textures', 'programs']) {
+    const pair = densityCaptures(); pair.after[0].metrics.resources[field]++;
+    assert.throws(() => compareMobileCaptures(pair.before, pair.after, pair.data), /resource regression/, field);
+  }
+});
+
+test('forest delta rejects unknown source/build/full-SHA provenance and does not recur in later PRs', () => {
+  for (const target of ['main', 'pr']) for (const field of ['sourceTree', 'terrainBlob', 'crownTextureBlob', 'lockBlob', 'indexBlob', 'viteBlob', 'sha']) {
+    const p = densityCaptures(); p.data.implementations[target][field] = 'b'.repeat(40);
+    assert.throws(() => compareMobileCaptures(p.before, p.after, p.data), /resource regression/, `${target}.${field}`);
+  }
+  for (const field of ['baseSha', 'validationSha']) {
+    const p = densityCaptures(); p.data[field] = 'b'.repeat(40);
+    assert.throws(() => compareMobileCaptures(p.before, p.after, p.data), /resource regression/, field);
+  }
+  const p = densityCaptures(); p.data.baseSha = densitySource.sha; p.data.implementations.main = mobileSourceMetadata(densitySource);
+  for (const entry of p.before) entry.metrics.resources.triangles += 54000;
+  assert(compareMobileCaptures(p.before, p.after, p.data).every(row => !row.resourceTransition));
+  for (const delta of [1, 54000, 75600, 1e9]) {
+    const after = structuredClone(p.after); after[0].metrics.resources.triangles += delta;
+    assert.throws(() => compareMobileCaptures(p.before, after, p.data), /resource regression/);
+  }
+  const unknown = metadata(), [before, after] = captures(); unknown.resourceTransition = 'forest-G2.5'; after[0].metrics.resources.triangles++;
+  assert.throws(() => compareMobileCaptures(before, after, unknown), /resource regression/);
+  const [historicalBefore, historicalAfter] = captures(true); historicalAfter[0].metrics.resources.triangles += 54000;
+  assert.throws(() => compareMobileCaptures(historicalBefore, historicalAfter, metadata(true)), /resource regression/);
+});
 
 test('only the reviewed shared-B source tree accepts exactly one crown map and no program increase', () => {
   const { before, after, data } = sharedBCaptures();

@@ -4,6 +4,8 @@ import { sceneryNoise, ridgeNoise } from './scenery-noise.js';
 import { createConiferTexture, CONIFER_TEXTURE_MEAN } from './conifer-texture.js';
 import { createForestPlacement } from './forest-placement.js';
 
+export const FOREST_COUNTS = Object.freeze({ total: 1100, conifers: 843, broadleaves: 257 });
+
 // More samples near the waterline, with the original outer skirt extent.
 // Neither this mesh nor its height sampler participates in lake collision.
 const offsets = [-5, 0, 2.5, 5.5, 9, 14, 20, 28, 38, 50, 64, 80, 98, 118, 140, 164, 190, 218, 248, 279, 299];
@@ -28,11 +30,15 @@ function triangleHeight(x, z, a, b, c) {
 
 // Initialization only: meet the exact Float32 triangles of the rendered slope.
 export function terrainHeightAt(x, z) {
+  return sampleHeight(x, z, groundVertex);
+}
+
+function sampleHeight(x, z, vertex) {
   const angle = (Math.atan2(z, x) + tau) % tau;
   const segment = Math.min(LAKE.segments - 1, Math.floor(angle / tau * LAKE.segments));
   for (let ring = 0; ring < offsets.length - 1; ring++) {
-    const a = groundVertex(ring, segment), b = groundVertex(ring, segment + 1);
-    const c = groundVertex(ring + 1, segment), d = groundVertex(ring + 1, segment + 1);
+    const a = vertex(ring, segment), b = vertex(ring, segment + 1);
+    const c = vertex(ring + 1, segment), d = vertex(ring + 1, segment + 1);
     for (const triangle of [[a, b, c], [b, d, c]]) {
       const sample = triangleHeight(x, z, ...triangle);
       if (sample.inside) return sample.height;
@@ -114,21 +120,33 @@ export function createTerrain() {
   const ground = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }));
   ground.name = 'lake-shore'; ground.receiveShadow = true; group.add(ground);
 
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.5, 1, 5), new THREE.MeshStandardMaterial({ color: '#655a49', roughness: 1 }), 850);
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.5, 1, 5), new THREE.MeshStandardMaterial({ color: '#655a49', roughness: 1 }), FOREST_COUNTS.total);
   const foliageMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
   const foliageTexture = createConiferTexture();
   foliageMaterial.map = foliageTexture;
   foliageMaterial.color.setScalar(1 / CONIFER_TEXTURE_MEAN);
   // Both crowns own the same material; its existing cleanup releases one map.
   foliageMaterial.addEventListener('dispose', () => foliageTexture.dispose());
-  const conifers = new THREE.InstancedMesh(createCrown(false), foliageMaterial, 650);
-  const broadleaves = new THREE.InstancedMesh(createCrown(true), foliageMaterial, 200);
+  const conifers = new THREE.InstancedMesh(createCrown(false), foliageMaterial, FOREST_COUNTS.conifers);
+  const broadleaves = new THREE.InstancedMesh(createCrown(true), foliageMaterial, FOREST_COUNTS.broadleaves);
   trunks.name = 'tree-trunks'; conifers.name = 'tree-conifers'; broadleaves.name = 'tree-broadleaves';
   const dummy = new THREE.Object3D(), treeColor = new THREE.Color();
   const evergreen = new THREE.Color('#405a48'), leaf = new THREE.Color('#637053');
   const pale = new THREE.Color('#7c8966'), shade = new THREE.Color('#344b42');
   const placeTree = createForestPlacement();
-  for (let i = 0; i < 850; i++) {
+  const additionalRandom = randomGenerator(25071), legacyRandom = random;
+  let additionalConifer = 650, additionalBroadleaf = 200;
+  const crownPoint = new THREE.Vector3();
+  // Reuse the already rounded rendered vertices for the extra crown checks.
+  // The old 850 height calls and their results are untouched. No second mesh
+  // or retained height cache is needed, and no ground noise is recomputed here.
+  const extraHeightAt = (x, z) => sampleHeight(x, z, (ring, segment) => {
+    const start = (ring * (LAKE.segments + 1) + segment % LAKE.segments) * 3;
+    return positions.slice(start, start + 3);
+  });
+  for (let i = 0; i < FOREST_COUNTS.total; i++) {
+    // Never extend seed 71: rocks must receive exactly their original sequence.
+    const random = i < 850 ? legacyRandom : additionalRandom;
     let x, z;
     // Coherent groves and openings, with bounded deterministic rejection.
     for (let attempt = 0; attempt < 12; attempt++) {
@@ -137,15 +155,34 @@ export function createTerrain() {
       x = Math.cos(angle) * radius; z = Math.sin(angle) * radius;
       if (random() < 0.22 + sceneryNoise(x * 0.028, z * 0.028, 311) * 0.78) break;
     }
-    const broadleaf = i >= 650;
+    // Legacy ID 650..849 stays broadleaf; appended IDs use an independent
+    // interleaved 270:80 schedule whose lower-count candidates are prefixes.
+    const extra = i - 850;
+    const broadleaf = i < 850 ? i >= 650 : Math.floor((extra + 1) * 80 / 350) > Math.floor(extra * 80 / 350);
     const h = 8 + random() * 13, w = h * (broadleaf ? 0.24 + random() * 0.09 : 0.16 + random() * 0.08);
     const yaw = random() * tau, aspect = 0.78 + random() * 0.38;
-    ({ x, z } = placeTree(i, x, z, w * Math.max(1, aspect) * (broadleaf ? 1.3 : 1.1)));
+    const crownRadius = w * Math.max(1, aspect) * (broadleaf ? 1.3 : 1.1);
+    const foliage = broadleaf ? broadleaves : conifers;
+    if (i < 850) ({ x, z } = placeTree(i, x, z, crownRadius));
+    else ({ x, z } = placeTree.add(i, x, z, crownRadius, (px, pz) => {
+      const rootY = extraHeightAt(px, pz);
+      if (!Number.isFinite(rootY)) return false;
+      dummy.rotation.set(0, yaw, 0);
+      dummy.position.set(px, rootY + h * (broadleaf ? 0.36 : 0.13), pz);
+      dummy.scale.set(w, h * (broadleaf ? 0.67 : 0.87), w * aspect); dummy.updateMatrix();
+      const vertices = foliage.geometry.attributes.position;
+      for (let v = 0; v < vertices.count; v++) {
+        crownPoint.fromBufferAttribute(vertices, v).applyMatrix4(dummy.matrix);
+        const groundY = extraHeightAt(crownPoint.x, crownPoint.z);
+        if (!Number.isFinite(groundY) || crownPoint.y <= groundY) return false;
+      }
+      return true;
+    }));
     const y = terrainHeightAt(x, z);
     dummy.rotation.set(0, yaw, 0); dummy.position.set(x, y + h * 0.28, z);
     dummy.scale.set(0.65 + h * 0.025, h * 0.56, 0.65 + h * 0.025);
     dummy.updateMatrix(); trunks.setMatrixAt(i, dummy.matrix);
-    const foliage = broadleaf ? broadleaves : conifers, index = broadleaf ? i - 650 : i;
+    const index = i < 850 ? (broadleaf ? i - 650 : i) : (broadleaf ? additionalBroadleaf++ : additionalConifer++);
     treeColor.copy(broadleaf ? leaf : evergreen).lerp(random() < 0.3 ? pale : shade, random() * 0.4);
     treeColor.multiplyScalar(0.88 + random() * 0.23);
     dummy.position.set(x, y + h * (broadleaf ? 0.36 : 0.13), z);
