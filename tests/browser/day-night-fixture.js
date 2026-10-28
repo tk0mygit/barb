@@ -2,11 +2,8 @@ import { expect } from '@playwright/test';
 import { installPausedClock } from './clock-fixture.js';
 import { Color } from 'three';
 import { sampleNightFog, getNightFogDensity } from '../../src/world/night-fog.js';
-import { createCatchCollection } from '../../src/game/catch-collection.js';
-import { createAchievements } from '../../src/game/achievements.js';
-import { createBoatState } from '../../src/game/boat.js';
+import { createLightingSave } from '../helpers/lighting-save.js';
 import { createGameClock } from '../../src/game/game-clock.js';
-import { createSaveData } from '../../src/game/save-data.js';
 import { sampleDayNight } from '../../src/world/day-night.js';
 
 const now = new Date('2026-10-23T00:00:00Z');
@@ -49,10 +46,7 @@ export async function activateControl(page, id, touch) {
 }
 
 export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
-  const collection = createCatchCollection();
-  const data = createSaveData({ collection, achievements: createAchievements({ collection }),
-    boat: createBoatState({ x: 10, z: 20, heading: 0 }),
-    clock: createGameClock(undefined, { elapsedSeconds }) });
+  const data = createLightingSave(elapsedSeconds);
   // Observe the actual production renderer via Three.js's existing devtools
   // event. No production debug API, source rewrite or forced game state.
   await page.addInitScript(data => {
@@ -115,7 +109,12 @@ export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
         // while paused renders again without lake.update() resetting its color.
         snapshot.waterFog = water.fogColor.value.toArray();
         const probe = window.lightingProbe;
-        probe.first ??= snapshot; probe.last = snapshot; probe.renders++;
+        // Keep changing autosave status out of the visual snapshots.
+        if (probe.first === null) {
+          probe.initialSavePhase = document.querySelector('#save-status').dataset.phase;
+          probe.first = snapshot;
+        }
+        probe.last = snapshot; probe.renders++;
         probe.camera = camera.quaternion.toArray();
         probe.cameraHeight = camera.position.y;
         probe.moonScreen = moon.position.clone().project(camera).toArray();
@@ -159,6 +158,15 @@ export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
   if (freeze) await tick(page);
   await expect(page.locator('#status')).toBeHidden();
   await expect(page.locator('#error')).toBeHidden();
+  // Check acceptance by the loaded production build before trusting any
+  // rendering/camera comparison. A rejected seed must never fall back silently.
+  const initial = await page.evaluate(() => ({ first: window.lightingProbe.first,
+    initialSavePhase: window.lightingProbe.initialSavePhase,
+    raw: localStorage.getItem('barb.save.v1.slotA') }));
+  expect(initial.initialSavePhase).toBe('restored');
+  expect(initial.first.boat).toEqual([data.boat.x, data.boat.z]);
+  expect(initial.first.mistTime).toBeCloseTo(elapsedSeconds % 3600, 7);
+  expect(initial.raw).toBe(JSON.stringify({ storageVersion: 1, generation: 1, data }));
 }
 
 export function assertEnvironment(actual, elapsedSeconds) {

@@ -39,9 +39,10 @@ for (const touch of [false, true]) {
           : [`現在 ${100 + 6 * (level - 1)}%`, `現在 ${100 + 4 * (level - 1)}%`];
         await expect(card(page, kind).locator('.equipment-current')).toHaveText(current);
         if (level === 5) {
-          await expect(card(page, kind).locator('.upgrade-state')).toHaveText('最大強化済み');
+          await expect(card(page, kind).locator('.upgrade-state')).toHaveText('所持金不足 · 必要 4,200 通貨');
           await expect(card(page, kind).locator('button')).toBeDisabled();
-          await expect(card(page, kind).locator('.equipment-next')).toHaveCount(0);
+          await expect(card(page, kind).locator('.equipment-next')).toHaveText(kind === 'rod'
+            ? ['次Lv.6 44m', '次Lv.6 21%'] : ['次Lv.6 133%', '次Lv.6 122%']);
           continue;
         }
         await expect(card(page, kind).locator('.equipment-next')).toHaveText(kind === 'rod'
@@ -84,6 +85,49 @@ for (const touch of [false, true]) {
     expect(await page.locator('#collection-content').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     await click(page.locator('#collection-close'));
     await openEquipment(page, click); await assertBalance(page, 0);
+    // Preserve the complete old Lv.1–5 purchase/performance checks above,
+    // then buy the extension through the same production DOM confirmation.
+    await click(page.locator('#collection-close'));
+    await page.evaluate(() => fixture.fund(68200));
+    const funded = await page.evaluate(() => fixture.collection.snapshot);
+    await openEquipment(page, click);
+    balance = 68200;
+    const rows = [
+      [6, 4200, 44, 21, 133, 122], [7, 5200, 48, 26, 143, 128],
+      [8, 6500, 52, 31, 154, 134], [9, 8200, 56, 36, 165, 140], [10, 10000, 60, 41, 177, 146],
+    ];
+    for (const [level, cost, distance, suppression, speed, relief] of rows) {
+      for (const kind of ['rod', 'reel']) {
+        await expect(card(page, kind).locator('.equipment-next')).toHaveText(kind === 'rod'
+          ? [`次Lv.${level} ${distance}m`, `次Lv.${level} ${suppression}%`]
+          : [`次Lv.${level} ${speed}%`, `次Lv.${level} ${relief}%`]);
+        await expect(card(page, kind).locator('.upgrade-price')).toContainText(money(cost));
+        await click(card(page, kind).locator('button'));
+        await expect(page.locator('.upgrade-confirm-level')).toHaveText(`現在 Lv.${level - 1} → 購入後 Lv.${level}`);
+        await expect(page.locator('.upgrade-price')).toHaveText(`購入価格 ${money(cost)}`);
+        await click(page.locator('#confirm-upgrade'));
+        balance -= cost; await assertBalance(page, balance);
+        await expect(card(page, kind).locator('h3')).toHaveText(`${kind === 'rod' ? 'ロッド' : 'リール'} · Lv.${level}`);
+        await expect(card(page, kind).locator('.equipment-current')).toHaveText(kind === 'rod'
+          ? [`現在 ${distance}m`, `現在 ${suppression}%`] : [`現在 ${speed}%`, `現在 ${relief}%`]);
+      }
+    }
+    for (const kind of ['rod', 'reel']) {
+      await expect(card(page, kind).locator('.upgrade-state')).toHaveText('最大強化済み');
+      await expect(card(page, kind).locator('button')).toBeDisabled();
+      await expect(card(page, kind).locator('.equipment-next')).toHaveCount(0);
+    }
+    const maximum = await page.evaluate(() => fixture.collection.snapshot);
+    expect(maximum.wallet).toEqual({ balance: 0, lifetimeSales: 81200 });
+    expect(maximum.catches).toEqual(funded.catches); expect(maximum.encyclopedia).toEqual(funded.encyclopedia);
+    expect(await page.evaluate(() => {
+      const f = fixture.fishing; f.cancelInput();
+      f.cancelForViewChange(); f.prepare({ x: 0, z: 0 }, 0); f.aim(0, 180);
+      const distance = f.state.distance; f.cast(); f.step(f.settings.flightSeconds); f.reel(true); f.step(0.5);
+      return { distance, retrieved: distance - f.state.distance };
+    })).toEqual({ distance: 60, retrieved: expect.closeTo(0.65 * 1.77 * 0.5, 8) });
+    expect(await page.locator('#collection-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    expect(await page.locator('#collection-content').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     expect(errors).toEqual([]);
   });
 }

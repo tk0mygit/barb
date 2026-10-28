@@ -34,7 +34,7 @@ for (const touch of [false, true]) test(`restored domain renders menus silently,
     boat: { x: 10, z: 20, heading: 1, speed: 0, mode: 'sailing' }, clock: 'night', phase: 'ready', stored: 8,
   });
   await click(page.locator('#menu-button')); await click(page.locator('[data-view="achievements"]'));
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 3 / 10');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 3 / 15');
   await expect(page.locator('#collection-content')).toContainText('累計10匹');
   await expect(notice).toBeHidden();
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="storage"]'));

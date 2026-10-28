@@ -13,7 +13,7 @@ const near = (a, b, epsilon = 1e-12) => assert.ok(Math.abs(a - b) < epsilon, `${
 function collectionAt(level) {
   const collection = createCatchCollection({ now: () => 1700000000000 });
   collection.register({ schemaVersion: 1, id: 'fund', speciesId: 'black-bass', lengthCm: 50,
-    weightKg: 100, caughtAt: '2026-01-01T00:00:00Z' });
+    weightKg: 1000, caughtAt: '2026-01-01T00:00:00Z' });
   collection.sellUnassigned('fund');
   upgrade(collection, level);
   return collection;
@@ -38,7 +38,7 @@ function fishing(level, species = FISH_SPECIES[0], size = 0.5, options = {}) {
 }
 
 test('all rod levels preserve 8m minimum and drag scale, extend maximum, and land at the preview', () => {
-  for (const [level, max] of [[1, 32], [2, 34], [3, 36], [4, 38], [5, 40]]) {
+  for (const [level, max] of [[1, 32], [2, 34], [3, 36], [4, 38], [5, 40], [6, 44], [7, 48], [8, 52], [9, 56], [10, 60]]) {
     for (const drag of [0, 45, 90, 180, 360]) {
       const f = fishing(level); prepare(f); f.aim(0, drag);
       assert.equal(f.state.distance, 8 + (max - 8) * Math.min(drag / 180, 1));
@@ -51,7 +51,7 @@ test('all rod levels preserve 8m minimum and drag scale, extend maximum, and lan
 });
 
 test('all levels stop at intervening land and reject casts too close to shore', () => {
-  for (let level = 1; level <= 5; level++) {
+  for (let level = 1; level <= 10; level++) {
     for (const limit of [1, 5, 12.13, 35.13]) {
       const f = fishing(level, undefined, undefined, { isWater: (x, z) => z >= -limit || z < -limit - 2 });
       f.prepare({ x: 0, z: 0 }, 0); f.aim(0, 180);
@@ -84,7 +84,8 @@ test('legacy collections without equipment match Lv.1 through cast and fight', (
 
 test('every species and size combines existing resistance with rod multipliers at 30/60/144fps', () => {
   for (const species of FISH_SPECIES) for (const size of [0, 0.5, 1 - Number.EPSILON]) {
-    for (const [level, multiplier] of [[1, 1], [2, 0.96], [3, 0.92], [4, 0.88], [5, 0.84]]) {
+    for (const [level, multiplier] of [[1, 1], [2, 0.96], [3, 0.92], [4, 0.88], [5, 0.84],
+      [6, 0.79], [7, 0.74], [8, 0.69], [9, 0.64], [10, 0.59]]) {
       const tensions = [30, 60, 144].map(hz => {
         const f = fishing(level, species, size); prepare(f); hook(f); f.reel(true);
         let expected = f.settings.tensionStart, time = 0;
@@ -110,7 +111,7 @@ test('every species and size combines existing resistance with rod multipliers a
 });
 
 test('relief, tension bounds, slack escape and large-fish line breaks survive every rod level', () => {
-  for (let level = 1; level <= 5; level++) {
+  for (let level = 1; level <= 10; level++) {
     const f = fishing(level, FISH_SPECIES.find(s => s.id === 'alligator-gar'), 1 - Number.EPSILON);
     prepare(f); hook(f); f.step(0.5);
     near(f.state.tension, f.settings.tensionStart - f.settings.tensionRelief * 0.5);
@@ -163,14 +164,16 @@ test('cancelled preparation refreshes performance and a controlled upgraded figh
 
 test('rod distance changes neither boat spot bonus nor bite timing for any lure', () => {
   for (const lure of LURES) for (const origin of [{ x: 0, z: 30 }, ...FISHING_SPOTS]) {
-    const results = [1, 5].map(level => {
-      const f = fishing(level, undefined, undefined, { random: () => 0.5 });
+    const results = [1, 5, 6, 8, 10].map(level => {
+      let randomCalls = 0;
+      const f = fishing(level, undefined, undefined, { random: () => { randomCalls++; return 0.5; } });
       f.selectLure(lure.id); f.prepare(origin, 0); f.aim(0, 180); f.cast(); f.step(0.801);
       let frames = 0;
       while (f.state.phase === PHASE.LURE && frames < 10000) { f.step(1 / 60); frames++; }
       assert.equal(f.state.phase, PHASE.BITE);
-      return { frames, encounter: f.state.encounter };
+      return { frames, encounter: f.state.encounter, randomCalls };
     });
-    assert.deepEqual(results[0], results[1]);
+    for (const result of results.slice(1)) assert.deepEqual(results[0], result);
+    assert.equal(results[0].randomCalls, 3);
   }
 });

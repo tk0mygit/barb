@@ -1,0 +1,27 @@
+{
+  "saveVersion": 1,
+  "savedAt": "2026-10-23T00:00:00.000Z",
+  "collection": {
+    "catches": [],
+    "wallet": {
+      "balance": 0,
+      "lifetimeSales": 0
+    },
+    "equipment": {
+      "rodLevel": 1,
+      "reelLevel": 1
+    }
+  },
+  "achievements": {
+    "unlocked": []
+  },
+  "boat": {
+    "x": 10,
+    "z": 20,
+    "heading": 0
+  },
+  "clock": {
+    "elapsedSeconds": 270
+  },
+  "settings": {}
+}

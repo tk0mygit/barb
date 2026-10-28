@@ -6,6 +6,8 @@ export function formatAchievementProgress({ metric, progress: p }) {
   if (metric === 'species') return `魚種発見：${p.value} / ${p.target}種`;
   if (metric === 'length') return `最大体長：${p.value.toFixed(1)} / ${p.target}cm`;
   if (metric === 'sales') return `累計売却額：${p.value.toLocaleString('ja-JP')} / ${formatMoney(p.target)}`;
+  if (metric === 'rod-level') return `ロッドLv.${p.value} / Lv.${p.target}`;
+  if (metric === 'reel-level') return `リールLv.${p.value} / Lv.${p.target}`;
   return `ロッドLv.${p.rodLevel}・リールLv.${p.reelLevel} / ${metric === 'equipment-max' ? '両方' : 'いずれか'}Lv.${p.target}`;
 }
 function element(tag, text, className) {

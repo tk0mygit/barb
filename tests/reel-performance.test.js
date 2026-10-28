@@ -11,7 +11,8 @@ import { LURES } from '../src/game/lures.js';
 import { FISHING_SPOTS } from '../src/world/fishing-spots.js';
 
 const near = (a, b, epsilon = 1e-11) => assert.ok(Math.abs(a - b) < epsilon, `${a} != ${b}`);
-const levels = [[1, 1, 1], [2, 1.06, 1.04], [3, 1.12, 1.08], [4, 1.18, 1.12], [5, 1.24, 1.16]];
+const levels = [[1, 1, 1], [2, 1.06, 1.04], [3, 1.12, 1.08], [4, 1.18, 1.12], [5, 1.24, 1.16],
+  [6, 1.33, 1.22], [7, 1.43, 1.28], [8, 1.54, 1.34], [9, 1.65, 1.40], [10, 1.77, 1.46]];
 function upgrade(c, kind, target) {
   while (c.equipment[`${kind}Level`] < target) assert.ok(c.purchaseUpgrade(kind, c.equipment[`${kind}Level`]));
 }
@@ -62,9 +63,16 @@ for (const [level, speed, relief] of levels) {
   });
 
   test(`reel Lv.${level}: all 12 species/sizes retain resistance and rod effects at 30/60/144fps`, () => {
-    for (const rod of [1, 5]) for (const species of FISH_SPECIES) for (const size of [0, 0.5, 1 - Number.EPSILON]) {
+    for (const [rod, tensionMultiplier] of [[1, 1], [5, 0.84], [6, 0.79], [8, 0.69], [10, 0.59]]) for (const species of FISH_SPECIES) for (const size of [0, 0.5, 1 - Number.EPSILON]) {
       const distances = [30, 60, 144].map(hz => {
-        const f = fishing(rod, level, species, size); prepare(f); hook(f);
+        const f = fishing(rod, level, species, size); prepare(f);
+        // Keep the legacy absolute integration tolerance at a common 32m for
+        // new rows. Maximum-distance casts/fights are covered separately.
+        if (rod > 5 || level > 5) {
+          f.aim(0, 180 * 24.125 / (f.state.distance - 8));
+          assert.equal(f.state.distance, 32);
+        }
+        hook(f);
         const start = f.state.distance, span = start - f.settings.landingDistance;
         let distance = start, tension = 0.42, time = 0;
         f.reel(true);
@@ -74,7 +82,7 @@ for (const [level, speed, relief] of levels) {
             time += dt;
             const resistance = fishResistance(species, f.state.encounter.lengthCm, time);
             distance -= span / (6.5 * Math.max(0.8, Math.min(1.25, resistance))) * speed * dt;
-            tension += 0.24 * resistance * (rod === 5 ? 0.84 : 1) * dt;
+            tension += 0.24 * resistance * tensionMultiplier * dt;
           }
           f.step(1 / hz);
         }
@@ -88,7 +96,7 @@ for (const [level, speed, relief] of levels) {
 }
 
 test('all reel levels retain large-fish line breaks and slack escape with both rods', () => {
-  for (const rod of [1, 5]) for (const [reel] of levels) {
+  for (const rod of [1, 5, 6, 8, 10]) for (const [reel] of levels) {
     for (const held of [true, false]) {
       const f = fishing(rod, reel, FISH_SPECIES.find(s => s.id === 'alligator-gar'), 1 - Number.EPSILON);
       prepare(f); hook(f); f.reel(held);
@@ -101,7 +109,7 @@ test('all reel levels retain large-fish line breaks and slack escape with both r
 });
 
 test('purchase at each active stage freezes both rows; failed prepare cannot refresh; next cast does', () => {
-  for (const stage of ['aim', 'cast', 'lure', 'bite', 'fight']) for (const kinds of [['rod'], ['reel'], ['rod', 'reel']]) {
+  for (const target of [5, 6, 8, 10]) for (const stage of ['aim', 'cast', 'lure', 'bite', 'fight']) for (const kinds of [['rod'], ['reel'], ['rod', 'reel']]) {
     const a = fishing(), b = fishing();
     for (const f of [a, b]) {
       prepare(f);
@@ -113,7 +121,7 @@ test('purchase at each active stage freezes both rows; failed prepare cannot ref
       }
     }
     const history = a.collection.catches, sales = a.collection.wallet.lifetimeSales;
-    for (const kind of kinds) upgrade(a.collection, kind, 5);
+    for (const kind of kinds) upgrade(a.collection, kind, target);
     assert.equal(a.collection.catches, history);
     assert.equal(a.collection.wallet.lifetimeSales, sales);
     assert.equal(a.prepare({ x: 0, z: 0 }, 0), false);
@@ -126,7 +134,7 @@ test('purchase at each active stage freezes both rows; failed prepare cannot ref
     // Force a natural slack failure, then prepare again with upgraded rows.
     while (a.state.phase === PHASE.FIGHT) a.step(1 / 60);
     assert.equal(a.state.phase, PHASE.FAILED); a.step(2); prepare(a);
-    const c = fishing(kinds.includes('rod') ? 5 : 1, kinds.includes('reel') ? 5 : 1, FISH_SPECIES[0], 0,
+    const c = fishing(kinds.includes('rod') ? target : 1, kinds.includes('reel') ? target : 1, FISH_SPECIES[0], 0,
       { random: () => 0 });
     prepare(c);
     assert.equal(a.state.distance, c.state.distance);
@@ -163,16 +171,18 @@ test('legacy collection is exactly Lv.1 through lure, fight, landing, result and
 
 test('reel changes neither cast distance, action, bite timing nor species at all spots/lures', () => {
   for (const lureType of LURES) for (const origin of [{ x: 0, z: 30 }, ...FISHING_SPOTS]) {
-    const results = [1, 5].map(reel => {
-      const f = fishing(1, reel, undefined, undefined, { random: () => 0.5 });
+    const results = [1, 5, 6, 8, 10].map(reel => {
+      let randomCalls = 0;
+      const f = fishing(1, reel, undefined, undefined, { random: () => { randomCalls++; return 0.5; } });
       f.selectLure(lureType.id); f.prepare(origin, 0); f.aim(0, 180);
       assert.equal(f.state.distance, 32); lure(f); f.flick();
       let frames = 0;
       while (f.state.phase === PHASE.LURE && frames < 3000) { f.step(1 / 60); frames++; }
       assert.equal(f.state.phase, PHASE.BITE);
-      return { frames, encounter: f.state.encounter, action: f.state.action };
+      return { frames, encounter: f.state.encounter, action: f.state.action, randomCalls };
     });
-    assert.deepEqual(results[0], results[1]);
+    for (const result of results.slice(1)) assert.deepEqual(results[0], result);
+    assert.equal(results[0].randomCalls, 3);
   }
 });
 
@@ -211,7 +221,7 @@ test('all rod/reel endpoint combinations land every species/size with real hold 
   }
 });
 
-test('continuous reeling balance: max upgrades allow only small/mid bluegill without relief', t => {
+test('legacy continuous reeling balance: Lv.5 upgrades allow only small/mid bluegill without relief', t => {
   for (const level of [1, 5]) for (const hz of [30, 60, 144]) {
     const landed = [];
     for (const species of FISH_SPECIES) for (const [sizeName, size] of [['min', 0], ['mid', 0.5], ['max', 1 - Number.EPSILON]]) {
@@ -226,4 +236,37 @@ test('continuous reeling balance: max upgrades allow only small/mid bluegill wit
     assert.deepEqual(landed, level === 1 ? [] : ['bluegill:min', 'bluegill:mid']);
   }
   t.diagnostic('Continuous reel: Lv.1 both 0/36 catches; Lv.5 both 2/36 (min/mid bluegill), identical at 30/60/144fps');
+});
+
+test('Lv.6/8/10 controlled fights land all 12 species/sizes with actual hold delay at 30/60/144fps', t => {
+  for (const level of [6, 8, 10]) {
+    const times = [];
+    for (const species of FISH_SPECIES) for (const size of [0, 0.5, 1 - Number.EPSILON]) for (const hz of [30, 60, 144]) {
+      const f = fishing(level, level, species, size); prepare(f); hook(f);
+      const count = f.state.catches.length, input = createFishingInput(f);
+      let held = false, elapsed = 0, observe = 0;
+      while (f.state.phase === PHASE.FIGHT && elapsed < 25) {
+        if (elapsed >= observe) {
+          if (!held && f.state.tension < 0.35) { input.down(0, 0); held = true; }
+          else if (held && f.state.tension > 0.65) { input.up(); held = false; }
+          observe += 0.1;
+        }
+        input.step(1 / hz); f.step(1 / hz); elapsed += 1 / hz;
+        assert.ok(f.state.tension >= 0 && f.state.tension <= 1);
+        assert.ok(f.state.distance >= f.settings.landingDistance);
+      }
+      input.cancel();
+      assert.equal(f.state.phase, PHASE.LANDING, species.id);
+      assert.equal(f.state.distance, f.settings.landingDistance);
+      assert.ok(elapsed > 2 && elapsed < 20, `${species.id} Lv.${level}: ${elapsed}`);
+      assert.equal(f.state.catches.length, count);
+      f.step(0.5); assert.equal(f.state.phase, PHASE.LANDING);
+      f.step(1); assert.equal(f.state.phase, PHASE.RESULT);
+      assert.equal(f.state.catch.speciesId, species.id); assert.equal(f.state.catches.length, count + 1);
+      f.step(10); assert.equal(f.state.catches.length, count + 1);
+      assert.equal(f.closeResult(), true); assert.equal(f.collection.stored.length, 1);
+      times.push(elapsed);
+    }
+    t.diagnostic(`rod/reel ${level}: ${Math.min(...times).toFixed(2)}–${Math.max(...times).toFixed(2)}s (108 scenarios)`);
+  }
 });
