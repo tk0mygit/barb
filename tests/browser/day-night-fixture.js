@@ -91,7 +91,6 @@ export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
         const mist = scene.getObjectByName('surface-fog');
         const mistUniforms = mist.children[0].material.uniforms;
         const snapshot = {
-          savePhase: document.querySelector('#save-status').dataset.phase,
           ambient: ambient.intensity, sun: sun.intensity, moon: moonlight.intensity,
           sky: sky.material.uniforms.skyDaylight.value, fog: scene.fog.color.toArray(),
           fogDensity: scene.fog.density, waterFogDensity: water.fogDensity.value,
@@ -110,7 +109,12 @@ export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
         // while paused renders again without lake.update() resetting its color.
         snapshot.waterFog = water.fogColor.value.toArray();
         const probe = window.lightingProbe;
-        probe.first ??= snapshot; probe.last = snapshot; probe.renders++;
+        // Keep changing autosave status out of the visual snapshots.
+        if (probe.first === null) {
+          probe.initialSavePhase = document.querySelector('#save-status').dataset.phase;
+          probe.first = snapshot;
+        }
+        probe.last = snapshot; probe.renders++;
         probe.camera = camera.quaternion.toArray();
         probe.cameraHeight = camera.position.y;
         probe.moonScreen = moon.position.clone().project(camera).toArray();
@@ -157,8 +161,9 @@ export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
   // Check acceptance by the loaded production build before trusting any
   // rendering/camera comparison. A rejected seed must never fall back silently.
   const initial = await page.evaluate(() => ({ first: window.lightingProbe.first,
+    initialSavePhase: window.lightingProbe.initialSavePhase,
     raw: localStorage.getItem('barb.save.v1.slotA') }));
-  expect(initial.first.savePhase).toBe('restored');
+  expect(initial.initialSavePhase).toBe('restored');
   expect(initial.first.boat).toEqual([data.boat.x, data.boat.z]);
   expect(initial.first.mistTime).toBeCloseTo(elapsedSeconds % 3600, 7);
   expect(initial.raw).toBe(JSON.stringify({ storageVersion: 1, generation: 1, data }));
