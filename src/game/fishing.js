@@ -1,8 +1,9 @@
 import { FISHING_CONFIG } from './fishing-config.js';
 import { calculateFishWeightKg, getFishSpecies } from './fish-species.js';
 import { DEFAULT_LURE_ID, getLure } from './lures.js';
-import { sampleFishSpecies, normalizeEncounterConditions } from './fish-encounters.js';
-import { fishResistance } from './fish-fight.js';
+import { normalizeEncounterConditions } from './fish-encounters.js';
+import { encounterModel, getRodEncounterModifiers } from './encounter-production.js';
+import { fishResistance, isLargeFish } from './fish-fight.js';
 import { getFishingSpotStatus } from './fishing-spots.js';
 import { createCatchCollection } from './catch-collection.js';
 import { getEquipmentLevel } from './equipment.js';
@@ -30,6 +31,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
   // Immutable shared row, captured once per cast; collection remains authoritative.
   let rodPerformance = getEquipmentLevel('rod', 1);
   let reelPerformance = getEquipmentLevel('reel', 1);
+  let encounterModifiers = getRodEncounterModifiers(1), largeFishAssistMultiplier = 1;
   const exponential = () => -Math.log(Math.max(1e-9, 1 - random()));
   function getConditions() {
     if (!getEnvironment) return null; // legacy standalone callers stay neutral
@@ -85,7 +87,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       biteBudget -= activeTime * getLure(state.lureId).hitMultiplier * spotMultiplier * (state.action > 0 ? settings.actionMultiplier : 1);
       if (biteBudget <= 0 && lureTime >= settings.biteDelay) {
         const conditions = getConditions();
-        const species = sampleFishSpecies(state.lureId, random, conditions);
+        const species = encounterModel.sample(state.lureId, random, conditions, encounterModifiers);
         const lengthCm = Math.round((species.minLengthCm + random() * (species.maxLengthCm - species.minLengthCm)) * 10) / 10;
         state.encounter = Object.freeze({ speciesId: species.id, lengthCm, weightKg: calculateFishWeightKg(species.id, lengthCm), ...(conditions ? { conditions } : {}) });
         transition(PHASE.BITE);
@@ -102,7 +104,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       slackTime = state.tension < settings.slackThreshold ? slackTime + dt : 0;
       if (slackTime > settings.slackGrace && random() < -Math.expm1(-settings.slackEscapeRate * dt)) { fail('ラインが緩み、魚が逃げました'); return; }
       const reelResistance = clamp(resistance, settings.reelResistanceMin, settings.reelResistanceMax);
-      if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - fightDistance / (settings.fightReelSeconds * reelResistance) * reelPerformance.reelSpeedMultiplier * dt);
+      if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - fightDistance / (settings.fightReelSeconds * reelResistance) * reelPerformance.reelSpeedMultiplier * largeFishAssistMultiplier * dt);
       if (state.distance <= settings.landingDistance) transition(PHASE.LANDING);
     } else if (state.phase === PHASE.LANDING && state.time >= settings.landingSeconds) {
       const capturedAt = now();
@@ -126,6 +128,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       if (visibility !== undefined) castVisibility = visibility;
       rodPerformance = getEquipmentLevel('rod', collection.equipment?.rodLevel) ?? getEquipmentLevel('rod', 1);
       reelPerformance = getEquipmentLevel('reel', collection.equipment?.reelLevel) ?? getEquipmentLevel('reel', 1);
+      encounterModifiers = getRodEncounterModifiers(rodPerformance.level);
       state.origin = { x: origin.x, z: origin.z };
       aimHeading = heading;
       state.message = '';
@@ -170,6 +173,8 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       if (state.phase !== PHASE.BITE || state.time >= settings.hookWindow) return false;
       state.tension = settings.tensionStart;
       fightDistance = state.distance - settings.landingDistance;
+      largeFishAssistMultiplier = isLargeFish(getFishSpecies(state.encounter.speciesId), state.encounter.lengthCm)
+        ? reelPerformance.largeFishAssistMultiplier ?? 1 : 1;
       slackTime = 0;
       transition(PHASE.FIGHT); return true;
     },

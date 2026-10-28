@@ -36,13 +36,15 @@
 
 ```text
 魚種の有効ウェイト = 基本出現ウェイト × 選択ルアーの魚種適性
-                   × 魚種の水深適性 ^ ルアーの水深適性 × 魚種の昼夜適性
+                   × 魚種の水深適性 ^ ルアーの水深適性 × 魚種の昼夜適性 × ロッドのTier倍率
 魚種の確率 = 有効ウェイト / 全魚種の有効ウェイトの合計
 ```
 
-`getSpeciesProbabilities(lureId, conditions)` が確率を計算し、`sampleFishSpecies(lureId, random, conditions)` が抽選します。
+旧公開APIの `getSpeciesProbabilities(lureId, conditions)` と `sampleFishSpecies(lureId, random, conditions)` は補正なしのまま維持します。
+Phase 5B-1Bから、公開ゲームのBITEは下記の製品用 `encounterModel.sample()` を使用します。
 条件を省略した旧呼び出しは環境倍率1で従来の確率を維持します。
-新魚種は `FISH_SPECIES` に追加すると抽選対象となり、明示的な設定がなければウェイト1・適性1になります。追加時には各値の調整とテスト更新を推奨します。
+旧公開APIは未定義の基本ウェイト・適性を1にする互換動作を維持します。
+製品用モデルは全定義を厳密に要求するため、魚種追加時にはTier・全ルアー・全環境の明示登録が必要です。
 Phase 3A-3bで水深・昼夜による補正を実装しました。ルアーの水深適性は水深による有利不利の強さを調整し、全魚種共通の係数が正規化で消えることを避けています。
 数値と式の詳細は [水深と時間帯](DEPTH_AND_TIME.md) を参照してください。
 Phase 3A-3aの[釣りポイント](FISHING_SPOTS.md)はアタリ発生率のみを補正し、この魚種抽選確率には影響しません。
@@ -65,7 +67,8 @@ Phase 3A-3aの[釣りポイント](FISHING_SPOTS.md)はアタリ発生率のみ�
        + surgeAmplitude × sin(ファイト経過秒 × surgeFrequency)
 巻いている間のテンション増加/秒 = tensionRise × 抵抗 × ロッドのtensionMultiplier
 離している間のテンション減少/秒 = tensionRelief × リールのtensionReliefMultiplier
-巻き取り速度 = ファイト開始時の残距離 / (fightReelSeconds × 巻き取り用抵抗) × リールのreelSpeedMultiplier
+巻き取り速度 = ファイト開始時の残距離 / (fightReelSeconds × 巻き取り用抵抗)
+               × リールのreelSpeedMultiplier × 大型魚補助（対象外は1）
 ```
 
 距離計算の「残距離」はランディング地点までの距離です。
@@ -99,8 +102,9 @@ Phase 3A-3aの[釣りポイント](FISHING_SPOTS.md)はアタリ発生率のみ�
 ## 独立した遭遇モデルのデータ契約（Phase 5A-1）
 
 `src/game/encounter-model.js` の `createEncounterModel(config)` は、魚種数に依存しない純粋なfactoryです。
-公開ゲームは従来の `fish-encounters.js` を使用します。既存export・未登録魚種の中立fallback・返却値の可変性は維持します。
-新モデルはゲームへ接続しておらず、装備Lv別の倍率も定義していません。
+Phase 5A-1ではゲームへ接続せず導入しました。Phase 5B-1Bから `encounter-production.js` が
+既存12魚種・4ルアー・全深度/昼夜・基本weight・Tierを注入して製品インスタンスを一度だけ構築します。
+旧 `fish-encounters.js` のexport・未登録魚種の中立fallback・返却値の可変性は維持します。
 
 必須設定は次の6項目です。すべての魚種・ルアーと全セルを明示します。
 
@@ -149,3 +153,40 @@ node scripts/audit-encounters.mjs > /tmp/barb-encounters.json
 現在の本番定義を直接読み、4ルアー順×水深1/5/12m×day/night×魚種順の288行を出力します。
 各行で条件・魚種・補正構成・総weight・確率を追跡できます。
 `tests/encounter-model.test.js` はこの出力、旧12種の288セル一致、Node内だけの架空36種864セル、厳密なデータ検証とモデルの独立性を検証します。
+
+## 上位装備効果の公開接続（Phase 5B-1B）
+
+成功した `prepare()` で固定したロッド行を、`FISH_RARITY` に従う12魚種ID別のmodifierへ展開します。
+BITEは既存factoryの共通演算で `W'_i = W_i × modifier_i`、`P_i = W'_i / ΣW'_j` とします。
+確率への加算・抽選後の差し替え・再抽選はありません。乱数は従来の待ち時間1回の後、BITEで魚種1回、続けて体長1回です。
+丸め済み体長・重量・`state.encounter` の構造と固定タイミングを維持します。
+
+| 装備Lv | Common | Uncommon | Rare | リール大型魚補助 |
+| --- | ---: | ---: | ---: | ---: |
+| 1〜5 | 1.00 | 1.00 | 1.00 | 1.00 |
+| 6 | 1.00 | 1.02 | 1.10 | 1.03 |
+| 7 | 1.00 | 1.04 | 1.20 | 1.06 |
+| 8 | 1.00 | 1.06 | 1.30 | 1.09 |
+| 9 | 1.00 | 1.08 | 1.40 | 1.12 |
+| 10 | 1.00 | 1.10 | 1.50 | 1.15 |
+
+これは相対weightの倍率です。Rareの実際の当選確率が1.50倍になる意味ではありません。
+全24条件でRare合算確率とUncommon/Common・Rare/Commonの相対比が上がり、全12種が正の確率を保持します。
+正規化によりUncommon合算が下がる条件もあります。スピナーベイトの浅/昼・浅/夜・中/夜では、
+Lv.1→10でそれぞれ15.211047%→15.136348%、22.189264%→21.955199%、24.543509%→24.499831%です。
+Rare増加に伴う分母の変化であり、指定倍率は変更していません。ヒット時間・ポイント1.5倍・アクション1.35倍は従来のBITE速度だけに適用します。
+
+大型判定は既存の丸め済み `lengthCm` と正規魚種レンジを使います。
+
+```js
+const relativeLength = (lengthCm - species.minLengthCm) / (species.maxLengthCm - species.minLengthCm);
+const isLarge = lengthCm >= 70 || (lengthCm >= 40 && relativeLength >= 0.75);
+```
+
+アワセ時に対象個体の補助を固定し、FIGHTの巻取り距離だけに適用します。
+LURE回収・テンション・抵抗clamp・4.5m下限・停止時の距離・ライン切れ/緩み逃走は既存のままです。
+Lv.1〜5は新フィールドを追加せず中立値1とし、指定開始コミットの実エンジンと
+全25装備組合せ×12種×3体長×3fpsの2,700条件で状態と乱数呼出数が完全一致します。
+大型境界、1,620条件のFIGHT積分、旧288セル×5Lv、新288セル×5Lv、シード抽選と公開BITE境界を追加検証します。
+
+新効果の表示/UIは5B-2、QTE/押し戻しは5Cへ留保します。保存version・15実績・価格・基本4性能・魚種と生態データは変更しません。

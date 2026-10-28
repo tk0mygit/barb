@@ -6,6 +6,7 @@ import { getEquipmentLevel } from '../src/game/equipment.js';
 import { FISH_SPECIES } from '../src/game/fish-species.js';
 import { fishResistance } from '../src/game/fish-fight.js';
 import { getSpeciesProbabilities } from '../src/game/fish-encounters.js';
+import { encounterModel, getRodEncounterModifiers } from '../src/game/encounter-production.js';
 import { createFishingInput } from '../src/input/fishing.js';
 import { LURES } from '../src/game/lures.js';
 import { FISHING_SPOTS } from '../src/world/fishing-spots.js';
@@ -25,7 +26,9 @@ function collectionAt(rod, reel) {
 }
 function fishing(rod = 1, reel = 1, species = FISH_SPECIES[0], size = 0.5, options = {}) {
   let cumulative = 0, roll;
-  for (const entry of getSpeciesProbabilities('minnow')) {
+  const entries = rod <= 5 ? getSpeciesProbabilities('minnow')
+    : encounterModel.getProbabilities('minnow', undefined, getRodEncounterModifiers(rod));
+  for (const entry of entries) {
     if (entry.speciesId === species.id) roll = cumulative + entry.probability / 2;
     cumulative += entry.probability;
   }
@@ -73,7 +76,12 @@ for (const [level, speed, relief] of levels) {
           assert.equal(f.state.distance, 32);
         }
         hook(f);
+        assert.equal(f.state.encounter.speciesId, species.id);
         const start = f.state.distance, span = start - f.settings.landingDistance;
+        const length = f.state.encounter.lengthCm;
+        const relativeLength = (length - species.minLengthCm) / (species.maxLengthCm - species.minLengthCm);
+        const large = length >= 70 || (length >= 40 && relativeLength >= 0.75);
+        const assist = large && level >= 6 ? [1.03, 1.06, 1.09, 1.12, 1.15][level - 6] : 1;
         let distance = start, tension = 0.42, time = 0;
         f.reel(true);
         for (let frame = 0; frame < hz / 2; frame++) {
@@ -81,7 +89,7 @@ for (const [level, speed, relief] of levels) {
           for (let i = 0; i < steps; i++) {
             time += dt;
             const resistance = fishResistance(species, f.state.encounter.lengthCm, time);
-            distance -= span / (6.5 * Math.max(0.8, Math.min(1.25, resistance))) * speed * dt;
+            distance -= span / (6.5 * Math.max(0.8, Math.min(1.25, resistance))) * speed * assist * dt;
             tension += 0.24 * resistance * tensionMultiplier * dt;
           }
           f.step(1 / hz);
