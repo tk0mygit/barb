@@ -4,12 +4,15 @@ import { createAchievements } from '../../src/game/achievements.js';
 import { createBoatState } from '../../src/game/boat.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 import { createSaveData } from '../../src/game/save-data.js';
+import { readFileSync } from 'node:fs';
+import { installPausedClock } from './clock-fixture.js';
 
 // Match the other production-game E2E fixtures: retain CSS viewport/touch
 // coordinates while bounding software WebGL pixel work on the test runner.
 test.use({ deviceScaleFactor: 0.5 });
 
 const KEYS = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
+const legacySlots = ['a', 'b'].map(slot => readFileSync(new URL(`../fixtures/saves/phase5b1a-legacy-slot-${slot}.json`, import.meta.url), 'utf8'));
 const envelope = (generation, data) => JSON.stringify({ storageVersion: 1, generation, data });
 const phase = page => page.locator('#fishing-panel').getAttribute('data-phase');
 async function slots(page) {
@@ -45,6 +48,44 @@ async function seed(page, values, failWrites = false) {
     };
   }, { keys: KEYS, values, failWrites });
 }
+for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fixed legacy A/B load silently, rod Lv.10 purchases autosave and reload`, async ({ createContext }) => {
+  const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 800, height: 600 },
+    hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
+  const page = await context.newPage();
+  const click = locator => touch ? locator.tap() : locator.click();
+  await installPausedClock(page); await seed(page, legacySlots); await ready(page);
+  expect(await slots(page)).toEqual(legacySlots);
+  await expect(page.locator('#achievement-notice')).toBeHidden();
+  await click(page.locator('#menu-button')); await click(page.locator('[data-view="achievements"]'));
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 12 / 15');
+  await expect(page.locator('#achievement-notice')).toBeHidden();
+  await click(page.locator('#collection-back')); await click(page.locator('[data-view="equipment"]'));
+  for (let level = 6; level <= 10; level++) {
+    await click(page.locator('[data-upgrade="rod"]'));
+    await expect(page.locator('.upgrade-confirm-level')).toHaveText(`現在 Lv.${level - 1} → 購入後 Lv.${level}`);
+    await click(page.locator('#confirm-upgrade')); await page.clock.fastForward(1000);
+    const checkpoint = await latest(page);
+    expect(checkpoint.data.collection.equipment).toEqual({ rodLevel: level, reelLevel: 5 });
+    expect(checkpoint.data.achievements.contractVersion).toBe(2);
+  }
+  const before = await latest(page), original = JSON.parse(legacySlots[1]).data;
+  expect(before.data.saveVersion).toBe(1); expect(before.storageVersion).toBe(1);
+  expect(before.data.collection.wallet).toEqual({ balance: 19685, lifetimeSales: 66785 });
+  expect(before.data.collection.catches).toEqual(original.collection.catches);
+  expect(before.data.achievements.unlocked.filter(award => original.achievements.unlocked.some(old => old.id === award.id)))
+    .toEqual(original.achievements.unlocked);
+  await page.reload(); await expect(page.locator('#status')).toBeHidden();
+  await expect(page.locator('#achievement-notice')).toBeHidden();
+  await click(page.locator('#menu-button')); await click(page.locator('[data-view="equipment"]'));
+  await expect(page.locator('[data-equipment="rod"] h3')).toHaveText('ロッド · Lv.10');
+  await expect(page.locator('[data-upgrade="rod"]')).toBeDisabled();
+  await expect(page.locator('[data-equipment="rod"] .equipment-current')).toHaveText(['現在 60m', '現在 41%']);
+  await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 13 / 15');
+  await expect(page.locator('#achievement-notice')).toBeHidden();
+  expect((await latest(page)).data.achievements).toEqual(before.data.achievements);
+});
+
 async function ready(page) {
   await page.goto('./');
   await expect(page.locator('#status')).toBeHidden();

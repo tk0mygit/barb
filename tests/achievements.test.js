@@ -21,15 +21,15 @@ function income(collection, amount) {
   return collection.sellUnassigned(id);
 }
 
-test('new session is 0 / 10 with stable immutable definitions and canonical zero progress', () => {
+test('new session is 0 / 15 with stable immutable definitions and canonical zero progress', () => {
   const { collection, achievements } = setup();
-  assert.equal(NORMAL_ACHIEVEMENTS.length, 10);
-  assert.equal(new Set(NORMAL_ACHIEVEMENTS.map(item => item.id)).size, 10);
+  assert.equal(NORMAL_ACHIEVEMENTS.length, 15);
+  assert.equal(new Set(NORMAL_ACHIEVEMENTS.map(item => item.id)).size, 15);
   assert.equal(achievements.unlockedCount, 0);
   assert.ok(achievements.entries.every(item => !item.unlocked && item.unlockedAt === null));
   assert.equal(entry(achievements, 'catch-10').progress.value, 0);
   assert.equal(entry(achievements, 'length-100').progress.value, 0);
-  assert.deepEqual(achievements.snapshot, { unlocked: [] });
+  assert.deepEqual(achievements.snapshot, { contractVersion: 2, unlocked: [] });
   assert.equal(collection.snapshot.schemaVersion, 1);
   assert.equal('achievements' in collection.snapshot, false);
 });
@@ -168,7 +168,7 @@ test('reevaluation and duplicate registration preserve ISO unlock time; immutabl
   collection.register(record('b', { lengthCm: 100 }));
   assert.equal(entry(achievements, 'first-catch').unlockedAt, '1970-01-01T00:00:01.000Z');
   assert.equal(entry(achievements, 'length-100').unlockedAt, '1970-01-01T00:01:39.999Z');
-  assert.deepEqual(empty, { unlocked: [] }); assert.equal(snapshot.unlocked.length, 1);
+  assert.deepEqual(empty, { contractVersion: 2, unlocked: [] }); assert.equal(snapshot.unlocked.length, 1);
   for (const object of [NORMAL_ACHIEVEMENTS, ...NORMAL_ACHIEVEMENTS, snapshot, snapshot.unlocked, snapshot.unlocked[0], entries, entries[0], entries[0].progress]) assert.ok(Object.isFrozen(object));
   assert.throws(() => { snapshot.unlocked[0].unlockedAt = 'bad'; }, TypeError);
   assert.throws(() => { entries[0].progress.value = 1234; }, TypeError);
@@ -199,7 +199,7 @@ test('subscriptions can be removed, manager disposed, and a new session starts e
   achievements.dispose(); collection.register(record('big', { lengthCm: 100 }));
   assert.deepEqual(batches, [['normal-first-catch']]);
   const next = setup(); assert.equal(next.achievements.unlockedCount, 0);
-  assert.equal(next.collection.catches.length, 0); assert.deepEqual(next.achievements.snapshot, { unlocked: [] });
+  assert.equal(next.collection.catches.length, 0); assert.deepEqual(next.achievements.snapshot, { contractVersion: 2, unlocked: [] });
 });
 
 test('fishing.step landing registers and unlocks without an animation/UI loop', () => {
@@ -214,4 +214,59 @@ test('fishing.step landing registers and unlocks without an animation/UI loop', 
   fishing.step(2); assert.equal(fishing.state.phase, PHASE.RESULT);
   assert.equal(entry(achievements, 'first-catch').unlocked, true);
   assert.equal(fishing.collection.catches.length, 1);
+});
+
+test('exactly five specified equipment definitions append after the immutable legacy prefix', () => {
+  assert.equal(NORMAL_ACHIEVEMENTS.slice(0, 10).length, 10);
+  assert.deepEqual(NORMAL_ACHIEVEMENTS.slice(10), [
+    { id: 'normal-rod-level-5', name: 'ロッドLv.5', description: 'ロッドをLv.5以上に強化する。', metric: 'rod-level', target: 5 },
+    { id: 'normal-reel-level-5', name: 'リールLv.5', description: 'リールをLv.5以上に強化する。', metric: 'reel-level', target: 5 },
+    { id: 'normal-rod-level-10', name: 'ロッドLv.10', description: 'ロッドをLv.10に強化する。', metric: 'rod-level', target: 10 },
+    { id: 'normal-reel-level-10', name: 'リールLv.10', description: 'リールをLv.10に強化する。', metric: 'reel-level', target: 10 },
+    { id: 'normal-equipment-level-10', name: '両装備Lv.10', description: 'ロッドとリールの両方をLv.10にする。', metric: 'equipment-max', target: 10 },
+  ]);
+});
+
+test('individual Lv.5/10 thresholds, old both-Lv.5 and new both-Lv.10 awards unlock once in committed batches', () => {
+  let time = 1000;
+  const collection = createCatchCollection(), achievements = createAchievements({ collection, now: () => time });
+  income(collection, 81200);
+  const batches = [], observedCounts = [];
+  achievements.subscribe(awards => { batches.push(awards.map(item => item.id)); observedCounts.push(achievements.unlockedCount); });
+  for (let level = 2; level <= 10; level++) {
+    time += 1000;
+    for (const kind of ['rod', 'reel']) {
+      assert.equal(entry(achievements, `${kind}-level-${level <= 5 ? 5 : 10}`).unlocked, false);
+      const before = batches.length;
+      assert.ok(collection.purchaseUpgrade(kind, level - 1));
+      if (level === 5 || level === 10) {
+        assert.equal(entry(achievements, `${kind}-level-${level}`).unlocked, true);
+        assert.equal(entry(achievements, `${kind}-level-${level}`).unlockedAt, new Date(time).toISOString());
+        const expected = kind === 'reel' ? level === 5
+          ? ['normal-equipment-max', 'normal-reel-level-5']
+          : ['normal-reel-level-10', 'normal-equipment-level-10'] : [`normal-rod-level-${level}`];
+        assert.deepEqual(batches.at(-1), expected);
+      } else if (level !== 2 || kind !== 'rod') assert.equal(batches.length, before);
+      assert.deepEqual(achievements.evaluate(), []);
+    }
+    if (level > 5) assert.equal(entry(achievements, 'equipment-max').unlockedAt, '1970-01-01T00:00:05.000Z');
+  }
+  assert.deepEqual(batches.flat(), ['normal-first-upgrade', 'normal-rod-level-5', 'normal-equipment-max',
+    'normal-reel-level-5', 'normal-rod-level-10', 'normal-reel-level-10', 'normal-equipment-level-10']);
+  assert.equal(new Set(batches.flat()).size, 7);
+  assert.equal(observedCounts.at(-1), achievements.unlockedCount);
+  assert.deepEqual(collection.wallet, { balance: 0, lifetimeSales: 81200 });
+});
+
+test('each new equipment condition uses >= and both-Lv.10 requires both independently', () => {
+  for (const [rodLevel, reelLevel] of [[4, 4], [5, 4], [4, 5], [6, 5], [9, 9], [10, 9], [9, 10], [10, 10], [11, 12]]) {
+    const collection = { ...createCatchCollection(), equipment: { rodLevel, reelLevel } };
+    const achievements = createAchievements({ collection, now: () => 1000 });
+    for (const target of [5, 10]) for (const kind of ['rod', 'reel']) {
+      assert.equal(entry(achievements, `${kind}-level-${target}`).unlocked, (kind === 'rod' ? rodLevel : reelLevel) >= target);
+    }
+    assert.equal(entry(achievements, 'equipment-level-10').unlocked, rodLevel >= 10 && reelLevel >= 10);
+    assert.equal(entry(achievements, 'equipment-max').unlocked, rodLevel >= 5 && reelLevel >= 5);
+    assert.deepEqual(achievements.evaluate(), []);
+  }
 });

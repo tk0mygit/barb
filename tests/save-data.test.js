@@ -46,7 +46,7 @@ test('initial versioned envelope, JSON and domain round trips preserve the exist
   const state = session(), data = save(state);
   assert.deepEqual(data, { saveVersion: 1, savedAt,
     collection: { catches: [], wallet: { balance: 0, lifetimeSales: 0 }, equipment: { rodLevel: 1, reelLevel: 1 } },
-    achievements: { unlocked: [] }, boat: { x: 0, z: 30, heading: 0 }, clock: { elapsedSeconds: 0 }, settings: {} });
+    achievements: { contractVersion: 2, unlocked: [] }, boat: { x: 0, z: 30, heading: 0 }, clock: { elapsedSeconds: 0 }, settings: {} });
   const parsed = parseSaveData(serializeSaveData(data));
   assert.deepEqual(parsed, data); assert.notEqual(parsed, data);
   const restored = restoreSaveData(parsed);
@@ -102,7 +102,7 @@ test('all 12 species, repeats, statistics, index, sales and unassigned rescue re
   assert.equal(restored.encyclopedia[0].count, 4);
 });
 
-for (let rodLevel = 1; rodLevel <= 5; rodLevel++) for (let reelLevel = 1; reelLevel <= 5; reelLevel++) {
+for (let rodLevel = 1; rodLevel <= 10; rodLevel++) for (let reelLevel = 1; reelLevel <= 10; reelLevel++) {
   test(`restore rod Lv.${rodLevel} / reel Lv.${reelLevel}, then purchase and sell with lifetime income intact`, () => {
     const state = funded(), c = state.collection;
     for (const [kind, target] of [['rod', rodLevel], ['reel', reelLevel]]) {
@@ -112,7 +112,7 @@ for (let rodLevel = 1; rodLevel <= 5; rodLevel++) for (let reelLevel = 1; reelLe
     assert.deepEqual(collection.equipment, { rodLevel, reelLevel }); assert.deepEqual(collection.wallet, c.wallet);
     for (const [kind, level] of [['rod', rodLevel], ['reel', reelLevel]]) {
       const status = collection.getUpgradeStatus(kind); assert.equal(status.currentLevel, level);
-      assert.equal(collection.purchaseUpgrade(kind, level)?.level ?? null, level === 5 ? null : level + 1);
+      assert.equal(collection.purchaseUpgrade(kind, level)?.level ?? null, level === 10 ? null : level + 1);
     }
     assert.equal(collection.wallet.lifetimeSales, 100000);
     collection.register(record('after')); assert.equal(collection.sellUnassigned('after').total, 100);
@@ -120,13 +120,14 @@ for (let rodLevel = 1; rodLevel <= 5; rodLevel++) for (let reelLevel = 1; reelLe
   });
 }
 
-test('all ten achievement IDs/timestamps/progress restore before evaluation, silently and without wall-time reads', () => {
+test('old ten and individual Lv.5 IDs/timestamps/progress restore before evaluation, silently and without wall-time reads', () => {
   const state = funded();
   for (let i = 1; i < 100; i++) state.collection.register(record(`fish-${i}`, {
     speciesId: FISH_SPECIES[i % 12].id, lengthCm: i === 1 ? 100 : 40,
   }));
   for (const kind of ['rod', 'reel']) for (let level = 1; level < 5; level++) state.collection.purchaseUpgrade(kind, level);
-  const data = save(state); assert.equal(data.achievements.unlocked.length, 10);
+  const data = save(state); assert.equal(data.achievements.unlocked.length, 12);
+  assert.deepEqual(new Set(data.achievements.unlocked.map(item => item.id)), new Set(NORMAL_ACHIEVEMENTS.slice(0, 12).map(item => item.id)));
   let wallReads = 0;
   const restored = restoreSaveData(data, { now: () => { wallReads++; return future; } });
   assert.equal(wallReads, 0); assert.deepEqual(restored.achievements.entries, state.achievements.entries);
@@ -182,6 +183,7 @@ test('every required envelope and domain field is mandatory', () => {
   for (const path of paths) {
     const object = path.reduce((value, key) => value[key], baseline);
     for (const key of Object.keys(object)) {
+      if (path.join('.') === 'achievements' && key === 'contractVersion') continue; // Legacy contract has no discriminator.
       if (path.join('.') === 'collection.catches.0' && ['salePrice', 'soldAt'].includes(key)) continue;
       const data = clone(baseline); const target = path.reduce((value, key) => value[key], data); delete target[key];
       rejects(data);
@@ -196,8 +198,8 @@ const corruptions = [
   ['fraction currency', d => { d.collection.wallet.balance = 0.5; }],
   ['wallet mismatch', d => { d.collection.wallet.lifetimeSales++; }],
   ['balance above lifetime', d => { d.collection.wallet.balance = d.collection.wallet.lifetimeSales + 1; }],
-  ...[0, 6, 1.5, '2', NaN].map(value => [`rod ${value}`, d => { d.collection.equipment.rodLevel = value; }]),
-  ...[0, 6, 1.5, '2', Infinity].map(value => [`reel ${value}`, d => { d.collection.equipment.reelLevel = value; }]),
+  ...[0, 11, 1.5, '2', NaN].map(value => [`rod ${value}`, d => { d.collection.equipment.rodLevel = value; }]),
+  ...[0, 11, 1.5, '2', Infinity].map(value => [`reel ${value}`, d => { d.collection.equipment.reelLevel = value; }]),
   ['record version', d => { d.collection.catches[0].schemaVersion = 2; }],
   ['empty catch ID', d => { d.collection.catches[0].id = ' '; }],
   ['duplicate catch ID', d => { d.collection.catches.push(d.collection.catches[0]); }],

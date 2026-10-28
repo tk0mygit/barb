@@ -15,10 +15,10 @@ import { fishSpeciesSandbox } from './helpers/fish-species-sandbox.js';
 
 test('all gameplay definitions exactly retain main 51ab225 values, including fixed achievement targets', () => {
   const data = { fish: FISH_SPECIES.map(({ image, ...data }) => data), LURES, APPEARANCE_WEIGHTS,
-    FISH_ENVIRONMENT_AFFINITIES, LURE_DEPTH_AFFINITIES, NORMAL_ACHIEVEMENTS };
+    FISH_ENVIRONMENT_AFFINITIES, LURE_DEPTH_AFFINITIES, NORMAL_ACHIEVEMENTS: NORMAL_ACHIEVEMENTS.slice(0, 10) };
   assert.equal(createHash('sha256').update(JSON.stringify(data)).digest('hex'),
     '000d079bde84a88d7002541db875987adebf956b43bdaa3533d581b7095ee0a3');
-  assert.equal(NORMAL_ACHIEVEMENTS.length, 10);
+  assert.equal(NORMAL_ACHIEVEMENTS.length, 15);
   assert.deepEqual(NORMAL_ACHIEVEMENTS.filter(item => item.metric === 'species').map(item => item.target), [5, 12]);
 });
 

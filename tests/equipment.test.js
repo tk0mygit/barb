@@ -24,23 +24,28 @@ function unchanged(collection, operation) {
   assert.equal(collection.catches, before.catches);
 }
 
-test('both equipment tables have the specified Lv.1-relative values and 6500 total cost', () => {
+test('both equipment tables have the specified Lv.1-relative values and unchanged 6500 legacy cost', () => {
   const expected = [
     [1, 0, 0, 1, 1, 1], [2, 300, 2, 0.96, 1.06, 1.04],
     [3, 800, 4, 0.92, 1.12, 1.08], [4, 1800, 6, 0.88, 1.18, 1.12],
     [5, 3600, 8, 0.84, 1.24, 1.16],
+    [6, 4200, 12, 0.79, 1.33, 1.22], [7, 5200, 16, 0.74, 1.43, 1.28],
+    [8, 6500, 20, 0.69, 1.54, 1.34], [9, 8200, 24, 0.64, 1.65, 1.40],
+    [10, 10000, 28, 0.59, 1.77, 1.46],
   ];
   for (const [level, cost, castDistanceBonusM, tensionMultiplier, reelSpeedMultiplier, tensionReliefMultiplier] of expected) {
     assert.deepEqual(getEquipmentLevel('rod', level), { level, cost, castDistanceBonusM, tensionMultiplier });
     assert.deepEqual(getEquipmentLevel('reel', level), { level, cost, reelSpeedMultiplier, tensionReliefMultiplier });
     for (const kind of ['rod', 'reel']) {
-      assert.equal(getNextEquipmentLevel(kind, level), level === 5 ? null : getEquipmentLevel(kind, level + 1));
+      assert.equal(getNextEquipmentLevel(kind, level), level === 10 ? null : getEquipmentLevel(kind, level + 1));
     }
   }
   assert.ok(Object.isFrozen(EQUIPMENT_LEVELS));
   for (const levels of Object.values(EQUIPMENT_LEVELS)) {
-    assert.equal(levels.length, 5);
-    assert.equal(levels.reduce((sum, row) => sum + row.cost, 0), 6500);
+    assert.equal(levels.length, 10);
+    assert.equal(levels.slice(0, 5).reduce((sum, row) => sum + row.cost, 0), 6500);
+    assert.equal(levels.slice(5).reduce((sum, row) => sum + row.cost, 0), 34100);
+    assert.equal(levels.reduce((sum, row) => sum + row.cost, 0), 40600);
     assert.ok(Object.isFrozen(levels));
     assert.ok(levels.every(row => Object.isFrozen(row) && Number.isSafeInteger(row.cost) && row.cost >= 0));
     assert.throws(() => { levels[1].cost = 0; }, TypeError);
@@ -87,9 +92,9 @@ test('interleaved upgrades reach Lv.5 independently for 13000 without changing l
     }
   }
   assert.equal(spent, 13000);
-  fund(collection, 1000); // Max-level refusal must also hold with money available.
+  fund(collection, 1000); // Lv.5 now quotes Lv.6 but still cannot overspend.
   for (const kind of ['rod', 'reel']) {
-    assert.deepEqual(collection.getUpgradeStatus(kind), { kind, currentLevel: 5, next: null, canPurchase: false, reason: 'max-level' });
+    assert.deepEqual(collection.getUpgradeStatus(kind), { kind, currentLevel: 5, next: getEquipmentLevel(kind, 6), canPurchase: false, reason: 'insufficient-funds' });
     unchanged(collection, () => collection.purchaseUpgrade(kind, 5));
   }
   assert.deepEqual(before.equipment, { rodLevel: 1, reelLevel: 1 });
@@ -98,9 +103,9 @@ test('interleaved upgrades reach Lv.5 independently for 13000 without changing l
 });
 
 test('each target level accepts the exact remaining cost and leaves a zero balance', () => {
-  for (const kind of ['rod', 'reel']) for (let target = 2; target <= 5; target++) {
+  for (const kind of ['rod', 'reel']) for (let target = 2; target <= 10; target++) {
     const collection = createCatchCollection();
-    const total = [0, 0, 300, 1100, 2900, 6500][target];
+    const total = [0, 0, 300, 1100, 2900, 6500, 10700, 15900, 22400, 30600, 40600][target];
     fund(collection, total);
     for (let current = 1; current < target - 1; current++) assert.ok(collection.purchaseUpgrade(kind, current));
     assert.equal(collection.wallet.balance, getEquipmentLevel(kind, target).cost);
@@ -133,7 +138,7 @@ test('invalid kinds/levels, omitted levels, skips and stale requests never spend
     assert.equal(collection.getUpgradeStatus(kind), null);
     unchanged(collection, () => collection.purchaseUpgrade(kind, 1));
   }
-  for (const level of [undefined, null, 0, -1, 6, 1.5, '1', true, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, 1n, {}, new Number(1)]) {
+  for (const level of [undefined, null, 0, -1, 11, 1.5, '1', true, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, 1n, {}, new Number(1)]) {
     assert.equal(getEquipmentLevel('rod', level), null);
     assert.equal(getNextEquipmentLevel('rod', level), null);
     unchanged(collection, () => collection.purchaseUpgrade('rod', level));
@@ -203,4 +208,55 @@ test('Lv.5 reel improves retrieval without changing base settings or rod tension
   const remaining = 32 - upgraded.state.distance, original = 32 - baseline.state.distance;
   assert.ok(Math.abs(remaining - original * 1.24) < 1e-12);
   assert.equal(upgraded.state.tension, baseline.state.tension);
+});
+
+test('every new single-level improvement exceeds the largest legacy improvement for all four performances', t => {
+  const metrics = [
+    ['cast distance', EQUIPMENT_LEVELS.rod.map(row => 32 + row.castDistanceBonusM), false, 0.0625, 1 / 14],
+    ['tension suppression', EQUIPMENT_LEVELS.rod.map(row => row.tensionMultiplier), true, 1 / 22, 5 / 84],
+    ['reel speed', EQUIPMENT_LEVELS.reel.map(row => row.reelSpeedMultiplier), false, 0.06, 1 / 14],
+    ['tension relief', EQUIPMENT_LEVELS.reel.map(row => row.tensionReliefMultiplier), false, 0.04, 3 / 70],
+  ];
+  for (const [name, values, decreasing, expectedOld, expectedNew] of metrics) {
+    const rates = values.slice(1).map((next, i) => decreasing ? (values[i] - next) / values[i] : next / values[i] - 1);
+    const oldMaximum = Math.max(...rates.slice(0, 4)), newMinimum = Math.min(...rates.slice(4));
+    assert.ok(newMinimum > oldMaximum, name);
+    assert.ok(Math.abs(oldMaximum - expectedOld) < 1e-12, name);
+    assert.ok(Math.abs(newMinimum - expectedNew) < 1e-12, name);
+    t.diagnostic(`${name}: legacy max ${(oldMaximum * 100).toFixed(3)}% < new min ${(newMinimum * 100).toFixed(3)}%`);
+  }
+});
+
+test('interleaved Lv.1–10 purchases cost exactly 81200, reject stale/duplicate requests and terminate at Lv.10', async () => {
+  const collection = createCatchCollection(); fund(collection, 82200);
+  const history = collection.catches; let spent = 0;
+  for (let level = 2; level <= 10; level++) for (const kind of ['rod', 'reel']) {
+    const other = kind === 'rod' ? 'reelLevel' : 'rodLevel', otherLevel = collection.equipment[other];
+    const requests = await Promise.all(Array.from({ length: 3 }, () => Promise.resolve().then(() => collection.purchaseUpgrade(kind, level - 1))));
+    assert.equal(requests.filter(Boolean).length, 1);
+    assert.deepEqual(requests[0], { kind, previousLevel: level - 1, level, cost: getEquipmentLevel(kind, level).cost });
+    spent += requests[0].cost;
+    assert.deepEqual(collection.wallet, { balance: 82200 - spent, lifetimeSales: 82200 });
+    assert.equal(collection.equipment[other], otherLevel);
+    unchanged(collection, () => collection.purchaseUpgrade(kind, level - 1));
+    assert.equal(collection.catches, history);
+  }
+  assert.equal(spent, 81200);
+  for (const kind of ['rod', 'reel']) {
+    assert.deepEqual(collection.getUpgradeStatus(kind), { kind, currentLevel: 10, next: null, canPurchase: false, reason: 'max-level' });
+    unchanged(collection, () => collection.purchaseUpgrade(kind, 10));
+    assert.equal(getEquipmentLevel(kind, 11), null); assert.equal(getNextEquipmentLevel(kind, 10), null);
+  }
+});
+
+test('each Lv.6–10 purchase rejects a one-unit shortage and succeeds after the final unit is sold', () => {
+  for (const kind of ['rod', 'reel']) for (let target = 6; target <= 10; target++) {
+    const collection = createCatchCollection();
+    const total = EQUIPMENT_LEVELS[kind].slice(0, target).reduce((sum, row) => sum + row.cost, 0);
+    fund(collection, total - 1);
+    for (let current = 1; current < target - 1; current++) assert.ok(collection.purchaseUpgrade(kind, current));
+    unchanged(collection, () => collection.purchaseUpgrade(kind, target - 1));
+    fund(collection, 1); assert.ok(collection.purchaseUpgrade(kind, target - 1));
+    assert.deepEqual(collection.wallet, { balance: 0, lifetimeSales: total });
+  }
 });
