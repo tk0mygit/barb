@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { LAKE, shoreRadius, randomGenerator } from './config.js';
 import { sceneryNoise, ridgeNoise } from './scenery-noise.js';
 import { createConiferTexture, CONIFER_TEXTURE_MEAN } from './conifer-texture.js';
+import { createForestPlacement } from './forest-placement.js';
 
 // More samples near the waterline, with the original outer skirt extent.
 // Neither this mesh nor its height sampler participates in lake collision.
@@ -126,6 +127,7 @@ export function createTerrain() {
   const dummy = new THREE.Object3D(), treeColor = new THREE.Color();
   const evergreen = new THREE.Color('#405a48'), leaf = new THREE.Color('#637053');
   const pale = new THREE.Color('#7c8966'), shade = new THREE.Color('#344b42');
+  const placeTree = createForestPlacement();
   for (let i = 0; i < 850; i++) {
     let x, z;
     // Coherent groves and openings, with bounded deterministic rejection.
@@ -135,9 +137,11 @@ export function createTerrain() {
       x = Math.cos(angle) * radius; z = Math.sin(angle) * radius;
       if (random() < 0.22 + sceneryNoise(x * 0.028, z * 0.028, 311) * 0.78) break;
     }
-    const y = terrainHeightAt(x, z), broadleaf = i >= 650;
+    const broadleaf = i >= 650;
     const h = 8 + random() * 13, w = h * (broadleaf ? 0.24 + random() * 0.09 : 0.16 + random() * 0.08);
     const yaw = random() * tau, aspect = 0.78 + random() * 0.38;
+    ({ x, z } = placeTree(i, x, z, w * Math.max(1, aspect) * (broadleaf ? 1.3 : 1.1)));
+    const y = terrainHeightAt(x, z);
     dummy.rotation.set(0, yaw, 0); dummy.position.set(x, y + h * 0.28, z);
     dummy.scale.set(0.65 + h * 0.025, h * 0.56, 0.65 + h * 0.025);
     dummy.updateMatrix(); trunks.setMatrixAt(i, dummy.matrix);
