@@ -33,9 +33,14 @@ test('both equipment tables have the specified Lv.1-relative values and unchange
     [8, 6500, 20, 0.69, 1.54, 1.34], [9, 8200, 24, 0.64, 1.65, 1.40],
     [10, 10000, 28, 0.59, 1.77, 1.46],
   ];
+  const bonuses = { 6: [1.02, 1.10, 1.03], 7: [1.04, 1.20, 1.06], 8: [1.06, 1.30, 1.09],
+    9: [1.08, 1.40, 1.12], 10: [1.10, 1.50, 1.15] };
   for (const [level, cost, castDistanceBonusM, tensionMultiplier, reelSpeedMultiplier, tensionReliefMultiplier] of expected) {
-    assert.deepEqual(getEquipmentLevel('rod', level), { level, cost, castDistanceBonusM, tensionMultiplier });
-    assert.deepEqual(getEquipmentLevel('reel', level), { level, cost, reelSpeedMultiplier, tensionReliefMultiplier });
+    const bonus = bonuses[level];
+    assert.deepEqual(getEquipmentLevel('rod', level), { level, cost, castDistanceBonusM, tensionMultiplier,
+      ...(bonus ? { tierMultipliers: { Common: 1, Uncommon: bonus[0], Rare: bonus[1] } } : {}) });
+    assert.deepEqual(getEquipmentLevel('reel', level), { level, cost, reelSpeedMultiplier, tensionReliefMultiplier,
+      ...(bonus ? { largeFishAssistMultiplier: bonus[2] } : {}) });
     for (const kind of ['rod', 'reel']) {
       assert.equal(getNextEquipmentLevel(kind, level), level === 10 ? null : getEquipmentLevel(kind, level + 1));
     }

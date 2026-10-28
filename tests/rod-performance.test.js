@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createFishing, getLurePosition, PHASE } from '../src/game/fishing.js';
 import { createCatchCollection } from '../src/game/catch-collection.js';
-import { FISH_SPECIES } from '../src/game/fish-species.js';
+import { FISH_SPECIES, calculateFishWeightKg } from '../src/game/fish-species.js';
 import { fishResistance } from '../src/game/fish-fight.js';
 import { getSpeciesProbabilities } from '../src/game/fish-encounters.js';
+import { encounterModel, getRodEncounterModifiers } from '../src/game/encounter-production.js';
 import { shoreRadius } from '../src/world/config.js';
 import { FISHING_SPOTS } from '../src/world/fishing-spots.js';
 import { LURES } from '../src/game/lures.js';
@@ -29,7 +30,9 @@ function hook(f) {
 }
 function fishing(level, species = FISH_SPECIES[0], size = 0.5, options = {}) {
   let cumulative = 0, roll;
-  for (const entry of getSpeciesProbabilities('minnow')) {
+  const entries = level <= 5 ? getSpeciesProbabilities('minnow')
+    : encounterModel.getProbabilities('minnow', undefined, getRodEncounterModifiers(level));
+  for (const entry of entries) {
     if (entry.speciesId === species.id) roll = cumulative + entry.probability / 2;
     cumulative += entry.probability;
   }
@@ -88,6 +91,7 @@ test('every species and size combines existing resistance with rod multipliers a
       [6, 0.79], [7, 0.74], [8, 0.69], [9, 0.64], [10, 0.59]]) {
       const tensions = [30, 60, 144].map(hz => {
         const f = fishing(level, species, size); prepare(f); hook(f); f.reel(true);
+        assert.equal(f.state.encounter.speciesId, species.id);
         let expected = f.settings.tensionStart, time = 0;
         for (let frame = 0; frame < hz / 2; frame++) {
           // Existing integrator samples resistance at the end of each <=1/60s step.
@@ -171,7 +175,10 @@ test('rod distance changes neither boat spot bonus nor bite timing for any lure'
       let frames = 0;
       while (f.state.phase === PHASE.LURE && frames < 10000) { f.step(1 / 60); frames++; }
       assert.equal(f.state.phase, PHASE.BITE);
-      return { frames, encounter: f.state.encounter, randomCalls };
+      const species = encounterModel.sample(lure.id, () => 0.5, undefined, getRodEncounterModifiers(level));
+      const lengthCm = Math.round((species.minLengthCm + 0.5 * (species.maxLengthCm - species.minLengthCm)) * 10) / 10;
+      assert.deepEqual(f.state.encounter, { speciesId: species.id, lengthCm, weightKg: calculateFishWeightKg(species.id, lengthCm) });
+      return { frames, randomCalls };
     });
     for (const result of results.slice(1)) assert.deepEqual(results[0], result);
     assert.equal(results[0].randomCalls, 3);
