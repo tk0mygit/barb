@@ -4,7 +4,7 @@ import { sceneryNoise, ridgeNoise } from './scenery-noise.js';
 import { createConiferTexture, CONIFER_TEXTURE_MEAN } from './conifer-texture.js';
 import { createForestPlacement } from './forest-placement.js';
 
-export const FOREST_COUNTS = Object.freeze({ total: 1200, conifers: 920, broadleaves: 280 });
+export const FOREST_COUNTS = Object.freeze({ total: 1100, conifers: 843, broadleaves: 257 });
 
 // More samples near the waterline, with the original outer skirt extent.
 // Neither this mesh nor its height sampler participates in lake collision.
