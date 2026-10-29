@@ -290,7 +290,7 @@ test('L0 documentation PR runner verifies the merge and records intentional E2E 
   assert.equal(fixture.result().executed, false);
 });
 
-test('real reporter probes from both lanes pass the actual artifact gate; missing/corrupt evidence fails', t => {
+test('real reporter probes from both lanes pass the actual artifact gate; missing/corrupt evidence fails', async t => {
   const fixture = runnerFixture(t, 'workflow_dispatch', 'pass', true);
   // No browser/application is used; this exercises runner/report/artifact wiring.
   assert.equal(runPrepared(fixture).passedTests, selectedSpecs.length);
@@ -302,20 +302,20 @@ test('real reporter probes from both lanes pass the actual artifact gate; missin
   const needs = Object.fromEntries(['build', 'e2e_regular', 'e2e_mobile'].map(job =>
     [job, { result: 'success', outputs: { artifact_id: `${job}-id` } }]));
   const input = { ...fixture, env: { ...fixture.env, CI_NEEDS: JSON.stringify(needs) } };
-  assert.equal(verifyArtifacts(input).result.passedTests, 4);
+  assert.equal((await verifyArtifacts(input)).result.passedTests, 4);
   const reportFile = path.join(mobile, '.ci/e2e-report.json');
   const original = readFileSync(reportFile);
   writeFileSync(reportFile, '{}');
-  assert.throws(() => verifyArtifacts(input), /missing, added or corrupted/);
+  await assert.rejects(() => verifyArtifacts(input), /missing, added or corrupted/);
   writeFileSync(reportFile, original);
   mkdirSync(path.join(fixture.cwd, '.ci-artifacts/unexpected-artifact'));
-  assert.throws(() => verifyArtifacts(input), /Missing, unexpected or colliding/);
+  await assert.rejects(() => verifyArtifacts(input), /Missing, unexpected or colliding/);
   rmSync(path.join(fixture.cwd, '.ci-artifacts/unexpected-artifact'), { recursive: true });
   rmSync(mobile, { recursive: true });
-  assert.throws(() => verifyArtifacts(input), /Missing, unexpected or colliding/);
+  await assert.rejects(() => verifyArtifacts(input), /Missing, unexpected or colliding/);
 });
 
-test('actual L0 and main push records pass only with explicit omission and required build evidence', t => {
+test('actual L0 and main push records pass only with explicit omission and required build evidence', async t => {
   for (const eventName of ['pull_request', 'push']) {
     const fixture = runnerFixture(t, eventName, 'docs');
     assert.equal(prepareE2E(fixture).status, 'not-run');
@@ -324,7 +324,7 @@ test('actual L0 and main push records pass only with explicit omission and requi
     const needs = { build: { result: 'success', outputs: { artifact_id: 'build-id',
       ...(eventName === 'push' ? { pages_artifact_id: 'pages-id' } : {}) } },
     e2e_regular: { result: 'skipped', outputs: {} }, e2e_mobile: { result: 'skipped', outputs: {} } };
-    const result = verifyArtifacts({ ...fixture, env: { ...fixture.env, CI_NEEDS: JSON.stringify(needs) } });
+    const result = await verifyArtifacts({ ...fixture, env: { ...fixture.env, CI_NEEDS: JSON.stringify(needs) } });
     assert.equal(result.result.passedTests, 0); assert.equal(result.plan.deploy, eventName === 'push');
   }
 });
