@@ -1,16 +1,18 @@
 import { readFile } from 'node:fs/promises';
 import { MOBILE_CAPTURE_IDS, compareMobileCapturesWithSources } from '../../scripts/compare-mobile-performance.mjs';
-import { mobileGit, readMobileImplementation, mobileSourceMetadata } from '../../scripts/lib/mobile-comparison-source.js';
+import { readMobileImplementation, mobileSourceMetadata } from '../../scripts/lib/mobile-comparison-source.js';
 
 // Actual recorded frame/metric inputs, with repeated histories deduplicated.
-// Metadata binds those fixed inputs to the source being tested; it is a unit
-// fixture, not a claim that a new browser run or artifact download took place.
+// Independently replay these fixed inputs against the merged 5C-1 source.
+// Never relabel old observations as the current HEAD's physics. This is a
+// synthetic unit fixture; its original browser provenance remains in the JSON.
+export const PR48_REPLAY_SHA = '9524cd519c74eae88dc52a384c7a8dc9a096a0df';
 const rotated = JSON.parse(await readFile(new URL('../fixtures/mobile-pr48-rotated-fight.json', import.meta.url)));
 const support = JSON.parse(await readFile(new URL('../fixtures/mobile-pr48-support-captures.json', import.meta.url)));
 
 export async function mobileGateFixture() {
   const base = await readMobileImplementation(rotated.capturedProvenance.base);
-  const head = await readMobileImplementation(await mobileGit('rev-parse', 'HEAD'));
+  const head = await readMobileImplementation(PR48_REPLAY_SHA);
   const metadata = { mode: 'regression', baseSha: base.sha, headSha: head.sha, validationSha: head.sha,
     implementations: { main: mobileSourceMetadata(base), pr: mobileSourceMetadata(head) } };
   function captures(target) {
