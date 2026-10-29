@@ -33,7 +33,7 @@ function encounter(lureId, speciesId, size) {
 function land(f, dt = 1 / 60) {
   const input = createFishingInput(f);
   let held = false, elapsed = 0, observe = 0;
-  while (f.state.phase === PHASE.FIGHT && elapsed < 25) {
+  while (f.state.phase === PHASE.FIGHT && elapsed < 30) {
     if (elapsed >= observe) {
       if (!held && f.state.tension < 0.35) { input.down(0, 0); held = true; }
       else if (held && f.state.tension > 0.65) { input.up(); held = false; }
@@ -151,9 +151,10 @@ test('all 12 species land with all four lures at minimum/mid/maximum sizes at 30
       const elapsed = land(f, dt); durations.push(elapsed);
       const fight = f.state.fight, span = fight.startDistance - fight.landingDistance;
       // Stopped FIGHT now adds retrieval work. Preserve the original pacing
-      // bound per equivalent starting span, plus the original global20s cap.
+      // bound per equivalent starting span. The 5C-1R PM decision changes
+      // the observed FIGHT pacing target from 20s to 30s, not a runtime timer.
       const equivalentSeconds = elapsed * span / (span + fight.pushbackMeters);
-      assert.ok(elapsed >= 5 && elapsed <= 20, `${species.id}: ${elapsed}`);
+      assert.ok(elapsed >= 5 && elapsed <= 30, `${species.id}: ${elapsed}`);
       assert.ok(equivalentSeconds <= (species.id === 'alligator-gar' ? 20 : 16),
         `${species.id}: ${elapsed}s / ${equivalentSeconds}s equivalent, push=${fight.pushbackMeters}m`);
       const record = f.state.catch;

@@ -6,10 +6,11 @@ import { join } from 'node:path';
 import { MOBILE_CAPTURE_IDS, compareMobileCapturePairWithSources, verifyMobileSourceCapture,
   writeMobileComparison } from '../scripts/compare-mobile-performance.mjs';
 import { mobileGit, readMobileImplementation, mobileSourceMetadata, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
+import { PR48_REPLAY_SHA } from './helpers/mobile-gate-fixture.js';
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/mobile-pr48-rotated-fight.json', import.meta.url)));
 const base = await readMobileImplementation(fixture.capturedProvenance.base);
-const head = await readMobileImplementation(await mobileGit('rev-parse', 'HEAD'));
+const head = await readMobileImplementation(PR48_REPLAY_SHA);
 // The recorded frames are fixed input to this unit regression. Metadata here
 // is synthetic and binds that input to the tested source, not a relabeling of
 // the original browser run. The original run/SHA is retained in the fixture.
@@ -33,6 +34,12 @@ test('PR48 real tracking histories match their source physics and normalized cam
     assert.equal(proof.tension, entry.layout.tension);
     assert.equal(proof.trace.length, entry.metrics.cameraFrames.filter(f => f.phase === 'fight').length);
   }
+});
+
+test('PR48 fixed frames cannot be relabeled as the current 5C-1R FIGHT source', async () => {
+  const current = await readMobileImplementation(await mobileGit('rev-parse', 'HEAD'));
+  await assert.rejects(() => verifyMobileSourceCapture(current, structuredClone(fixture.captures.pr)),
+    /tracking z: differs from source FIGHT replay/);
 });
 
 test('identical tracking/time keeps exact camera equality, including a sub-tolerance mutation', async () => {

@@ -1,0 +1,79 @@
+{
+  "aFixture": {
+    "path": "tests/fixtures/fight-failure-rescues.json",
+    "sha256": "21415ca45e8a4c55d7381ce18207f43da553700c1cbe0cae0ab1e23aba195035",
+    "gitBlob": "449f776fc507911437996dd54b592ebb4092adaf",
+    "base": "a9cae9fdb404d81a878d548aebe719f2adeefe7d",
+    "source": "5C-0 A_FIXED_212_INPUT.json; 106 unique contexts; each tested as other/flick and tap"
+  },
+  "bFixture": {
+    "path": "tests/fixtures/fight-fps-hold.json",
+    "sha256": "1a5fb290b24b6eb496a991e162ffdc400fa1cccb65fc74ae4968123c0006d7d6",
+    "gitBlob": "ecf70b5a6810bf7e49be3d9c7a76b324ed5cfdae",
+    "source": "5C-0 B_FIXED_86_INPUT.json; full 86 legal-range comparison groups"
+  },
+  "originalRawFilesAvailable": false,
+  "note": "Repository fixtures reused without edits. Original 5C-0 raw inputs not attached; raw-file byte identity is unverified.",
+  "results": [
+    {
+      "speed": 0.2,
+      "aRows": 212,
+      "aFights": 636,
+      "failureLineBreak": 212,
+      "successLanded": 212,
+      "freeRescues": 0,
+      "aTimeout": 0,
+      "bGroups": 86,
+      "bFights": 344,
+      "bMismatch": 0,
+      "maxError": 1.7763568394002505e-15,
+      "sourceHelperSha256": "a0ae051730b5b58dcc09aafc6a322250d30f98b6588cafc4f6c015ec7e894806",
+      "isolatedHelperSha256": "fbf9a02bb9c8b3f1ff46f24083e7f4a572aafd8bc0311d7b0250aa25379bb3c1"
+    },
+    {
+      "speed": 0.6,
+      "aRows": 212,
+      "aFights": 636,
+      "failureLineBreak": 212,
+      "successLanded": 212,
+      "freeRescues": 0,
+      "aTimeout": 0,
+      "bGroups": 86,
+      "bFights": 344,
+      "bMismatch": 0,
+      "maxError": 3.552713678800501e-15,
+      "sourceHelperSha256": "a0ae051730b5b58dcc09aafc6a322250d30f98b6588cafc4f6c015ec7e894806",
+      "isolatedHelperSha256": "bfcee024b3fc54fc2bd8431ce67cb0c10d4e0277ac2e9fa7a8769a23f12f5c2c"
+    },
+    {
+      "speed": 0.8,
+      "aRows": 212,
+      "aFights": 636,
+      "failureLineBreak": 212,
+      "successLanded": 212,
+      "freeRescues": 0,
+      "aTimeout": 0,
+      "bGroups": 86,
+      "bFights": 344,
+      "bMismatch": 0,
+      "maxError": 7.105427357601002e-15,
+      "sourceHelperSha256": "a0ae051730b5b58dcc09aafc6a322250d30f98b6588cafc4f6c015ec7e894806",
+      "isolatedHelperSha256": "75ace896716117036290ce7c0edfe7a7a21aa7c02c8b823c808f9e68678edd8a"
+    },
+    {
+      "speed": 1,
+      "aRows": 212,
+      "aFights": 636,
+      "failureLineBreak": 212,
+      "successLanded": 212,
+      "freeRescues": 0,
+      "aTimeout": 0,
+      "bGroups": 86,
+      "bFights": 344,
+      "bMismatch": 0,
+      "maxError": 7.105427357601002e-15,
+      "sourceHelperSha256": "a0ae051730b5b58dcc09aafc6a322250d30f98b6588cafc4f6c015ec7e894806",
+      "isolatedHelperSha256": "0ccf66c5e0c582057701c24399339cdfd99f39acc4ddc3568397a5ef58d5f8a2"
+    }
+  ]
+}

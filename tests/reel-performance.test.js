@@ -199,7 +199,7 @@ test('all rod/reel endpoint combinations land every species/size with real hold 
       const f = fishing(rod, reel, species, size); prepare(f); hook(f);
       const count = f.state.catches.length, input = createFishingInput(f);
       let held = false, elapsed = 0, observe = 0, releases = 0;
-      while (f.state.phase === PHASE.FIGHT && elapsed < 25) {
+      while (f.state.phase === PHASE.FIGHT && elapsed < 30) {
         if (elapsed >= observe) {
           if (!held && f.state.tension < 0.35) { input.down(0, 0); held = true; }
           else if (held && f.state.tension > 0.65) { input.up(); held = false; releases++; }
@@ -212,7 +212,7 @@ test('all rod/reel endpoint combinations land every species/size with real hold 
       input.cancel();
       assert.equal(f.state.phase, PHASE.LANDING, species.id);
       assert.equal(f.state.distance, f.settings.landingDistance);
-      assert.ok(elapsed > 4 && elapsed < 20, `${species.id}: ${elapsed}`);
+      assert.ok(elapsed > 4 && elapsed <= 30, `${species.id}: ${elapsed}`);
       if (species.id === 'alligator-gar') assert.ok(releases > 0);
       assert.equal(f.state.catches.length, count);
       f.step(0.5); assert.equal(f.state.phase, PHASE.LANDING);
@@ -232,7 +232,7 @@ test('legacy continuous reeling balance: Lv.5 upgrades allow only small/mid blue
     const landed = [];
     for (const species of FISH_SPECIES) for (const [sizeName, size] of [['min', 0], ['mid', 0.5], ['max', 1 - Number.EPSILON]]) {
       const f = fishing(level, level, species, size); prepare(f); hook(f); f.reel(true);
-      for (let frame = 0; frame < 20 * hz && f.state.phase === PHASE.FIGHT; frame++) f.step(1 / hz);
+      for (let frame = 0; frame < 30 * hz && f.state.phase === PHASE.FIGHT; frame++) f.step(1 / hz);
       if (f.state.phase === PHASE.LANDING) landed.push(`${species.id}:${sizeName}`);
       else {
         assert.equal(f.state.phase, PHASE.FAILED);
@@ -251,7 +251,7 @@ test('Lv.6/8/10 controlled fights land all 12 species/sizes with actual hold del
       const f = fishing(level, level, species, size); prepare(f); hook(f);
       const count = f.state.catches.length, input = createFishingInput(f);
       let held = false, elapsed = 0, observe = 0;
-      while (f.state.phase === PHASE.FIGHT && elapsed < 25) {
+      while (f.state.phase === PHASE.FIGHT && elapsed < 30) {
         if (elapsed >= observe) {
           if (!held && f.state.tension < 0.35) { input.down(0, 0); held = true; }
           else if (held && f.state.tension > 0.65) { input.up(); held = false; }
@@ -264,7 +264,7 @@ test('Lv.6/8/10 controlled fights land all 12 species/sizes with actual hold del
       input.cancel();
       assert.equal(f.state.phase, PHASE.LANDING, species.id);
       assert.equal(f.state.distance, f.settings.landingDistance);
-      assert.ok(elapsed > 2 && elapsed < 20, `${species.id} Lv.${level}: ${elapsed}`);
+      assert.ok(elapsed > 2 && elapsed <= 30, `${species.id} Lv.${level}: ${elapsed}`);
       assert.equal(f.state.catches.length, count);
       f.step(0.5); assert.equal(f.state.phase, PHASE.LANDING);
       f.step(1); assert.equal(f.state.phase, PHASE.RESULT);
