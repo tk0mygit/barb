@@ -8,7 +8,7 @@ export const FISHING_CONFIG = Object.freeze({
   slackThreshold: 0.12, slackGrace: 1.4, slackEscapeRate: 1.2, fightReelSeconds: 6.5,
   // Bound retrieval duration while keeping the full resistance in tension.
   reelResistanceMin: 0.8, reelResistanceMax: 1.25,
-  fightStepSeconds: 1 / 60, fightPushbackSpeed: 0.20,
+  fightStepSeconds: 1 / 60, fightPushbackSpeed: 0.80,
   fightDistanceAllowance: 4, fightScalingSpan: 27.5,
 });
 // Retain the Phase 2 import path for existing consumers.

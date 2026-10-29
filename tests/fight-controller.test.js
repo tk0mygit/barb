@@ -8,7 +8,27 @@ import { createFishing, PHASE } from '../src/game/fishing.js';
 import { hookedFight, replayFight } from './helpers/fight-replay.js';
 import { createFishingInput } from '../src/input/fishing.js';
 import { fishResistance } from '../src/game/fish-fight.js';
+import { stoppedDistance } from './helpers/fight-pushback.js';
 const near = (a, b, epsilon = 1e-10) => assert.ok(Math.abs(a - b) < epsilon, `${a} != ${b}`);
+
+test('5C-1R uses four times the historical stopped speed with the original scale and 60Hz samples', () => {
+  assert.equal(FISHING_CONFIG.fightPushbackSpeed, .80);
+  for (const species of FISH_SPECIES) for (const lengthCm of [species.minLengthCm, (species.minLengthCm + species.maxLengthCm) / 2, species.maxLengthCm]) {
+    for (const startDistance of [4.5001, 4.51, 5.5, 8, 16, 32, 40, 60]) {
+      const make = speed => createFightController({ species, lengthCm, startDistance,
+        rod: getEquipmentLevel('rod', 1), reel: getEquipmentLevel('reel', 1),
+        settings: { ...FISHING_CONFIG, fightPushbackSpeed: speed }, random: () => .5, id: 1 });
+      const current = make(FISHING_CONFIG.fightPushbackSpeed), historical = make(.20);
+      current.step(1); historical.step(1);
+      const actual = current.snapshot, old = historical.snapshot;
+      near(actual.distance, stoppedDistance({ species, lengthCm, startDistance, seconds: 1 }), 1e-11);
+      near(old.distance, stoppedDistance({ species, lengthCm, startDistance, seconds: 1, pushbackSpeed: .20 }), 1e-11);
+      near(actual.pushbackMeters, 4 * old.pushbackMeters, 1e-11);
+      assert.equal(actual.tension, old.tension); assert.equal(actual.rngCalls, 0);
+      assert.equal(actual.normalSeconds, 1); assert.equal(actual.outcome, null);
+    }
+  }
+});
 
 test('public construction disables QTE while applying short-distance pushback and fixed steps', () => {
   for (const distance of [4.5001, 4.51, 5.5, 8, 16, 32, 40, 60]) {
