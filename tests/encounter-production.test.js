@@ -242,7 +242,7 @@ test('active rod purchases cannot change the prepared Tier distribution, includi
     assert.equal(f.state.encounter.speciesId, oldSpecies.id);
     if (f.state.phase === PHASE.FIGHT) {
       f.reel(true);
-      for (let frame = 0; frame < 1200 && f.state.phase === PHASE.FIGHT; frame++) f.step(1 / 60);
+      for (let frame = 0; frame < 30 * 60 && f.state.phase === PHASE.FIGHT; frame++) f.step(1 / 60);
       assert.equal(f.state.phase, PHASE.FAILED); f.step(2);
     } else assert.equal(f.cancelForViewChange(), true);
     cast(f); bite(f); assert.equal(f.state.encounter.speciesId, newSpecies.id);

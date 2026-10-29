@@ -217,7 +217,7 @@ test('actual 5B-1A retains exact pre-FIGHT state/RNG and rows; FIGHT matches its
         const length = Math.round((species.minLengthCm + size * (species.maxLengthCm - species.minLengthCm)) * 10) / 10;
         const { f } = scenario(level, level, species, length, engine, legacy); prepare(f); hook(f); f.reel(true);
         let elapsed = 0;
-        while (f.state.phase === PHASE.FIGHT && elapsed < 20) { f.step(1 / hz); elapsed += 1 / hz; }
+        while (f.state.phase === PHASE.FIGHT && elapsed < 30) { f.step(1 / hz); elapsed += 1 / hz; }
         if (f.state.phase === PHASE.LANDING) { assert.ok(elapsed > 2); times.push(elapsed); landed.push(`${species.id}/${size}`); }
         else { assert.equal(f.state.phase, PHASE.FAILED); assert.match(f.state.message, /切れ/); }
         if (species.id === 'alligator-gar' && size === 1) assert.equal(f.state.phase, PHASE.FAILED);

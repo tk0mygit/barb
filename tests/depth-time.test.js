@@ -127,7 +127,8 @@ function bite(f) {
 function land(f) {
   assert.equal(f.hook(), true);
   let held = false;
-  for (let frame = 0; frame < 1200 && f.state.phase === PHASE.FIGHT; frame++) {
+  // 5C-1R's approved 30s observation target; this does not end a game FIGHT.
+  for (let frame = 0; frame < 30 * 60 && f.state.phase === PHASE.FIGHT; frame++) {
     if (f.state.tension < 0.4) held = true;
     if (f.state.tension > 0.78) held = false;
     f.reel(held); f.step(1 / 60);
