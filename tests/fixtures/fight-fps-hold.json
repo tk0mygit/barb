@@ -1,0 +1,3015 @@
+{
+  "source": "5C-0 B_FIXED_86_INPUT.json; full 86 legal-range comparison groups",
+  "groups": [
+    {
+      "distance": 4.51,
+      "species": "black-bass",
+      "size": "mid",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.699999999999978,
+          "normal": 4.499999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.749999999999978,
+          "normal": 4.549999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.750000000000157,
+          "normal": 4.550000000000057,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 4.51,
+      "species": "black-bass",
+      "size": "mid",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.700000000000061,
+          "normal": 4.499999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.750000000000064,
+          "normal": 4.549999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.750000000000213,
+          "normal": 4.550000000000088,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 4.51,
+      "species": "smallmouth-bass",
+      "size": "min",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.933333333333357,
+          "normal": 5.733333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 9.133333333333367,
+          "normal": 5.933333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.13194444444464,
+          "normal": 5.93194444444454,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 4.51,
+      "species": "smallmouth-bass",
+      "size": "min",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.933333333333456,
+          "normal": 5.733333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 11.133333333333466,
+          "normal": 5.933333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 11.131944444444697,
+          "normal": 5.9319444444445715,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 4.51,
+      "species": "iwana",
+      "size": "min",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 6.749999999999981,
+          "normal": 4.649999999999989,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 6.849999999999981,
+          "normal": 4.7499999999999885,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 6.8541666666667975,
+          "normal": 4.754166666666736,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 4.51,
+      "species": "iwana",
+      "size": "min",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.24999999999998,
+          "normal": 4.649999999999989,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.349999999999979,
+          "normal": 4.7499999999999885,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.354166666666812,
+          "normal": 4.75416666666675,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 4.51,
+      "species": "iwana",
+      "size": "mid",
+      "rod": 10,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.783333333333318,
+          "normal": 5.783333333333318,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 5.833333333333318,
+          "normal": 5.833333333333318,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 5.826388888888991,
+          "normal": 5.826388888888991,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 4.51,
+      "species": "iwana",
+      "size": "max",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.18333333333332,
+          "normal": 5.18333333333332,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 5.2166666666666535,
+          "normal": 5.2166666666666535,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 5.215277777777863,
+          "normal": 5.215277777777863,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 4.51,
+      "species": "european-perch",
+      "size": "mid",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 3.4999999999999925,
+          "normal": 3.4999999999999925,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 3.516666666666659,
+          "normal": 3.516666666666659,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 3.5138888888889257,
+          "normal": 3.5138888888889257,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "black-bass",
+      "size": "mid",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.699999999999978,
+          "normal": 4.499999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.749999999999978,
+          "normal": 4.549999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.750000000000157,
+          "normal": 4.550000000000057,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "black-bass",
+      "size": "mid",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.700000000000061,
+          "normal": 4.499999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.750000000000064,
+          "normal": 4.549999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.750000000000213,
+          "normal": 4.550000000000088,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "smallmouth-bass",
+      "size": "min",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.933333333333357,
+          "normal": 5.733333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 9.133333333333367,
+          "normal": 5.933333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.13194444444464,
+          "normal": 5.93194444444454,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "smallmouth-bass",
+      "size": "min",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.933333333333456,
+          "normal": 5.733333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 11.133333333333466,
+          "normal": 5.933333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 11.131944444444697,
+          "normal": 5.9319444444445715,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "iwana",
+      "size": "min",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 6.749999999999981,
+          "normal": 4.649999999999989,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 6.849999999999981,
+          "normal": 4.7499999999999885,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 6.8541666666667975,
+          "normal": 4.754166666666736,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "iwana",
+      "size": "min",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.24999999999998,
+          "normal": 4.649999999999989,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.349999999999979,
+          "normal": 4.7499999999999885,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.354166666666812,
+          "normal": 4.75416666666675,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "iwana",
+      "size": "mid",
+      "rod": 10,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.783333333333318,
+          "normal": 5.783333333333318,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 5.833333333333318,
+          "normal": 5.833333333333318,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 5.826388888888991,
+          "normal": 5.826388888888991,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "iwana",
+      "size": "max",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.18333333333332,
+          "normal": 5.18333333333332,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 5.2166666666666535,
+          "normal": 5.2166666666666535,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 5.215277777777863,
+          "normal": 5.215277777777863,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "european-perch",
+      "size": "mid",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 3.4999999999999925,
+          "normal": 3.4999999999999925,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 3.516666666666659,
+          "normal": 3.516666666666659,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 3.5138888888889257,
+          "normal": 3.5138888888889257,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "walleye",
+      "size": "max",
+      "rod": 10,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.48333333333331,
+          "normal": 5.28333333333332,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.549999999999977,
+          "normal": 5.349999999999986,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.548611111111263,
+          "normal": 5.348611111111194,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "walleye",
+      "size": "max",
+      "rod": 10,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.483333333333434,
+          "normal": 5.28333333333332,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 10.550000000000104,
+          "normal": 5.349999999999986,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 10.548611111111347,
+          "normal": 5.348611111111222,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "arowana",
+      "size": "min",
+      "rod": 5,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.783333333333311,
+          "normal": 4.583333333333322,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.833333333333311,
+          "normal": 4.633333333333322,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.826388888889048,
+          "normal": 4.626388888888948,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 5.5,
+      "species": "arowana",
+      "size": "min",
+      "rod": 5,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.783333333333399,
+          "normal": 4.583333333333322,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.833333333333401,
+          "normal": 4.633333333333322,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.826388888889104,
+          "normal": 4.626388888888979,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "black-bass",
+      "size": "mid",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.699999999999978,
+          "normal": 4.499999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.749999999999978,
+          "normal": 4.549999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.750000000000157,
+          "normal": 4.550000000000057,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "black-bass",
+      "size": "mid",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.700000000000061,
+          "normal": 4.499999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.750000000000064,
+          "normal": 4.549999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.750000000000213,
+          "normal": 4.550000000000088,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "smallmouth-bass",
+      "size": "min",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.933333333333357,
+          "normal": 5.733333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 9.133333333333367,
+          "normal": 5.933333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.13194444444464,
+          "normal": 5.93194444444454,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "smallmouth-bass",
+      "size": "min",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.933333333333456,
+          "normal": 5.733333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 11.133333333333466,
+          "normal": 5.933333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 11.131944444444697,
+          "normal": 5.9319444444445715,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "smallmouth-bass",
+      "size": "max",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.949999999999975,
+          "normal": 5.749999999999985,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 8.083333333333313,
+          "normal": 5.883333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 8.076388888889054,
+          "normal": 5.876388888888987,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "smallmouth-bass",
+      "size": "max",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.950000000000124,
+          "normal": 5.749999999999985,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 11.083333333333464,
+          "normal": 5.883333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 11.07638888888914,
+          "normal": 5.876388888889014,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "brown-trout",
+      "size": "min",
+      "rod": 5,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.24999999999999,
+          "normal": 5.049999999999987,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 8.299999999999992,
+          "normal": 5.099999999999987,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 8.298611111111283,
+          "normal": 5.098611111111183,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "brown-trout",
+      "size": "min",
+      "rod": 5,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.250000000000089,
+          "normal": 5.049999999999987,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 10.300000000000091,
+          "normal": 5.099999999999987,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 10.29861111111134,
+          "normal": 5.0986111111112145,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "iwana",
+      "size": "min",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 6.749999999999981,
+          "normal": 4.649999999999989,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 6.849999999999981,
+          "normal": 4.7499999999999885,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 6.8541666666667975,
+          "normal": 4.754166666666736,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "iwana",
+      "size": "min",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.24999999999998,
+          "normal": 4.649999999999989,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.349999999999979,
+          "normal": 4.7499999999999885,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.354166666666812,
+          "normal": 4.75416666666675,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "iwana",
+      "size": "mid",
+      "rod": 10,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.783333333333318,
+          "normal": 5.783333333333318,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 5.833333333333318,
+          "normal": 5.833333333333318,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 5.826388888888991,
+          "normal": 5.826388888888991,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "iwana",
+      "size": "max",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.18333333333332,
+          "normal": 5.18333333333332,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 5.2166666666666535,
+          "normal": 5.2166666666666535,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 5.215277777777863,
+          "normal": 5.215277777777863,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "northern-pike",
+      "size": "min",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.24999999999998,
+          "normal": 4.049999999999991,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.333333333333313,
+          "normal": 4.133333333333324,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.333333333333479,
+          "normal": 4.133333333333378,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "northern-pike",
+      "size": "min",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.250000000000039,
+          "normal": 4.049999999999991,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.333333333333377,
+          "normal": 4.133333333333324,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.333333333333533,
+          "normal": 4.133333333333409,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "northern-pike",
+      "size": "max",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.033333333333312,
+          "normal": 4.8333333333333215,
+          "qte": 2,
+          "remaining": 1
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 8.516666666666666,
+          "normal": 5.2166666666666535,
+          "qte": 3,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 8.513888888889065,
+          "normal": 5.213888888888965,
+          "qte": 3,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "northern-pike",
+      "size": "max",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.033333333333411,
+          "normal": 4.8333333333333215,
+          "qte": 2,
+          "remaining": 1
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 13.016666666666893,
+          "normal": 5.2166666666666535,
+          "qte": 3,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 13.013888888889193,
+          "normal": 5.213888888889006,
+          "qte": 3,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "european-perch",
+      "size": "mid",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 3.4999999999999925,
+          "normal": 3.4999999999999925,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 3.516666666666659,
+          "normal": 3.516666666666659,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 3.5138888888889257,
+          "normal": 3.5138888888889257,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "european-perch",
+      "size": "mid",
+      "rod": 5,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|success|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 6.749999999999981,
+          "normal": 5.149999999999987,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 6.816666666666648,
+          "normal": 5.2166666666666535,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 6.805555555555686,
+          "normal": 5.205555555555636,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "european-perch",
+      "size": "mid",
+      "rod": 5,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|success|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.749999999999978,
+          "normal": 5.149999999999987,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.816666666666644,
+          "normal": 5.2166666666666535,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.8055555555557135,
+          "normal": 5.205555555555651,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "european-perch",
+      "size": "mid",
+      "rod": 5,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 6.749999999999981,
+          "normal": 5.149999999999987,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 6.816666666666648,
+          "normal": 5.2166666666666535,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 6.805555555555686,
+          "normal": 5.205555555555636,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "european-perch",
+      "size": "mid",
+      "rod": 5,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.749999999999978,
+          "normal": 5.149999999999987,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.816666666666644,
+          "normal": 5.2166666666666535,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.8055555555557135,
+          "normal": 5.205555555555651,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "european-perch",
+      "size": "max",
+      "rod": 5,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.199999999999987,
+          "normal": 4.999999999999988,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 8.333333333333327,
+          "normal": 5.13333333333332,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 8.333333333333506,
+          "normal": 5.133333333333407,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "european-perch",
+      "size": "max",
+      "rod": 5,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.200000000000086,
+          "normal": 4.999999999999988,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 10.333333333333426,
+          "normal": 5.13333333333332,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 10.333333333333563,
+          "normal": 5.133333333333438,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "walleye",
+      "size": "max",
+      "rod": 5,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|success|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 6.9666666666666455,
+          "normal": 4.766666666666655,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 6.999999999999979,
+          "normal": 4.799999999999988,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.000000000000136,
+          "normal": 4.800000000000067,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "walleye",
+      "size": "max",
+      "rod": 5,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|success|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.966666666666741,
+          "normal": 4.766666666666655,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 10.000000000000076,
+          "normal": 4.799999999999988,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 10.00000000000022,
+          "normal": 4.800000000000095,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "catfish",
+      "size": "min",
+      "rod": 10,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.650000000000059,
+          "normal": 6.449999999999982,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 9.716666666666729,
+          "normal": 6.516666666666649,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.708333333333545,
+          "normal": 6.508333333333446,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "catfish",
+      "size": "min",
+      "rod": 10,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 11.650000000000158,
+          "normal": 6.449999999999982,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 11.716666666666828,
+          "normal": 6.516666666666649,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 11.708333333333602,
+          "normal": 6.508333333333477,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "catfish",
+      "size": "mid",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.1166666666667,
+          "normal": 5.916666666666651,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.183333333333369,
+          "normal": 5.983333333333317,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.173611111111308,
+          "normal": 5.973611111111208,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "catfish",
+      "size": "mid",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 11.116666666666799,
+          "normal": 5.916666666666651,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 11.183333333333469,
+          "normal": 5.983333333333317,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 11.173611111111365,
+          "normal": 5.973611111111239,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "alligator-gar",
+      "size": "max",
+      "rod": 5,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|success|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.71666666666665,
+          "normal": 3.516666666666659,
+          "qte": 2,
+          "remaining": 1
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.199999999999977,
+          "normal": 3.899999999999991,
+          "qte": 3,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.194444444444586,
+          "normal": 3.8944444444444835,
+          "qte": 3,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 8,
+      "species": "alligator-gar",
+      "size": "max",
+      "rod": 5,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|success|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.71666666666668,
+          "normal": 3.516666666666659,
+          "qte": 2,
+          "remaining": 1
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 11.700000000000161,
+          "normal": 3.899999999999991,
+          "qte": 3,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 11.694444444444711,
+          "normal": 3.8944444444445248,
+          "qte": 3,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "black-bass",
+      "size": "mid",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.699999999999978,
+          "normal": 4.499999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.749999999999978,
+          "normal": 4.549999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.750000000000157,
+          "normal": 4.550000000000057,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "black-bass",
+      "size": "mid",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.700000000000061,
+          "normal": 4.499999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.750000000000064,
+          "normal": 4.549999999999989,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.750000000000213,
+          "normal": 4.550000000000088,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "black-bass",
+      "size": "max",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.416666666666646,
+          "normal": 4.216666666666657,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 7.4666666666666455,
+          "normal": 4.266666666666657,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.4722222222223715,
+          "normal": 4.272222222222271,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "black-bass",
+      "size": "max",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.416666666666714,
+          "normal": 4.216666666666657,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 9.466666666666717,
+          "normal": 4.266666666666657,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.472222222222427,
+          "normal": 4.272222222222302,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "smallmouth-bass",
+      "size": "min",
+      "rod": 5,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|success|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.233333333333372,
+          "normal": 6.033333333333317,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.400000000000047,
+          "normal": 6.199999999999983,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.402777777777981,
+          "normal": 6.202777777777881,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "smallmouth-bass",
+      "size": "min",
+      "rod": 5,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|success|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 11.233333333333471,
+          "normal": 6.033333333333317,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 11.400000000000146,
+          "normal": 6.199999999999983,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 11.402777777778038,
+          "normal": 6.202777777777912,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "smallmouth-bass",
+      "size": "min",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.933333333333357,
+          "normal": 5.733333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 9.133333333333367,
+          "normal": 5.933333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.13194444444464,
+          "normal": 5.93194444444454,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "smallmouth-bass",
+      "size": "min",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.933333333333456,
+          "normal": 5.733333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "line_break",
+          "wall": 11.133333333333466,
+          "normal": 5.933333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 11.131944444444697,
+          "normal": 5.9319444444445715,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "rainbow-trout",
+      "size": "mid",
+      "rod": 5,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|success|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.833333333333352,
+          "normal": 5.633333333333319,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 8.85000000000002,
+          "normal": 5.649999999999985,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 8.854166666666854,
+          "normal": 5.654166666666755,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "rainbow-trout",
+      "size": "mid",
+      "rod": 5,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|success|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.833333333333451,
+          "normal": 5.633333333333319,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 10.850000000000119,
+          "normal": 5.649999999999985,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 10.854166666666911,
+          "normal": 5.654166666666786,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "iwana",
+      "size": "min",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 6.749999999999981,
+          "normal": 4.649999999999989,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 6.849999999999981,
+          "normal": 4.7499999999999885,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 6.8541666666667975,
+          "normal": 4.754166666666736,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "iwana",
+      "size": "min",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.24999999999998,
+          "normal": 4.649999999999989,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.349999999999979,
+          "normal": 4.7499999999999885,
+          "qte": 1,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.354166666666812,
+          "normal": 4.75416666666675,
+          "qte": 1,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "iwana",
+      "size": "mid",
+      "rod": 10,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.783333333333318,
+          "normal": 5.783333333333318,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 5.833333333333318,
+          "normal": 5.833333333333318,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 5.826388888888991,
+          "normal": 5.826388888888991,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "iwana",
+      "size": "max",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|success|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.433333333333332,
+          "normal": 5.23333333333332,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 8.51666666666667,
+          "normal": 5.316666666666653,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 8.513888888889067,
+          "normal": 5.313888888888967,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "iwana",
+      "size": "max",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|success|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.433333333333431,
+          "normal": 5.23333333333332,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 10.516666666666769,
+          "normal": 5.316666666666653,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 10.513888888889124,
+          "normal": 5.313888888888998,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "iwana",
+      "size": "max",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.18333333333332,
+          "normal": 5.18333333333332,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 5.2166666666666535,
+          "normal": 5.2166666666666535,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 5.215277777777863,
+          "normal": 5.215277777777863,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "northern-pike",
+      "size": "max",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.899999999999983,
+          "normal": 3.6999999999999917,
+          "qte": 2,
+          "remaining": 1
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.933333333333308,
+          "normal": 4.633333333333322,
+          "qte": 3,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.930555555555718,
+          "normal": 4.630555555555615,
+          "qte": 3,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "northern-pike",
+      "size": "max",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.900000000000022,
+          "normal": 3.6999999999999917,
+          "qte": 2,
+          "remaining": 1
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 12.43333333333353,
+          "normal": 4.633333333333322,
+          "qte": 3,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 12.430555555555845,
+          "normal": 4.630555555555657,
+          "qte": 3,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "european-perch",
+      "size": "mid",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 3.4999999999999925,
+          "normal": 3.4999999999999925,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 3.516666666666659,
+          "normal": 3.516666666666659,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 3.5138888888889257,
+          "normal": 3.5138888888889257,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "walleye",
+      "size": "min",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|success|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.38333333333333,
+          "normal": 5.18333333333332,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 8.51666666666667,
+          "normal": 5.316666666666653,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 8.513888888889067,
+          "normal": 5.313888888888967,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "walleye",
+      "size": "min",
+      "rod": 1,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|success|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.383333333333429,
+          "normal": 5.18333333333332,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 10.516666666666769,
+          "normal": 5.316666666666653,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 10.513888888889124,
+          "normal": 5.313888888888998,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "walleye",
+      "size": "max",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 6.616666666666647,
+          "normal": 4.416666666666656,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 6.716666666666646,
+          "normal": 4.516666666666656,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 6.708333333333461,
+          "normal": 4.508333333333392,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "walleye",
+      "size": "max",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.616666666666724,
+          "normal": 4.416666666666656,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.716666666666729,
+          "normal": 4.516666666666656,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.708333333333545,
+          "normal": 4.50833333333342,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "catfish",
+      "size": "mid",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|success|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.766666666666644,
+          "normal": 4.566666666666656,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.883333333333311,
+          "normal": 4.683333333333322,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.875000000000161,
+          "normal": 4.67500000000006,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "catfish",
+      "size": "mid",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|success|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.766666666666731,
+          "normal": 4.566666666666656,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.883333333333404,
+          "normal": 4.683333333333322,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.875000000000217,
+          "normal": 4.675000000000091,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "alligator-gar",
+      "size": "mid",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.949999999999982,
+          "normal": 3.7499999999999916,
+          "qte": 2,
+          "remaining": 1
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.933333333333308,
+          "normal": 4.633333333333322,
+          "qte": 3,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.930555555555718,
+          "normal": 4.630555555555615,
+          "qte": 3,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "alligator-gar",
+      "size": "mid",
+      "rod": 5,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.950000000000024,
+          "normal": 3.7499999999999916,
+          "qte": 2,
+          "remaining": 1
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 12.43333333333353,
+          "normal": 4.633333333333322,
+          "qte": 3,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 12.430555555555845,
+          "normal": 4.630555555555657,
+          "qte": 3,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "arowana",
+      "size": "min",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 7.6333333333333115,
+          "normal": 4.433333333333323,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 7.683333333333311,
+          "normal": 4.483333333333323,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 7.687500000000155,
+          "normal": 4.487500000000055,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 32,
+      "species": "arowana",
+      "size": "min",
+      "rod": 1,
+      "reel": 10,
+      "strategy": "hold",
+      "key": "v05|alternating|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 9.633333333333391,
+          "normal": 4.433333333333323,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.683333333333394,
+          "normal": 4.483333333333323,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.687500000000211,
+          "normal": 4.487500000000086,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 60,
+      "species": "iwana",
+      "size": "mid",
+      "rod": 10,
+      "reel": 1,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.783333333333318,
+          "normal": 5.783333333333318,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 5.833333333333318,
+          "normal": 5.833333333333318,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 5.826388888888991,
+          "normal": 5.826388888888991,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 60,
+      "species": "iwana",
+      "size": "max",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|none|NA",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 5.18333333333332,
+          "normal": 5.18333333333332,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 5.2166666666666535,
+          "normal": 5.2166666666666535,
+          "qte": 0,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 5.208333333333418,
+          "normal": 5.208333333333418,
+          "qte": 0,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 60,
+      "species": "walleye",
+      "size": "min",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|other",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 8.933333333333357,
+          "normal": 5.733333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 9.033333333333362,
+          "normal": 5.833333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 9.02777777777797,
+          "normal": 5.827777777777871,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "distance": 60,
+      "species": "walleye",
+      "size": "min",
+      "rod": 10,
+      "reel": 5,
+      "strategy": "hold",
+      "key": "v05|failure|tap",
+      "results": [
+        {
+          "fps": 30,
+          "outcome": "line_break",
+          "wall": 10.933333333333456,
+          "normal": 5.733333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 60,
+          "outcome": "landed",
+          "wall": 11.033333333333461,
+          "normal": 5.833333333333318,
+          "qte": 2,
+          "remaining": 0
+        },
+        {
+          "fps": 144,
+          "outcome": "landed",
+          "wall": 11.027777777778027,
+          "normal": 5.827777777777902,
+          "qte": 2,
+          "remaining": 0
+        }
+      ]
+    }
+  ]
+}

@@ -19,11 +19,11 @@ export function createControls(canvas, joystick, knob, fishing = null) {
     state.steer = state.throttle = state.lookX = state.lookY = 0;
     joystick.hidden = true;
   }
-  function reset() {
+  function reset(event) {
     const interruptedPreparation = preparing;
     preparing = false;
     release();
-    fishing?.input.cancel();
+    fishing?.input.cancel(event?.timeStamp);
     if (interruptedPreparation) fishing?.onPreparationCancel?.();
   }
   canvas.addEventListener('pointerdown', event => {
@@ -103,9 +103,9 @@ export function createControls(canvas, joystick, knob, fishing = null) {
     cancelPreparation() { reset(); },
     setEnabled(next) { reset(); enabled = next; },
     setMode(next) { reset(); mode = next; },
-    read(dt) {
+    read(dt, frameEndTimestamp) {
       if (!enabled || preparing) return { steer: 0, throttle: 0, lookX: 0, lookY: 0 };
-      if (mode === 'fishing') fishing?.input.step(dt);
+      if (mode === 'fishing') fishing?.input.step(dt, frameEndTimestamp);
       if (pointer === null) {
         state.steer = Number(keys.has('ArrowRight') || keys.has('KeyD')) - Number(keys.has('ArrowLeft') || keys.has('KeyA'));
         state.throttle = Number(keys.has('ArrowUp') || keys.has('KeyW'));

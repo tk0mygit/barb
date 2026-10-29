@@ -116,3 +116,9 @@ export function expectedMobileResolution(implementation, profile) {
   const { pixelRatio } = implementation.calculate({ width, height, devicePixelRatio: dpr, coarsePointer: Boolean(touch) });
   return { pixelRatio, buffer: { width: Math.floor(width * pixelRatio), height: Math.floor(height * pixelRatio) }, aspect: width / height };
 }
+
+export function expectedMobileResourceCamera(aspect) {
+  const camera = new PerspectiveCamera(55, aspect, 0.1, 2400);
+  camera.position.set(10, 8.5, 38); camera.lookAt(10, 2.5, 2);
+  return { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(), aspect, fov: 55 };
+}

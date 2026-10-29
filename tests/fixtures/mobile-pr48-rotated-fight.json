@@ -1,0 +1,1853 @@
+{
+  "capturedProvenance": {
+    "run": 40857333041,
+    "artifact": 12891990139,
+    "base": "a9cae9fdb404d81a878d548aebe719f2adeefe7d",
+    "head": "254b384e577bf546cea0c9285db2236bb68c8bbe",
+    "validation": "37766e959f0ac1d15cbc6d9cedd2a654c0a75092"
+  },
+  "captures": {
+    "main": {
+      "target": "main",
+      "id": "rotated-fight",
+      "metrics": {
+        "viewport": {
+          "width": 844,
+          "height": 390
+        },
+        "dpr": 2,
+        "pixelRatio": 1.5,
+        "buffer": {
+          "width": 1266,
+          "height": 585
+        },
+        "pixels": 740610,
+        "resources": {
+          "calls": 39,
+          "triangles": 275876,
+          "geometries": 26,
+          "textures": 4,
+          "programs": 14
+        },
+        "actualResources": {
+          "calls": 37,
+          "triangles": 275852,
+          "geometries": 26,
+          "textures": 4,
+          "programs": 14
+        },
+        "resourceCamera": {
+          "position": [
+            10,
+            8.5,
+            38
+          ],
+          "quaternion": [
+            -0.08248053154489327,
+            0,
+            0,
+            0.9965926760297167
+          ],
+          "aspect": 2.164102564102564,
+          "fov": 55
+        },
+        "camera": {
+          "position": [
+            10,
+            2.15,
+            21.25
+          ],
+          "quaternion": [
+            -0.04012498610656769,
+            0,
+            0,
+            0.9991946684655337
+          ],
+          "aspect": 2.164102564102564
+        },
+        "cameraExpected": {
+          "position": [
+            10,
+            2.15,
+            21.25
+          ],
+          "quaternion": [
+            -0.04012498610656769,
+            0,
+            0,
+            0.9991946684655337
+          ],
+          "aspect": 2.164102564102564
+        },
+        "cameraFrames": [
+          {
+            "update": false,
+            "dt": 0,
+            "aspect": 0.46208530805687204,
+            "mode": "sailing",
+            "phase": "inactive",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "sailing",
+            "phase": "inactive",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "aim",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "aim",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "cast",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "cast",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "cast",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "bite",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.016,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -8
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -7.227413127368063
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -6.504182501457265
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -5.777164040147493
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -4.975063865167922
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -4.035247080794527
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -2.9897984090420486
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -2.9897984090420486
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -2.9897984090420486
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -2.9897984090420486
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -2.9897984090420486
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -2.9897984090420486
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -2.9897984090420486
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -2.9897984090420486
+            }
+          },
+          {
+            "update": false,
+            "dt": 0,
+            "aspect": 2.164102564102564,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -2.9897984090420486
+            }
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 844,
+          "height": 390
+        },
+        "phase": "fight",
+        "panel": {
+          "x": 22,
+          "y": 252,
+          "width": 320,
+          "height": 122,
+          "top": 252,
+          "right": 342,
+          "bottom": 374,
+          "left": 22
+        },
+        "occupancy": 11.860493377081054,
+        "reticle": {
+          "x": 416.15625,
+          "y": 183.5,
+          "width": 11.6875,
+          "height": 23,
+          "top": 183.5,
+          "right": 427.84375,
+          "bottom": 206.5,
+          "left": 416.15625
+        },
+        "meter": {
+          "x": 35,
+          "y": 317,
+          "width": 294,
+          "height": 22,
+          "top": 317,
+          "right": 329,
+          "bottom": 339,
+          "left": 35
+        },
+        "tension": 0.07832138574197522,
+        "state": "ファイト",
+        "warning": "長押しで巻く！",
+        "conditions": "アタリ時：昼の時間帯 · 推定水深 12.0m（深場）",
+        "pointerEvents": "none",
+        "hit": "scene",
+        "buttons": [
+          {
+            "id": "menu-button",
+            "x": 774,
+            "y": 22,
+            "width": 48,
+            "height": 48,
+            "top": 22,
+            "right": 822,
+            "bottom": 70,
+            "left": 774
+          },
+          {
+            "id": "return-button",
+            "x": 522,
+            "y": 334,
+            "width": 300,
+            "height": 40,
+            "top": 334,
+            "right": 822,
+            "bottom": 374,
+            "left": 522
+          }
+        ],
+        "header": {
+          "x": 22,
+          "y": 16,
+          "width": 800,
+          "height": 60,
+          "top": 16,
+          "right": 822,
+          "bottom": 76,
+          "left": 22
+        },
+        "notices": [],
+        "scrollWidth": 844
+      }
+    },
+    "pr": {
+      "target": "pr",
+      "id": "rotated-fight",
+      "metrics": {
+        "viewport": {
+          "width": 844,
+          "height": 390
+        },
+        "dpr": 2,
+        "pixelRatio": 1.5,
+        "buffer": {
+          "width": 1266,
+          "height": 585
+        },
+        "pixels": 740610,
+        "resources": {
+          "calls": 39,
+          "triangles": 275876,
+          "geometries": 26,
+          "textures": 4,
+          "programs": 14
+        },
+        "actualResources": {
+          "calls": 37,
+          "triangles": 275852,
+          "geometries": 26,
+          "textures": 4,
+          "programs": 14
+        },
+        "resourceCamera": {
+          "position": [
+            10,
+            8.5,
+            38
+          ],
+          "quaternion": [
+            -0.08248053154489327,
+            0,
+            0,
+            0.9965926760297167
+          ],
+          "aspect": 2.164102564102564,
+          "fov": 55
+        },
+        "camera": {
+          "position": [
+            10,
+            2.15,
+            21.25
+          ],
+          "quaternion": [
+            -0.0430075538402544,
+            0,
+            0,
+            0.9990747471098836
+          ],
+          "aspect": 2.164102564102564
+        },
+        "cameraExpected": {
+          "position": [
+            10,
+            2.15,
+            21.25
+          ],
+          "quaternion": [
+            -0.0430075538402544,
+            0,
+            0,
+            0.9990747471098836
+          ],
+          "aspect": 2.164102564102564
+        },
+        "cameraFrames": [
+          {
+            "update": false,
+            "dt": 0,
+            "aspect": 0.46208530805687204,
+            "mode": "sailing",
+            "phase": "inactive",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "sailing",
+            "phase": "inactive",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "ready",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "aim",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "aim",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "cast",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "cast",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "cast",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "lure",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "bite",
+            "preparing": false,
+            "tracking": null
+          },
+          {
+            "update": true,
+            "dt": 0.016,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -8
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -8.005566805125138
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -7.281913232758026
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -6.556307229003558
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -5.761674364214333
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -4.831025833727484
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -3.7888918192030374
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -2.7686179846215886
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -1.8793953948239839
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -1.1149072396970894
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -1.1199662577141645
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -1.1735080468306869
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -1.2211590566087658
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -1.2618266065910042
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -1.2986540893232572
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -1.3371142306165211
+            }
+          },
+          {
+            "update": true,
+            "dt": 0.25,
+            "aspect": 0.46208530805687204,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -1.381689407506844
+            }
+          },
+          {
+            "update": false,
+            "dt": 0,
+            "aspect": 2.164102564102564,
+            "mode": "fishing",
+            "phase": "fight",
+            "preparing": false,
+            "tracking": {
+              "x": 10,
+              "z": -1.381689407506844
+            }
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 844,
+          "height": 390
+        },
+        "phase": "fight",
+        "panel": {
+          "x": 22,
+          "y": 252,
+          "width": 320,
+          "height": 122,
+          "top": 252,
+          "right": 342,
+          "bottom": 374,
+          "left": 22
+        },
+        "occupancy": 11.860493377081054,
+        "reticle": {
+          "x": 416.15625,
+          "y": 183.5,
+          "width": 11.6875,
+          "height": 23,
+          "top": 183.5,
+          "right": 427.84375,
+          "bottom": 206.5,
+          "left": 416.15625
+        },
+        "meter": {
+          "x": 35,
+          "y": 317,
+          "width": 294,
+          "height": 22,
+          "top": 317,
+          "right": 329,
+          "bottom": 339,
+          "left": 35
+        },
+        "tension": 0.11812035612048005,
+        "state": "ファイト",
+        "warning": "長押しで巻く！",
+        "conditions": "アタリ時：昼の時間帯 · 推定水深 12.0m（深場）",
+        "pointerEvents": "none",
+        "hit": "scene",
+        "buttons": [
+          {
+            "id": "menu-button",
+            "x": 774,
+            "y": 22,
+            "width": 48,
+            "height": 48,
+            "top": 22,
+            "right": 822,
+            "bottom": 70,
+            "left": 774
+          },
+          {
+            "id": "return-button",
+            "x": 522,
+            "y": 334,
+            "width": 300,
+            "height": 40,
+            "top": 334,
+            "right": 822,
+            "bottom": 374,
+            "left": 522
+          }
+        ],
+        "header": {
+          "x": 22,
+          "y": 16,
+          "width": 800,
+          "height": 60,
+          "top": 16,
+          "right": 822,
+          "bottom": 76,
+          "left": 22
+        },
+        "notices": [],
+        "scrollWidth": 844
+      }
+    }
+  }
+}

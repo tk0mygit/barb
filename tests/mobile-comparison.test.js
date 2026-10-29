@@ -4,8 +4,9 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compareMobileCaptures, compareMobileCapturePair, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
-import { HISTORICAL_MOBILE_BASE, mobileGit, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera, assertMobileWorkingSource } from '../scripts/lib/mobile-comparison-source.js';
+import { compareMobileCaptures, compareMobileCapturesWithSources, compareMobileCapturePair, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
+import { HISTORICAL_MOBILE_BASE, mobileGit, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera,
+  expectedMobileResourceCamera, assertMobileWorkingSource } from '../scripts/lib/mobile-comparison-source.js';
 import { createCameraRig } from '../src/rendering/camera.js';
 import { validateMobileEvidence } from '../scripts/ci-summary.js';
 
@@ -30,6 +31,15 @@ const box = (x, y, width, height) => ({ x, y, width, height, left: x, right: x +
 function metadata(historical = false) {
   return { mode: historical ? 'historical-improvement' : 'regression', baseSha: historical ? HISTORICAL_MOBILE_BASE : MAIN,
     headSha: MAIN, validationSha: MAIN, implementations: { main: mobileSourceMetadata(historical ? legacy : current), pr: mobileSourceMetadata(current) } };
+}
+
+function sourceCameras(entries, implementation = current) {
+  for (const entry of entries) {
+    entry.metrics.cameraFrames = [{ update: false, dt: 0, aspect: entry.metrics.camera.aspect, mode: 'sailing', phase: 'inactive' }];
+    entry.metrics.camera = replayMobileCamera(implementation, entry.metrics.cameraFrames);
+    entry.metrics.cameraExpected = structuredClone(entry.metrics.camera);
+    entry.metrics.resourceCamera = expectedMobileResourceCamera(entry.metrics.camera.aspect);
+  }
 }
 // Synthetic records exercise the report's acceptance rules; these values are
 // never presented as browser measurements or substituted for E2E captures.
@@ -195,28 +205,29 @@ test('runtime tree, terrain/texture and build-input provenance is read from Git 
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('final gate requires all 34 pairs, their report, provenance and every image/record', () => {
+test('final gate requires all 34 pairs, their report, provenance and every image/record', async () => {
   const data = metadata(), [before, after] = captures();
+  sourceCameras([...before, ...after]);
   const files = Object.fromEntries(['comparison-metadata.json', 'main.json', 'pr.json', 'comparison.html', 'comparison.json',
     ...['main', 'pr'].flatMap(target => MOBILE_CAPTURE_IDS.flatMap(id => [`${target}-${id}.png`, `${target}-${id}.json`]))]
     .map(file => [`test-results/mobile-comparison/${file}`, 'synthetic-manifest-hash']));
   const payload = { record: { files }, mobile: { metadata: data, before, after,
-    comparison: { metadata: data, rows: compareMobileCaptures(before, after, data) } } };
-  assert.equal(validateMobileEvidence(payload, data), 34);
+    comparison: { metadata: data, rows: await compareMobileCapturesWithSources(before, after, data) } } };
+  assert.equal(await validateMobileEvidence(payload, data), 34);
   for (const file of Object.keys(files)) {
     const missing = structuredClone(payload); delete missing.record.files[file];
-    assert.throws(() => validateMobileEvidence(missing, data), /Missing mobile artifact/);
+    await assert.rejects(() => validateMobileEvidence(missing, data), /Missing mobile artifact/);
   }
   for (const key of ['baseSha', 'headSha', 'validationSha']) {
-    assert.throws(() => validateMobileEvidence(payload, { ...data, [key]: 'b'.repeat(40) }), /differs/);
+    await assert.rejects(() => validateMobileEvidence(payload, { ...data, [key]: 'b'.repeat(40) }), /differs/);
   }
   const partial = structuredClone(payload); partial.mobile.before.pop();
-  assert.throws(() => validateMobileEvidence(partial, data), /all 25 render and 9 HUD/);
+  await assert.rejects(() => validateMobileEvidence(partial, data), /all 25 render and 9 HUD/);
   const mixed = structuredClone(payload); mixed.mobile.comparison.rows[0].id = 'substituted';
-  assert.throws(() => validateMobileEvidence(mixed, data), /report differs/);
+  await assert.rejects(() => validateMobileEvidence(mixed, data), /report differs/);
   const incomplete = structuredClone(payload);
   incomplete.record.files['test-results/mobile-comparison/comparison-incomplete.json'] = 'hash';
-  assert.throws(() => validateMobileEvidence(incomplete, data), /Incomplete mobile comparison/);
+  await assert.rejects(() => validateMobileEvidence(incomplete, data), /Incomplete mobile comparison/);
 });
 
 test('a local selected pair keeps resource/HUD checks while the full report still requires all 34', () => {
@@ -351,6 +362,7 @@ test('HTML/JSON retain all 34 image pairs, measurements, purpose, base and HEAD 
   try {
     const [before, after] = captures(), image = fileURLToPath(new URL('./fixtures/fish-assets/transparent-test.png', import.meta.url));
     for (const entry of [...before, ...after]) entry.image = image;
+    sourceCameras([...before, ...after]);
     const output = join(dir, 'comparison.html'); await writeMobileComparison(before, after, output, metadata());
     const json = JSON.parse(await readFile(join(dir, 'comparison.json'), 'utf8')), html = await readFile(output, 'utf8');
     assert.equal(json.metadata.mode, 'regression'); assert.equal(json.metadata.baseSha, MAIN); assert.equal(json.metadata.headSha, MAIN);

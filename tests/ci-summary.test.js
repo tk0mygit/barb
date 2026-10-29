@@ -3,10 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { BUILD_STEPS, E2E_STEPS, planSummary, resultSummary, validateAggregate, writeSummary } from '../scripts/ci-summary.js';
 import { executionPlan, MOBILE_SPEC, splitSpecs } from '../scripts/ci-e2e.js';
 import { classifyChanges, L1_GROUPS, listBrowserSpecs, SMOKE_SPECS } from '../scripts/ci-risk.js';
 import { artifactName, fileManifest, readRecord, recordJob, validationContext } from '../scripts/lib/ci-artifacts.js';
+import { mobileGateFixture } from './helpers/mobile-gate-fixture.js';
+import { readMobileImplementation, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
 
 const SHA = 'a'.repeat(40);
 const inventory = listBrowserSpecs();
@@ -19,9 +23,9 @@ function report(specs) {
     tests: [{ projectName: '', expectedStatus: 'passed', status: 'expected', results: [{ status: 'passed', retry: 0 }] }] })) }] };
 }
 
-function fixture({ level = 'L2', eventName = 'workflow_dispatch', specs = inventory } = {}) {
-  const plan = { schemaVersion: 1, eventName, prNumber: 42, headSha: SHA,
-    baseSha: eventName === 'pull_request' ? 'b'.repeat(40) : null, validationSha: SHA,
+function fixture({ level = 'L2', eventName = 'workflow_dispatch', specs = inventory, mobile } = {}) {
+  const plan = { schemaVersion: 1, eventName, prNumber: 42, headSha: mobile?.metadata.headSha ?? SHA,
+    baseSha: mobile?.metadata.baseSha ?? (eventName === 'pull_request' ? 'b'.repeat(40) : null), validationSha: mobile?.metadata.validationSha ?? SHA,
     validationRef: eventName === 'pull_request' ? 'refs/pull/42/merge' : 'refs/heads/main',
     level, runE2E: level !== 'L0', deploy: eventName === 'push',
     reasons: ['fixture selection'], changes: [{ status: 'M', paths: ['scripts/ci-e2e.js'] }],
@@ -49,6 +53,10 @@ function fixture({ level = 'L2', eventName = 'workflow_dispatch', specs = invent
       result: { lane, context: clone(context), specs: clone(selected), executed: true, status: 'passed',
         passedTests: selected.length, collectedTests: selected.length, exitCode: 0, signal: null,
         buildRecordHash: build.recordHash, executionMs: 1250, collectionMs: 100 } };
+    if (lane === 'mobile' && mobile) {
+      lanes[lane].mobile = { metadata: mobile.metadata, before: mobile.before, after: mobile.after, comparison: mobile.comparison };
+      lanes[lane].record.files = clone(mobile.files);
+    }
   }
   return { plan, context, execution, inventory, build, needs, lanes };
 }
@@ -65,70 +73,104 @@ test('all 25 specs are partitioned exactly, and new specs default to regular', (
   assert.deepEqual(lanes.mobile, [MOBILE_SPEC]);
 });
 
-test('original risk plan and full inventory cannot be weakened by the split plan', () => {
+test('original risk plan and full inventory cannot be weakened by the split plan', async () => {
   for (const mutate of [
     input => input.execution.inventory.pop(), input => input.execution.lanes.regular.pop(),
     input => input.execution.lanes.mobile.push(input.execution.lanes.regular[0]),
     input => input.execution.planHash = 'different-plan', input => input.build.plan.level = 'L1',
   ]) {
     const input = fixture(); mutate(input);
-    assert.throws(() => validateAggregate(input), /plan differs|Inconsistent execution plan/);
+    await assert.rejects(() => validateAggregate(input), /plan differs|Inconsistent execution plan/);
   }
 });
 
-test('both collection and execution ID unions match the original selection exactly once', () => {
-  const input = fixture(), result = validateAggregate(input);
+test('both collection and execution ID unions match the original selection exactly once', async () => {
+  const input = fixture(), result = await validateAggregate(input);
   assert.equal(result.passedTests, inventory.length);
   assert.equal(result.laneResults.regular.passedTests, inventory.length - 1);
   assert.equal(result.laneResults.mobile.passedTests, 1);
   assert(resultSummary({ plan: input.plan, result }).includes(`${inventory.length} tests、収集・実行ID`));
 });
 
-test('either successful lane cannot replace failed, cancelled, skipped or missing required jobs', () => {
+test('the final aggregate awaits real-SHA replay for the valid rotated FIGHT difference', async () => {
+  const mobile = await mobileGateFixture(), input = fixture({ eventName: 'pull_request', mobile });
+  assert.notDeepEqual(mobile.before.find(e => e.id === 'rotated-fight').metrics.camera,
+    mobile.after.find(e => e.id === 'rotated-fight').metrics.camera);
+  const pending = validateAggregate(input); assert.equal(typeof pending.then, 'function');
+  const result = await pending;
+  assert.equal(result.mobilePairs, 34); assert.equal(result.passedTests, inventory.length);
+});
+
+test('source-backed final gate rejects forged states, reports, provenance and incomplete lanes', async () => {
+  const original = fixture({ eventName: 'pull_request', mobile: await mobileGateFixture() });
+  const source = await readMobileImplementation(original.plan.validationSha);
+  const cases = [
+    ['camera', p => { const e = p.mobile.after.find(e => e.id === 'rotated-fight'); e.metrics.camera.quaternion[0] += .01;
+      e.metrics.cameraExpected = clone(e.metrics.camera); }, /camera quaternion\[0\] differs from source/],
+    ['tracking', p => { const e = p.mobile.after.find(e => e.id === 'rotated-fight'); e.metrics.cameraFrames.at(-1).tracking.z += .25;
+      e.metrics.camera = replayMobileCamera(source, e.metrics.cameraFrames); e.metrics.cameraExpected = clone(e.metrics.camera); }, /tracking z: differs from source FIGHT replay/],
+    ['tension', p => { p.mobile.after.find(e => e.id === 'rotated-fight').layout.tension += .01; }, /HUD tension: differs from source FIGHT replay/],
+    ['source', p => { p.mobile.metadata.implementations.pr.cameraBlob = 'b'.repeat(40); }, /implementation provenance differs/],
+    ['comparison', p => { p.mobile.comparison.rows[0].id = 'forged-row'; }, /report differs/],
+    ['capture ID', p => { p.mobile.after[0].id = 'substituted-capture'; }, /Missing\/duplicate mobile capture/],
+    ['missing PNG', p => { delete p.record.files['test-results/mobile-comparison/pr-rotated-fight.png']; }, /Missing mobile artifact/],
+    ['missing JSON', p => { delete p.record.files['test-results/mobile-comparison/main-rotated-fight.json']; }, /Missing mobile artifact/],
+  ];
+  for (const [label, mutate, expected] of cases) {
+    const input = clone(original); mutate(input.lanes.mobile);
+    await assert.rejects(validateAggregate(input), expected, label);
+  }
+  const regular = clone(original); regular.needs.e2e_regular.result = 'failure';
+  await assert.rejects(validateAggregate(regular), /Required job incomplete: e2e_regular/);
+  const mobile = clone(original); mobile.lanes.mobile.result.executed = false;
+  await assert.rejects(validateAggregate(mobile), /No executed E2E tests/);
+});
+
+test('either successful lane cannot replace failed, cancelled, skipped or missing required jobs', async () => {
   for (const job of ['build', 'e2e_regular', 'e2e_mobile']) {
     for (const outcome of ['failure', 'cancelled', 'skipped', undefined]) {
       const input = fixture(); input.needs[job].result = outcome;
-      assert.throws(() => validateAggregate(input), /Required job incomplete/);
+      await assert.rejects(() => validateAggregate(input), /Required job incomplete/);
     }
     const input = fixture(); delete input.needs[job];
-    assert.throws(() => validateAggregate(input), /Missing or unexpected required job/);
+    await assert.rejects(() => validateAggregate(input), /Missing or unexpected required job/);
   }
 });
 
-test('missing, failed, interrupted or unexecuted lane records fail even if needs says success', () => {
+test('missing, failed, interrupted or unexecuted lane records fail even if needs says success', async () => {
   for (const lane of ['regular', 'mobile']) {
     const missing = fixture(); delete missing.lanes[lane];
-    assert.throws(() => validateAggregate(missing), /Missing .* validation artifact/);
+    await assert.rejects(() => validateAggregate(missing), /Missing .* validation artifact/);
     for (const status of ['failed', 'interrupted', 'running', 'not-run', 'skipped', undefined]) {
       const input = fixture(); input.lanes[lane].result.status = status;
-      assert.throws(() => validateAggregate(input), /Selected E2E did not complete/);
+      await assert.rejects(() => validateAggregate(input), /Selected E2E did not complete/);
     }
     for (const mutate of [
       payload => payload.result.executed = false, payload => payload.result.signal = 'SIGTERM',
       payload => payload.result.exitCode = 1, payload => payload.result.passedTests = 999,
       payload => payload.record.jobStatus = 'cancelled',
     ]) {
-      const input = fixture(); mutate(input.lanes[lane]); assert.throws(() => validateAggregate(input));
+      const input = fixture(); mutate(input.lanes[lane]); await assert.rejects(() => validateAggregate(input));
     }
   }
 });
 
-test('missing or substituted IDs cannot pass by keeping the same passing test count', () => {
+test('missing or substituted IDs cannot pass by keeping the same passing test count', async () => {
   for (const type of ['collection', 'report']) {
     for (const mutate of [
       specs => specs.pop(), specs => specs[0].id = 'unexpected-ID',
       specs => specs.push({ ...clone(specs[0]), id: 'extra-ID' }), specs => specs[1].id = specs[0].id,
     ]) {
       const input = fixture(); mutate(input.lanes.regular[type].suites[0].specs);
-      assert.throws(() => validateAggregate(input), /IDs|identities|specs differ|tests differ/);
+      await assert.rejects(() => validateAggregate(input), /IDs|identities|specs differ|tests differ/);
     }
   }
   const input = fixture();
   input.lanes.mobile.collection.suites[0].specs[0].id = input.lanes.regular.collection.suites[0].specs[0].id;
-  assert.throws(() => validateAggregate(input), /Lane collection differs/);
+  await assert.rejects(() => validateAggregate(input), /Lane collection differs/);
 });
 
-test('skip, expected failure, retry and zero execution fail at the final gate', () => {
+test('skip, expected failure, retry and zero execution fail at the final gate', async () => {
   for (const mutate of [
     entry => entry.expectedStatus = 'skipped', entry => entry.expectedStatus = 'failed',
     entry => entry.status = 'flaky', entry => entry.results = [],
@@ -136,43 +178,43 @@ test('skip, expected failure, retry and zero execution fail at the final gate', 
     entry => entry.results[0].status = 'skipped',
   ]) {
     const input = fixture(); mutate(input.lanes.mobile.report.suites[0].specs[0].tests[0]);
-    assert.throws(() => validateAggregate(input));
+    await assert.rejects(() => validateAggregate(input));
   }
 });
 
-test('all required install/unit/build/setup steps and diagnostic uploads must succeed', () => {
+test('all required install/unit/build/setup steps and diagnostic uploads must succeed', async () => {
   for (const [job, names] of [['build', BUILD_STEPS], ['regular', E2E_STEPS], ['mobile', E2E_STEPS]]) {
     for (const name of names) for (const outcome of ['failure', 'cancelled', 'skipped', undefined]) {
       const input = fixture();
       (job === 'build' ? input.build : input.lanes[job]).record.steps[name].outcome = outcome;
-      assert.throws(() => validateAggregate(input), /Required step incomplete/);
+      await assert.rejects(() => validateAggregate(input), /Required step incomplete/);
     }
     const input = fixture(); delete input.needs[job === 'build' ? job : `e2e_${job}`].outputs.artifact_id;
-    assert.throws(() => validateAggregate(input), /Missing uploaded artifact ID/);
+    await assert.rejects(() => validateAggregate(input), /Missing uploaded artifact ID/);
   }
   const duplicate = fixture(); duplicate.needs.e2e_mobile.outputs.artifact_id = duplicate.needs.e2e_regular.outputs.artifact_id;
-  assert.throws(() => validateAggregate(duplicate), /Duplicate artifact IDs/);
+  await assert.rejects(() => validateAggregate(duplicate), /Duplicate artifact IDs/);
 });
 
-test('base/head/validation SHA, ref, run and attempt mismatches are rejected for every lane', () => {
+test('base/head/validation SHA, ref, run and attempt mismatches are rejected for every lane', async () => {
   for (const job of ['build', 'regular', 'mobile']) for (const kind of ['record', 'result']) {
     for (const key of ['baseSha', 'headSha', 'validationSha', 'validationRef', 'eventName', 'runId', 'runAttempt']) {
       const input = fixture();
       (job === 'build' ? input.build : input.lanes[job])[kind].context[key] = 'mismatch';
-      assert.throws(() => validateAggregate(input), /provenance differs/);
+      await assert.rejects(() => validateAggregate(input), /provenance differs/);
     }
   }
   const input = fixture(); input.lanes.mobile.result.buildRecordHash = 'another-build';
-  assert.throws(() => validateAggregate(input), /different build artifact/);
+  await assert.rejects(() => validateAggregate(input), /different build artifact/);
 });
 
-test('L1 preserves both smoke specs and related selection, with no unnecessary mobile job', () => {
+test('L1 preserves both smoke specs and related selection, with no unnecessary mobile job', async () => {
   const input = fixture({ eventName: 'pull_request', level: 'L1', specs: [...SMOKE_SPECS, 'tests/browser/audio.spec.js'].sort() });
   assert.deepEqual(input.execution.lanes.mobile, []);
   assert.equal(input.needs.e2e_mobile.result, 'skipped');
-  assert.equal(validateAggregate(input).passedTests, 3);
+  assert.equal((await validateAggregate(input)).passedTests, 3);
   const unexpected = clone(input); unexpected.needs.e2e_mobile.result = 'success';
-  assert.throws(() => validateAggregate(unexpected), /Unplanned E2E job/);
+  await assert.rejects(() => validateAggregate(unexpected), /Unplanned E2E job/);
   const future = [...input.plan.specs, MOBILE_SPEC].sort();
   const lanes = splitSpecs({ ...input.plan, specs: future }, inventory);
   assert.deepEqual(lanes.mobile, [MOBILE_SPEC]); assert.deepEqual(lanes.regular, input.plan.specs);
@@ -185,30 +227,30 @@ test('L1 preserves both smoke specs and related selection, with no unnecessary m
     specs: future.filter(file => file !== missing) }, inventory), /Missing smoke/);
 });
 
-test('L0 and main push require explicit non-execution and reject unintended E2E', () => {
+test('L0 and main push require explicit non-execution and reject unintended E2E', async () => {
   for (const eventName of ['pull_request', 'push']) {
-    const input = fixture({ level: 'L0', eventName }), result = validateAggregate(input);
+    const input = fixture({ level: 'L0', eventName }), result = await validateAggregate(input);
     const summary = resultSummary({ plan: input.plan, result });
     assert.match(summary, eventName === 'push' ? /E2E未実行（main push設計）/ : /E2E未実行（L0設計）/);
     assert.doesNotMatch(summary, /E2E: 実行成功|34組完了/);
     const missing = clone(input); missing.build.result.status = 'passed';
-    assert.throws(() => validateAggregate(missing), /Missing explicit E2E non-execution/);
+    await assert.rejects(() => validateAggregate(missing), /Missing explicit E2E non-execution/);
     const unexpected = clone(input); unexpected.build.result.executed = true;
-    assert.throws(() => validateAggregate(unexpected), /unexpectedly executed E2E/);
+    await assert.rejects(() => validateAggregate(unexpected), /unexpectedly executed E2E/);
   }
 });
 
-test('main push Pages requires the build artifact and dispatch has no Pages artifact', () => {
+test('main push Pages requires the build artifact and dispatch has no Pages artifact', async () => {
   for (const outcome of ['failure', 'cancelled', 'skipped', undefined]) {
     const input = fixture({ level: 'L0', eventName: 'push' }); input.build.record.steps.pages.outcome = outcome;
-    assert.throws(() => validateAggregate(input), /Required step incomplete: build\/pages/);
+    await assert.rejects(() => validateAggregate(input), /Required step incomplete: build\/pages/);
   }
   const missing = fixture({ level: 'L0', eventName: 'push' }); delete missing.needs.build.outputs.pages_artifact_id;
-  assert.throws(() => validateAggregate(missing), /Missing Pages artifact ID/);
+  await assert.rejects(() => validateAggregate(missing), /Missing Pages artifact ID/);
   const dispatch = fixture(); dispatch.build.record.steps.pages.outcome = 'success';
-  assert.throws(() => validateAggregate(dispatch), /Unexpected Pages artifact upload/);
+  await assert.rejects(() => validateAggregate(dispatch), /Unexpected Pages artifact upload/);
   const noDist = fixture(); noDist.build.record.files = {};
-  assert.throws(() => validateAggregate(noDist), /Missing built dist/);
+  await assert.rejects(() => validateAggregate(noDist), /Missing built dist/);
 });
 
 test('artifact manifests reject missing, modified, added files and SHA/job/run mixing', t => {
@@ -244,17 +286,40 @@ test('plan includes original reasons, full selected spec list and distinct sourc
   plan.reasons = ['<img src=x>&`\n\r']; assert.match(planSummary(plan), /&lt;img src=x&gt;&amp;&#96;&#10;&#13;/);
 });
 
-test('final writer reports failed/cancelled setup without claiming E2E success', t => {
+test('final writer reports failed/cancelled setup without claiming E2E success', async t => {
   const cwd = mkdtempSync(path.join(tmpdir(), 'barb-summary-'));
   const previous = process.cwd(), log = console.log;
   t.after(() => { process.chdir(previous); console.log = log; rmSync(cwd, { recursive: true, force: true }); });
   process.chdir(cwd); console.log = () => {};
   for (const status of ['failure', 'cancelled']) {
     const summary = path.join(cwd, `${status}.md`);
-    assert.throws(() => writeSummary('result', { CI_STEPS: '{}', CI_JOB_STATUS: status, GITHUB_STEP_SUMMARY: summary }), /Required gate step/);
+    await assert.rejects(() => writeSummary('result', { CI_STEPS: '{}', CI_JOB_STATUS: status, GITHUB_STEP_SUMMARY: summary }), /Required gate step/);
     assert.match(readFileSync(summary, 'utf8'), /E2E成功は確認できません/);
     assert.doesNotMatch(readFileSync(summary, 'utf8'), /検証: 成功|E2E: 実行成功/);
   }
+});
+
+test('summary CLI awaits result rejection, exits nonzero and preserves plan/record modes', t => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'barb-summary-cli-'));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  mkdirSync(path.join(cwd, '.ci'));
+  writeFileSync(path.join(cwd, '.ci/plan.json'), JSON.stringify(fixture().plan));
+  const script = fileURLToPath(new URL('../scripts/ci-summary.js', import.meta.url));
+  const summary = path.join(cwd, 'summary.md');
+  const environment = { ...process.env, GITHUB_RUN_ID: '42', GITHUB_RUN_ATTEMPT: '1', GITHUB_SHA: SHA,
+    CI_STEPS: JSON.stringify(steps(['checkout', 'node', 'install', 'download'])), CI_JOB_STATUS: 'success',
+    CI_RECORD_JOB: 'build', GITHUB_STEP_SUMMARY: summary };
+  for (const mode of ['plan', 'record']) {
+    const child = spawnSync(process.execPath, [script, mode], { cwd, env: environment, encoding: 'utf8' });
+    assert.equal(child.status, 0, child.stderr);
+    assert.doesNotMatch(child.stdout, /検証: 成功|E2E: 実行成功/);
+  }
+  assert.equal(JSON.parse(readFileSync(path.join(cwd, '.ci/job-record.json'), 'utf8')).job, 'build');
+  const child = spawnSync(process.execPath, [script, 'result'], { cwd, env: environment, encoding: 'utf8' });
+  assert.equal(child.status, 1, child.stderr); assert.match(child.stderr, /ENOENT/);
+  assert.match(child.stdout, /失敗・未完了/); assert.match(readFileSync(summary, 'utf8'), /E2E成功は確認できません/);
+  assert.doesNotMatch(child.stdout, /検証: 成功|E2E: 実行成功/);
+  assert.doesNotMatch(child.stderr, /UnhandledPromiseRejection|unhandledRejection/);
 });
 
 const workflow = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8').replace(/^\s*#.*$/gm, '');

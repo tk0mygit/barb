@@ -6,7 +6,7 @@ import { executionPlan, identities, revalidatePlan, reportTests, validateCollect
   validateExecution, validateLaneCollection } from './ci-e2e.js';
 import { listBrowserSpecs } from './ci-risk.js';
 import { artifactName, hash, LANES, readRecord, recordJob } from './lib/ci-artifacts.js';
-import { compareMobileCaptures, MOBILE_CAPTURE_IDS } from './compare-mobile-performance.mjs';
+import { compareMobileCapturesWithSources, MOBILE_CAPTURE_IDS } from './compare-mobile-performance.mjs';
 
 const quote = value => `<code>${String(value ?? 'unknown').replaceAll('&', '&amp;').replaceAll('<', '&lt;')
   .replaceAll('>', '&gt;').replaceAll('`', '&#96;').replaceAll('\n', '&#10;').replaceAll('\r', '&#13;')}</code>`;
@@ -46,7 +46,7 @@ function validateJob(payload, job, context, requiredSteps) {
   assert.deepEqual(payload.result.context, context, 'Result SHA/ref/run provenance differs');
 }
 
-export function validateMobileEvidence(payload, plan) {
+export async function validateMobileEvidence(payload, plan) {
   const { metadata, before, after, comparison } = payload.mobile;
   for (const key of ['baseSha', 'headSha', 'validationSha']) {
     assert.equal(metadata[key], plan[key], `Mobile comparison ${key} differs`);
@@ -54,19 +54,19 @@ export function validateMobileEvidence(payload, plan) {
   assert.equal(metadata.mode, 'regression', 'Unexpected mobile comparison mode');
   assert.equal(metadata.implementations.main.sha, plan.baseSha, 'Mobile base implementation SHA differs');
   assert.equal(metadata.implementations.pr.sha, plan.validationSha, 'Mobile validation implementation SHA differs');
-  const rows = compareMobileCaptures(before, after, metadata);
-  assert.deepEqual(comparison, { metadata, rows }, 'Mobile comparison report differs from captures');
   const prefix = 'test-results/mobile-comparison/';
   const required = ['comparison-metadata.json', 'main.json', 'pr.json', 'comparison.html', 'comparison.json',
     ...['main', 'pr'].flatMap(target => MOBILE_CAPTURE_IDS.flatMap(id => [`${target}-${id}.png`, `${target}-${id}.json`]))];
   for (const file of required) assert(payload.record.files[prefix + file], `Missing mobile artifact: ${file}`);
   assert(!payload.record.files[prefix + 'comparison-incomplete.json'], 'Incomplete mobile comparison');
+  const rows = await compareMobileCapturesWithSources(before, after, metadata);
+  assert.deepEqual(comparison, { metadata, rows }, 'Mobile comparison report differs from captures');
   return rows.length;
 }
 
 // This validates the raw collection/execution reports again at the final gate.
 // Counts in result.json are evidence to check, never the coverage oracle.
-export function validateAggregate({ plan, execution, inventory, context, needs, build, lanes }) {
+export async function validateAggregate({ plan, execution, inventory, context, needs, build, lanes }) {
   assert.deepEqual(Object.keys(needs).sort(), ['build', 'e2e_mobile', 'e2e_regular'], 'Missing or unexpected required job');
   assert.equal(needs.build.result, 'success', 'Required job incomplete: build');
   const active = LANES.filter(lane => execution.lanes[lane]?.length > 0);
@@ -129,7 +129,7 @@ export function validateAggregate({ plan, execution, inventory, context, needs, 
     collectedUnion.push(...collected);
     executedUnion.push(...reportTests(payload.report));
     laneResults[lane] = { passedTests: passed, executionMs: result.executionMs, collectionMs: result.collectionMs };
-    if (lane === 'mobile' && plan.eventName === 'pull_request') mobilePairs = validateMobileEvidence(payload, plan);
+    if (lane === 'mobile' && plan.eventName === 'pull_request') mobilePairs = await validateMobileEvidence(payload, plan);
   }
   for (const [name, tests] of [['collection', collectedUnion], ['execution', executedUnion]]) {
     assert.equal(new Set(tests.map(test => test.key)).size, tests.length, `Duplicate ${name} IDs across lanes`);
@@ -138,7 +138,7 @@ export function validateAggregate({ plan, execution, inventory, context, needs, 
   return { passedTests: expected.length, laneResults, mobilePairs };
 }
 
-export function verifyArtifacts({ cwd = process.cwd(), env = process.env,
+export async function verifyArtifacts({ cwd = process.cwd(), env = process.env,
   directory = path.join(cwd, '.ci-artifacts') } = {}) {
   // The final checkout/event, not a downloaded result, anchors all provenance.
   const localPlan = JSON.parse(readFileSync(path.join(directory,
@@ -175,7 +175,7 @@ export function verifyArtifacts({ cwd = process.cwd(), env = process.env,
       }
     }
   }
-  const result = validateAggregate({ plan: localPlan, execution: build.execution, context,
+  const result = await validateAggregate({ plan: localPlan, execution: build.execution, context,
     inventory: listBrowserSpecs(cwd), needs: JSON.parse(env.CI_NEEDS), build, lanes });
   return { plan: localPlan, result };
 }
@@ -195,7 +195,7 @@ export function resultSummary({ plan, result, env = process.env }) {
         runAttempt: env.GITHUB_RUN_ATTEMPT, validationSha: plan.validationSha }, job))).join(', ')}`] : []), ''].join('\n');
 }
 
-export function writeSummary(mode, env = process.env) {
+export async function writeSummary(mode, env = process.env) {
   const read = name => JSON.parse(readFileSync(path.join('.ci', name), 'utf8'));
   let summary;
   let failure;
@@ -211,7 +211,7 @@ export function writeSummary(mode, env = process.env) {
         assert.equal(steps[name]?.outcome, 'success', `Required gate step incomplete: ${name}`);
       }
       assert.equal(env.CI_JOB_STATUS, 'success', 'Final job failed or was cancelled');
-      summary = resultSummary(verifyArtifacts({ env }));
+      summary = resultSummary(await verifyArtifacts({ env }));
     }
   } catch (error) {
     failure = error;
@@ -223,6 +223,6 @@ export function writeSummary(mode, env = process.env) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  try { writeSummary(process.argv[2]); }
+  try { await writeSummary(process.argv[2]); }
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }
