@@ -2,7 +2,10 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
-import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, replayMobileCamera } from './lib/mobile-comparison-source.js';
+import { isDeepStrictEqual } from 'node:util';
+import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, replayMobileCamera,
+  mobileGit, expectedMobileResourceCamera } from './lib/mobile-comparison-source.js';
+import { verifyMobileFightCapture } from './lib/mobile-fight-replay.js';
 
 export const MOBILE_COMPARISON_MODES = ['regression', 'historical-improvement'];
 // One reviewed product-source transition, not a per-PR resource allowance.
@@ -91,9 +94,13 @@ function checkUpperCastBiteLayout(s, id) {
   assert.deepEqual(back, { id: 'return-button', ...box(actionLeft, actionTop + 38, (actionWidth - 8) / 2, 50) }, `${id}: cast return button placement`);
 }
 
-export function compareMobileCaptures(before, after, metadata) {
+function checkMetadata(metadata) {
   assert(MOBILE_COMPARISON_MODES.includes(metadata.mode), 'Unknown mobile comparison mode');
   for (const key of ['baseSha', 'headSha', 'validationSha']) assert.match(metadata[key] ?? '', /^[a-f0-9]{40}$/, `Missing ${key}`);
+}
+
+export function compareMobileCaptures(before, after, metadata, sources) {
+  checkMetadata(metadata);
   if (metadata.mode === 'historical-improvement') {
     assert.equal(metadata.baseSha, HISTORICAL_MOBILE_BASE, 'Historical comparison requires the explicit pre-4C-2A SHA');
     assert.equal(metadata.implementations.main.resolutionModel, 'legacy-1.75');
@@ -102,12 +109,81 @@ export function compareMobileCaptures(before, after, metadata) {
   assert.equal(before.length, 34, 'Expected all 25 render and 9 HUD captures');
   assert.equal(before.length, after.length);
   for (const entries of [before, after]) assert.deepEqual(entries.map(c => c.id).sort(), [...MOBILE_CAPTURE_IDS].sort(), 'Missing/duplicate mobile capture');
-  return before.map(b => compareMobileCapturePair(b, after.find(a => a.id === b.id), metadata));
+  return before.map(b => compareMobileCapturePair(b, after.find(a => a.id === b.id), metadata, sources));
+}
+
+// Also used by selected local pairs. Serialized cameraExpected is never the
+// authority: both camera and FIGHT are replayed from each exact Git SHA.
+export async function verifyMobileSourceCapture(implementation, entry) {
+  const m = entry.metrics, camera = replayMobileCamera(implementation, m.cameraFrames);
+  assert.equal(camera.aspect, m.viewport.width / m.viewport.height, `${entry.id}: source camera viewport`);
+  checkCamera(m.camera, camera, entry.id);
+  if (m.cameraExpected) checkCamera(m.cameraExpected, camera, `${entry.id}: recorded expected`);
+  checkCamera(m.resourceCamera, expectedMobileResourceCamera(camera.aspect), `${entry.id}: resource camera`);
+  assert.equal(m.resourceCamera.fov, 55, `${entry.id}: resource camera FOV`);
+  return { camera, fight: await verifyMobileFightCapture(implementation, entry) };
+}
+
+async function readComparisonSources(metadata) {
+  checkMetadata(metadata);
+  assert.equal(metadata.implementations.main.sha, metadata.baseSha, 'main: base SHA differs');
+  assert.equal(metadata.implementations.pr.sha, metadata.validationSha, 'pr: validation SHA differs');
+  if (metadata.validationSha !== metadata.headSha) {
+    const parents = (await mobileGit('show', '-s', '--format=%P', metadata.validationSha)).split(' ');
+    assert.deepEqual(parents, [metadata.baseSha, metadata.headSha], 'Validation SHA is not the recorded base/HEAD merge');
+  } else if (metadata.baseSha !== metadata.headSha) {
+    assert.equal(await mobileGit('merge-base', metadata.baseSha, metadata.headSha), metadata.baseSha, 'Base is not an ancestor of local HEAD');
+  }
+  const implementations = {};
+  for (const [target, sha] of [['main', metadata.baseSha], ['pr', metadata.validationSha]]) {
+    implementations[target] = await readMobileImplementation(sha);
+    assert.deepEqual(metadata.implementations[target], mobileSourceMetadata(implementations[target]), `${target}: implementation provenance differs`);
+  }
+  return { implementations, verified: new Map() };
+}
+
+async function verifyEntries(sources, target, entries) {
+  for (const entry of entries) sources.verified.set(entry, await verifyMobileSourceCapture(sources.implementations[target], entry));
+}
+
+export async function compareMobileCapturePairWithSources(before, after, metadata) {
+  const sources = await readComparisonSources(metadata);
+  await verifyEntries(sources, 'main', [before]); await verifyEntries(sources, 'pr', [after]);
+  return compareMobileCapturePair(before, after, metadata, sources);
+}
+
+export async function compareMobileCapturesWithSources(before, after, metadata) {
+  const sources = await readComparisonSources(metadata);
+  await verifyEntries(sources, 'main', before); await verifyEntries(sources, 'pr', after);
+  return compareMobileCaptures(before, after, metadata, sources);
+}
+
+function compareRotatedFightCamera(before, after, metadata, sources) {
+  assert.equal(metadata.mode, 'regression', 'rotated-fight: requires regression mode');
+  for (const key of ['cameraBlob', 'fishingViewBlob', 'hudBlob', 'hudLogicBlob', 'resolutionBlob']) {
+    assert.equal(metadata.implementations.main[key], metadata.implementations.pr[key], `rotated-fight: ${key} differs`);
+  }
+  const b = sources.verified.get(before), a = sources.verified.get(after);
+  assert(b?.fight && a?.fight, 'rotated-fight: missing source FIGHT verification');
+  assert.deepEqual(after.metrics.camera.position, before.metrics.camera.position, 'rotated-fight: camera position differs');
+  assert.equal(after.metrics.camera.aspect, before.metrics.camera.aspect, 'rotated-fight: camera aspect differs');
+  assert(!isDeepStrictEqual(a.camera, b.camera), 'rotated-fight: same source pose cannot explain a camera difference');
+  // Normalize both tracking AND time inputs. Check both actual histories with
+  // both source rigs; this does not replace either side's actual-frame replay.
+  for (const entry of [before, after]) {
+    assert.deepEqual(replayMobileCamera(sources.implementations.main, entry.metrics.cameraFrames),
+      replayMobileCamera(sources.implementations.pr, entry.metrics.cameraFrames), 'rotated-fight: normalized source camera regression');
+  }
+  assert.deepEqual(after.metrics.resourceCamera, before.metrics.resourceCamera, 'rotated-fight: diagnostic resource camera differs');
+  return { kind: 'source-replayed-fight-tracking', normalizedHistories: 2,
+    before: b.fight, after: a.fight };
 }
 
 // Local selection can verify its real pairs with the same rules without
 // presenting them as the complete 34-pair report required by PR CI.
-export function compareMobileCapturePair(b, a, metadata) {
+export function compareMobileCapturePair(b, a, metadata, sources) {
+    checkMetadata(metadata);
+    let cameraComparison;
     assert.equal(a?.id, b.id, `Missing comparison ${b.id}`);
     assert(a, `Missing comparison ${b.id}`);
     for (const entry of [b, a]) {
@@ -119,6 +195,9 @@ export function compareMobileCapturePair(b, a, metadata) {
     for (const key of ['viewport', 'dpr', 'savedClockSeconds', 'boat', 'waterTime', 'fogStrength']) {
       assert.deepEqual(a.metrics[key], b.metrics[key], `${b.id}: ${key} differs`);
     }
+    if (a.metrics.resourceCamera || b.metrics.resourceCamera) {
+      assert.deepEqual(a.metrics.resourceCamera, b.metrics.resourceCamera, `${b.id}: diagnostic resource camera differs`);
+    }
     const changedCamera = metadata.implementations.main.cameraBlob !== metadata.implementations.pr.cameraBlob;
     if (changedCamera) {
       for (const entry of [b, a]) checkCamera(entry.metrics.camera, entry.metrics.cameraExpected, entry.id);
@@ -127,6 +206,8 @@ export function compareMobileCapturePair(b, a, metadata) {
       if (b.id.endsWith('bite') && metadata.implementations.pr.cameraModel === 'prepared-horizontal-aft-1.25') {
         checkCamera(a.metrics.camera, { position: [10, 2.15, 21.25], quaternion: [0, 0, 0, 1], aspect: a.metrics.camera.aspect }, b.id);
       }
+    } else if (sources && b.id === 'rotated-fight' && !isDeepStrictEqual(a.metrics.camera, b.metrics.camera)) {
+      cameraComparison = compareRotatedFightCamera(b, a, metadata, sources);
     } else assert.deepEqual(a.metrics.camera, b.metrics.camera, `${b.id}: camera differs`);
     const expected = expectedMobileResources(b.metrics.resources, metadata);
     assert.deepEqual(a.metrics.resources, expected.resources, `${b.id}: resource regression`);
@@ -161,6 +242,7 @@ export function compareMobileCapturePair(b, a, metadata) {
       }
     }
     return { id: b.id, before: b.metrics, after: a.metrics,
+      ...(cameraComparison ? { cameraComparison } : {}),
       ...(expected.transition ? { resourceTransition: expected.transition } : {}),
       pixelReduction,
       ...(b.layout ? { beforeLayout: b.layout, afterLayout: a.layout } : {}) };
@@ -168,16 +250,9 @@ export function compareMobileCapturePair(b, a, metadata) {
 
 export async function writeMobileComparison(before, after, output, metadata = before[0]?.comparison) {
   assert(metadata, 'Comparison mode and source SHAs are required (old captures need explicit CLI arguments)');
-  const rows = compareMobileCaptures(before, after, metadata);
   // Re-verify the recorded source SHAs when combining separately collected
   // JSON as well as when called directly from the E2E spec.
-  for (const [target, sha] of [['main', metadata.baseSha], ['pr', metadata.validationSha]]) {
-    const implementation = await readMobileImplementation(sha);
-    assert.deepEqual(metadata.implementations[target], mobileSourceMetadata(implementation), `${target}: implementation provenance differs`);
-    for (const entry of target === 'main' ? before : after) {
-      if (entry.metrics.cameraFrames) checkCamera(entry.metrics.camera, replayMobileCamera(implementation, entry.metrics.cameraFrames), `${target}-${entry.id}`);
-    }
-  }
+  const rows = await compareMobileCapturesWithSources(before, after, metadata);
   const images = await Promise.all(before.map(async b => {
     const a = after.find(a => a.id === b.id);
     assert(b.image && a.image, `${b.id}: missing comparison image`);
@@ -185,8 +260,8 @@ export async function writeMobileComparison(before, after, output, metadata = be
   }));
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output.replace(/\.html$/, '.json'), JSON.stringify({ metadata, rows }, null, 2));
-  const figures = rows.map((r, index) => `<article id="${r.id}"><h2>${r.id}</h2><p>buffer ${r.before.buffer.width}×${r.before.buffer.height} → ${r.after.buffer.width}×${r.after.buffer.height}; pixel reduction ${r.pixelReduction.toFixed(2)}%${r.beforeLayout ? `; HUD ${r.beforeLayout.occupancy.toFixed(2)}% → ${r.afterLayout.occupancy.toFixed(2)}%` : ''}</p><div>${images[index].map((image, i) => `<figure><figcaption>${i ? 'PR' : 'main'}</figcaption><img src="data:image/png;base64,${image.toString('base64')}"></figure>`).join('')}</div><details><summary>Metrics / layout</summary><pre>${JSON.stringify({ before: r.before, after: r.after, beforeLayout: r.beforeLayout, afterLayout: r.afterLayout }, null, 2)}</pre></details></article>`).join('');
-  await writeFile(output, `<!doctype html><html lang="ja"><meta charset="utf-8"><title>BARB mobile comparison</title><style>body{background:#142329;color:#eee;font:15px system-ui;margin:24px}article{border-top:1px solid #789;padding:20px 0}article>div{display:flex;align-items:start;gap:12px}figure{margin:0;max-width:49%}img{max-width:100%;height:auto}pre{white-space:pre-wrap}</style><h1>BARB mobile comparison: ${metadata.mode}</h1><pre>${JSON.stringify(metadata, null, 2)}</pre><p>Production builds, boat (10,20), heading 0, saved clock, viewport / DPR and native fishing input fixed. Software Chromium / SwiftShader, single sample: setup→ready and 6 ordinary frames (96ms virtual time), Node monotonic wall clock and CDP TaskDuration. Includes automation overhead, paired diagnostic renders and waits; these are not device FPS or GPU timings. Screenshots and actualResources retain the production camera. Resources are compared strictly using the same fixed diagnostic camera; production camera poses are replayed from each recorded source SHA. BITE's intentional upper HUD is checked against explicit geometry; FIGHT retains exact base/PR layout comparison. Raw JSON accompanies this report. Regression mode expects unchanged resolution/resources and unchanged layouts outside the explicit cast HUD; historical-improvement requires the explicit pre-4C-2A SHA and the original ≥20% mobile pixel reduction and smaller fight HUD.</p>${figures}</html>`);
+  const figures = rows.map((r, index) => `<article id="${r.id}"><h2>${r.id}</h2><p>buffer ${r.before.buffer.width}×${r.before.buffer.height} → ${r.after.buffer.width}×${r.after.buffer.height}; pixel reduction ${r.pixelReduction.toFixed(2)}%${r.beforeLayout ? `; HUD ${r.beforeLayout.occupancy.toFixed(2)}% → ${r.afterLayout.occupancy.toFixed(2)}%` : ''}</p><div>${images[index].map((image, i) => `<figure><figcaption>${i ? 'PR' : 'main'}</figcaption><img src="data:image/png;base64,${image.toString('base64')}"></figure>`).join('')}</div><details><summary>Metrics / layout</summary><pre>${JSON.stringify({ before: r.before, after: r.after, beforeLayout: r.beforeLayout, afterLayout: r.afterLayout, cameraComparison: r.cameraComparison }, null, 2)}</pre></details></article>`).join('');
+  await writeFile(output, `<!doctype html><html lang="ja"><meta charset="utf-8"><title>BARB mobile comparison</title><style>body{background:#142329;color:#eee;font:15px system-ui;margin:24px}article{border-top:1px solid #789;padding:20px 0}article>div{display:flex;align-items:start;gap:12px}figure{margin:0;max-width:49%}img{max-width:100%;height:auto}pre{white-space:pre-wrap}</style><h1>BARB mobile comparison: ${metadata.mode}</h1><pre>${JSON.stringify(metadata, null, 2)}</pre><p>Production builds, boat (10,20), heading 0, saved clock, viewport / DPR and native fishing input fixed. Software Chromium / SwiftShader, single sample: setup→ready and 6 ordinary frames (96ms virtual time), Node monotonic wall clock and CDP TaskDuration. Includes automation overhead, paired diagnostic renders and waits; these are not device FPS or GPU timings. Screenshots and actualResources retain the production camera. Resources are compared strictly using the same fixed diagnostic camera; production camera poses are replayed from each recorded source SHA. Only rotated-fight can have a different quaternion with unchanged camera code: its tracking and HUD tension must independently match each source FIGHT engine, and both camera rigs must agree under each common tracking/time history. BITE's intentional upper HUD is checked against explicit geometry; FIGHT retains exact base/PR layout comparison. Raw JSON accompanies this report. Regression mode expects unchanged resolution/resources and unchanged layouts outside the explicit cast HUD; historical-improvement requires the explicit pre-4C-2A SHA and the original ≥20% mobile pixel reduction and smaller fight HUD.</p>${figures}</html>`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [beforeFile, afterFile, output, mode, baseSha, headSha] = process.argv.slice(2);

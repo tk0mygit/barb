@@ -5,7 +5,8 @@ import { performance } from 'node:perf_hooks';
 import { capturePullRequestBase, prepareSceneryReference } from './lake-scenery-reference.js';
 import { enterFishing, fishingInput, layout, assertLayout, tick } from './mobile-capture.js';
 import { assertEnvironment, setup } from './day-night-fixture.js';
-import { MOBILE_COMPARISON_MODES, MOBILE_CAPTURE_IDS, compareMobileCapturePair, writeMobileComparison } from '../../scripts/compare-mobile-performance.mjs';
+import { MOBILE_COMPARISON_MODES, MOBILE_CAPTURE_IDS, compareMobileCapturePairWithSources,
+  verifyMobileSourceCapture, writeMobileComparison } from '../../scripts/compare-mobile-performance.mjs';
 import { mobileGit, readMobileImplementation, mobileSourceMetadata, assertMobileWorkingSource,
   expectedMobileResolution, replayMobileCamera, HISTORICAL_MOBILE_BASE } from '../../scripts/lib/mobile-comparison-source.js';
 
@@ -150,8 +151,8 @@ test.afterAll(async ({}, info) => {
       missing: Object.fromEntries([['main', before], ['pr', after]].map(([target, entries]) =>
         [target, MOBILE_CAPTURE_IDS.filter(id => !entries.some(entry => entry.id === id))])) }, null, 2));
     await info.attach('mobile-comparison-incomplete', { path, contentType: 'application/json' });
-    const rows = before.filter(b => after.some(a => a.id === b.id)).map(b =>
-      compareMobileCapturePair(b, after.find(a => a.id === b.id), comparison));
+    const rows = await Promise.all(before.filter(b => after.some(a => a.id === b.id)).map(b =>
+      compareMobileCapturePairWithSources(b, after.find(a => a.id === b.id), comparison)));
     const checkedPath = resolve(destination, 'comparison-selected-pairs.json');
     await writeFile(checkedPath, JSON.stringify({ status: 'selected real pairs only; full 34-pair comparison not executed', rows }, null, 2));
     await info.attach('mobile-comparison-selected-pairs', { path: checkedPath, contentType: 'application/json' });
@@ -182,6 +183,7 @@ async function saveCapture(target, id, page, metrics, info, withLayout = false) 
   await info.attach(`${target}-${id}`, { path: image, contentType: 'image/png' });
   const entry = { target, id, comparison, metrics: { ...metrics, cameraExpected, cameraFrames }, image,
     ...(withLayout ? { layout: await layout(page) } : {}) };
+  await verifyMobileSourceCapture(implementations[target], entry);
   captures.push(entry);
   await writeFile(resolve(destination, `${target}-${id}.json`), JSON.stringify(entry, null, 2));
   return entry;

@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compareMobileCaptures, compareMobileCapturePair, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
-import { HISTORICAL_MOBILE_BASE, mobileGit, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera, assertMobileWorkingSource } from '../scripts/lib/mobile-comparison-source.js';
+import { HISTORICAL_MOBILE_BASE, mobileGit, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera,
+  expectedMobileResourceCamera, assertMobileWorkingSource } from '../scripts/lib/mobile-comparison-source.js';
 import { createCameraRig } from '../src/rendering/camera.js';
 import { validateMobileEvidence } from '../scripts/ci-summary.js';
 
@@ -350,7 +351,13 @@ test('HTML/JSON retain all 34 image pairs, measurements, purpose, base and HEAD 
   const dir = await mkdtemp(join(tmpdir(), 'barb-mobile-report-'));
   try {
     const [before, after] = captures(), image = fileURLToPath(new URL('./fixtures/fish-assets/transparent-test.png', import.meta.url));
-    for (const entry of [...before, ...after]) entry.image = image;
+    for (const entry of [...before, ...after]) {
+      entry.image = image;
+      entry.metrics.cameraFrames = [{ update: false, dt: 0, aspect: entry.metrics.camera.aspect, mode: 'sailing', phase: 'inactive' }];
+      entry.metrics.camera = replayMobileCamera(current, entry.metrics.cameraFrames);
+      entry.metrics.cameraExpected = structuredClone(entry.metrics.camera);
+      entry.metrics.resourceCamera = expectedMobileResourceCamera(entry.metrics.camera.aspect);
+    }
     const output = join(dir, 'comparison.html'); await writeMobileComparison(before, after, output, metadata());
     const json = JSON.parse(await readFile(join(dir, 'comparison.json'), 'utf8')), html = await readFile(output, 'utf8');
     assert.equal(json.metadata.mode, 'regression'); assert.equal(json.metadata.baseSha, MAIN); assert.equal(json.metadata.headSha, MAIN);
