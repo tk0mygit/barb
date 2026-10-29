@@ -149,7 +149,13 @@ test('all 12 species land with all four lures at minimum/mid/maximum sizes at 30
       assert.equal(f.hook(), true);
       assert.equal(f.state.encounter, selected);
       const elapsed = land(f, dt); durations.push(elapsed);
-      assert.ok(elapsed >= 5 && elapsed <= (species.id === 'alligator-gar' ? 20 : 16), `${species.id}: ${elapsed}`);
+      const fight = f.state.fight, span = fight.startDistance - fight.landingDistance;
+      // Stopped FIGHT now adds retrieval work. Preserve the original pacing
+      // bound per equivalent starting span, plus the original global20s cap.
+      const equivalentSeconds = elapsed * span / (span + fight.pushbackMeters);
+      assert.ok(elapsed >= 5 && elapsed <= 20, `${species.id}: ${elapsed}`);
+      assert.ok(equivalentSeconds <= (species.id === 'alligator-gar' ? 20 : 16),
+        `${species.id}: ${elapsed}s / ${equivalentSeconds}s equivalent, push=${fight.pushbackMeters}m`);
       const record = f.state.catch;
       assert.equal(record.speciesId, species.id); assert.equal(record.schemaVersion, 1);
       assert.equal(record.lengthCm, Math.round((species.minLengthCm + size * (species.maxLengthCm - species.minLengthCm)) * 10) / 10);

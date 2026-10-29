@@ -3,7 +3,7 @@ import { calculateFishWeightKg, getFishSpecies } from './fish-species.js';
 import { DEFAULT_LURE_ID, getLure } from './lures.js';
 import { normalizeEncounterConditions } from './fish-encounters.js';
 import { encounterModel, getRodEncounterModifiers } from './encounter-production.js';
-import { fishResistance, isLargeFish } from './fish-fight.js';
+import { createFightController } from './fight-controller.js';
 import { getFishingSpotStatus } from './fishing-spots.js';
 import { createCatchCollection } from './catch-collection.js';
 import { getEquipmentLevel } from './equipment.js';
@@ -18,20 +18,25 @@ export function getLurePosition(state) {
 }
 
 // No DOM, Three.js or input events: callers supply world queries and randomness.
-export function createFishing({ config = {}, random = Math.random, isWater = () => true, now = Date.now, getBoatPosition, getEnvironment, collection = createCatchCollection() } = {}) {
+export function createFishing({ config = {}, random = Math.random, isWater = () => true, now = Date.now, getBoatPosition, getEnvironment,
+  collection = createCatchCollection(), qte = null, onFightEvent = () => {} } = {}) {
   const settings = { ...FISHING_CONFIG, ...config };
+  let fight = null, fightId = 0, fightActionTime = 0;
   const state = {
     phase: PHASE.READY, revision: 0, time: 0, reeling: false, distance: 0, tension: 0,
     origin: { x: 0, z: 0 }, target: { x: 0, z: 0 }, heading: 0, validCast: true,
     action: 0, message: '', catch: null, get catches() { return collection.catches; }, biteRemaining: 0,
     lureId: DEFAULT_LURE_ID, encounter: null,
+    get fight() { return fight?.snapshot ?? null; },
+    get inputRevision() { return state.phase === PHASE.FIGHT ? fight?.snapshot.generation ?? 0 : 0; },
+    get inputOwner() { return state.phase === PHASE.FIGHT ? fight?.snapshot.owner ?? 'normal' : 'normal'; },
   };
-  let aimHeading = 0, biteBudget = 0, lureTime = 0, slackTime = 0, fightDistance = 0;
+  let aimHeading = 0, biteBudget = 0, lureTime = 0;
   let castVisibility = null, aimDX = 0, aimDY = 0;
   // Immutable shared row, captured once per cast; collection remains authoritative.
   let rodPerformance = getEquipmentLevel('rod', 1);
   let reelPerformance = getEquipmentLevel('reel', 1);
-  let encounterModifiers = getRodEncounterModifiers(1), largeFishAssistMultiplier = 1;
+  let encounterModifiers = getRodEncounterModifiers(1);
   const exponential = () => -Math.log(Math.max(1e-9, 1 - random()));
   function getConditions() {
     if (!getEnvironment) return null; // legacy standalone callers stay neutral
@@ -44,8 +49,16 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     state.time = 0;
     state.reeling = false;
   }
-  function ready(message = '') { transition(PHASE.READY); state.message = message; state.catch = null; state.encounter = null; }
+  function ready(message = '') { fight = null; transition(PHASE.READY); state.message = message; state.catch = null; state.encounter = null; }
   function fail(message) { transition(PHASE.FAILED); state.message = message; }
+  function syncFight(current = fight) {
+    if (!current) return;
+    const progress = current.snapshot;
+    state.action = Math.max(0, state.action - Math.max(0, progress.elapsedSeconds - fightActionTime));
+    fightActionTime = progress.elapsedSeconds;
+    state.distance = progress.distance; state.tension = progress.tension;
+    if (state.phase === PHASE.FIGHT) { state.time = progress.normalSeconds; state.reeling = progress.reeling; }
+  }
   function aim(dx = 0, dy = 0) {
     if (state.phase !== PHASE.AIM) return;
     aimDX = dx; aimDY = dy;
@@ -96,16 +109,6 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     } else if (state.phase === PHASE.BITE) {
       state.biteRemaining = Math.max(0, settings.hookWindow - state.time);
       if (state.time >= settings.hookWindow) fail('アワセが遅れて魚が逃げました');
-    } else if (state.phase === PHASE.FIGHT) {
-      const fish = state.encounter;
-      const resistance = fishResistance(getFishSpecies(fish.speciesId), fish.lengthCm, state.time);
-      state.tension = clamp(state.tension + dt * (state.reeling ? settings.tensionRise * resistance * rodPerformance.tensionMultiplier : -settings.tensionRelief * reelPerformance.tensionReliefMultiplier), 0, 1);
-      if (state.tension >= 1) { fail('テンションが高すぎてラインが切れました'); return; }
-      slackTime = state.tension < settings.slackThreshold ? slackTime + dt : 0;
-      if (slackTime > settings.slackGrace && random() < -Math.expm1(-settings.slackEscapeRate * dt)) { fail('ラインが緩み、魚が逃げました'); return; }
-      const reelResistance = clamp(resistance, settings.reelResistanceMin, settings.reelResistanceMax);
-      if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - fightDistance / (settings.fightReelSeconds * reelResistance) * reelPerformance.reelSpeedMultiplier * largeFishAssistMultiplier * dt);
-      if (state.distance <= settings.landingDistance) transition(PHASE.LANDING);
     } else if (state.phase === PHASE.LANDING && state.time >= settings.landingSeconds) {
       const capturedAt = now();
       let sequence = state.catches.length + 1;
@@ -125,6 +128,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     canLeave: () => [PHASE.READY, PHASE.AIM, PHASE.FAILED].includes(state.phase),
     prepare(origin, heading, visibility) {
       if (state.phase !== PHASE.READY) return false;
+      fight = null;
       if (visibility !== undefined) castVisibility = visibility;
       rodPerformance = getEquipmentLevel('rod', collection.equipment?.rodLevel) ?? getEquipmentLevel('rod', 1);
       reelPerformance = getEquipmentLevel('reel', collection.equipment?.reelLevel) ?? getEquipmentLevel('reel', 1);
@@ -157,7 +161,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       }
       transition(PHASE.CAST);
     },
-    cancelInput() { state.reeling = false; if (state.phase === PHASE.AIM) ready('キャスト準備を解除しました'); },
+    cancelInput() { state.reeling = false; if (state.phase === PHASE.FIGHT) fight.release(); if (state.phase === PHASE.AIM) ready('キャスト準備を解除しました'); },
     cancelForViewChange(message = '画面サイズが変わったためルアーを回収しました。向きを調整して再キャストしてください') {
       if (![PHASE.CAST, PHASE.LURE, PHASE.BITE].includes(state.phase)) return false;
       // A narrower viewport can hide an already committed target. Recall it
@@ -167,15 +171,36 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       ready(message);
       return true;
     },
-    reel(active) { state.reeling = active && [PHASE.LURE, PHASE.FIGHT].includes(state.phase); },
+    reel(active) {
+      if (state.phase === PHASE.FIGHT) { fight.reel(active); state.reeling = Boolean(active) && state.inputOwner === 'normal'; }
+      else state.reeling = Boolean(active) && state.phase === PHASE.LURE;
+    },
+    fightContact(type, at, generation = state.inputRevision) {
+      return state.phase === PHASE.FIGHT && fight.contact(type, at, generation);
+    },
+    queueFightContact(type, at, identity) { return state.phase === PHASE.FIGHT && fight.queueContact(type, at, identity); },
+    submitQteResult(token, success, at) {
+      const accepted = state.phase === PHASE.FIGHT && fight.submitResult(token, success, at);
+      syncFight(); return accepted;
+    },
+    pauseFight() { return state.phase === PHASE.FIGHT && fight.pause(); },
+    resumeFight() { return state.phase === PHASE.FIGHT && fight.resume(); },
+    abortFight() { return state.phase === PHASE.FIGHT && fight.abort(); },
     flick() { if (state.phase === PHASE.LURE) state.action = settings.actionSeconds; },
     hook() {
       if (state.phase !== PHASE.BITE || state.time >= settings.hookWindow) return false;
       state.tension = settings.tensionStart;
-      fightDistance = state.distance - settings.landingDistance;
-      largeFishAssistMultiplier = isLargeFish(getFishSpecies(state.encounter.speciesId), state.encounter.lengthCm)
-        ? reelPerformance.largeFishAssistMultiplier ?? 1 : 1;
-      slackTime = 0;
+      fightActionTime = 0;
+      fight = createFightController({ species: getFishSpecies(state.encounter.speciesId), lengthCm: state.encounter.lengthCm,
+        startDistance: state.distance, rod: rodPerformance, reel: reelPerformance, settings: Object.freeze({ ...settings }),
+        random, id: ++fightId, qte,
+        onEvent(event) { syncFight(); onFightEvent(event); },
+        onEnd(outcome) {
+          syncFight();
+          if (outcome === 'landed') transition(PHASE.LANDING);
+          else if (outcome === 'aborted') ready();
+          else fail(outcome === 'line-break' ? 'テンションが高すぎてラインが切れました' : 'ラインが緩み、魚が逃げました');
+        } });
       transition(PHASE.FIGHT); return true;
     },
     closeResult() {
@@ -191,7 +216,12 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     },
     reset() { if (this.canLeave()) ready(); },
     step(dt) {
-      // Keep probability and failure boundaries stable across frame rates.
+      if (!Number.isFinite(dt) || dt <= 0) return;
+      if (state.phase === PHASE.FIGHT) {
+        const current = fight;
+        dt = current.step(dt); syncFight(current);
+      }
+      // Pre-FIGHT keeps its original integration and random-draw order.
       let remaining = Math.max(0, dt);
       while (remaining > 1e-9) { const step = Math.min(remaining, 1 / 60); advance(step); remaining -= step; }
     },

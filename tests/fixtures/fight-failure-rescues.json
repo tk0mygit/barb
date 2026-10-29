@@ -1,0 +1,854 @@
+{
+  "source": "5C-0 A_FIXED_212_INPUT.json; 106 unique contexts; each tested as other/flick and tap",
+  "base": "a9cae9fdb404d81a878d548aebe719f2adeefe7d",
+  "conditions": [
+    {
+      "speciesId": "black-bass",
+      "size": "mid",
+      "startDistance": 4.51,
+      "rod": 5,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "black-bass",
+      "size": "mid",
+      "startDistance": 4.51,
+      "rod": 5,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "smallmouth-bass",
+      "size": "min",
+      "startDistance": 4.51,
+      "rod": 10,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 5,
+      "fps": 30
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 5,
+      "fps": 60
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 4.51,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 4.51,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 4.51,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "iwana",
+      "size": "min",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 5,
+      "fps": 60
+    },
+    {
+      "speciesId": "iwana",
+      "size": "min",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "iwana",
+      "size": "mid",
+      "startDistance": 4.51,
+      "rod": 10,
+      "reel": 1,
+      "fps": 30
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "european-perch",
+      "size": "mid",
+      "startDistance": 4.51,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 4.51,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 4.51,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 4.51,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "black-bass",
+      "size": "mid",
+      "startDistance": 5.5,
+      "rod": 5,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "black-bass",
+      "size": "mid",
+      "startDistance": 5.5,
+      "rod": 5,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "smallmouth-bass",
+      "size": "min",
+      "startDistance": 5.5,
+      "rod": 10,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 5,
+      "fps": 30
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 5,
+      "fps": 60
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 5.5,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 5.5,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 5.5,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "iwana",
+      "size": "min",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 5,
+      "fps": 60
+    },
+    {
+      "speciesId": "iwana",
+      "size": "min",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "iwana",
+      "size": "mid",
+      "startDistance": 5.5,
+      "rod": 10,
+      "reel": 1,
+      "fps": 30
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "european-perch",
+      "size": "mid",
+      "startDistance": 5.5,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 5.5,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 5.5,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 5.5,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "black-bass",
+      "size": "mid",
+      "startDistance": 8.0,
+      "rod": 5,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "black-bass",
+      "size": "mid",
+      "startDistance": 8.0,
+      "rod": 5,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "smallmouth-bass",
+      "size": "min",
+      "startDistance": 8.0,
+      "rod": 10,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 5,
+      "fps": 30
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 5,
+      "fps": 60
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 8.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 8.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 8.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "iwana",
+      "size": "min",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 5,
+      "fps": 60
+    },
+    {
+      "speciesId": "iwana",
+      "size": "min",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "iwana",
+      "size": "mid",
+      "startDistance": 8.0,
+      "rod": 10,
+      "reel": 1,
+      "fps": 30
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "european-perch",
+      "size": "mid",
+      "startDistance": 8.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 8.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 8.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 8.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "black-bass",
+      "size": "mid",
+      "startDistance": 32.0,
+      "rod": 5,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "black-bass",
+      "size": "mid",
+      "startDistance": 32.0,
+      "rod": 5,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "smallmouth-bass",
+      "size": "min",
+      "startDistance": 32.0,
+      "rod": 10,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 5,
+      "fps": 30
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 5,
+      "fps": 60
+    },
+    {
+      "speciesId": "bluegill",
+      "size": "max",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "rainbow-trout",
+      "size": "min",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 32.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 32.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 32.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "iwana",
+      "size": "min",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 5,
+      "fps": 60
+    },
+    {
+      "speciesId": "iwana",
+      "size": "min",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "iwana",
+      "size": "mid",
+      "startDistance": 32.0,
+      "rod": 10,
+      "reel": 1,
+      "fps": 30
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "iwana",
+      "size": "max",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "european-perch",
+      "size": "mid",
+      "startDistance": 32.0,
+      "rod": 1,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 32.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 32.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 32.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "smallmouth-bass",
+      "size": "min",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 5,
+      "fps": 30
+    },
+    {
+      "speciesId": "smallmouth-bass",
+      "size": "min",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 5,
+      "fps": 60
+    },
+    {
+      "speciesId": "smallmouth-bass",
+      "size": "min",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "brown-trout",
+      "size": "mid",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "iwana",
+      "size": "mid",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 1,
+      "fps": 30
+    },
+    {
+      "speciesId": "northern-pike",
+      "size": "mid",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "northern-pike",
+      "size": "mid",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "northern-pike",
+      "size": "mid",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "walleye",
+      "size": "min",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 5,
+      "fps": 60
+    },
+    {
+      "speciesId": "walleye",
+      "size": "min",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 5,
+      "fps": 144
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "walleye",
+      "size": "max",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    },
+    {
+      "speciesId": "catfish",
+      "size": "mid",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 30
+    },
+    {
+      "speciesId": "catfish",
+      "size": "mid",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 60
+    },
+    {
+      "speciesId": "catfish",
+      "size": "mid",
+      "startDistance": 60.0,
+      "rod": 10,
+      "reel": 10,
+      "fps": 144
+    }
+  ]
+}

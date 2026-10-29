@@ -93,15 +93,12 @@ test('every species and size combines existing resistance with rod multipliers a
         const f = fishing(level, species, size); prepare(f); hook(f); f.reel(true);
         assert.equal(f.state.encounter.speciesId, species.id);
         let expected = f.settings.tensionStart, time = 0;
-        for (let frame = 0; frame < hz / 2; frame++) {
-          // Existing integrator samples resistance at the end of each <=1/60s step.
-          const steps = hz === 30 ? 2 : 1, dt = 1 / hz / steps;
-          for (let i = 0; i < steps; i++) {
-            time += dt;
+        // Approved fixed grid: 30 endpoint samples over .5 seconds at every fps.
+        for (let tick = 1; tick <= 30; tick++) {
+            const dt = 1 / 60; time = tick / 60;
             expected += f.settings.tensionRise * fishResistance(species, f.state.encounter.lengthCm, time) * multiplier * dt;
-          }
-          f.step(1 / hz);
         }
+        for (let frame = 0; frame < hz / 2; frame++) f.step(1 / hz);
         near(f.state.tension, expected);
         return f.state.tension;
       });

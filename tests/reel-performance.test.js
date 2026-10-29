@@ -10,6 +10,7 @@ import { encounterModel, getRodEncounterModifiers } from '../src/game/encounter-
 import { createFishingInput } from '../src/input/fishing.js';
 import { LURES } from '../src/game/lures.js';
 import { FISHING_SPOTS } from '../src/world/fishing-spots.js';
+import { stoppedDistance } from './helpers/fight-pushback.js';
 
 const near = (a, b, epsilon = 1e-11) => assert.ok(Math.abs(a - b) < epsilon, `${a} != ${b}`);
 const levels = [[1, 1, 1], [2, 1.06, 1.04], [3, 1.12, 1.08], [4, 1.18, 1.12], [5, 1.24, 1.16],
@@ -45,7 +46,7 @@ function hook(f) {
 }
 
 for (const [level, speed, relief] of levels) {
-  test(`reel Lv.${level}: exact data, LURE speed, relief and stopped distance at 30/60/144fps`, () => {
+  test(`reel Lv.${level}: exact data, LURE speed, relief and scaled FIGHT push at 30/60/144fps`, () => {
     assert.equal(getEquipmentLevel('reel', level).reelSpeedMultiplier, speed);
     assert.equal(getEquipmentLevel('reel', level).tensionReliefMultiplier, relief);
     for (const hz of [30, 60, 144]) {
@@ -59,9 +60,9 @@ for (const [level, speed, relief] of levels) {
       const distance = f.state.distance;
       for (let i = 0; i < hz / 2; i++) f.step(1 / hz);
       near(f.state.tension, 0.42 - 0.42 * relief * 0.5);
-      assert.equal(f.state.distance, distance);
+      near(f.state.distance, stoppedDistance({ species: FISH_SPECIES[0], lengthCm: f.state.encounter.lengthCm, startDistance: distance, seconds: .5 }));
       f.step(0.6); assert.equal(f.state.tension, 0);
-      assert.equal(f.state.distance, distance);
+      near(f.state.distance, stoppedDistance({ species: FISH_SPECIES[0], lengthCm: f.state.encounter.lengthCm, startDistance: distance, seconds: 1.1 }));
     }
   });
 
@@ -84,16 +85,13 @@ for (const [level, speed, relief] of levels) {
         const assist = large && level >= 6 ? [1.03, 1.06, 1.09, 1.12, 1.15][level - 6] : 1;
         let distance = start, tension = 0.42, time = 0;
         f.reel(true);
-        for (let frame = 0; frame < hz / 2; frame++) {
-          const steps = hz === 30 ? 2 : 1, dt = 1 / hz / steps;
-          for (let i = 0; i < steps; i++) {
-            time += dt;
+        for (let tick = 1; tick <= 30; tick++) {
+            const dt = 1 / 60; time = tick / 60;
             const resistance = fishResistance(species, f.state.encounter.lengthCm, time);
             distance -= span / (6.5 * Math.max(0.8, Math.min(1.25, resistance))) * speed * assist * dt;
             tension += 0.24 * resistance * tensionMultiplier * dt;
-          }
-          f.step(1 / hz);
         }
+        for (let frame = 0; frame < hz / 2; frame++) f.step(1 / hz);
         assert.equal(f.state.phase, PHASE.FIGHT);
         near(f.state.distance, distance); near(f.state.tension, tension);
         return distance;

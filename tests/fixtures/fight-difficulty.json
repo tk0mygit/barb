@@ -1,0 +1,300 @@
+{
+  "oracle": "Independent Python fractions.Fraction over finite source decimals; all legal 0.1cm lengths",
+  "total": 5792,
+  "species": [
+    {
+      "id": "black-bass",
+      "minLengthCm": 25,
+      "maxLengthCm": 55,
+      "baseResistance": 0.85,
+      "ranges": [
+        {
+          "firstDeciCm": 250,
+          "lastDeciCm": 292,
+          "count": 1,
+          "seconds": 1.5
+        },
+        {
+          "firstDeciCm": 293,
+          "lastDeciCm": 335,
+          "count": 1,
+          "seconds": 1
+        },
+        {
+          "firstDeciCm": 336,
+          "lastDeciCm": 550,
+          "count": 2,
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "smallmouth-bass",
+      "minLengthCm": 20,
+      "maxLengthCm": 50,
+      "baseResistance": 0.95,
+      "ranges": [
+        {
+          "firstDeciCm": 200,
+          "lastDeciCm": 457,
+          "count": 2,
+          "seconds": 1
+        },
+        {
+          "firstDeciCm": 458,
+          "lastDeciCm": 499,
+          "count": 2,
+          "seconds": 0.5
+        },
+        {
+          "firstDeciCm": 500,
+          "lastDeciCm": 500,
+          "count": 3,
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "bluegill",
+      "minLengthCm": 10,
+      "maxLengthCm": 28,
+      "baseResistance": 0.55,
+      "ranges": [
+        {
+          "firstDeciCm": 100,
+          "lastDeciCm": 279,
+          "count": 1,
+          "seconds": 1.5
+        },
+        {
+          "firstDeciCm": 280,
+          "lastDeciCm": 280,
+          "count": 1,
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "rainbow-trout",
+      "minLengthCm": 20,
+      "maxLengthCm": 65,
+      "baseResistance": 0.9,
+      "ranges": [
+        {
+          "firstDeciCm": 200,
+          "lastDeciCm": 264,
+          "count": 1,
+          "seconds": 1
+        },
+        {
+          "firstDeciCm": 265,
+          "lastDeciCm": 649,
+          "count": 2,
+          "seconds": 1
+        },
+        {
+          "firstDeciCm": 650,
+          "lastDeciCm": 650,
+          "count": 2,
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "brown-trout",
+      "minLengthCm": 20,
+      "maxLengthCm": 70,
+      "baseResistance": 1,
+      "ranges": [
+        {
+          "firstDeciCm": 200,
+          "lastDeciCm": 557,
+          "count": 2,
+          "seconds": 1
+        },
+        {
+          "firstDeciCm": 558,
+          "lastDeciCm": 628,
+          "count": 2,
+          "seconds": 0.5
+        },
+        {
+          "firstDeciCm": 629,
+          "lastDeciCm": 700,
+          "count": 3,
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "iwana",
+      "minLengthCm": 15,
+      "maxLengthCm": 45,
+      "baseResistance": 0.7,
+      "ranges": [
+        {
+          "firstDeciCm": 150,
+          "lastDeciCm": 321,
+          "count": 1,
+          "seconds": 1.5
+        },
+        {
+          "firstDeciCm": 322,
+          "lastDeciCm": 364,
+          "count": 1,
+          "seconds": 1
+        },
+        {
+          "firstDeciCm": 365,
+          "lastDeciCm": 450,
+          "count": 2,
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "northern-pike",
+      "minLengthCm": 40,
+      "maxLengthCm": 110,
+      "baseResistance": 1.15,
+      "ranges": [
+        {
+          "firstDeciCm": 400,
+          "lastDeciCm": 599,
+          "count": 2,
+          "seconds": 1
+        },
+        {
+          "firstDeciCm": 600,
+          "lastDeciCm": 699,
+          "count": 2,
+          "seconds": 0.5
+        },
+        {
+          "firstDeciCm": 700,
+          "lastDeciCm": 1100,
+          "count": 3,
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "european-perch",
+      "minLengthCm": 15,
+      "maxLengthCm": 45,
+      "baseResistance": 0.75,
+      "ranges": [
+        {
+          "firstDeciCm": 150,
+          "lastDeciCm": 278,
+          "count": 1,
+          "seconds": 1.5
+        },
+        {
+          "firstDeciCm": 279,
+          "lastDeciCm": 321,
+          "count": 1,
+          "seconds": 1
+        },
+        {
+          "firstDeciCm": 322,
+          "lastDeciCm": 450,
+          "count": 2,
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "walleye",
+      "minLengthCm": 30,
+      "maxLengthCm": 80,
+      "baseResistance": 0.95,
+      "ranges": [
+        {
+          "firstDeciCm": 300,
+          "lastDeciCm": 728,
+          "count": 2,
+          "seconds": 1
+        },
+        {
+          "firstDeciCm": 729,
+          "lastDeciCm": 799,
+          "count": 2,
+          "seconds": 0.5
+        },
+        {
+          "firstDeciCm": 800,
+          "lastDeciCm": 800,
+          "count": 3,
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "catfish",
+      "minLengthCm": 30,
+      "maxLengthCm": 80,
+      "baseResistance": 1.05,
+      "ranges": [
+        {
+          "firstDeciCm": 300,
+          "lastDeciCm": 585,
+          "count": 2,
+          "seconds": 1
+        },
+        {
+          "firstDeciCm": 586,
+          "lastDeciCm": 657,
+          "count": 2,
+          "seconds": 0.5
+        },
+        {
+          "firstDeciCm": 658,
+          "lastDeciCm": 800,
+          "count": 3,
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "alligator-gar",
+      "minLengthCm": 60,
+      "maxLengthCm": 180,
+      "baseResistance": 1.35,
+      "ranges": [
+        {
+          "firstDeciCm": 600,
+          "lastDeciCm": 1800,
+          "count": 3,
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "arowana",
+      "minLengthCm": 35,
+      "maxLengthCm": 90,
+      "baseResistance": 1.1,
+      "ranges": [
+        {
+          "firstDeciCm": 350,
+          "lastDeciCm": 585,
+          "count": 2,
+          "seconds": 1
+        },
+        {
+          "firstDeciCm": 586,
+          "lastDeciCm": 664,
+          "count": 2,
+          "seconds": 0.5
+        },
+        {
+          "firstDeciCm": 665,
+          "lastDeciCm": 900,
+          "count": 3,
+          "seconds": 0.5
+        }
+      ]
+    }
+  ]
+}

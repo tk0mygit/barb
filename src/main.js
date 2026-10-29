@@ -253,6 +253,7 @@ try {
   let drawingSize;
   let previous = performance.now(), elapsed = 0;
   function resize() {
+    if (boat.mode === 'fishing' && fishing.state.phase === PHASE.FIGHT) controls.reset();
     const next = calculateRenderResolution({ width: window.innerWidth, height: window.innerHeight,
       devicePixelRatio: window.devicePixelRatio, coarsePointer: window.matchMedia('(pointer: coarse)').matches });
     const { width, height, pixelRatio } = next;
@@ -314,7 +315,7 @@ try {
     const clockState = gameClock.state;
     ambientAudio.update();
     elapsed += dt;
-    const input = controls.read(dt);
+    const input = controls.read(dt, now);
     const phaseBefore = fishing.state.phase;
     if (boat.mode === 'fishing') fishing.step(dt);
     if (fishing.state.phase === PHASE.BITE && phaseBefore !== PHASE.BITE) audio.bite();

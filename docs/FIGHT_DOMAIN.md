@@ -1,0 +1,63 @@
+# FIGHTの時計・入力・QTE接続境界（Phase 5C-1）
+
+通常起動の`createFishing()`はQTEを有効化しない。押戻し・物理時計・長押しの更新は通常の
+FIGHTへ適用する。QTE HUD、ポインター4操作、売価、釣果成功数、保存形式の変更は含まない。
+
+## 責務
+
+- `fight-qte.js`：有限十進と0.1cm整数による厳密な難度比較、予約、結果の純粋関数。
+- `fish-fight.js`：既存正弦抵抗と大型判定。共通profileの連続重みはメタデータのみ。
+- `fight-controller.js`：個体・開始距離・装備の一時snapshot、固定物理時計、通常入力の時刻列、
+  FIGHT内のQTE補助状態と結果の単一適用。DOM・Three.js・コレクション保存に依存しない。
+- `fishing.js`：既存PHASE・LURE/BITE抽選・釣果登録を維持し、FIGHTだけをcontrollerへ委譲。
+- `input/fishing.js`：DOMの単調timestampを有効なゲーム時計へ写像し、down/upをキューへ渡す。
+  LUREの長押し・フリック、BITEのタップ、キャストの既存経路は保持する。
+
+`state.fight`は読み取り用の凍結snapshot。通常時間、処理済みFIGHT時間、render受理時間、
+装備/profile/難度、入力世代、予約、QTE状態、効果件数、距離収支、逃走draw数を含む。
+コレクション/セーブへ渡さず、`state.encounter`や既存釣果レコードへフィールドを追加しない。
+
+## 時計と入力
+
+物理は固定1/60秒。render余りdtを保持し、tick内をdown/up、hold満了、QTE/arm境界で分割する。
+hold成立より前の区間へ巻取りを遡及しない。同着upはその境界後の巻取りを無効にする。
+QTEと失敗後armでは通常時計・抵抗位相・距離・テンション・slack・逃走drawを止める。
+armは失敗後のみ固定長、無接触で延長しない。世界/昼夜時計は従来のmainループが独立に進める。
+
+入力受信時の物理snapshotは最大1tick遅れている。通常down/upの受理はそのsnapshotのowner
+だけで決めず、発生時刻に処理したownerとcontact識別子で決める。QTE前/中の接触は解決後へ
+持ち越さない。正常な新規downが同じrender内の解決より先に配送されても失わない。
+pause/resume/cancelの世代も区別し、古いupが新しいdownを解除しない。
+
+補償和によるdt受理と機械精度のtick比較を使う。通常入力のclock変換に伴う数ulpは、既存の
+意味境界（結果/arm/hold）へ合わせる。入力時間の猶予・難度epsilonではない。Dの閾値は
+有理数交差積で判定し、QTEのDOM発生時刻/受信cutの採点は本工程に実装しない。
+
+FIGHT内の逃走判定だけは固定格子化に伴うdraw消費の変化を許容する。確率式は既存のまま。
+ヒットまでの乱数順・魚種/体長抽選・装備定義は変更せず、QTEは乱数を消費しない。
+
+## 明示的な内部接続
+
+テストや後続の正規アダプターだけが、`createFishing({ qte: { enabled: true, selectOperation } })`
+を明示する。operation providerなしの有効化は拒否する。標準のmainには渡していない。
+`onFightEvent`はwarning/active/結果/arm終了/一時停止/終了のsnapshotを通知する。
+
+| API | 契約 |
+|---|---|
+| `fightContact(type, at, generation)` | 現在の通常ownerの明示入力。旧世代は拒否 |
+| `queueFightContact(type, at, identity)` | 通常timestamp ingress。処理時owner・接触対応・lifecycleで採否を決める |
+| `submitQteResult(token, success, at)` | 検証済みの結果だけを渡す。fight/index/generation一致、単一適用。未来の確定時刻も指定可 |
+| `pauseFight()` / `resumeFight()` | 残時間/予約/結果件数を保ち、入力世代を更新。最初からの無料リセットや魚喪失なし |
+| `cancelInput()` | 通常接触を解除。QTE中は入力世代だけ失効し、残時間/魚/予約を維持 |
+| `abortFight()` | 呼出側が明示した中止のみ。残予約を取消してREADYへ。ライフサイクルから自動実行しない |
+
+予告と操作時間が尽きても、domainは勝手に失敗を確定しない。`awaiting-result`を保持し、
+後続の単一commitから結果を受け取る。正常公開経路はQTE不活性なのでここで停止しない。
+結果適用自体はFAILEDへ遷移させず、通常再開後の既存糸切れ/緩み逃走が失敗を決める。
+成功補助で着岸下限へ到達しても、残予約を消化するまで早期LANDINGにしない。
+
+## 5C-2への留保
+
+DOM owner、4操作の判定とHUD、有限受信cut/inclusive fence、キュー容量、異常時の最終方針、
+端末上の遅配・回転・hidden/復帰は未接続。cut幅/容量の試作値を製品定数にしていない。
+blur/hidden/回転による自動魚喪失や未承認FAILED相も追加しない。これらと販売/保存は別ゲート。

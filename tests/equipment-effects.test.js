@@ -12,6 +12,7 @@ import { fishResistance, isLargeFish } from '../src/game/fish-fight.js';
 import { getEquipmentLevel } from '../src/game/equipment.js';
 import { getSpeciesProbabilities } from '../src/game/fish-encounters.js';
 import { FISH_RARITY } from '../src/game/fish-rarity.js';
+import { stoppedDistance } from './helpers/fight-pushback.js';
 
 const baseSha = '6fd79b45ecbdc0c80ebab55c2cb6f5289da2e0df';
 const near = (a, b, epsilon = 1e-11) => assert.ok(Math.abs(a - b) < epsilon, `${a} != ${b}`);
@@ -92,7 +93,7 @@ test('large-fish predicate and public FIGHT honor every valid rounded 0.75 bound
   t.diagnostic(`${cases} valid rounded boundary/species cases; no out-of-range test individuals`);
 });
 
-test('all ten reel levels apply exact FIGHT-only assist; LURE, stopped retrieval and tension remain unchanged', () => {
+test('all ten reel levels retain assist/LURE/tension and apply approved stopped-FIGHT pushback', () => {
   for (let reel = 1; reel <= 10; reel++) {
     const row = getEquipmentLevel('reel', reel);
     assert.equal(row.largeFishAssistMultiplier ?? 1, assistAt[reel - 1]);
@@ -107,7 +108,7 @@ test('all ten reel levels apply exact FIGHT-only assist; LURE, stopped retrieval
       f.reel(false); const stopped = f.state.distance;
       f.step(0.5); assert.equal(f.state.distance, stopped); hook(f);
       const individual = f.state.encounter, before = f.state.distance;
-      f.step(0.25); assert.equal(f.state.distance, before);
+      f.step(0.25); near(f.state.distance, stoppedDistance({ species: getFishSpecies('alligator-gar'), lengthCm: 180, startDistance: before, seconds: .25 }));
       near(f.state.tension, 0.42 - 0.42 * row.tensionReliefMultiplier * 0.25);
       assert.equal(f.state.encounter, individual); assert.equal(calls(), 3);
     }
@@ -124,21 +125,19 @@ test('all 12 species × 3 sizes × 3 frame rates × 5 reels × 3 rods match the 
       const individual = f.state.encounter;
       let distance = 32, tension = 0.42, time = 0;
       f.reel(true);
-      for (let frame = 0; frame < hz / 2; frame++) {
-        const steps = hz === 30 ? 2 : 1, dt = 1 / hz / steps;
-        for (let i = 0; i < steps; i++) {
-          time += dt;
+      for (let tick = 1; tick <= 30; tick++) {
+          const dt = 1 / 60; time = tick / 60;
           const resistance = fishResistance(species, length, time);
           distance -= 27.5 / (6.5 * Math.max(0.8, Math.min(1.25, resistance))) * speedAt[reel - 1]
             * (large(species, length) ? assistAt[reel - 1] : 1) * dt;
           tension += 0.24 * resistance * getEquipmentLevel('rod', rod).tensionMultiplier * dt;
-        }
-        f.step(1 / hz);
       }
+      for (let frame = 0; frame < hz / 2; frame++) f.step(1 / hz);
       assert.equal(f.state.phase, PHASE.FIGHT);
       near(f.state.distance, distance); near(f.state.tension, tension);
       assert.equal(f.state.encounter, individual); assert.equal(calls(), 3);
-      const stopped = f.state.distance; f.reel(false); f.step(0.1); assert.equal(f.state.distance, stopped);
+      const stopped = f.state.distance; f.reel(false); f.step(0.1);
+      near(f.state.distance, stoppedDistance({ species, lengthCm: length, startDistance: 32, distance: stopped, from: .5, seconds: .1 }));
       cases++;
     }
   }
@@ -171,7 +170,7 @@ test('Tier and large-fish assist freeze through AIM/CAST/LURE/BITE/FIGHT purchas
   }
 });
 
-test('actual 5B-1A engine/rows retain exact Lv.1–5 state and RNG; continuous high-level fights still break or escape', async t => {
+test('actual 5B-1A retains exact pre-FIGHT state/RNG and rows; FIGHT matches its 60Hz reference', async t => {
   // Compare the real frozen start commit, never a rewritten legacy algorithm.
   const root = await mkdtemp(join(tmpdir(), 'barb-5b1b-reference-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -190,18 +189,25 @@ test('actual 5B-1A engine/rows retain exact Lv.1–5 state and RNG; continuous h
     }
   }
   let comparisons = 0;
+  const legacyState = f => { const { fight, inputRevision, inputOwner, ...state } = f.state; return state; };
   for (let rod = 1; rod <= 5; rod++) for (let reel = 1; reel <= 5; reel++) for (const species of FISH_SPECIES) {
     for (const size of [0, 0.5, 1]) for (const hz of [30, 60, 144]) {
       const length = Math.round((species.minLengthCm + size * (species.maxLengthCm - species.minLengthCm)) * 10) / 10;
       const a = scenario(rod, reel, species, length), b = scenario(rod, reel, species, length, base.createFishing, true);
-      for (const { f } of [a, b]) { prepare(f); hook(f); }
-      assert.deepEqual(a.f.state, b.f.state);
+      for (const { f } of [a, b]) { prepare(f); toBite(f); }
+      assert.deepEqual(legacyState(a.f), b.f.state); assert.equal(a.calls(), b.calls());
+      for (const { f } of [a, b]) assert.equal(f.hook(), true);
+      assert.deepEqual(legacyState(a.f), b.f.state);
       for (const { f } of [a, b]) f.reel(true);
-      for (let frame = 0; frame < hz / 2; frame++) { a.f.step(1 / hz); b.f.step(1 / hz); }
-      assert.deepEqual(a.f.state, b.f.state); assert.equal(a.calls(), b.calls()); comparisons++;
+      for (let frame = 0; frame < hz / 2; frame++) a.f.step(1 / hz);
+      for (let tick = 0; tick < 30; tick++) b.f.step(1 / 60);
+      const { distance, tension, time, ...other } = legacyState(a.f);
+      const { distance: oldDistance, tension: oldTension, time: oldTime, ...oldOther } = b.f.state;
+      assert.deepEqual(other, oldOther); near(distance, oldDistance); near(tension, oldTension); near(time, oldTime);
+      assert.equal(a.calls(), b.calls()); comparisons++;
     }
   }
-  assert.equal(comparisons, 2700); t.diagnostic('2700 legacy engine comparisons: full state/RNG exactly equal, all old rows/fields and all basic/price fields unchanged');
+  assert.equal(comparisons, 2700); t.diagnostic('2700 actual legacy comparisons: pre-FIGHT state/RNG exact; FIGHT forced retrieval at canonical60Hz, original1e-11 tolerance; old rows/prices exact');
 
   for (const level of [1, 5, 6, 8, 10]) for (const hz of [30, 60, 144]) {
     const outcome = [];
@@ -222,7 +228,9 @@ test('actual 5B-1A engine/rows retain exact Lv.1–5 state and RNG; continuous h
     if (level <= 5) assert.deepEqual(outcome[0], outcome[1]);
     const slack = scenario(level, level, getFishSpecies('alligator-gar'), 180).f; prepare(slack); hook(slack);
     const start = slack.state.distance;
-    for (let frame = 0; frame < hz * 5 && slack.state.phase === PHASE.FIGHT; frame++) { slack.step(1 / hz); assert.equal(slack.state.distance, start); }
+    for (let frame = 0; frame < hz * 5 && slack.state.phase === PHASE.FIGHT; frame++) {
+      slack.step(1 / hz); assert.ok(slack.state.distance >= start && slack.state.distance <= start + 4);
+    }
     assert.equal(slack.state.phase, PHASE.FAILED); assert.match(slack.state.message, /緩み/); assert.equal(slack.state.tension, 0);
   }
 });
