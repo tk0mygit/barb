@@ -1,7 +1,7 @@
 import { calculateQteLayout } from './qte-layout.js';
 import { QTE_DIRECTIONS } from '../game/qte-operations.js';
 
-const obstacleSelectors = '.masthead, .action-panel, #fishing-panel, .compass, .telemetry, .edition, #spot-status, #sale-notice, #achievement-notice';
+const obstacleSelectors = '.masthead, .action-panel, #fishing-panel, #reticle, .compass, .telemetry, .edition, #spot-status, #sale-notice, #achievement-notice';
 const labels = { flick: '短く素早くフリック', swipe: '長くスワイプ', tap: '3回タップ', target: '円の中をタップ' };
 const arrows = { up: '↑', right: '→', down: '↓', left: '←' };
 const directionNames = { up: '上', right: '右', down: '下', left: '左' };
@@ -52,7 +52,7 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     panel.hidden = false; panel.dataset.operation = descriptor.operation;
     const measurements = measure(), nextSignature = JSON.stringify(measurements);
     if (signature !== nextSignature) {
-      if (signature !== null) delivery.invalidateGeometry(false, raw);
+      if (signature !== null) delivery.invalidateGeometry(false, delivery.clock.now());
       signature = nextSignature; preparation = null; layout = calculateQteLayout(measurements);
     }
     if (!layout) {
@@ -70,19 +70,25 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     const blocked = snapshot.reasons.some(reason => !['orientation', 'display'].includes(reason));
     if (!applied && !blocked && !snapshot.displayReady) {
       if (preparation && preparation.revision === snapshot.geometryRevision && preparation.lifecycle === snapshot.lifecycle) {
-        if (delivery.presentDisplay(preparation, frameId, raw)) preparation = null;
+        if (delivery.presentDisplay(preparation, frameId, delivery.clock.now())) preparation = null;
       } else preparation = null;
-      if (!preparation && !delivery.snapshot.displayReady) preparation = delivery.prepareDisplay(frameId, raw, layout);
+      // Snapshot/DOM reads may already have sampled the monotonic clock after
+      // the frame timestamp. Stamp this boundary at the actual call, never
+      // feed an earlier render timestamp back into the delivery clock.
+      if (!preparation && !delivery.snapshot.displayReady) preparation = delivery.prepareDisplay(frameId, delivery.clock.now(), layout);
     }
     snapshot = delivery.snapshot;
     const preview = delivery.preview(), operation = descriptor.operation;
     const mode = applied ? snapshot.success ? 'success' : 'failure' : snapshot.interrupted ? 'interrupted'
-      : blocked ? 'suspended' : !snapshot.displayReady || snapshot.active === null ? 'warning'
+      : blocked ? 'suspended' : !snapshot.displayReady && snapshot.active !== null ? 'awaiting-display'
+      : !snapshot.displayReady || snapshot.active === null ? 'warning'
       : snapshot.remainingMs === 0 ? 'awaiting-result' : 'active';
     panel.dataset.state = mode; panel.dataset.geometryRevision = String(snapshot.geometryRevision);
-    state.textContent = { warning: '予告 · まだ触れないで', active: 'いま操作！', 'awaiting-result': '入力の確定待ち',
+    state.textContent = { warning: '予告 · まだ触れないで', active: 'いま操作！', 'awaiting-display': '↻ 再開表示を準備中', 'awaiting-result': '入力の確定待ち',
       success: '✓ 成功', failure: '× 時間切れ', interrupted: 'Ⅱ 入力の混雑で一時停止', suspended: 'Ⅱ 一時停止 · 復帰待ち' }[mode];
-    instruction.textContent = operation === 'target' ? '円内をタップ · マウスは内側の円' : `${descriptor.direction ? directionNames[descriptor.direction] + 'へ ' : ''}${labels[operation]}`;
+    if (layout.compact && mode === 'warning') state.textContent = '予告 · 触れずに待つ';
+    if (layout.compact && mode === 'interrupted') state.textContent = 'Ⅱ 入力混雑 · 待機';
+    instruction.textContent = operation === 'target' ? '円内タップ（マウスは内円）' : `${descriptor.direction ? directionNames[descriptor.direction] + 'へ ' : ''}${labels[operation]}`;
     gesture.hidden = false; arrow.hidden = endpoint.hidden = !['flick', 'swipe'].includes(operation);
     target.hidden = operation !== 'target'; taps.hidden = operation !== 'tap';
     arrow.textContent = arrows[descriptor.direction] ?? '';

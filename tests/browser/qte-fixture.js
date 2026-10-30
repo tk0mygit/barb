@@ -12,7 +12,7 @@ export async function openQteFixture(page, operation = 'tap') {
   if (!lengthCm) throw new Error(`No deterministic fixture for ${operation}`);
   await page.route('**/barb/src/**', route => {
     const path = new URL(route.request().url()).pathname.replace('/barb/', '../../');
-    return route.fulfill({ body: readFileSync(new URL(path, import.meta.url)), contentType: path.endsWith('.css') ? 'text/css' : 'text/javascript' });
+    return route.fulfill({ body: readFileSync(new URL(path, import.meta.url)), contentType: path.endsWith('.css') ? 'text/css' : path.endsWith('.png') ? 'image/png' : 'text/javascript' });
   });
   const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
     .replace('<script type="module" src="/src/main.js"></script>', `
@@ -28,6 +28,7 @@ export async function openQteFixture(page, operation = 'tap') {
         import { createControls } from './src/input/controls.js';
         import { createQteHUD } from './src/ui/qte-hud.js';
         import { createFishingHUD } from './src/ui/fishing-hud.js';
+        import { createHUD } from './src/ui/hud.js';
         import { createCollectionMenu } from './src/ui/collection-menu.js';
         import { createAchievements } from './src/game/achievements.js';
         import { encounterModel, getRodEncounterModifiers } from './src/game/encounter-production.js';
@@ -57,11 +58,17 @@ export async function openQteFixture(page, operation = 'tap') {
         let lastEvidence=null;
         const evaluate=createQteEvaluator(provider);
         const delivery=createQteDelivery({fishing,clock,evaluate:input=>{lastEvidence=input;return evaluate(input);}});
+        const displayCalls=[];
+        for(const method of ['prepareDisplay','presentDisplay']) {
+          const original=delivery[method];
+          delivery[method]=(...args)=>{const result=original(...args);displayCalls.push({method,result,snapshot:delivery.snapshot});if(displayCalls.length>8)displayCalls.shift();return result;};
+        }
         const input=createFishingInput(fishing,undefined,{qteDelivery:delivery});
         const controls=createControls(document.querySelector('#scene'),document.querySelector('#joystick'),document.querySelector('#joystick-knob'),{input,canLook:()=>false});
         controls.setMode('fishing');
         const fishingHUD=createFishingHUD({onPrepare:()=>{},onCancel:()=>{},onClose:()=>{},onSell:()=>{},onSelectLure:()=>{}});
-        const updateFishing=()=>fishingHUD.update(fishing,true,{timeOfDay:'day',cycleProgress:0});
+        const baseHUD=createHUD({onFish:()=>{},onReturn:()=>{}});
+        const updateFishing=()=>{baseHUD.update({mode:'fishing',speed:0,heading:0});fishingHUD.update(fishing,true,{timeOfDay:'day',cycleProgress:0});};
         updateFishing();document.querySelector('#app').classList.add('fishing');
         document.querySelector('#fish-button').hidden=true;document.querySelector('#status').hidden=true;
         document.querySelector('#menu-button').disabled=false;
@@ -77,7 +84,7 @@ export async function openQteFixture(page, operation = 'tap') {
           fishing.reel(true);while(fishing.state.fight.mode==='normal')fishing.step(1/60);
           delivery.open(performance.now());updateFishing();
         };
-        window.qteFixture={fishing,delivery,hud,provider,events,controls,input,menu,start,evidence:()=>lastEvidence};
+        window.qteFixture={fishing,delivery,hud,provider,events,controls,input,menu,start,displayCalls,evidence:()=>lastEvidence};
         let frame=0;
         function render(){const raw=performance.now();controls.read(0,raw);hud.update(++frame,performance.now());requestAnimationFrame(render);}
         requestAnimationFrame(render);

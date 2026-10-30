@@ -5,8 +5,7 @@ export function calculateQteLayout({ canvas, safe, obstacles = [] }) {
     right: Math.min(canvas.right, safe.right) - 8, bottom: Math.min(canvas.bottom, safe.bottom) - 8 };
   if (!Object.values(bounds).every(Number.isFinite)) return null;
   let spaces = [bounds];
-  const fits = r => r.right - r.left >= 180 && r.bottom - r.top >= 176
-    || r.right - r.left >= 320 && r.bottom - r.top >= 120;
+  const fits = r => r.right - r.left >= 216 && r.bottom - r.top >= 104;
   for (const obstacle of obstacles) {
     const o = { left: obstacle.left - 8, top: obstacle.top - 8, right: obstacle.right + 8, bottom: obstacle.bottom + 8 };
     const next = [];
@@ -22,11 +21,11 @@ export function calculateQteLayout({ canvas, safe, obstacles = [] }) {
   const area = r => (r.right - r.left) * (r.bottom - r.top);
   spaces = spaces.filter(fits).sort((a, b) => area(b) - area(a) || a.top - b.top || a.left - b.left);
   if (!spaces.length) return null;
-  const free = spaces[0], compact = free.bottom - free.top < 176;
+  const free = spaces[0], compact = free.bottom - free.top < 156;
   const width = Math.min(compact ? 420 : 304, free.right - free.left), height = Math.min(216, free.bottom - free.top);
   const left = (free.left + free.right - width) / 2, top = (free.top + free.bottom - height) / 2;
   const panel = Object.freeze({ left, top, right: left + width, bottom: top + height });
-  const region = Object.freeze({ left: compact ? panel.right - 120 : panel.left + 12, right: panel.right - 12,
-    top: panel.top + (compact ? 8 : 60), bottom: panel.bottom - 24 });
+  const region = Object.freeze({ left: compact ? panel.right - 108 : panel.left + 12, right: panel.right - 12,
+    top: panel.top + (compact ? 8 : 52), bottom: panel.bottom - (compact ? 16 : 24) });
   return Object.freeze({ compact, panel, region, target: Object.freeze({ x: (region.left + region.right) / 2, y: (region.top + region.bottom) / 2 }) });
 }

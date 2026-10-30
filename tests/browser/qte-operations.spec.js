@@ -7,16 +7,19 @@ for (const touch of [false, true]) for (const operation of ['flick', 'swipe', 't
   test(`${touch ? 'touch' : 'mouse'} canvas → ${operation} → HUD → finite seal → single domain commit`, async ({ createContext }) => {
     const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch });
     const page = await context.newPage(), errors = [];
+    const cdp = touch ? await context.newCDPSession(page) : null;
     page.on('pageerror', error => errors.push(error.message));
     await openQteFixture(page, operation);
+    // Observe the opening frame, rather than locator assertion backoff (whose
+    // next sample can consume most of a legitimate 0.5s operation window).
+    await page.waitForFunction(() => document.querySelector('.qte-hud')?.dataset.state === 'active');
     await expect(page.locator('.qte-hud')).toHaveAttribute('data-state', 'active');
     const g = await page.evaluate(() => ({ ...window.qteFixture.hud.geometry, d: window.qteFixture.provider.getDescriptor(0) }));
     const vectors = { up: [0, -1], right: [1, 0], down: [0, 1], left: [-1, 0] };
-    const v = vectors[g.d.direction] ?? [0, 0], distance = operation === 'swipe' ? 84 : operation === 'flick' ? 50 : 0;
+    const v = vectors[g.d.direction] ?? [0, 0], distance = operation === 'swipe' ? 80 : operation === 'flick' ? 50 : 0;
     const start = { x: g.target.x - v[0] * distance / 2, y: g.target.y - v[1] * distance / 2 };
     const end = { x: g.target.x + v[0] * distance / 2, y: g.target.y + v[1] * distance / 2 };
     expect(await page.evaluate(p => document.elementFromPoint(p.x, p.y)?.id, start)).toBe('scene');
-    const cdp = await context.newCDPSession(page);
     for (let i = 0; i < (operation === 'tap' ? 3 : 1); i++) {
       if (touch) {
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
@@ -62,7 +65,7 @@ test('HUD safe insets, short landscape, layout failure and fixed target geometry
     const measured = await page.evaluate(() => ({ geometry: window.qteFixture.hud.geometry,
       canvas: document.querySelector('#scene').getBoundingClientRect().toJSON(),
       safe: document.querySelector('.qte-safe-probe').getBoundingClientRect().toJSON(),
-      obstacles: [...document.querySelectorAll('.masthead,.action-panel,#fishing-panel,.compass,.telemetry,.edition,#spot-status,#sale-notice,#achievement-notice')]
+      obstacles: [...document.querySelectorAll('.masthead,.action-panel,#fishing-panel,#reticle,.compass,.telemetry,.edition,#spot-status,#sale-notice,#achievement-notice')]
         .filter(e=>getComputedStyle(e).display!=='none').map(e=>({name:e.id||e.className,rect:e.getBoundingClientRect().toJSON()})) }));
     expect(measured.geometry, JSON.stringify(measured)).not.toBeNull();
     const p = measured.geometry.panel;
@@ -87,7 +90,8 @@ test('menu suspends a completed tap checkpoint, native pointer capture/focus and
   await expect(page.locator('#collection-dialog')).toBeVisible();
   expect(await page.evaluate(() => window.qteFixture.fishing.state.fight.paused)).toBe(true);
   await page.locator('#collection-close').tap();
-  await expect(page.locator('.qte-hud')).toHaveAttribute('data-state', 'active');
+  await expect.poll(() => page.evaluate(() => JSON.stringify({ state: window.qteFixture.hud.element.dataset.state,
+    snapshot: window.qteFixture.delivery.snapshot, displays: window.qteFixture.displayCalls }))).toContain('"state":"active"');
   await expect(page.locator('.qte-taps')).toContainText('1/3');
   const fresh = await page.evaluate(() => window.qteFixture.hud.geometry.target);
   await page.touchscreen.tap(fresh.x, fresh.y); await page.touchscreen.tap(fresh.x, fresh.y);

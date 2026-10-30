@@ -6,13 +6,13 @@ import { createQteEvaluator } from '../../src/game/qte-operations.js';
 
 export const displayGeometry = Object.freeze({ region: Object.freeze({ left: -200, top: -200, right: 200, bottom: 200 }),
   target: Object.freeze({ x: 0, y: 0 }) });
-export function operationSetup({ operation = 'flick', direction = 'right', capacity, condition = {} } = {}) {
+export function operationSetup({ operation = 'flick', direction = 'right', capacity, condition = {}, sampleStepMs = 0 } = {}) {
   let raw = 0;
   const provider = { getDescriptor: index => Object.freeze({ fightId: 1, index, operation, direction }), selectOperation: () => operation };
   const { f, calls } = hookedFight({ speciesId: 'alligator-gar', size: 'max', rod: 10, reel: 10, startDistance: 4.51, ...condition },
     { qte: { enabled: true, delivery: 'finite', selectOperation: provider.selectOperation } });
   f.reel(true); while (f.state.fight.mode === 'normal') f.step(1 / 60);
-  const clock = createQteClock({ now: () => raw });
+  const clock = createQteClock({ now: () => { const value = raw; raw += sampleStepMs; return value; } });
   const delivery = createQteDelivery({ fishing: f, clock, capacity, evaluate: createQteEvaluator(provider) });
   assert.ok(delivery.open(0));
   let frame = 0;

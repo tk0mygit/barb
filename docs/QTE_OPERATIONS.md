@@ -53,8 +53,10 @@ warning source anchor and calls `hud.update(frameId, performance.now())` once
 per rendering opportunity. Geometry is prepared before a later frame can
 present it; all 0.6s of warning must elapse before A opens. A browser rendering
 opportunity is not proof that a physical display emitted light.
+Display API calls sample the clock at the actual call after snapshot/DOM work;
+an older frame timestamp cannot be fed back into the monotonic delivery clock.
 
-The HUD avoids visible masthead, action/fishing panels, compass and notices,
+The HUD avoids visible masthead, action/fishing panels, reticle, compass and notices,
 intersecting canvas, safe-area and visual viewport bounds. Short landscape
 uses a compact side-by-side layout. Both mouse32 and touch40 target circles
 are visible on hybrid devices. All HUD descendants use `pointer-events:none`;

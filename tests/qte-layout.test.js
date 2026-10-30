@@ -22,3 +22,10 @@ test('insufficient canvas space is explicit; no fabricated region or successful 
   const large = { ...canvas, right: 800, bottom: 600 };
   assert.equal(calculateQteLayout({ canvas: large, safe: large, obstacles: [large] }), null);
 });
+test('real short landscape occupancy retains an 80px target/swipe region beside the existing HUD and reticle', () => {
+  const result = calculateQteLayout({ canvas: { left: 0, top: 0, right: 568, bottom: 320 }, safe: { left: 24, top: 16, right: 544, bottom: 304 },
+    obstacles: [{ left: 36, top: 24, right: 532, bottom: 76 }, { left: 278, top: 148, right: 290, bottom: 172 },
+      { left: 36, top: 155, right: 260, bottom: 292 }, { left: 308, top: 199, right: 532, bottom: 292 }] });
+  assert.ok(result); assert.equal(result.compact, true);
+  assert.ok(result.region.bottom - result.region.top >= 80 && result.region.right - result.region.left >= 80);
+});
