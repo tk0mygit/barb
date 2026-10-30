@@ -2,9 +2,17 @@ import { test, expect } from './diagnostics-fixture.js';
 import { setup, tick } from './day-night-fixture.js';
 import { installAudioProbe, audioSnapshot, attachAudioDiagnostics, soundScreen } from './audio-fixture.js';
 import { createGameClock } from '../../src/game/game-clock.js';
+import { validateSaveData } from '../../src/game/save-data.js';
 import { sampleAudioMix, NATURE_BASE_GAIN } from '../../src/audio/audio-mix.js';
+import { writeFile } from 'node:fs/promises';
 
 const key = 'barb.audio.preferences.v1';
+const gameSaveSnapshot = page => page.evaluate(() => ({
+  raw: ['barb.save.v1.slotA', 'barb.save.v1.slotB'].map(key => localStorage.getItem(key)),
+  phase: document.querySelector('#save-status')?.dataset.phase,
+  status: document.querySelector('#save-status')?.textContent,
+  details: document.querySelector('#save-status')?.title,
+}));
 test.use({ deviceScaleFactor: 0.5 });
 const enabled = { version: 1, enabled: true, volume: 60 };
 const prefs = async (page, value) => page.addInitScript(({ key, value }) => {
@@ -215,19 +223,52 @@ for (const scenario of ['invalid', 'read-denied', 'write-denied', 'unsupported']
       Storage.prototype.getItem = function(k) { if (scenario === 'read-denied' && k === key) throw new DOMException('denied', 'SecurityError'); return get.call(this, k); };
       Storage.prototype.setItem = function(k, v) { if (scenario === 'write-denied' && k === key) throw new DOMException('full', 'QuotaExceededError'); return set.call(this, k, v); };
     }, { scenario, key });
-    await setup(page, 90); await soundScreen(page);
+    await setup(page, 90);
+    const loaded = await gameSaveSnapshot(page);
+    await soundScreen(page);
     await expect(page.locator('#ambient-toggle')).toHaveAttribute('aria-pressed', 'false');
     if (scenario === 'invalid') await expect(page.locator('#audio-preferences-status')).toContainText('不正');
     if (scenario === 'read-denied') await expect(page.locator('#audio-preferences-status')).toContainText('読み込めません');
     const gameStatus = await page.locator('#save-status').textContent();
+    const beforeAudio = await gameSaveSnapshot(page);
     await page.locator('#ambient-toggle').click();
+    const afterAudio = await gameSaveSnapshot(page);
     expect(await page.locator('#save-status').textContent()).toBe(gameStatus);
     if (scenario === 'write-denied') await expect(page.locator('#audio-preferences-status')).toContainText('保存できません');
     if (scenario === 'unsupported') await expect(page.locator('#ambient-status')).toContainText('対応していません');
     await close(page); await tick(page);
     await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
     await expect(page.locator('#save-status')).not.toContainText('保存停止');
-    expect(await page.evaluate(() => ['barb.save.v1.slotA', 'barb.save.v1.slotB'].map(key => JSON.parse(localStorage.getItem(key))).filter(Boolean).every(slot => slot.data.saveVersion === 2 && Object.keys(slot.data.settings).length === 0))).toBe(true);
+    const saved = await gameSaveSnapshot(page);
+    const diagnostics = test.info().outputPath('game-save-boundaries.json');
+    await writeFile(diagnostics, JSON.stringify({ scenario, loaded, beforeAudio, afterAudio, saved }, null, 2));
+    await test.info().attach('game-save-boundaries', { path: diagnostics, contentType: 'application/json' });
+    // setup already verifies the seeded V1 raw. Loading must not create B,
+    // and changing audio preferences must not write either game slot.
+    expect(loaded.raw[1]).toBeNull();
+    const original = JSON.parse(loaded.raw[0]);
+    expect(original).toMatchObject({ storageVersion: 1, generation: 1, data: { saveVersion: 1 } });
+    expect(afterAudio.raw).toEqual(beforeAudio.raw);
+    // A successful first save creates the inactive slot. Require both slots
+    // explicitly, so absence/corruption cannot pass an empty every().
+    expect(saved.phase).toBe('saved');
+    expect(saved.raw.filter(raw => raw !== null)).toHaveLength(2);
+    const slots = saved.raw.map(raw => JSON.parse(raw));
+    for (const [index, slot] of slots.entries()) {
+      expect(slot.storageVersion).toBe(1);
+      expect(Number.isSafeInteger(slot.generation)).toBe(true);
+      expect(slot.generation).toBeGreaterThan(0);
+      expect(validateSaveData(slot.data)).toEqual(slot.data);
+      expect(slot.data.settings).toEqual({});
+      if (slot.data.saveVersion === 1) expect(saved.raw[index]).toBe(loaded.raw[0]);
+    }
+    const [latest, backup] = slots.sort((a, b) => b.generation - a.generation);
+    expect(latest.data.saveVersion).toBe(2);
+    expect(latest.generation).toBeGreaterThan(original.generation);
+    expect(backup.generation).toBe(latest.generation - 1);
+    // Later legal saves may replace V1. At the first migration boundary only,
+    // the original active A must still be byte-identical.
+    if (latest.generation === original.generation + 1) expect(saved.raw[0]).toBe(loaded.raw[0]);
     await expect(page.locator('#error')).toBeHidden();
   });
 }
