@@ -2,8 +2,8 @@ import { QTE_TIMING, qteSeconds } from '../game/fight-qte.js';
 import { QTE_DELIVERY_CONFIG } from '../game/qte-delivery-config.js';
 import { createQteClock } from './qte-clock.js';
 
-// Transport only. An injected evidence consumer belongs to PR-B; no operation
-// thresholds, product HUD or operation RNG are implemented here.
+// Transport only. Geometry is an immutable client-pixel snapshot supplied by
+// the visual HUD; operation thresholds and RNG remain outside this adapter.
 export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
   capacity = QTE_DELIVERY_CONFIG.semanticEdgeCapacity } = {}) {
   if (!fishing || typeof evaluate !== 'function') throw new TypeError('QTE delivery requires a domain and an evidence consumer');
@@ -32,7 +32,8 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
     }
   }
   function evidence() {
-    return Object.freeze({ previous: session.checkpoint,
+    return Object.freeze({ handle: session.handle,
+      window: Object.freeze({ active: session.active, deadline: session.deadline, cut: session.cut }), previous: session.checkpoint,
       edges: Object.freeze([...session.edges].sort((a, b) => a.source - b.source || a.serial - b.serial).map(e => Object.freeze({ ...e,
         contact: Object.freeze({ ...e.contact }) }))),
       completedOperations: session.completed, final: false });
@@ -91,11 +92,12 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
       const checkpoint = assess(false);
       // Only fixed-size completed-operation state survives an interrupt. An
       // evidence consumer cannot turn its checkpoint into an unbounded raw log.
-      session.checkpoint = Object.freeze({ completedOperations: checkpoint.completedOperations, success: checkpoint.success });
+      session.checkpoint = Object.freeze({ completedOperations: checkpoint.completedOperations, success: checkpoint.success,
+        ...(Number.isSafeInteger(checkpoint.throughSerial) ? { throughSerial: checkpoint.throughSerial } : {}) });
       session.completed = checkpoint.completedOperations;
       session.provisionalSuccess = checkpoint.success;
     } catch { diagnose('consumer-error'); session.unrecoverable = true; }
-    session.unrecoverable ||= session.deadline !== null && receipt.active >= session.deadline;
+    session.unrecoverable ||= session.deadline !== null && receipt.active >= session.deadline && !session.checkpoint?.success;
     session.edges = [];
     session.interrupted = true; diagnose(reason);
     setSuspended('technical', true, receipt.raw);
@@ -116,10 +118,19 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
     ledger.set(token.index, session);
     synchronize(receipt); return handle;
   }
-  function prepareDisplay(frame, raw = clock.now()) {
+  function prepareDisplay(frame, raw = clock.now(), geometry = null) {
     const receipt = clock.read(raw);
     if (!session || session.status !== 'open' || !receipt || !Number.isInteger(frame) || !refresh()) return null;
-    session.preparation = Object.freeze({ handle: session.handle, revision: geometryRevision, lifecycle, frame, raw });
+    let fixedGeometry = null;
+    if (geometry !== null) {
+      const r = geometry.region, t = geometry.target;
+      if (!r || !t || ![r.left, r.top, r.right, r.bottom, t.x, t.y].every(Number.isFinite)
+        || r.right <= r.left || r.bottom <= r.top) { diagnose('invalid-display-geometry'); return null; }
+      fixedGeometry = Object.freeze({ revision: geometryRevision,
+        region: Object.freeze({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }),
+        target: Object.freeze({ x: t.x, y: t.y }) });
+    }
+    session.preparation = Object.freeze({ handle: session.handle, revision: geometryRevision, lifecycle, frame, raw, geometry: fixedGeometry });
     return session.preparation;
   }
   function presentDisplay(preparation, frame, raw = clock.now()) {
@@ -137,7 +148,7 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
     }
     if (clock.reasons.includes('orientation')) setSuspended('orientation', false, raw);
     if (clock.reasons.includes('display')) setSuspended('display', false, raw);
-    session.display = Object.freeze({ revision: geometryRevision, lifecycle, active: receipt.active });
+    session.display = Object.freeze({ revision: geometryRevision, lifecycle, active: receipt.active, geometry: preparation.geometry });
     synchronize(clock.read(raw)); return true;
   }
   function invalidateGeometry(orientation, raw = clock.now()) {
@@ -207,11 +218,13 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
       diagnose('invalid-geometry'); closeContact('invalid-geometry'); return { handled: true, accepted: false };
     }
     if (event.type === 'pointerdown') {
-      if (event.pointerType === 'mouse' && event.button !== 0 || event.isPrimary === false || session.contact) return { handled: true, accepted: false };
+      if (!['mouse', 'touch'].includes(event.pointerType)) { diagnose('unsupported-pointer'); return { handled: true, accepted: false }; }
+      if (event.pointerType === 'mouse' && event.button !== 0 || event.isPrimary !== true || session.contact) return { handled: true, accepted: false };
       if (session.edges.length >= capacity) { interrupt(receipt, 'semantic-overflow'); return { handled: true, accepted: false }; }
       const contact = { adapter, instance: session.handle.instance, fightId: session.handle.fightId, index: session.handle.index,
         generation: session.token.generation, lifecycle, serial: ++contactSerial, pointerId: event.pointerId,
-        displayRevision: geometryRevision, downSource: source.active, downReceipt: receipt.active,
+        pointerType: event.pointerType, button: event.button, isPrimary: event.isPrimary,
+        displayRevision: geometryRevision, geometry: session.display.geometry, downSource: source.active, downReceipt: receipt.active,
         startX: event.clientX, startY: event.clientY, endX: event.clientX, endY: event.clientY,
         endSource: source.active, maxDisplacement: 0, maxSource: source.active, cancelled: false };
       session.contact = contact;
@@ -220,6 +233,9 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
     } else if (['pointermove', 'pointerup'].includes(event.type)) {
       const contact = session.contact;
       if (!contact || contact.pointerId !== event.pointerId) return { handled: true, accepted: false };
+      if (contact.pointerType !== event.pointerType) {
+        closeContact('ambiguous-pointer-type'); diagnose('ambiguous-pointer-type'); return { handled: true, accepted: false };
+      }
       if (source.active < contact.downSource) { diagnose('old-up-or-move'); return { handled: true, accepted: false }; }
       if (event.type === 'pointerup' && session.lastCancelled?.pointerId === event.pointerId
         && session.lastCancelled.source === contact.downSource && source.active === contact.downSource) {
@@ -256,6 +272,11 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
     return { handled: true, accepted: true };
   }
   return { clock, open, prepareDisplay, presentDisplay, ingest, poll, setSuspended, invalidateGeometry,
+    preview() {
+      if (!session || session.status !== 'open') return Object.freeze({ success: session?.success === true, completedOperations: session?.completed ?? 0 });
+      try { return assess(false); }
+      catch { diagnose('consumer-error'); return Object.freeze({ success: false, completedOperations: session.completed }); }
+    },
     cancelContact() { closeContact('canvas-cancel'); },
     resumeTechnical(raw = clock.now()) {
       if (!session?.interrupted) return false;
@@ -264,6 +285,7 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
     },
     get snapshot() {
       return Object.freeze({ handle: session?.handle, status: session?.status ?? 'idle', warning: session?.warning,
+        geometryRevision, lifecycle, displayReady: !!session?.display, success: session?.success ?? null,
         active: session?.active, deadline: session?.deadline, cut: session?.cut,
         remainingMs: session?.deadline === null ? null : Math.max(0, (session?.deadline ?? 0) - (clock.read()?.active ?? 0)),
         edges: session?.edges.length ?? 0, highWater: session?.highWater ?? 0, completedOperations: session?.completed ?? 0,
