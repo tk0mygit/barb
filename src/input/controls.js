@@ -9,10 +9,12 @@ export function createControls(canvas, joystick, knob, fishing = null) {
   let preparing = false;
   let startedAt;
   let enabled = true;
+  let uncertainRelease = false;
   const canLook = () => !fishing || fishing.canLook();
   function release() {
     const previousPointer = pointer;
     pointer = null;
+    uncertainRelease = false;
     fishingGesture = false;
     if (previousPointer !== null && canvas.hasPointerCapture(previousPointer)) canvas.releasePointerCapture(previousPointer);
     keys.clear();
@@ -28,8 +30,10 @@ export function createControls(canvas, joystick, knob, fishing = null) {
   }
   canvas.addEventListener('pointerdown', event => {
     const receipt = performance.now();
+    if (!enabled) return;
     fishing?.input.receivePointer?.(event, receipt);
-    if (!enabled || pointer !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    if (uncertainRelease) release();
+    if (pointer !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
     pointer = event.pointerId;
     origin = previous = { x: event.clientX, y: event.clientY };
     startedAt = event.timeStamp;
@@ -81,7 +85,11 @@ export function createControls(canvas, joystick, knob, fishing = null) {
     fishing?.input.receivePointer?.(event, receipt);
     if (event.pointerId !== pointer) return;
     if (event.timeStamp < startedAt) return;
-    if (fishingGesture) fishing.input.up(event.timeStamp, { event, receipt });
+    if (fishingGesture && fishing.input.up(event.timeStamp, { event, receipt }) === false) {
+      // A quarantined old up must leave the new normal hold intact. A later
+      // unambiguous up or a fresh down can still replace this local contact.
+      uncertainRelease = true; return;
+    }
     release();
   });
   for (const name of ['pointercancel', 'lostpointercapture']) {

@@ -474,6 +474,21 @@ test('G09 drop-old/drop-new counterexamples lose a valid three-contact sequence'
   assert.equal(complete(edges.slice(0, 5)), 2); assert.equal(complete(edges.slice(1)), 2);
 });
 
+test('G05 old QTE up with the same coarse timestamp cannot release a new normal hold', () => {
+  const s = setup(); s.activate(); s.send('pointerdown', 700);
+  const input = createFishingInput(s.f, undefined, { qteDelivery: s.delivery });
+  s.at(1200); s.delivery.poll(); // incomplete QTE contact is retired at seal
+  input.down(0, 0, 1200, { event: pointer('pointerdown', 1200), receipt: 1200 });
+  input.step(.25, 1200); s.f.step(.25);
+  input.up(1200, { event: pointer('pointerup', 1200), receipt: 1200 });
+  input.cancel(1200, { event: pointer('lostpointercapture', 1200), receipt: 1200 });
+  s.f.step(.01); assert.equal(s.f.state.reeling, true);
+  assert.equal(s.delivery.snapshot.counts['quarantined-normal-up'], 1);
+  assert.equal(s.delivery.snapshot.counts['quarantined-normal-control'], 1);
+  s.at(1500); input.up(1500, { event: pointer('pointerup', 1500), receipt: 1500 });
+  input.step(.06, 1510); s.f.step(.06); assert.equal(s.f.state.reeling, false);
+});
+
 for (const seconds of [.5, 1, 1.5]) test(`each existing non-tap duration ${seconds}s keeps inclusive D and fixed C`, () => {
   const species = FISH_SPECIES.find(fish => getQteDifficulty(fish, fish.minLengthCm).seconds === seconds);
   const s = setup({ condition: { speciesId: species.id, size: 'min' } }); s.activate();

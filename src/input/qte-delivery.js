@@ -26,7 +26,10 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
     session.token = token; return true;
   }
   function closeContact(reason) {
-    if (session?.contact) { session.contact.cancelled = true; session.contact.cancelReason = reason; session.contact = null; }
+    if (session?.contact) {
+      session.contact.cancelled = true; session.contact.cancelReason = reason;
+      session.retiredPointer = session.contact.pointerId; session.contact = null;
+    }
   }
   function evidence() {
     return Object.freeze({ previous: session.checkpoint,
@@ -60,7 +63,8 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
       session.status = 'sealed';
       // Input collection is closed independently of domain application.
     }
-    if (fishing.commitQteDelivery(session.token, session.success)) { session.status = 'applied'; return true; }
+    const domainCut = progress().elapsedSeconds;
+    if (fishing.commitQteDelivery(session.token, session.success)) { session.domainCut = domainCut; session.status = 'applied'; return true; }
     diagnose('domain-commit-rejected'); return false;
   }
   function setSuspended(reason, suspended, raw = clock.now()) {
@@ -107,7 +111,7 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
     const handle = Object.freeze({ adapter, instance: token.instance, fightId: token.fightId, index: token.index });
     session = { handle, token, warning: source.active, active: null, deadline: null, cut: null,
       duration: qteSeconds(fight.difficulty, fight.qte.operation) * 1000, display: null, preparation: null,
-      edges: [], contact: null, lastCancelled: null, completed: 0, checkpoint: undefined,
+      edges: [], contact: null, lastCancelled: null, retiredPointer: null, normalContact: null, completed: 0, checkpoint: undefined,
       provisionalSuccess: false, success: null, status: 'open', interrupted: false, unrecoverable: false, highWater: 0 };
     ledger.set(token.index, session);
     synchronize(receipt); return handle;
@@ -156,14 +160,29 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
       if (session.contact?.pointerId === event.pointerId) closeContact('ambiguous-time');
       diagnose('ambiguous-time'); return { handled: true, accepted: false };
     }
-    if (session.status === 'applied') return { handled: source.active < session.cut, accepted: false };
-    if (!refresh()) { diagnose('stale-domain'); return { handled: true, accepted: false }; }
     // Normal fresh down can arrive before the render/timer seals this QTE.
     // Preserve it with its explicit logical boundary rather than the lagging
     // snapshot owner or a rebased normal-input origin.
-    if (session.cut !== null && source.active >= session.cut && !['pointercancel', 'lostpointercapture'].includes(event.type)) {
-      return { handled: false, accepted: false, normalAt: progress().qte.delivery.startSeconds + (source.active - session.warning) / 1000 };
+    if (session.cut !== null && source.active >= session.cut && ['pointercancel', 'lostpointercapture'].includes(event.type)
+      && event.pointerId === session.retiredPointer && session.normalContact?.pointerId === event.pointerId
+      && source.active <= session.normalContact.source) {
+      diagnose('quarantined-normal-control'); return { handled: true, accepted: false };
     }
+    if (session.cut !== null && source.active >= session.cut && !['pointercancel', 'lostpointercapture'].includes(event.type)) {
+      if (event.type === 'pointerdown') session.normalContact = { pointerId: event.pointerId, source: source.active };
+      if (event.type === 'pointerup' && event.pointerId === session.retiredPointer) {
+        if (!session.normalContact || session.normalContact.pointerId === event.pointerId && source.active <= session.normalContact.source) {
+          diagnose('quarantined-normal-up'); return { handled: true, accepted: false };
+        }
+        session.retiredPointer = null;
+      }
+      const normalAt = session.status !== 'applied'
+        ? progress()?.qte.delivery?.startSeconds + (source.active - session.warning) / 1000
+        : progress()?.renderSeconds === session.domainCut ? session.domainCut + (source.active - session.cut) / 1000 : undefined;
+      return { handled: false, accepted: false, normalAt };
+    }
+    if (session.status === 'applied') return { handled: source.active < session.cut, accepted: false };
+    if (!refresh()) { diagnose('stale-domain'); return { handled: true, accepted: false }; }
     if (session.status !== 'open' || session.cut !== null && receipt.active >= session.cut) {
       diagnose('receipt-cut'); return { handled: true, accepted: false };
     }
@@ -177,6 +196,7 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
         && (contact.upSource === undefined || source.active <= contact.upSource)) {
         contact.cancelled = true; contact.cancelReason = event.type;
         session.lastCancelled = { pointerId: event.pointerId, source: source.active };
+        session.retiredPointer = event.pointerId;
         if (session.contact === contact) session.contact = null;
       }
       return { handled: true, accepted: false };
