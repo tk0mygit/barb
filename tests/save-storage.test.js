@@ -97,8 +97,8 @@ test('all damaged slots protect their exact bytes throughout attempted saves and
   assert.deepEqual([...storage.map], before); assert.deepEqual(storage.writes, []);
 });
 
-for (const version of [0, 2, 99]) {
-  for (const field of ['storageVersion', 'saveVersion']) {
+for (const field of ['storageVersion', 'saveVersion']) {
+  for (const version of field === 'storageVersion' ? [0, 2, 3, 99] : [0, 3, 99]) {
     test(`unsupported ${field} ${version} never writes over either slot`, () => {
       const future = field === 'storageVersion' ? envelope(10, fresh(), { storageVersion: version })
         : envelope(10, { saveVersion: version, future: 'unknown' });
@@ -113,7 +113,7 @@ for (const version of [0, 2, 99]) {
 }
 
 test('unsupported data without any compatible candidate starts read-only memory play', () => {
-  const { manager, loaded, storage } = open(memory({ [SAVE_STORAGE_KEYS[0]]: envelope(1, { saveVersion: 2 }) }));
+  const { manager, loaded, storage } = open(memory({ [SAVE_STORAGE_KEYS[0]]: envelope(1, { saveVersion: 3 }) }));
   assert.equal(loaded.state, null); assert.equal(manager.status.code, 'unsupported-version');
   assert.equal(manager.save(fresh()).ok, false); assert.deepEqual(storage.writes, []);
 });

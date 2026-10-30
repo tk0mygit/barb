@@ -71,6 +71,7 @@ export function createCatchCollection({ now = Date.now, initialData } = {}) {
   }
   function quote(ids, disposition) {
     if (!Array.isArray(ids) || !ids.length || new Set(ids).size !== ids.length) return null;
+    for (const id of ids) if (typeof id !== 'string') return null;
     const records = ids.map(id => catches[indices.get(id)]);
     if (records.some(record => !record || record.disposition !== disposition)) return null;
     try {
@@ -123,13 +124,18 @@ export function createCatchCollection({ now = Date.now, initialData } = {}) {
       return sale ? Object.freeze({ ids: Object.freeze(ids), count: ids.length, total: sale.total }) : null;
     },
     register(record) {
+      // Omitted counts are the standalone/QTE-OFF capture API default only.
+      // Restore data always goes through the strict versioned save boundary.
+      const count = record && Object.getOwnPropertyDescriptor(record, 'qteSuccessCount');
+      const qteSuccessCount = count ? count.value : 0;
+      if (!Number.isInteger(qteSuccessCount) || qteSuccessCount < 0 || qteSuccessCount > 3) throw new TypeError('Invalid QTE success count');
       if (indices.has(record?.id)) return catches[indices.get(record.id)];
       if (!record || record.schemaVersion !== 1 || typeof record.id !== 'string' || !record.id
         || !getFishSpecies(record.speciesId) || !Number.isFinite(record.lengthCm) || record.lengthCm <= 0
         || !Number.isFinite(record.weightKg) || record.weightKg <= 0 || !Number.isFinite(Date.parse(record.caughtAt))) {
         throw new TypeError('Invalid catch record');
       }
-      const captured = immutable({ ...record, disposition: 'unassigned' });
+      const captured = immutable({ ...record, qteSuccessCount, disposition: 'unassigned' });
       indices.set(captured.id, catches.length);
       catches = Object.freeze([...catches, captured]);
       const previous = statistics.get(captured.speciesId);

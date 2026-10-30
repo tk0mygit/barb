@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { getFishSpecies } from '../../src/game/fish-species.js';
 import { createQteOperationProvider } from '../../src/game/qte-operation-provider.js';
 
-export async function openQteFixture(page, operation = 'tap') {
+export async function openQteFixture(page, operation = 'tap', { economy = false } = {}) {
   const species = getFishSpecies('alligator-gar');
   let lengthCm;
   for (let n = 0; n < 100; n++) {
@@ -36,6 +36,12 @@ export async function openQteFixture(page, operation = 'tap') {
         import { getEquipmentLevel } from './src/game/equipment.js';
         import { getLure } from './src/game/lures.js';
         import { getFishingSpotStatus } from './src/game/fishing-spots.js';
+        import { createSalesHUD } from './src/ui/sales-hud.js';
+        import { createSaveStorage } from './src/game/save-storage.js';
+        import { createAutosave } from './src/game/autosave.js';
+        import { createBoatState } from './src/game/boat.js';
+        import { createGameClock } from './src/game/game-clock.js';
+        const economy = ${economy};
         const species = getFishSpecies('alligator-gar'), lengthCm = ${lengthCm};
         const provider = createQteOperationProvider({fightId:1, speciesId:species.id, lengthCm});
         const collection = createCatchCollection({ initialData: { catches: [], wallet: {balance:0,lifetimeSales:0}, equipment:{rodLevel:10,reelLevel:10} } });
@@ -66,13 +72,20 @@ export async function openQteFixture(page, operation = 'tap') {
         const input=createFishingInput(fishing,undefined,{qteDelivery:delivery});
         const controls=createControls(document.querySelector('#scene'),document.querySelector('#joystick'),document.querySelector('#joystick-knob'),{input,canLook:()=>false});
         controls.setMode('fishing');
-        const fishingHUD=createFishingHUD({onPrepare:()=>{},onCancel:()=>{},onClose:()=>{},onSell:()=>{},onSelectLure:()=>{}});
+        const achievements=createAchievements({collection});
+        const salesHUD=economy?createSalesHUD(collection):null;
+        const storage=economy?createSaveStorage():null;
+        storage?.load();
+        const autosave=economy?createAutosave({storage,state:{collection,achievements,fishing,boat:createBoatState(),clock:createGameClock()}}):null;
+        const fishingHUD=createFishingHUD({onPrepare:()=>{},onCancel:()=>{},
+          onClose:()=>economy&&fishing.closeResult(),
+          onSell:()=>{if(!economy)return;const receipt=fishing.sellResult();if(receipt)salesHUD.notify(receipt);return receipt;},onSelectLure:()=>{}});
         const baseHUD=createHUD({onFish:()=>{},onReturn:()=>{}});
         const updateFishing=()=>{baseHUD.update({mode:'fishing',speed:0,heading:0});fishingHUD.update(fishing,true,{timeOfDay:'day',cycleProgress:0});};
         updateFishing();document.querySelector('#app').classList.add('fishing');
         document.querySelector('#fish-button').hidden=true;document.querySelector('#status').hidden=true;
         document.querySelector('#menu-button').disabled=false;
-        const menu=createCollectionMenu({collection,achievements:createAchievements({collection}),canOpen:()=>true,canPurchase:()=>false,
+        const menu=createCollectionMenu({collection,achievements,canOpen:()=>true,canPurchase:()=>false,
           onOpenChange:open=>{input.setSuspended('menu',open,performance.now());controls.setEnabled(!open);}});
         const hud=createQteHUD({fishing,delivery,provider});
         const suspend=(reason,value)=>input.setSuspended(reason,value,performance.now());
@@ -84,9 +97,20 @@ export async function openQteFixture(page, operation = 'tap') {
           fishing.reel(true);while(fishing.state.fight.mode==='normal')fishing.step(1/60);
           delivery.open(performance.now());updateFishing();
         };
-        window.qteFixture={fishing,delivery,hud,provider,events,controls,input,menu,start,displayCalls,evidence:()=>lastEvidence};
-        let frame=0;
-        function render(){const raw=performance.now();controls.read(0,raw);hud.update(++frame,performance.now());requestAnimationFrame(render);}
+        window.qteFixture={fishing,delivery,hud,provider,events,controls,input,menu,start,displayCalls,storage,autosave,evidence:()=>lastEvidence};
+        autosave?.start();
+        let frame=0,lastRaw=performance.now();
+        function render(){const raw=performance.now();controls.read(0,raw);
+          if(economy){
+            const dt=Math.min(.05,Math.max(0,(raw-lastRaw)/1000));
+            if(fishing.state.phase!=='fight'||fishing.state.fight.owner==='normal'){
+              fishing.reel(fishing.state.tension<.65);fishing.step(dt);
+              if(fishing.state.phase==='fight'&&fishing.state.fight.mode==='warning')delivery.open(performance.now());
+            }
+          }
+          lastRaw=raw;hud.update(++frame,performance.now());
+          if(economy){updateFishing();salesHUD.update();}
+          requestAnimationFrame(render);}
         requestAnimationFrame(render);
       </script>`);
   await page.route('**/barb/qte-fixture.html', route => route.fulfill({ body: html, contentType: 'text/html' }));

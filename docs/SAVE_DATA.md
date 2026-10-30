@@ -3,7 +3,7 @@
 `src/game/save-data.js` は保存データの作成、JSON変換、検証、ドメイン再構築を提供します。
 DOM・Three.js・ブラウザストレージへの依存や副作用はありません。
 Phase 3C-3Bで `src/game/save-storage.js` と `src/game/autosave.js` を追加し、
-実際の起動・ゲーム進行・保存状態表示へ接続しています。正式スキーマはv1のままです。
+実際の起動・ゲーム進行・保存状態表示へ接続しています。現在のwriterは外側の `saveVersion: 2` を出力し、旧V1の読取にも対応します。
 
 ## モジュールの役割
 
@@ -46,7 +46,7 @@ localStorageの対象キーは `barb.save.v1.slotA` と `barb.save.v1.slotB` の
 {
   storageVersion: 1,
   generation: 1,
-  data: { /* 下記の正式な saveVersion: 1 のデータ */ },
+  data: { /* 下記の正式な saveVersion: 2 のデータ（旧V1も読取可） */ },
 }
 ```
 
@@ -104,11 +104,22 @@ localStorageプロパティ取得自体の例外も捕捉し、`SecurityError`�
 非表示・離脱時もブラウザやOSの強制終了で処理が実行されない場合があり、最後の変更の保存は保証できません。
 ブラウザによるサイトデータ消去・プライベートブラウズ終了・別ブラウザ／別端末への引継ぎも保証しません。
 
-## 正式スキーマ v1
+## 正式スキーマ v2 と旧V1移行
+
+V1は元の厳密なフィールド一覧で全体を検証してから、復元／書込み時に各釣果へ `qteSuccessCount: 0` を補います。
+V1に明示的な成功数フィールドがあれば0でも拒否します。V2では全個体に整数0〜3が必須で、欠落・不正型・未知フィールドを補修しません。
+`validateSaveData` / `parseSaveData` は入力版のwire形式を保持し、`restoreSaveData` は検証後にcanonical V2のドメインを生成します。
+`serializeSaveData` はV1入力も完全検証してV2へ変換します。直接の `createCatchCollection({ initialData })` はcanonical V2のみを受理します。
+live `register()` の成功数省略は単体のQTE-OFF捕獲APIに限って0で、V2保存の検証では省略を許容しません。
+
+load／restore自体は書込みを行いません。最初の適法なV2保存も非active側の1キーだけを更新し、採用した旧V1原本を残します。
+同じ2キー、`storageVersion: 1`、釣果／collectionの `schemaVersion: 1`、世代・raw競合・失敗保護を維持します。
+未知の将来版が片スロットにあれば、他方を復元できてもwriterを保護停止します。旧アプリもV2を未対応版として保護します。
+過去のsoldの価格・売却日時・wallet・実績解除日時は再計算せず維持します。V2の再読込・再保存は冪等です。
 
 ```json
 {
-  "saveVersion": 1,
+  "saveVersion": 2,
   "savedAt": "2026-10-23T00:00:00.000Z",
   "collection": {
     "catches": [],
@@ -125,7 +136,7 @@ localStorageプロパティ取得自体の例外も捕捉し、`SecurityError`�
 上記フィールドはすべて必須です。各オブジェクトは以下に列挙するフィールドだけを許容します。
 未知フィールドを黙って削除しません。設定は予約領域の空オブジェクトのみです。
 外側の `saveVersion` は、既存の `collection.snapshot.schemaVersion: 1` と釣果の
-`schemaVersion: 1` から独立しています。既存スナップショットの形は変更しません。
+`schemaVersion: 1` から独立しています。釣果に成功数を追加し、各schemaVersionは維持します。
 
 `collection.catches` だけが捕獲履歴の正規データです。`storedIds`、`encyclopedia`、
 装備の価格・性能、実績進捗、釣りの途中状態は保存しません。
@@ -138,6 +149,7 @@ localStorageプロパティ取得自体の例外も捕捉し、`SecurityError`�
 | `lengthCm`, `weightKg` | 有限の正数。既存 `register()` の正当な個体差を保つため、現在の抽選体長範囲や重量式への完全一致は強制しない。重量は単体売価が安全な整数になる範囲 |
 | `caughtAt` | 有効なUTC ISO日時文字列 |
 | `disposition` | `unassigned` / `stored` / `sold` |
+| `qteSuccessCount` | V2では全件必須の整数0〜3。V1 wire形式には存在せず、全体検証後の復元／書込み時だけ0へ移行 |
 | `salePrice`, `soldAt` | `sold` の場合だけ両方必須。価格は非負の安全な整数、日時は有効なUTC ISO文字列 |
 | `conditions` | 任意。下記のオブジェクト。省略も許容 |
 
@@ -172,7 +184,7 @@ IDは下記の契約に対応した安定IDのみで、重複不可、日時は�
 
 ### Phase 5B-1Aの実績契約移行
 
-外側の `SAVE_VERSION = 1`、釣果 `schemaVersion = 1`、スロット `storageVersion = 1` と
+当時の外側の `SAVE_VERSION = 1`、釣果 `schemaVersion = 1`、スロット `storageVersion = 1` と
 A/B保存キーは維持し、実績の識別子だけを追加します。旧正規スロットは初回loadで一切書換えません。
 
 | `achievements` の形式 | 厳密に検証する達成集合 |
@@ -234,7 +246,7 @@ const candidate = restoreSaveData(parsed);
 | --- | --- |
 | `invalid-json` | JSONの構文エラー |
 | `invalid-data` | 必須項目欠損、型・範囲・日時・整合性違反などの破損 |
-| `unsupported-version` | 有効な非負整数のバージョンが `1` 以外。移行・部分復元なし |
+| `unsupported-version` | 有効な非負整数のsaveVersionが `1` / `2` 以外。未知版の移行・部分復元なし |
 | `input-too-large` | 入力テキスト・捕獲数・IDなどが防御上限を超過 |
 
 オブジェクトAPIはJSON相当の通常データを受け取ります。アクセサ、未知のプロトタイプ、
@@ -292,7 +304,7 @@ Phase 3C-3Bでは、起動時に保存候補を選択してから、その一式
 ## 音声設定との独立性（Phase 4B-2）
 
 BGM・自然音の設定はゲーム進行データとは別の小規模なユーザー設定です。
-専用キー`barb.audio.preferences.v1`だけへ保存し、正式スキーマv1の`settings: {}`を維持します。
+専用キー`barb.audio.preferences.v1`だけへ保存し、正式スキーマv2でも`settings: {}`を維持します。
 ゲームセーブの2スロット、世代・競合検出・保護は変更しません。音声設定の変更はゲームの保存処理を呼ばず、
 専用キーの他タブ変更もゲームの競合対象になりません。音声設定の読み書き失敗はサウンド設定内へ個別表示し、
 ゲームセーブの成功表示へ流しません。厳格検証、初期OFF、明示的変更時だけの書き込みは[音響システム](AUDIO_SYSTEM.md)を参照してください。

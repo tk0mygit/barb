@@ -88,13 +88,13 @@ test('relative visibility at 30m is exact; dense fog still allows near-boat iden
   for (const invalid of [-1, 1, NaN, Infinity]) assert.throws(() => getNightFogDensity(invalid));
 });
 
-test('save v1 round trips change no schema, settings, clock or collection fields', () => {
+test('save V2 round trips preserve settings, clock and collection fields', () => {
   const collection = createCatchCollection(), achievements = createAchievements({ collection });
   for (const seconds of [270, 630, 906, 990, 2790, 3150, 1074, 1080, 360 * 100000 + 270]) {
     const state = { collection, achievements, boat: createBoatState(), clock: createGameClock(undefined, { elapsedSeconds: seconds }) };
     const save = createSaveData(state), restored = restoreSaveData(JSON.parse(JSON.stringify(save)));
     assert.deepEqual(sampleNightFog(restored.clock.state), sampleNightFog(state.clock.state));
-    assert.equal(save.saveVersion, 1); assert.deepEqual(save.settings, {}); assert.deepEqual(save.clock, { elapsedSeconds: seconds });
+    assert.equal(save.saveVersion, 2); assert.deepEqual(save.settings, {}); assert.deepEqual(save.clock, { elapsedSeconds: seconds });
     assert.deepEqual(createSaveData(restored).collection, save.collection);
   }
 });

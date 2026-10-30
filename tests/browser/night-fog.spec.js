@@ -150,7 +150,7 @@ test('fog fades at both boundaries, freezes with menu/focus/visibility and resto
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   const saved = await page.evaluate(() => ['barb.save.v1.slotA', 'barb.save.v1.slotB'].map(key => JSON.parse(localStorage.getItem(key)))
     .filter(Boolean).sort((a, b) => b.generation - a.generation)[0].data);
-  expect(saved.saveVersion).toBe(1); expect(saved.settings).toEqual({});
+  expect(saved.saveVersion).toBe(2); expect(saved.settings).toEqual({});
   expect(Object.keys(saved.clock)).toEqual(['elapsedSeconds']);
   expect(await page.evaluate(() => Object.keys(localStorage).sort())).toEqual(['barb.save.v1.slotA', 'barb.save.v1.slotB']);
   await page.reload(); await tick(page);

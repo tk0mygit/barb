@@ -7,17 +7,17 @@ import { createFishing, PHASE } from '../src/game/fishing.js';
 import { BUYER_LINES, pickBuyerLine } from '../src/game/buyer-lines.js';
 
 const captured = (id, weightKg = 1.15, speciesId = 'catfish') => Object.freeze({
-  schemaVersion: 1, id, speciesId, lengthCm: 50, weightKg, caughtAt: '2026-01-01T00:00:00.000Z', disposition: 'unassigned',
+  schemaVersion: 1, id, speciesId, lengthCm: 50, weightKg, qteSuccessCount: 0, caughtAt: '2026-01-01T00:00:00.000Z', disposition: 'unassigned',
   conditions: Object.freeze({ depthM: 5, timeOfDay: 'night', lureId: 'worm', lurePosition: Object.freeze({ x: 2, z: 3 }) }),
 });
 
 test('all 12 species use existing per-kg prices with consistent half-up decimal rounding', () => {
   for (const fish of FISH_SPECIES) {
-    assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: 1 }), fish.basePricePerKg);
-    assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: 2 }), fish.basePricePerKg * 2);
+    assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: 1, qteSuccessCount: 0 }), fish.basePricePerKg);
+    assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: 2, qteSuccessCount: 0 }), fish.basePricePerKg * 2);
     // Integer reference calculation over the hundredths produced by fishing.
     for (let hundredths = 1; hundredths <= 300; hundredths++) {
-      assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: hundredths / 100 }), Math.floor((fish.basePricePerKg * hundredths + 50) / 100));
+      assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: hundredths / 100, qteSuccessCount: 0 }), Math.floor((fish.basePricePerKg * hundredths + 50) / 100));
     }
   }
   assert.equal(calculateSalePrice(captured('a')), 104); // 90 * 1.15, not 103

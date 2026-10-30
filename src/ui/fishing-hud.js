@@ -24,6 +24,9 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
   const tension = document.querySelector('#line-tension');
   const fight = document.querySelector('#fight-gauge');
   const dialog = document.querySelector('#catch-dialog');
+  const qteBonus = document.createElement('p');
+  qteBonus.id = 'catch-qte-bonus';
+  document.querySelector('#catch-sale-price').after(qteBonus);
   const close = document.querySelector('#close-catch');
   const imageStatus = document.querySelector('#catch-image-status');
   const loadFishImage = createFishImageLoader();
@@ -125,7 +128,10 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
         document.querySelector('#catch-species').textContent = species.name;
         document.querySelector('#catch-length').textContent = `${s.catch.lengthCm.toFixed(1)} cm`;
         document.querySelector('#catch-weight').textContent = `${s.catch.weightKg.toFixed(2)} kg`;
-        document.querySelector('#catch-sale-price').textContent = `売却価格 ${formatMoney(calculateSalePrice(s.catch))}`;
+        const price = calculateSalePrice(s.catch);
+        const base = calculateSalePrice({ ...s.catch, qteSuccessCount: 0 });
+        document.querySelector('#catch-sale-price').textContent = `売却価格 ${formatMoney(price)}`;
+        qteBonus.textContent = `QTE成功${s.catch.qteSuccessCount}回／ボーナス+${formatMoney(price - base)}`;
         document.querySelector('#catch-sale-error').textContent = '';
         if (!dialog.open) dialog.showModal();
         close.focus();
