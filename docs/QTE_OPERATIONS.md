@@ -55,6 +55,9 @@ present it; all 0.6s of warning must elapse before A opens. A browser rendering
 opportunity is not proof that a physical display emitted light.
 Display API calls sample the clock at the actual call after snapshot/DOM work;
 an older frame timestamp cannot be fed back into the monotonic delivery clock.
+The prepared region/target centre comes from the laid-out DOM rectangles, so
+CSS borders and fractional pixel quantization cannot shift scoring from the
+visible circles. The surrounding frame uses an outline to keep its origin fixed.
 
 The HUD avoids visible masthead, action/fishing panels, reticle, compass and notices,
 intersecting canvas, safe-area and visual viewport bounds. Short landscape

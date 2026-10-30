@@ -22,7 +22,7 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
   const gesture = panel.querySelector('.qte-gesture'), arrow = panel.querySelector('.qte-arrow'), endpoint = panel.querySelector('.qte-endpoint');
   const target = panel.querySelector('.qte-target'), taps = panel.querySelector('.qte-taps');
   const progress = panel.querySelector('progress'), time = panel.querySelector('.qte-timer span');
-  let signature = null, layout = null, preparation = null, handle = null, resultUntil = null, disposed = false;
+  let signature = null, layout = null, actualGeometry = null, preparation = null, handle = null, resultUntil = null, disposed = false;
   const invalidate = orientation => {
     delivery.invalidateGeometry(orientation); signature = null; preparation = null;
   };
@@ -53,7 +53,7 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     const measurements = measure(), nextSignature = JSON.stringify(measurements);
     if (signature !== nextSignature) {
       if (signature !== null) delivery.invalidateGeometry(false, delivery.clock.now());
-      signature = nextSignature; preparation = null; layout = calculateQteLayout(measurements);
+      signature = nextSignature; preparation = null; layout = calculateQteLayout(measurements); actualGeometry = null;
     }
     if (!layout) {
       panel.dataset.state = 'layout-unavailable';
@@ -66,6 +66,15 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     const { panel: p, region: r, target: t } = layout;
     Object.assign(panel.style, { left: `${p.left}px`, top: `${p.top}px`, width: `${p.right - p.left}px`, height: `${p.bottom - p.top}px` });
     Object.assign(gesture.style, { left: `${r.left - p.left}px`, top: `${r.top - p.top}px`, width: `${r.right - r.left}px`, height: `${r.bottom - r.top}px` });
+    gesture.hidden = false; target.hidden = descriptor.operation !== 'target';
+    target.style.left = `${t.x - r.left}px`; target.style.top = `${t.y - r.top}px`;
+    // Freeze what CSS actually laid out, including subpixel quantization at
+    // fractional zoom/insets. Desired layout coordinates alone are not proof
+    // that the displayed scoring circle has that exact client-pixel centre.
+    const circle = target.getBoundingClientRect();
+    actualGeometry = Object.freeze({ region: Object.freeze(rect(gesture.getBoundingClientRect())),
+      target: Object.freeze(descriptor.operation === 'target'
+        ? { x: (circle.left + circle.right) / 2, y: (circle.top + circle.bottom) / 2 } : t) });
     snapshot = delivery.snapshot;
     const blocked = snapshot.reasons.some(reason => !['orientation', 'display'].includes(reason));
     if (!applied && !blocked && !snapshot.displayReady) {
@@ -75,7 +84,7 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
       // Snapshot/DOM reads may already have sampled the monotonic clock after
       // the frame timestamp. Stamp this boundary at the actual call, never
       // feed an earlier render timestamp back into the delivery clock.
-      if (!preparation && !delivery.snapshot.displayReady) preparation = delivery.prepareDisplay(frameId, delivery.clock.now(), layout);
+      if (!preparation && !delivery.snapshot.displayReady) preparation = delivery.prepareDisplay(frameId, delivery.clock.now(), actualGeometry);
     }
     snapshot = delivery.snapshot;
     const preview = delivery.preview(), operation = descriptor.operation;
@@ -97,13 +106,12 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     endpoint.style.left = `calc(50% + ${vector.x * 40}px)`; endpoint.style.top = `calc(50% + ${vector.y * 40}px)`;
     // Two concentric hit circles are both visible on hybrid mouse/touch PCs.
     // Their fixed 64/80px diameters exactly match the two scoring radii.
-    target.style.left = `${t.x - r.left}px`; target.style.top = `${t.y - r.top}px`;
     taps.textContent = `${preview.completedOperations}/3 ${'●'.repeat(preview.completedOperations)}${'○'.repeat(3 - preview.completedOperations)}`;
     const duration = snapshot.deadline - snapshot.active;
     progress.value = snapshot.active === null ? 1 : Math.max(0, Math.min(1, snapshot.remainingMs / duration));
     time.textContent = snapshot.active === null ? '準備中' : `${(snapshot.remainingMs / 1000).toFixed(1)}秒`;
   }
-  return { update, get geometry() { return layout; }, get element() { return panel; },
+  return { update, get geometry() { return layout && Object.freeze({ ...layout, ...actualGeometry }); }, get element() { return panel; },
     resumeTechnical: raw => delivery.resumeTechnical(raw),
     dispose() { disposed = true; panel.remove(); safeProbe.remove(); window.removeEventListener('resize', resized);
       window.removeEventListener('orientationchange', rotated); window.screen.orientation?.removeEventListener('change', rotated); } };
