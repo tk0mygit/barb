@@ -94,10 +94,18 @@ for (const touch of [false, true]) test(`${touch ? 'touch immediate' : 'mouse st
 for (const touch of [false, true]) test(`restored V2 half-up bonus: individual sale stays single across reload (${touch ? 'touch' : 'mouse'})`, async ({ createContext }) => {
   const collection = createCatchCollection({ now: () => 1000 });
   const achievements = createAchievements({ collection, now: () => 1000 });
+  collection.register({ schemaVersion: 1, id: 'historical', speciesId: 'black-bass', lengthCm: 40,
+    weightKg: 10, caughtAt: '2026-10-30T00:00:00Z', qteSuccessCount: 0 });
+  collection.sellUnassigned('historical');
   collection.register({ schemaVersion: 1, id: 'half-up', speciesId: 'black-bass', lengthCm: 40,
     weightKg: .25, caughtAt: '2026-10-31T00:00:00Z', qteSuccessCount: 1 });
   collection.store('half-up');
-  const data = createSaveData({ collection, achievements, boat: createBoatState(), clock: createGameClock() });
+  const data = structuredClone(createSaveData({ collection, achievements, boat: createBoatState(), clock: createGameClock() }));
+  // A valid old receipt retains its original amount and timestamp, even when
+  // today's quotation differs. Selling the stored fish must add only 28.
+  const historical = { ...data.collection.catches[0], salePrice: 777, soldAt: '1970-01-01T00:00:01Z' };
+  data.collection.catches[0] = historical;
+  data.collection.wallet = { balance: 777, lifetimeSales: 777 };
   const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 },
     hasTouch: touch, isMobile: touch, deviceScaleFactor: .5 });
   const page = await context.newPage(), click = locator => touch ? locator.tap() : locator.click();
@@ -113,19 +121,23 @@ for (const touch of [false, true]) test(`restored V2 half-up bonus: individual s
   await expect(page.locator('.stored-price')).toHaveText(`売却価格 ${money(28)}`);
   const stale = await page.locator('.sell-stored').elementHandle();
   await click(page.locator('.sell-stored'));
-  await expect(page.locator('#wallet-balance')).toHaveText(money(28));
+  await expect(page.locator('#wallet-balance')).toHaveText(money(805));
   // An intentionally stale callback is a negative test, not a normal UI action.
   await stale.evaluate(button => button.click());
-  await expect(page.locator('#wallet-balance')).toHaveText(money(28));
+  await expect(page.locator('#wallet-balance')).toHaveText(money(805));
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   const sold = await latest(page);
   expect(sold.saveVersion).toBe(2);
-  expect(sold.collection.wallet).toEqual({ balance: 28, lifetimeSales: 28 });
-  expect(sold.collection.catches[0]).toMatchObject({ qteSuccessCount: 1, disposition: 'sold', salePrice: 28 });
+  expect(sold.collection.wallet).toEqual({ balance: 805, lifetimeSales: 805 });
+  expect(sold.collection.catches[0]).toEqual(historical);
+  expect(sold.collection.catches[1]).toMatchObject({ qteSuccessCount: 1, disposition: 'sold', salePrice: 28 });
   expect(sold.achievements).toEqual(data.achievements);
   await page.reload(); await expect(page.locator('#status')).toBeHidden();
-  await expect(page.locator('#wallet-balance')).toHaveText(money(28));
+  await expect(page.locator('#wallet-balance')).toHaveText(money(805));
   await click(page.locator('#menu-button')); await click(page.locator('[data-view="storage"]'));
   await expect(page.locator('.stored-fish')).toHaveCount(0);
-  expect((await latest(page)).collection.catches[0].soldAt).toBe(sold.collection.catches[0].soldAt);
+  const reloaded = await latest(page);
+  expect(reloaded.saveVersion).toBe(2);
+  expect(reloaded.collection.catches[0]).toEqual(historical);
+  expect(reloaded.collection.catches[1]).toEqual(sold.collection.catches[1]);
 });
