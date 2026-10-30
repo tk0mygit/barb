@@ -5,7 +5,8 @@ import { openQteFixture } from './qte-fixture.js';
 // PointerEvent or patched scoring clock. Device acceptance is a separate gate.
 for (const touch of [false, true]) for (const operation of ['flick', 'swipe', 'tap', 'target']) {
   test(`${touch ? 'touch' : 'mouse'} canvas → ${operation} → HUD → finite seal → single domain commit`, async ({ createContext }) => {
-    const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch });
+    const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 },
+      hasTouch: touch, isMobile: touch, deviceScaleFactor: touch ? 3 : 2 });
     const page = await context.newPage(), errors = [];
     const cdp = touch ? await context.newCDPSession(page) : null;
     page.on('pageerror', error => errors.push(error.message));
@@ -14,7 +15,12 @@ for (const touch of [false, true]) for (const operation of ['flick', 'swipe', 't
     // next sample can consume most of a legitimate 0.5s operation window).
     await page.waitForFunction(() => document.querySelector('.qte-hud')?.dataset.state === 'active');
     await expect(page.locator('.qte-hud')).toHaveAttribute('data-state', 'active');
-    const g = await page.evaluate(() => ({ ...window.qteFixture.hud.geometry, d: window.qteFixture.provider.getDescriptor(0) }));
+    const g = await page.evaluate(() => ({ ...window.qteFixture.hud.geometry, d: window.qteFixture.provider.getDescriptor(0),
+      circles: [...document.querySelectorAll('.qte-target,.qte-target > span')].map(el=>el.getBoundingClientRect().toJSON()) }));
+    if (operation === 'target') for (const [i, circle] of g.circles.entries()) {
+      expect(circle.left + circle.width / 2).toBe(g.target.x); expect(circle.top + circle.height / 2).toBe(g.target.y);
+      expect(circle.width).toBe(i ? 64 : 80); expect(circle.height).toBe(i ? 64 : 80);
+    }
     const vectors = { up: [0, -1], right: [1, 0], down: [0, 1], left: [-1, 0] };
     const v = vectors[g.d.direction] ?? [0, 0], distance = operation === 'swipe' ? 80 : operation === 'flick' ? 50 : 0;
     const start = { x: g.target.x - v[0] * distance / 2, y: g.target.y - v[1] * distance / 2 };

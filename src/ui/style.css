@@ -1,10 +1,10 @@
 :root { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; color: #f4f2e6; background: #123e42; font-synthesis: none; }
 .qte-safe-probe { position: fixed; inset: var(--safe-top, 0px) var(--safe-right, 0px) var(--safe-bottom, 0px) var(--safe-left, 0px); visibility: hidden; pointer-events: none; }
 .qte-hud, .qte-hud * { pointer-events: none; }
-.qte-hud { position: fixed; z-index: 3; padding: 8px 12px; border: 2px solid #f2c96c; border-radius: 8px; background: #123936f2; text-align: center; font-size: 13px; line-height: 1.4; }
+.qte-hud { position: fixed; z-index: 3; padding: 8px 12px; border: 0; outline: 2px solid #f2c96c; border-radius: 8px; background: #123936f2; text-align: center; font-size: 13px; line-height: 1.4; }
 .qte-state { display: block; font-size: 13px; white-space: nowrap; }
 .qte-instruction { margin: 4px 0; font-size: 12px; }
-.qte-gesture { position: absolute; border: 1px dashed #eee9d760; border-radius: 6px; }
+.qte-gesture { position: absolute; outline: 1px dashed #eee9d760; border-radius: 6px; }
 .qte-arrow { position: absolute; inset: 0; display: grid; place-items: center; font-size: 60px; line-height: 1; }
 .qte-hud[data-operation="swipe"] .qte-arrow[data-direction="left"], .qte-hud[data-operation="swipe"] .qte-arrow[data-direction="right"] { transform: scaleX(1.5); }
 .qte-hud[data-operation="swipe"] .qte-arrow[data-direction="up"], .qte-hud[data-operation="swipe"] .qte-arrow[data-direction="down"] { transform: scaleY(1.5); }
@@ -18,8 +18,8 @@
 .qte-hud[data-compact="true"] .qte-state { position: absolute; left: 12px; top: 8px; right: 120px; white-space: normal; }
 .qte-hud[data-compact="true"] .qte-instruction { position: absolute; left: 12px; top: 46px; right: 120px; }
 .qte-hud[data-compact="true"] .qte-timer { bottom: 2px; font-size: 10px; }
-.qte-hud[data-state="success"] { border-style: double; border-width: 4px; }
-.qte-hud:is([data-state="failure"], [data-state="interrupted"], [data-state="suspended"]) { border-style: dashed; }
+.qte-hud[data-state="success"] { outline-style: double; outline-width: 4px; }
+.qte-hud:is([data-state="failure"], [data-state="interrupted"], [data-state="suspended"]) { outline-style: dashed; }
 .qte-layout-unavailable { left: 50%; top: 50%; width: min(280px, 90vw); height: auto; transform: translate(-50%, -50%); }
 .qte-layout-unavailable .qte-timer { display: none; }
 * { box-sizing: border-box; }
