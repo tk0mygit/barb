@@ -111,6 +111,7 @@ try {
     const startupInput = focusRecovery === 'startup' && ['pointerdown', 'keydown'].includes(event.type);
     if (!focused && (startupInput || freshTouch)) {
       focused = true; focusRecovery = null;
+      fishingInput.setSuspended('blur', false, performance.now());
       previous = performance.now(); ambientAudio.setPaused('blur', false);
     }
     // These controls own their click request; do not change/hide the retry
@@ -223,6 +224,7 @@ try {
     canPurchase: () => boat.mode === 'sailing' || (boat.mode === 'fishing' && fishing.state.phase === PHASE.READY),
     canOpen: () => fishing.state.phase !== PHASE.RESULT && !document.querySelector('#catch-dialog').open,
     onOpenChange: open => {
+      fishingInput.setSuspended('menu', open, performance.now());
       if (open) cancelPreparation();
       if (open) castNotices.update(null, false);
       ambientAudio.setPaused('menu', open);
@@ -253,6 +255,7 @@ try {
   let drawingSize;
   let previous = performance.now(), elapsed = 0;
   function resize() {
+    fishingInput.geometryChanged(false, performance.now());
     if (boat.mode === 'fishing' && fishing.state.phase === PHASE.FIGHT) controls.reset();
     const next = calculateRenderResolution({ width: window.innerWidth, height: window.innerHeight,
       devicePixelRatio: window.devicePixelRatio, coarsePointer: window.matchMedia('(pointer: coarse)').matches });
@@ -277,27 +280,38 @@ try {
     renderer.render(scene, camera);
   }
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => fishingInput.geometryChanged(true, performance.now()));
+  window.screen.orientation?.addEventListener('change', () => fishingInput.geometryChanged(true, performance.now()));
   resize();
   let focused = document.hasFocus();
   let focusRecovery = focused ? null : 'startup', touchContact;
   ambientAudio.setPaused('blur', !focused);
   ambientAudio.setPaused('hidden', document.hidden);
+  fishingInput.setSuspended('blur', !focused, performance.now());
+  fishingInput.setSuspended('hidden', document.hidden, performance.now());
   window.addEventListener('blur', () => {
+    fishingInput.setSuspended('blur', true, performance.now());
     cancelPreparation();
     focused = false; focusRecovery = 'blurred'; cancelTouch(); ambientAudio.setPaused('blur', true);
   });
   window.addEventListener('focus', () => {
+    fishingInput.setSuspended('blur', false, performance.now());
     focused = true; focusRecovery = null; cancelTouch();
     previous = performance.now(); ambientAudio.setPaused('blur', false);
   });
   document.addEventListener('visibilitychange', () => {
+    fishingInput.setSuspended('hidden', document.hidden, performance.now());
     ambientAudio.setPaused('hidden', document.hidden);
     previous = performance.now();
     if (document.hidden) { cancelTouch(); autosave.flush(); }
     if (document.hidden) cancelPreparation();
   });
-  window.addEventListener('pagehide', () => { cancelTouch(); ambientAudio.setPaused('page', true); autosave.flush(); });
+  window.addEventListener('pagehide', () => {
+    fishingInput.setSuspended('page', true, performance.now());
+    cancelTouch(); ambientAudio.setPaused('page', true); autosave.flush();
+  });
   window.addEventListener('pageshow', () => {
+    fishingInput.setSuspended('page', false, performance.now());
     previous = performance.now();
     ambientAudio.setPaused('page', false); autosave.checkForExternalChanges();
   });

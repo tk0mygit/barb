@@ -183,6 +183,14 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       const accepted = state.phase === PHASE.FIGHT && fight.submitResult(token, success, at);
       syncFight(); return accepted;
     },
+    advanceQteDelivery(token, elapsedSeconds, activeAfterSeconds) {
+      const accepted = state.phase === PHASE.FIGHT && fight.advanceQteDelivery(token, elapsedSeconds, activeAfterSeconds);
+      syncFight(); return accepted;
+    },
+    commitQteDelivery(token, success) {
+      const applied = state.phase === PHASE.FIGHT && fight.commitQteDelivery(token, success);
+      syncFight(); return applied;
+    },
     pauseFight() { return state.phase === PHASE.FIGHT && fight.pause(); },
     resumeFight() { return state.phase === PHASE.FIGHT && fight.resume(); },
     abortFight() { return state.phase === PHASE.FIGHT && fight.abort(); },

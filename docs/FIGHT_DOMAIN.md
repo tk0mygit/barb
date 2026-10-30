@@ -65,6 +65,48 @@ FIGHT内の逃走判定だけは固定格子化に伴うdraw消費の変化を�
 
 ## 5C-2への留保
 
-DOM owner、4操作の判定とHUD、有限受信cut/inclusive fence、キュー容量、異常時の最終方針、
-端末上の遅配・回転・hidden/復帰は未接続。cut幅/容量の試作値を製品定数にしていない。
-blur/hidden/回転による自動魚喪失や未承認FAILED相も追加しない。これらと販売/保存は別ゲート。
+5C-2-1は以下の明示接続APIを追加する。通常起動と復元は引き続きQTE無効。
+4操作の実採点/HUD・独立operation provider・本番全経路composition・販売/保存は後続工程。
+
+### 5C-2-1：独立時計と有限配送の内部接続
+
+- `createQteClock()`は同Windowのperformance時計（ms）からactive時間Eを作る。
+  標準は相対timestampのみ。epoch互換は固定`timeOrigin`と明示モードが必須。
+  source/receiptを別々に写像し、未来・不正・保持範囲外・suspend境界の曖昧値を拒否する。
+  通常入力のorigin再基準化と世界時計は変更しない。
+- 内部factoryで`qte: { enabled: true, delivery: 'finite', selectOperation }`を指定した場合だけ、
+  domainはwarning開始で通常render時間の受理を止める。`advanceQteDelivery(token, E相対秒, A相対秒)`で
+  QTE時間だけを進め、表示未準備では0.6秒の境界、表示後は固定cutで止める。
+  `commitQteDelivery(token, success)`はcut到達後だけ同期適用する。結果後の通常時間を
+  呼出側が明示受理するため、待機中のrender dtやdt capを通常物理へ溜め込まない。
+- `createQteDelivery({ fishing, clock, evaluate })`は輸送と台帳を担当する。`open(warningTimestamp)`の
+  timestampは呼出側が特定したwarning開始source anchor。同じ論理再生は同じanchorと表示機会を供給する。
+  rAF消費時刻をsource/receiptへ読み替えてはならない。本PRでは標準mainにadapterを生成しない。
+- `prepareDisplay(frameId)`の返すhandleを、geometry確定後の後続表示機会で
+  `presentDisplay(handle, laterFrameId)`へ返す。初回Aは0.6秒以降で、その後のD/Cは不変。
+  このAPIは物理画面の発光を保証しない。実HUDとの結線・端末録画確認は別工程。
+- `controls`は入口の最初にreceiptを読み、capture/focusより前に`receivePointer`へ渡す。
+  `createFishingInput(fishing, mapping, { qteDelivery })`はこの受信結果を再利用する。
+  cut後の通常fresh downには論理時刻を保持し、旧QTE upを通常holdへ混ぜない。
+- `A <= E(source) <= D`かつ`E(receipt) < C`のみ受理し、`now >= C`でsealする。
+  `qte-delivery-config.js`の100ms/128edgeはS1の**端末測定前の暫定初期値**。
+  同一Eventだけをdedupし、同timestampの別Eventはsource/ingress順を保持する。
+- semantic edgeは有限。move/coalescedは始点・up終点・最大変位と時刻・contactへ集約する。
+  `evaluate({ previous, edges, completedOperations, final })`は後続採点器の注入口。
+  戻り値は`{ success, completedOperations }`で、0～3の完了数と成否だけが中断checkpointに残る。
+  Unitの合成consumerを4操作の採点成功として扱わない。
+- overflowは`interrupted`とbounded診断へ明示し、魚・予約・消費時間・完了数を保持して停止する。
+  `resumeTechnical()`後も残窓だけを使い、表示再確定とfresh downが必要。
+  残0で失われた証拠を復元できなければcutで当該QTEだけ一度FAILとする。
+- `setSuspended(reason, active, receipt)`はhidden/blur/menu/pageを集合で管理する。
+  active中の復帰は表示準備理由も解消してから。回転は`invalidateGeometry(true)`で停止し、
+  warning中でもgeometry再確定で復帰可能。小幅resizeの`false`はD/Cを延長しない。
+  canvas blurは接触を取消す。途中FIGHTのreload保存は対象外。
+
+台帳キーはadapter instance・domain factory instance・fightId・QTE index。入力世代更新でも
+seal済み台帳を再作成しない。tokenはfactory参照にも束縛し、別factoryの同番号を拒否する。
+従来の`submitQteResult`も未来の重複enqueueを拒否するが、trueは適用通知ではない。
+有限経路の成否適用は`commitQteDelivery`の戻り値とdomain snapshotで区別する。
+
+端末の遅配分布、0.5秒窓、coalesced挙動、64/128/256容量とCPU、BFCache/回転・表示の
+実機結果は未確認。合成Unit、Chromiumタッチ相当、既存画像比較を端末受入へ読み替えない。
