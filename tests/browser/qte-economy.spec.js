@@ -1,6 +1,11 @@
 import { test, expect } from './diagnostics-fixture.js';
 import { openQteFixture } from './qte-fixture.js';
 import { calculateSalePrice } from '../../src/game/fish-sales.js';
+import { createCatchCollection } from '../../src/game/catch-collection.js';
+import { createAchievements } from '../../src/game/achievements.js';
+import { createSaveData } from '../../src/game/save-data.js';
+import { createBoatState } from '../../src/game/boat.js';
+import { createGameClock } from '../../src/game/game-clock.js';
 
 const keys = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
 const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
@@ -84,4 +89,43 @@ for (const touch of [false, true]) test(`${touch ? 'touch immediate' : 'mouse st
   await page.reload(); await expect(page.locator('#status')).toBeHidden();
   await expect(page.locator('#wallet-balance')).toHaveText(money(price));
   expect(errors).toEqual([]);
+});
+
+for (const touch of [false, true]) test(`restored V2 half-up bonus: individual sale stays single across reload (${touch ? 'touch' : 'mouse'})`, async ({ createContext }) => {
+  const collection = createCatchCollection({ now: () => 1000 });
+  const achievements = createAchievements({ collection, now: () => 1000 });
+  collection.register({ schemaVersion: 1, id: 'half-up', speciesId: 'black-bass', lengthCm: 40,
+    weightKg: .25, caughtAt: '2026-10-31T00:00:00Z', qteSuccessCount: 1 });
+  collection.store('half-up');
+  const data = createSaveData({ collection, achievements, boat: createBoatState(), clock: createGameClock() });
+  const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 },
+    hasTouch: touch, isMobile: touch, deviceScaleFactor: .5 });
+  const page = await context.newPage(), click = locator => touch ? locator.tap() : locator.click();
+  await page.addInitScript(({ keys, data }) => {
+    if (!sessionStorage.getItem('qte-individual-seeded')) {
+      localStorage.setItem(keys[0], JSON.stringify({ storageVersion: 1, generation: 1, data }));
+      sessionStorage.setItem('qte-individual-seeded', 'yes');
+    }
+  }, { keys, data });
+  await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
+  await expect(page.locator('#error')).toBeHidden();
+  await click(page.locator('#menu-button')); await click(page.locator('[data-view="storage"]'));
+  await expect(page.locator('.stored-price')).toHaveText(`売却価格 ${money(28)}`);
+  const stale = await page.locator('.sell-stored').elementHandle();
+  await click(page.locator('.sell-stored'));
+  await expect(page.locator('#wallet-balance')).toHaveText(money(28));
+  // An intentionally stale callback is a negative test, not a normal UI action.
+  await stale.evaluate(button => button.click());
+  await expect(page.locator('#wallet-balance')).toHaveText(money(28));
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  const sold = await latest(page);
+  expect(sold.saveVersion).toBe(2);
+  expect(sold.collection.wallet).toEqual({ balance: 28, lifetimeSales: 28 });
+  expect(sold.collection.catches[0]).toMatchObject({ qteSuccessCount: 1, disposition: 'sold', salePrice: 28 });
+  expect(sold.achievements).toEqual(data.achievements);
+  await page.reload(); await expect(page.locator('#status')).toBeHidden();
+  await expect(page.locator('#wallet-balance')).toHaveText(money(28));
+  await click(page.locator('#menu-button')); await click(page.locator('[data-view="storage"]'));
+  await expect(page.locator('.stored-fish')).toHaveCount(0);
+  expect((await latest(page)).collection.catches[0].soldAt).toBe(sold.collection.catches[0].soldAt);
 });
