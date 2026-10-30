@@ -33,7 +33,7 @@ function memory(raw = rawSlots) {
 }
 
 test('fixed pre-change canonical A/B bytes retain their hashes and exact old contract', () => {
-  assert.equal(SAVE_VERSION, 1);
+  assert.equal(SAVE_VERSION, 2);
   assert.deepEqual(SAVE_STORAGE_KEYS, ['barb.save.v1.slotA', 'barb.save.v1.slotB']);
   assert.deepEqual(rawSlots.map(raw => createHash('sha256').update(raw).digest('hex')), [
     '99d6efd2be174cef0b7ad627e9f7d435706aad3540ab4fe759be7ef4b839a6de',
@@ -44,9 +44,10 @@ test('fixed pre-change canonical A/B bytes retain their hashes and exact old con
   for (const [i, data] of legacy.entries()) {
     assert.equal(Object.hasOwn(data.achievements, 'contractVersion'), false);
     assert.deepEqual(validateSaveData(data), data);
-    assert.deepEqual(parseSaveData(serializeSaveData(data)), data);
+    assert.deepEqual(parseSaveData(serializeSaveData(data)), { ...data, saveVersion: 2,
+      collection: { ...data.collection, catches: data.collection.catches.map(record => ({ ...record, qteSuccessCount: 0 })) } });
     const restored = restoreSaveData(data, { now: () => now });
-    assert.deepEqual(restored.collection.catches, data.collection.catches);
+    assert.deepEqual(restored.collection.catches, data.collection.catches.map(record => ({ ...record, qteSuccessCount: 0 })));
     assert.deepEqual(restored.collection.wallet, data.collection.wallet);
     assert.deepEqual(restored.collection.equipment, data.collection.equipment);
     assert.deepEqual({ x: restored.boat.x, z: restored.boat.z, heading: restored.boat.heading }, data.boat);
@@ -76,7 +77,7 @@ test('legacy load never rewrites either raw slot; a failed migration save retain
   assert.equal(manager.status.generation, 3); assert.equal(storage.writes.length, 1);
   assert.equal(storage.map.get(SAVE_STORAGE_KEYS[1]), rawSlots[1]);
   const envelope = JSON.parse(storage.writes[0].value);
-  assert.equal(envelope.storageVersion, 1); assert.equal(envelope.data.saveVersion, 1);
+  assert.equal(envelope.storageVersion, 1); assert.equal(envelope.data.saveVersion, 2);
   assert.equal(envelope.data.achievements.contractVersion, 2);
   const reloaded = createSaveStorage({ getStorage: () => storage }).load();
   assert.equal(reloaded.status.generation, 3);
@@ -157,12 +158,13 @@ test('other-tab change during old-contract migration blocks all writes without l
 });
 
 test('canonical collection validation accepts every Lv.1–10 row before constructing or buying equipment', () => {
+  const canonical = parseSaveData(serializeSaveData(legacy[0])).collection;
   for (let rodLevel = 1; rodLevel <= 10; rodLevel++) for (let reelLevel = 1; reelLevel <= 10; reelLevel++) {
-    const data = clone(legacy[0].collection); data.equipment = { rodLevel, reelLevel };
+    const data = clone(canonical); data.equipment = { rodLevel, reelLevel };
     assert.deepEqual(validateCollectionData(data).equipment, data.equipment);
   }
   for (const kind of ['rod', 'reel']) for (const level of [0, 11, 1.5, '10']) {
-    const data = clone(legacy[0].collection); data.equipment[`${kind}Level`] = level;
+    const data = clone(canonical); data.equipment[`${kind}Level`] = level;
     assert.throws(() => validateCollectionData(data), error => error.code === 'invalid-data' && error.path === `collection.equipment.${kind}Level`);
   }
 });
@@ -177,7 +179,7 @@ test('old Lv.5 → each newly purchased Lv.6–10 saves and reloads the complete
     for (const kind of ['rod', 'reel']) {
       const receipt = state.collection.purchaseUpgrade(kind, level - 1); assert.ok(receipt); spent += receipt.cost;
       const data = save(state), parsed = parseSaveData(serializeSaveData(data));
-      assert.equal(data.saveVersion, 1); assert.equal(data.achievements.contractVersion, 2);
+      assert.equal(data.saveVersion, 2); assert.equal(data.achievements.contractVersion, 2);
       const next = restoreSaveData(parsed, { now: () => { throw new Error('No newly earned awards on reload'); } });
       assert.deepEqual(save(next), data);
       assert.deepEqual(oldAwards(next.achievements.snapshot), legacy[1].achievements.unlocked);

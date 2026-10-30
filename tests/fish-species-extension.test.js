@@ -62,10 +62,10 @@ test('hypothetical species uses actual neutral encounter/lure/environment defaul
     assert.deepEqual(entries.filter(entry => entry.speciesId !== 'fixture-species').map(({ speciesId, weight }) => ({ speciesId, weight })),
       getSpeciesProbabilities(lure.id, { depthM, timeOfDay }).map(({ speciesId, weight }) => ({ speciesId, weight })));
   }
-  assert.equal(calculateSalePrice({ speciesId: 'fixture-species', weightKg: 1.5 }), getFishSpecies('fixture-species').basePricePerKg * 1.5);
+  assert.equal(calculateSalePrice({ speciesId: 'fixture-species', weightKg: 1.5, qteSuccessCount: 0 }), getFishSpecies('fixture-species').basePricePerKg * 1.5);
 });
 
-test('an image-only PNG substitution preserves old save v1, catches, sales, achievements and probabilities', async t => {
+test('an image-only PNG substitution preserves canonical saves, catches, sales, achievements and probabilities', async t => {
   const sandbox = await fishSpeciesSandbox(t, { png: true });
   const changed = await sandbox.load('fish-species');
   assert.match(changed.BLACK_BASS.image, /fixture\.png$/);
@@ -89,7 +89,7 @@ test('an image-only PNG substitution preserves old save v1, catches, sales, achi
   const { getSpeciesProbabilities: probabilities } = await sandbox.load('fish-encounters');
   for (const lure of LURES) assert.deepEqual(probabilities(lure.id, { depthM: 12, timeOfDay: 'night' }), getSpeciesProbabilities(lure.id, { depthM: 12, timeOfDay: 'night' }));
   assert.deepEqual(restored.collection.sellStored(['legacy-0']), collection.sellStored(['legacy-0']));
-  assert.equal(old.saveVersion, 1);
+  assert.equal(old.saveVersion, 2);
   for (const field of ['image', 'imageFormat']) {
     const corrupt = JSON.parse(JSON.stringify(old)); corrupt.collection.catches[0][field] = 'fixture.png';
     assert.throws(() => parseSaveData(JSON.stringify(corrupt)));

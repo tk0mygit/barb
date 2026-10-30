@@ -90,17 +90,17 @@ function conditionsData(value, path) {
   return Object.freeze(result);
 }
 
-// Returns detached, frozen canonical data. Constructors can also use this
-// boundary directly without depending on the outer save-version envelope.
-export function validateCollectionData(value) {
+function collectionData(value, legacy) {
   objectFields(value, ['catches', 'wallet', 'equipment'], [], 'collection');
   arrayData(value.catches, SAVE_LIMITS.catches, 'collection.catches');
   const ids = new Set();
   let totalSales = 0;
   const catches = value.catches.map((record, i) => {
     const path = `collection.catches[${i}]`;
-    objectFields(record, ['schemaVersion', 'id', 'speciesId', 'lengthCm', 'weightKg', 'caughtAt', 'disposition'],
+    objectFields(record, ['schemaVersion', 'id', 'speciesId', 'lengthCm', 'weightKg', 'caughtAt', 'disposition', ...(legacy ? [] : ['qteSuccessCount'])],
       ['conditions', 'salePrice', 'soldAt'], path);
+    const qteSuccessCount = legacy ? 0 : record.qteSuccessCount;
+    requireValid(Number.isInteger(qteSuccessCount) && qteSuccessCount >= 0 && qteSuccessCount <= 3, `${path}.qteSuccessCount`);
     requireValid(record.schemaVersion === 1, `${path}.schemaVersion`);
     requireValid(typeof record.id === 'string' && record.id.trim().length > 0, `${path}.id`);
     requireValid(record.id.length <= SAVE_LIMITS.idCharacters, `${path}.id`, 'input-too-large');
@@ -109,11 +109,12 @@ export function validateCollectionData(value) {
     finite(record.lengthCm, `${path}.lengthCm`); finite(record.weightKg, `${path}.weightKg`);
     requireValid(record.lengthCm > 0 && record.weightKg > 0, path);
     // Keep positive legacy sizes, but ensure each fish can still be quoted.
-    try { calculateSalePrice(record); } catch { throw new SaveDataError('invalid-data', `${path}.weightKg`); }
+    try { calculateSalePrice({ ...record, qteSuccessCount }); } catch { throw new SaveDataError('invalid-data', `${path}.weightKg`); }
     timestamp(record.caughtAt, `${path}.caughtAt`);
     requireValid(['unassigned', 'stored', 'sold'].includes(record.disposition), `${path}.disposition`);
     const copy = { schemaVersion: 1, id: record.id, speciesId: record.speciesId, lengthCm: record.lengthCm,
-      weightKg: record.weightKg, caughtAt: record.caughtAt, disposition: record.disposition };
+      weightKg: record.weightKg, caughtAt: record.caughtAt, disposition: record.disposition,
+      ...(legacy ? {} : { qteSuccessCount }) };
     if (Object.hasOwn(record, 'conditions')) copy.conditions = conditionsData(record.conditions, `${path}.conditions`);
     if (record.disposition === 'sold') {
       money(record.salePrice, `${path}.salePrice`); timestamp(record.soldAt, `${path}.soldAt`);
@@ -132,3 +133,9 @@ export function validateCollectionData(value) {
     wallet: Object.freeze({ balance: value.wallet.balance, lifetimeSales: value.wallet.lifetimeSales }),
     equipment: Object.freeze({ rodLevel: value.equipment.rodLevel, reelLevel: value.equipment.reelLevel }) });
 }
+
+// Direct domain restoration accepts canonical V2 records only. Legacy data
+// must be selected explicitly by the outer saveVersion, never inferred from
+// missing fields. V1's exact old field list rejects even an explicit count 0.
+export function validateCollectionData(value) { return collectionData(value, false); }
+export function validateLegacyCollectionData(value) { return collectionData(value, true); }

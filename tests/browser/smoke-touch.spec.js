@@ -22,26 +22,36 @@ test('Touch smoke: boot, sailing end/cancel and primary UI taps', async ({ creat
     await test.step(`sail and release with ${release}`, async () => {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 220, y: 510 }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 245, y: 410 }] });
-      await expect(page.locator('#joystick')).toBeVisible();
-      await expect(page.locator('#motion-label')).toHaveText('航行中');
-      await expect.poll(async () => Number(await page.locator('#speed').textContent())).toBeGreaterThan(0);
-      await expect(page.locator('#fish-button')).toBeHidden();
+      // These observations are independent. Finish all of them before the
+      // next native gesture, without serial protocol waits during rendering.
+      await Promise.all([
+        expect(page.locator('#joystick')).toBeVisible(),
+        expect(page.locator('#motion-label')).toHaveText('航行中'),
+        expect.poll(async () => Number(await page.locator('#speed').textContent())).toBeGreaterThan(0),
+        expect(page.locator('#fish-button')).toBeHidden(),
+      ]);
       await cdp.send('Input.dispatchTouchEvent', { type: release, touchPoints: [] });
-      await expect(page.locator('#joystick')).toBeHidden();
-      await expect(page.locator('#motion-label')).toHaveText('停船中');
-      await expect(page.locator('#speed')).toHaveText('0.0');
+      await Promise.all([
+        expect(page.locator('#joystick')).toBeHidden(),
+        expect(page.locator('#motion-label')).toHaveText('停船中'),
+        expect(page.locator('#speed')).toHaveText('0.0'),
+      ]);
     });
   }
 
   await activateButton(page.getByRole('button', { name: '釣りをする' }), true);
-  await expect(page.locator('#motion-label')).toHaveText('釣り視点');
-  await expect(page.locator('#reticle')).toBeVisible();
+  await Promise.all([
+    expect(page.locator('#motion-label')).toHaveText('釣り視点'),
+    expect(page.locator('#reticle')).toBeVisible(),
+  ]);
   await activateButton(page.getByRole('button', { name: '操船に戻る' }), true);
   await expect(page.locator('#motion-label')).toHaveText('停船中');
   await activateButton(page.locator('#menu-button'), true);
   await expect(page.locator('#collection-dialog')).toBeVisible();
   await activateButton(page.locator('#collection-close'), true);
-  await expect(page.locator('#collection-dialog')).toBeHidden();
-  await expect(page.locator('#error')).toBeHidden();
+  await Promise.all([
+    expect(page.locator('#collection-dialog')).toBeHidden(),
+    expect(page.locator('#error')).toBeHidden(),
+  ]);
   expect(errors).toEqual([]);
 });

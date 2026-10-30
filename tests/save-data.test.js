@@ -14,7 +14,7 @@ const savedAt = '2026-10-23T00:00:00.000Z';
 const caughtAt = '2026-10-22T00:00:00.000Z';
 const future = Date.parse('2027-01-01T00:00:00.000Z');
 const record = (id, extra = {}) => ({ schemaVersion: 1, id, speciesId: 'black-bass', lengthCm: 40,
-  weightKg: 1, caughtAt, ...extra });
+  weightKg: 1, qteSuccessCount: 0, caughtAt, ...extra });
 const clone = value => JSON.parse(JSON.stringify(value));
 function session() {
   const collection = createCatchCollection({ now: () => Date.parse(savedAt) });
@@ -44,7 +44,7 @@ function land(fishing) {
 
 test('initial versioned envelope, JSON and domain round trips preserve the existing snapshot schemas', () => {
   const state = session(), data = save(state);
-  assert.deepEqual(data, { saveVersion: 1, savedAt,
+  assert.deepEqual(data, { saveVersion: 2, savedAt,
     collection: { catches: [], wallet: { balance: 0, lifetimeSales: 0 }, equipment: { rodLevel: 1, reelLevel: 1 } },
     achievements: { contractVersion: 2, unlocked: [] }, boat: { x: 0, z: 30, heading: 0 }, clock: { elapsedSeconds: 0 }, settings: {} });
   const parsed = parseSaveData(serializeSaveData(data));
@@ -165,7 +165,7 @@ test('reject both directions of achievement/history contradiction rather than in
 
 test('JSON errors and unsupported versions have distinct stable error contracts', () => {
   assert.deepEqual(tryRestoreSaveData('{broken'), { ok: false, error: { code: 'invalid-json', path: 'json' } });
-  for (const version of [0, 2, 999]) {
+  for (const version of [0, 3, 999]) {
     const data = { saveVersion: version, futureField: [] };
     const result = tryRestoreSaveData(JSON.stringify(data));
     assert.equal(result.error.code, 'unsupported-version');

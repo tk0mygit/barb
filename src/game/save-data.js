@@ -5,10 +5,10 @@ import { createGameClock } from './game-clock.js';
 import { createFishing } from './fishing.js';
 import { estimateWaterDepth } from '../world/depth.js';
 import { shoreRadius } from '../world/config.js';
-import { SAVE_LIMITS, SaveDataError, requireValid, objectFields, finite, timestamp, validateCollectionData } from './save-validation.js';
+import { SAVE_LIMITS, SaveDataError, requireValid, objectFields, finite, timestamp, validateCollectionData, validateLegacyCollectionData } from './save-validation.js';
 
 export { SAVE_LIMITS, SaveDataError } from './save-validation.js';
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 // Throws SaveDataError, returns a detached deeply frozen envelope. Unknown
 // fields are rejected instead of being copied, recursively traversed or lost.
@@ -16,10 +16,10 @@ export function validateSaveData(value) {
   requireValid(value !== null && typeof value === 'object' && !Array.isArray(value), 'save');
   const version = Object.getOwnPropertyDescriptor(value, 'saveVersion');
   requireValid(version && 'value' in version && Number.isSafeInteger(version.value) && version.value >= 0, 'saveVersion');
-  requireValid(version.value === SAVE_VERSION, 'saveVersion', 'unsupported-version');
+  requireValid(version.value === 1 || version.value === SAVE_VERSION, 'saveVersion', 'unsupported-version');
   objectFields(value, ['saveVersion', 'savedAt', 'collection', 'achievements', 'boat', 'clock', 'settings'], [], 'save');
   timestamp(value.savedAt, 'savedAt');
-  const collection = validateCollectionData(value.collection);
+  const collection = version.value === 1 ? validateLegacyCollectionData(value.collection) : validateCollectionData(value.collection);
   const achievements = validateAchievementData(value.achievements, collection);
   objectFields(value.boat, ['x', 'z', 'heading'], [], 'boat');
   finite(value.boat.x, 'boat.x'); finite(value.boat.z, 'boat.z'); finite(value.boat.heading, 'boat.heading');
@@ -27,9 +27,19 @@ export function validateSaveData(value) {
   objectFields(value.clock, ['elapsedSeconds'], [], 'clock');
   finite(value.clock.elapsedSeconds, 'clock.elapsedSeconds', 0);
   objectFields(value.settings, [], [], 'settings');
-  return Object.freeze({ saveVersion: SAVE_VERSION, savedAt: value.savedAt, collection, achievements,
+  return Object.freeze({ saveVersion: version.value, savedAt: value.savedAt, collection, achievements,
     boat: Object.freeze({ x: value.boat.x, z: value.boat.z, heading: value.boat.heading }),
     clock: Object.freeze({ elapsedSeconds: value.clock.elapsedSeconds }), settings: Object.freeze({}) });
+}
+
+// Call only after the complete source-version schema has passed validation.
+// Keeping validation's V1 wire shape distinct prevents canonical V2 records
+// from being accepted under a V1 discriminator on a later API call.
+function migrateValidatedSaveData(data) {
+  if (data.saveVersion === SAVE_VERSION) return data;
+  return Object.freeze({ ...data, saveVersion: SAVE_VERSION,
+    collection: Object.freeze({ ...data.collection,
+      catches: Object.freeze(data.collection.catches.map(record => Object.freeze({ ...record, qteSuccessCount: 0 }))) }) });
 }
 
 // Assembly is separate from JSON and from domain reconstruction. No storage,
@@ -42,7 +52,7 @@ export function createSaveData({ collection, achievements, boat, clock }, { save
 }
 
 export function serializeSaveData(data) {
-  const json = JSON.stringify(validateSaveData(data));
+  const json = JSON.stringify(migrateValidatedSaveData(validateSaveData(data)));
   requireValid(json.length <= SAVE_LIMITS.jsonCharacters, 'json', 'input-too-large');
   return json;
 }
@@ -59,7 +69,7 @@ export function parseSaveData(json) {
 // A candidate is returned only after validation AND every constructor succeeds.
 // No current game reference is accepted, so a failure cannot partially restore it.
 export function restoreSaveData(data, { now = Date.now } = {}) {
-  const validated = validateSaveData(data);
+  const validated = migrateValidatedSaveData(validateSaveData(data));
   const collection = createCatchCollection({ initialData: validated.collection, now });
   const boat = createBoatState(validated.boat);
   const clock = createGameClock(undefined, validated.clock);

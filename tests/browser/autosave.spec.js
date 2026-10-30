@@ -72,9 +72,9 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fixed leg
     expect(checkpoint.data.achievements.contractVersion).toBe(2);
   }
   const before = await latest(page), original = JSON.parse(legacySlots[1]).data;
-  expect(before.data.saveVersion).toBe(1); expect(before.storageVersion).toBe(1);
+  expect(before.data.saveVersion).toBe(2); expect(before.storageVersion).toBe(1);
   expect(before.data.collection.wallet).toEqual({ balance: 19685, lifetimeSales: 66785 });
-  expect(before.data.collection.catches).toEqual(original.collection.catches);
+  expect(before.data.collection.catches).toEqual(original.collection.catches.map(record => ({ ...record, qteSuccessCount: 0 })));
   expect(before.data.achievements.unlocked.filter(award => original.achievements.unlocked.some(old => old.id === award.id)))
     .toEqual(original.achievements.unlocked);
   await page.reload(); await page.clock.runFor(16); await expect(page.locator('#status')).toBeHidden();

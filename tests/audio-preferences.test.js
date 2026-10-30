@@ -49,7 +49,7 @@ test('storage property access, read and write failures are isolated', () => {
   assert.deepEqual(store.load().preferences, valid); assert.equal(store.save(valid), 'failed');
 });
 
-test('game save v1 remains byte-compatible and audio changes never affect slots, generations, or conflict checks', () => {
+test('canonical game saves stay byte-identical across audio changes, including slots, generations and conflict checks', () => {
   const collection = createCatchCollection(), achievements = createAchievements({ collection });
   const storage = memory(), preferences = createAudioPreferences({ getStorage: () => storage });
   const state = { collection, achievements, boat: createBoatState(), clock: createGameClock(undefined, { elapsedSeconds: 906 }) };
@@ -64,7 +64,7 @@ test('game save v1 remains byte-compatible and audio changes never affect slots,
   assert.deepEqual(sampleAudioMix(reread.state.clock.state), sampleAudioMix(state.clock.state));
   assert.equal(serializeSaveData(createSaveData(restoreSaveData(data), { savedAt: data.savedAt })), original);
   assert.equal(game.save(data).ok, true); assert.equal(game.status.generation, 3);
-  assert.deepEqual(data.settings, {}); assert.equal(data.saveVersion, 1);
+  assert.deepEqual(data.settings, {}); assert.equal(data.saveVersion, 2);
   storage.values.set(SAVE_STORAGE_KEYS[0], 'external change'); assert.equal(game.checkForExternalChanges(), true);
   preferences.save({ ...valid, enabled: false }); assert.equal(game.status.phase, 'conflict');
 });

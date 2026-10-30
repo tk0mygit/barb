@@ -79,7 +79,7 @@ test('lighting crosses both clock boundaries, handles long frames and freezes wi
   }
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   const saved = await page.evaluate(() => ['barb.save.v1.slotA', 'barb.save.v1.slotB'].map(k => JSON.parse(localStorage.getItem(k))).filter(Boolean).sort((a, b) => b.generation - a.generation)[0].data);
-  expect(saved.saveVersion).toBe(1); expect(saved.settings).toEqual({});
+  expect(saved.saveVersion).toBe(2); expect(saved.settings).toEqual({});
   expect(saved.collection.catches).toEqual([]); expect(saved.achievements.unlocked).toEqual([]);
   await page.reload(); await tick(page);
   assertEnvironment(await page.evaluate(() => window.lightingProbe.first), saved.clock.elapsedSeconds);

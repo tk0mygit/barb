@@ -115,7 +115,9 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       let id = `catch-${capturedAt}-${sequence}`;
       // Restored IDs can have any suffix, and the wall clock can move back.
       while (collection.has ? collection.has(id) : state.catches.some(record => record.id === id)) id = `catch-${capturedAt}-${++sequence}`;
-      state.catch = collection.register(Object.freeze({ schemaVersion: 1, id, ...state.encounter, caughtAt: new Date(capturedAt).toISOString(), disposition: 'unassigned' }));
+      state.catch = collection.register(Object.freeze({ schemaVersion: 1, id, ...state.encounter,
+        qteSuccessCount: fight.snapshot.qte.successes,
+        caughtAt: new Date(capturedAt).toISOString(), disposition: 'unassigned' }));
       transition(PHASE.RESULT);
     } else if (state.phase === PHASE.FAILED && state.time >= settings.failureSeconds) ready(state.message);
   }

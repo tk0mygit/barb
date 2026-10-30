@@ -47,7 +47,7 @@ for (const touch of [false, true]) {
       const name = await page.locator('#catch-species').textContent();
       const species = FISH_SPECIES.find(fish => fish.name === name);
       const weightKg = parseFloat(await page.locator('#catch-weight').textContent());
-      const price = calculateSalePrice({ speciesId: species.id, weightKg });
+      const price = calculateSalePrice({ speciesId: species.id, weightKg, qteSuccessCount: 0 });
       const length = await page.locator('#catch-length').textContent();
       await expect(page.locator('#catch-sale-price')).toHaveText(`売却価格 ${money(price)}`);
       await expect(page.locator('#sell-catch')).toBeVisible(); await expect(page.locator('#close-catch')).toBeVisible();

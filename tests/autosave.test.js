@@ -11,7 +11,7 @@ import { createSaveStorage, SAVE_STORAGE_KEYS } from '../src/game/save-storage.j
 
 const timestamp = '2026-10-23T00:00:00.000Z';
 const record = (id, extra = {}) => ({ schemaVersion: 1, id, speciesId: 'black-bass',
-  lengthCm: 40, weightKg: 1, caughtAt: timestamp, ...extra });
+  lengthCm: 40, weightKg: 1, qteSuccessCount: 0, caughtAt: timestamp, ...extra });
 function session() {
   const collection = createCatchCollection({ now: () => Date.parse(timestamp) });
   return { collection, achievements: createAchievements({ collection, now: () => Date.parse(timestamp) }),

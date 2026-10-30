@@ -2,9 +2,10 @@ import { getFishSpecies } from './fish-species.js';
 
 // Round the decimal kg value half up. Decimal arithmetic avoids e.g.
 // 90 * 1.15 becoming 103.49999999999999 in binary floating point.
-export function calculateSalePrice({ speciesId, weightKg }) {
+export function calculateSalePrice({ speciesId, weightKg, qteSuccessCount }) {
   const fish = getFishSpecies(speciesId);
   if (!fish || !Number.isFinite(weightKg) || weightKg <= 0
+    || !Number.isInteger(qteSuccessCount) || qteSuccessCount < 0 || qteSuccessCount > 3
     || !Number.isSafeInteger(fish.basePricePerKg) || fish.basePricePerKg < 0) throw new RangeError('Invalid sale price inputs');
   const [coefficient, exponent = '0'] = String(weightKg).split('e');
   const [whole, fraction = ''] = coefficient.split('.');
@@ -14,8 +15,15 @@ export function calculateSalePrice({ speciesId, weightKg }) {
     const divisor = 10n ** BigInt(scale);
     amount = (amount + divisor / 2n) / divisor;
   } else amount *= 10n ** BigInt(-scale);
-  if (amount > BigInt(Number.MAX_SAFE_INTEGER)) throw new RangeError('Sale price exceeds safe integer range');
-  return Number(amount);
+  // Establish the original integer base first; round the additive bonus once
+  // per fish. Never compound or convert an unsafe intermediate to Number.
+  const limit = BigInt(Number.MAX_SAFE_INTEGER);
+  if (amount > limit) throw new RangeError('Sale price exceeds safe integer range');
+  const rawBonus = (amount * BigInt(qteSuccessCount) * 10n + 50n) / 100n;
+  const bonus = amount > 0n && qteSuccessCount > 0 ? (rawBonus < 1n ? 1n : rawBonus) : 0n;
+  const price = amount + bonus;
+  if (price > limit) throw new RangeError('Sale price exceeds safe integer range');
+  return Number(price);
 }
 
 export function addMoney(a, b) {
