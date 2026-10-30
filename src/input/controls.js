@@ -19,14 +19,16 @@ export function createControls(canvas, joystick, knob, fishing = null) {
     state.steer = state.throttle = state.lookX = state.lookY = 0;
     joystick.hidden = true;
   }
-  function reset(event) {
+  function reset(event, receipt = performance.now()) {
     const interruptedPreparation = preparing;
     preparing = false;
     release();
-    fishing?.input.cancel(event?.timeStamp);
+    fishing?.input.cancel(event?.timeStamp, { event, receipt });
     if (interruptedPreparation) fishing?.onPreparationCancel?.();
   }
   canvas.addEventListener('pointerdown', event => {
+    const receipt = performance.now();
+    fishing?.input.receivePointer?.(event, receipt);
     if (!enabled || pointer !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
     pointer = event.pointerId;
     origin = previous = { x: event.clientX, y: event.clientY };
@@ -35,7 +37,7 @@ export function createControls(canvas, joystick, knob, fishing = null) {
     canvas.focus({ preventScroll: true });
     if (!preparing && mode === 'fishing' && !canLook()) {
       fishingGesture = true;
-      fishing.input.down(event.clientX, event.clientY, event.timeStamp);
+      fishing.input.down(event.clientX, event.clientY, event.timeStamp, { event, receipt });
     }
     if (mode === 'sailing') {
       joystick.style.left = `${origin.x}px`;
@@ -49,6 +51,8 @@ export function createControls(canvas, joystick, knob, fishing = null) {
   // the next UI tap. Buttons and scrollable menus keep their native defaults.
   canvas.addEventListener('touchstart', event => { if (enabled) event.preventDefault(); }, { passive: false });
   canvas.addEventListener('pointermove', event => {
+    const receipt = performance.now();
+    fishing?.input.receivePointer?.(event, receipt);
     if (event.pointerId !== pointer) return;
     if (preparing) {
       // Keep the live contact, but never look, aim or cast before the camera
@@ -57,7 +61,7 @@ export function createControls(canvas, joystick, knob, fishing = null) {
       return;
     }
     if (fishingGesture) {
-      fishing.input.move(event.clientX, event.clientY);
+      fishing.input.move(event.clientX, event.clientY, { event, receipt });
     } else if (mode === 'fishing' && canLook()) {
       state.lookX += (event.clientX - previous.x) * 0.004;
       state.lookY += (event.clientY - previous.y) * 0.004;
@@ -73,12 +77,22 @@ export function createControls(canvas, joystick, knob, fishing = null) {
     previous = { x: event.clientX, y: event.clientY };
   });
   canvas.addEventListener('pointerup', event => {
+    const receipt = performance.now();
+    fishing?.input.receivePointer?.(event, receipt);
     if (event.pointerId !== pointer) return;
-    if (fishingGesture) fishing.input.up(event.timeStamp);
+    if (event.timeStamp < startedAt) return;
+    if (fishingGesture) fishing.input.up(event.timeStamp, { event, receipt });
     release();
   });
   for (const name of ['pointercancel', 'lostpointercapture']) {
-    canvas.addEventListener(name, event => { if (event.pointerId === pointer) reset(); });
+    canvas.addEventListener(name, event => {
+      const receipt = performance.now();
+      // release() clears owner before releasing capture. Its own resulting
+      // lostcapture must not cancel a completed QTE contact.
+      if (event.pointerId !== pointer) return;
+      fishing?.input.receivePointer?.(event, receipt);
+      if (event.pointerId === pointer && event.timeStamp >= startedAt) reset(event, receipt);
+    });
   }
   const supported = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'];
   canvas.addEventListener('keydown', event => { if (enabled && supported.includes(event.code)) { event.preventDefault(); keys.add(event.code); } });

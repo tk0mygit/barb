@@ -1,6 +1,7 @@
 import { GESTURES } from './fishing-config.js';
 import { fishResistance, isLargeFish, createFightProfile } from './fish-fight.js';
 import { getQteDifficulty, qteSeconds, getFightScale, applyQteEffect, FightQteSchedule, QTE_TIMING } from './fight-qte.js';
+import { QTE_DELIVERY_CONFIG } from './qte-delivery-config.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 // One FIGHT owns its physical clock and transient input/result queue. Render
@@ -9,6 +10,8 @@ export function createFightController({ species, lengthCm, startDistance, rod, r
   qte = null, onEvent = () => {}, onEnd = () => {} }) {
   if (!(startDistance > settings.landingDistance)) throw new RangeError('FIGHT must start beyond landing');
   const enabled = qte?.enabled === true;
+  const finiteDelivery = enabled && qte.delivery === 'finite';
+  const instance = Object.freeze({});
   if (enabled && typeof qte.selectOperation !== 'function') throw new TypeError('Enabled QTE requires an explicit operation provider');
   const difficulty = getQteDifficulty(species, lengthCm), profile = createFightProfile(species, lengthCm, difficulty);
   const scale = getFightScale(startDistance, settings.landingDistance, settings.fightScalingSpan);
@@ -22,9 +25,11 @@ export function createFightController({ species, lengthCm, startDistance, rod, r
   let contactId = null, contactStart = -Infinity, lifecycle = 0, normalOwnerStart = -Infinity;
   let successes = 0, failures = 0, drawCount = 0, push = 0, penalties = 0, pulls = 0, armTime = 0, qteTime = 0;
   const queue = [];
-  const owner = () => paused ? 'suspended' : ended ? 'none' : ['warning', 'active', 'awaiting-result'].includes(mode) ? 'qte' : 'normal';
-  const token = () => schedule.active ? Object.freeze({ fightId: id, index: schedule.active.index, generation }) : null;
-  const valid = value => value && value.fightId === id && value.index === schedule.active?.index && value.generation === generation;
+  const pendingResults = new Map();
+  let delivery = null;
+  const owner = () => paused ? 'suspended' : ended ? 'none' : ['warning', 'awaiting-display', 'active', 'awaiting-result'].includes(mode) ? 'qte' : 'normal';
+  const token = () => schedule.active ? Object.freeze({ instance, fightId: id, index: schedule.active.index, generation }) : null;
+  const valid = value => value && value.instance === instance && value.fightId === id && value.index === schedule.active?.index && value.generation === generation;
   function snapshot() {
     return Object.freeze({ id, startDistance, landingDistance: settings.landingDistance, scale, difficulty, profile,
       equipment: Object.freeze({ rod, reel }), distance: physical.distance, tension: physical.tension, slackSeconds: slack,
@@ -32,7 +37,7 @@ export function createFightController({ species, lengthCm, startDistance, rod, r
       reeling: owner() === 'normal' && mode !== 'arm' && (direct || held && wall >= holdAt),
       mode, paused, outcome: ended, rngCalls: drawCount, pushbackMeters: push, penaltyMeters: penalties,
       successPullMeters: pulls, armSeconds: armTime, qteSeconds: qteTime,
-      qte: Object.freeze({ enabled, operation, token: token(), warningEndSeconds: warningEnd, deadlineSeconds: deadline,
+      qte: Object.freeze({ enabled, finiteDelivery, delivery: delivery && Object.freeze({ ...delivery }), operation, token: token(), warningEndSeconds: warningEnd, deadlineSeconds: deadline,
         remainingSeconds: mode === 'warning' ? Math.max(0, warningEnd - wall) : mode === 'active' ? Math.max(0, deadline - wall) : 0,
         successes, failures, reservations: Object.freeze(schedule.entries.map(e => Object.freeze({ ...e }))) }) });
   }
@@ -56,7 +61,7 @@ export function createFightController({ species, lengthCm, startDistance, rod, r
     schedule.observe(physical.distance); schedule.resolve(normal);
     mode = event.success ? 'normal' : 'arm'; armEnd = event.success ? Infinity : wall + QTE_TIMING.armSeconds;
     normalOwnerStart = wall;
-    warningEnd = deadline = Infinity; invalidate(); emit('qte-resolved'); return true;
+    warningEnd = deadline = Infinity; delivery = null; invalidate(); emit('qte-resolved'); return true;
   }
   function consume() {
     while (queue.length && queue[0].at <= wall) {
@@ -66,11 +71,13 @@ export function createFightController({ species, lengthCm, startDistance, rod, r
       if (owner() !== 'normal') continue;
       if (event.type === 'down') { held = true; direct = false; holdAt = event.at + GESTURES.holdSeconds; contactId = event.contactId ?? null; contactStart = event.at; }
       else if (event.type === 'reel') { direct = event.active; held = false; holdAt = Infinity; }
-      else if (event.contactId === undefined || event.contactId === contactId && event.at >= contactStart) { held = direct = false; holdAt = Infinity; contactId = null; }
+      else if (event.at >= contactStart && (event.contactId === undefined
+        ? !(event.raw && event.type === 'cancel' && event.at <= contactStart)
+        : event.contactId === contactId)) { held = direct = false; holdAt = Infinity; contactId = null; }
     }
   }
   function boundaries() {
-    if (mode === 'warning' && wall >= warningEnd) { mode = 'active'; emit('qte-active'); }
+    if (mode === 'warning' && wall >= warningEnd) { mode = finiteDelivery ? 'awaiting-display' : 'active'; emit(finiteDelivery ? 'qte-awaiting-display' : 'qte-active'); }
     if (mode === 'active' && wall >= deadline) { mode = 'awaiting-result'; emit('qte-awaiting-result'); }
     if (mode === 'arm' && wall >= armEnd) { mode = 'normal'; armEnd = Infinity; emit('arm-ended'); }
   }
@@ -81,6 +88,7 @@ export function createFightController({ species, lengthCm, startDistance, rod, r
     operation = qte.selectOperation(Object.freeze({ index: entry.index, difficulty }));
     const seconds = qteSeconds(difficulty, operation);
     mode = 'warning'; warningEnd = wall + QTE_TIMING.warningSeconds; deadline = warningEnd + seconds;
+    if (finiteDelivery) delivery = { startSeconds: wall, elapsedSeconds: 0, activeAfterSeconds: null, cutAfterSeconds: null };
     invalidate(); emit('qte-warning');
   }
   function pump(end) {
@@ -92,6 +100,7 @@ export function createFightController({ species, lengthCm, startDistance, rod, r
       if (mode === 'normal' && schedule.pending && normal < schedule.nextNormalAt
         && wall + (schedule.nextNormalAt - normal) === wall) normal = schedule.nextNormalAt;
       startPendingQte();
+      if (finiteDelivery && delivery) break;
       let next = Math.min(end, queue[0]?.at ?? Infinity);
       if (mode === 'warning') next = Math.min(next, warningEnd);
       if (mode === 'active') next = Math.min(next, deadline);
@@ -137,10 +146,18 @@ export function createFightController({ species, lengthCm, startDistance, rod, r
       if (paused || ended || !Number.isFinite(dt) || dt <= 0) return 0;
       // Compensated admission plus one-ulp comparison avoids render-sum drift.
       // This never changes input timestamps, hold/deadline tests or D thresholds.
+      if (finiteDelivery && delivery) return 0;
       const add = dt - compensation, sum = render + add; compensation = (sum - render) - add; render = sum;
       const tick = settings.fightStepSeconds;
       const budget = render / tick, count = Math.floor(budget + Number.EPSILON * Math.max(1, Math.abs(budget)));
-      while (ticks < count && !ended && !paused) { ticks++; pump(ticks * tick); }
+      while (ticks < count && !ended && !paused) {
+        ticks++; pump(ticks * tick);
+        if (finiteDelivery && delivery) {
+          // QTE admits its own active time. Never bank capped render time for
+          // a later burst of normal physics across an unresolved boundary.
+          render = wall; compensation = 0; ticks = Math.floor(wall / tick); break;
+        }
+      }
       return ended ? Math.max(0, render - wall) : 0;
     },
     contact(type, at = render, epoch = generation) {
@@ -165,10 +182,44 @@ export function createFightController({ species, lengthCm, startDistance, rod, r
       else if (owner() === 'normal') enqueue({ type: 'cancel', at: render, generation });
     },
     submitResult(value, success, at = wall) {
-      if (ended || paused || !valid(value) || typeof success !== 'boolean' || !Number.isFinite(at) || at < warningEnd) return false;
+      if (finiteDelivery || ended || paused || !valid(value) || typeof success !== 'boolean' || !Number.isFinite(at) || at < warningEnd
+        || pendingResults.get(value.index) === generation) return false;
+      pendingResults.set(value.index, generation);
       enqueue({ type: 'result', token: { ...value }, success, at });
       if (at <= wall) { boundaries(); consume(); }
       return true;
+    },
+    // Explicit PR-A seam: E-relative warning/display/cut progress is supplied
+    // by the adapter. No DOM clock or operation scoring enters this domain.
+    advanceQteDelivery(value, elapsedSeconds, activeAfterSeconds = null) {
+      if (!finiteDelivery || ended || paused || !valid(value) || !delivery || !Number.isFinite(elapsedSeconds)
+        || elapsedSeconds < delivery.elapsedSeconds) return false;
+      if (activeAfterSeconds !== null) {
+        if (!Number.isFinite(activeAfterSeconds) || activeAfterSeconds < QTE_TIMING.warningSeconds
+          || delivery.activeAfterSeconds !== null && activeAfterSeconds !== delivery.activeAfterSeconds) return false;
+        delivery.activeAfterSeconds = activeAfterSeconds;
+        delivery.cutAfterSeconds = (activeAfterSeconds * 1000 + qteSeconds(difficulty, operation) * 1000 + QTE_DELIVERY_CONFIG.receiptGraceMs) / 1000;
+        deadline = delivery.startSeconds + activeAfterSeconds + qteSeconds(difficulty, operation);
+      }
+      const elapsed = Math.min(elapsedSeconds, delivery.cutAfterSeconds ?? QTE_TIMING.warningSeconds);
+      const next = delivery.startSeconds + elapsed;
+      qteTime += next - wall; wall = render = next; compensation = 0;
+      ticks = Math.floor(wall / settings.fightStepSeconds);
+      delivery.elapsedSeconds = elapsed;
+      if (delivery.activeAfterSeconds !== null && elapsed >= delivery.activeAfterSeconds && ['warning', 'awaiting-display'].includes(mode)) {
+        mode = 'active'; emit('qte-active');
+      } else boundaries();
+      boundaries();
+      return true;
+    },
+    commitQteDelivery(value, success) {
+      if (!finiteDelivery || paused || ended || !valid(value) || typeof success !== 'boolean' || !delivery
+        || delivery.cutAfterSeconds === null || delivery.elapsedSeconds < delivery.cutAfterSeconds) return false;
+      // Resolve before consuming raw normal edges: retain the first fresh down
+      // at this boundary even if ingress preceded resolution in the same render.
+      const applied = resolve({ token: value, success });
+      if (applied) consume();
+      return applied;
     },
     pause() { if (ended || paused) return false; paused = true; lifecycle++; invalidate(); emit('fight-paused'); return true; },
     resume() { if (ended || !paused) return false; paused = false; lifecycle++; invalidate(); emit('fight-resumed'); return true; },
