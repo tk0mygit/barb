@@ -270,7 +270,7 @@ try {
     else if (fishing.state.phase === PHASE.AIM) controls.reset();
     else changeMode('sailing');
   });
-  let drawingSize, qteFrame = 0;
+  let drawingSize, qteFrame = 0, qteRenderedFrame = -1;
   let previous = performance.now(), elapsed = 0;
   function resize() {
     fishingInput.geometryChanged(false, performance.now());
@@ -298,6 +298,7 @@ try {
     qteHUD?.update(qteFrame, performance.now());
     // Orientation can change while the menu pauses animation updates.
     renderer.render(scene, camera);
+    qteRenderedFrame = qteFrame;
   }
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', () => fishingInput.geometryChanged(true, performance.now()));
@@ -351,8 +352,11 @@ try {
     elapsed += dt;
     // DOM events have already entered controls. The prior frame really
     // rendered its prepared HUD; only a later rAF may present that geometry.
-    qteHUD?.present(++qteFrame, performance.now());
     const hadDelivery = fishing.state.fight?.qte.delivery;
+    if (qteHUD) {
+      qteFrame++;
+      if (qteRenderedFrame === qteFrame - 1) qteHUD.present(qteFrame, performance.now());
+    }
     const input = controls.read(dt, qteDelivery ? performance.now() : now);
     const phaseBefore = fishing.state.phase;
     let physicsDt = dt;
@@ -403,6 +407,7 @@ try {
     collectionMenu.update();
     qteHUD?.update(qteFrame, performance.now());
     renderer.render(scene, camera);
+    qteRenderedFrame = qteFrame;
     hud.ready();
   });
   canvas.addEventListener('webglcontextlost', event => {

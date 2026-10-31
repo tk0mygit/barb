@@ -1,8 +1,10 @@
 # QTE operations and visual display boundary (5C-2-2)
 
-The standard new game and save restoration still leave QTE disabled. This phase
-adds opt-in modules; `main.js`, fishing physics/RNG, catch records, prices and
-the V1 save writer are unchanged. Full production composition is a later gate.
+The standard new game and save restoration leave QTE disabled. Phase 5C-2-4
+connects these modules to the shared production initializer; Playwright alone
+injects ON into that initializer's final call. No ON route or setting is shipped.
+The confirmed catch count, additive +10% price and V2 writer remain the existing
+5C-2-3 contracts. Device acceptance and product enablement are separate gates.
 
 | Layer | Direct change / indirect observation | Verification |
 | --- | --- | --- |
@@ -48,11 +50,13 @@ the current revision. Each contact retains that exact geometry and down-time
 `preview()` is read-only and does not checkpoint or seal.
 
 `createQteHUD({ fishing, delivery, provider, canvas, root })` is constructed only
-by the test composition in this phase. Its caller opens delivery with the
-warning source anchor and calls `hud.update(frameId, performance.now())` once
-per rendering opportunity. Geometry is prepared before a later frame can
-present it; all 0.6s of warning must elapse before A opens. A browser rendering
-opportunity is not proof that a physical display emitted light.
+when the code-injected policy enables QTE. Production uses `manageGeometry:false`
+and `autoPresent:false`: main owns resize/orientation once, calls `update` before
+its actual WebGL render, then `present` on a later rAF. It opens delivery exactly
+once from each `qte-warning` event, anchored at that event's monotonic observation
+time. All 0.6s of warning must elapse before A opens. A browser rendering
+opportunity is not proof that a physical display emitted light. The standalone
+module fixture retains automatic presentation for its separate component tests.
 Display API calls sample the clock at the actual call after snapshot/DOM work;
 an older frame timestamp cannot be fed back into the monotonic delivery clock.
 The prepared region/target centre comes from the laid-out DOM rectangles, so
@@ -75,6 +79,7 @@ advancement. `dispose()` removes the opt-in HUD's resize/orientation listeners.
 No production URL query, setting, hidden switch or test fixture is published.
 
 The 100ms grace and 128-edge capacity remain development defaults. Real PC,
-Android Chrome and iOS Safari input/visibility/latency/capacity measurements,
-full production composition, sales/save migration and product enablement are
-separate gates. Playwright Chromium touch is not real Android/iOS acceptance.
+Android Chrome and iOS Safari input/visibility/latency/capacity measurements and
+product enablement remain separate gates. See [device acceptance](QTE_DEVICE_ACCEPTANCE.md)
+and [implementation evidence](PHASE5C2_4_VALIDATION.md). Playwright Chromium touch
+is not real Android/iOS acceptance.

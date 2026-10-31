@@ -7,6 +7,15 @@ Phase 3C-3Bで `src/game/save-storage.js` と `src/game/autosave.js` を追加�
 
 ## モジュールの役割
 
+Phase 5C-2-4 adds a code-only `gameplayFactory` injection to `createSaveStorage`
+and `restoreSaveData`. Complete V1/V2 validation still precedes construction.
+The same factory is used for new and restored games before autosave/UI
+subscriptions; no fishing object is replaced after restoration. The default
+factory and ordinary main policy keep QTE OFF. QTE reservation/input state is
+never saved. A constructor failure protects storage and main stops initialization
+instead of retrying with an empty domain. The schema, two keys, generations,
+migration, sale amounts and all write/competition protections are unchanged.
+
 | モジュール | 責務 |
 | --- | --- |
 | `src/game/save-data.js` | 正式スキーマの作成・変換・完全検証・新しいドメイン一式の復元 |

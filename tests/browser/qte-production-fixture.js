@@ -10,7 +10,11 @@ import { installPausedClock } from './clock-fixture.js';
 
 const root = new URL('../../', import.meta.url);
 const main = readFileSync(new URL('src/main.js', root), 'utf8');
+if (execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all', '--', 'src'], { cwd: root }).toString().trim()) {
+  throw new Error('Production evidence requires committed, unchanged runtime sources');
+}
 const source = { sha: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root }).toString().trim(),
+  sourceTree: execFileSync('git', ['rev-parse', 'HEAD:src'], { cwd: root }).toString().trim(),
   mainSha256: createHash('sha256').update(main).digest('hex') };
 export const saveKeys = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
 
@@ -42,9 +46,16 @@ window.qteProduct = startGame({ ${enabled ? 'qteEnabled: true,' : ''}
   });
   for (const file of ['three.module.js', 'three.core.js']) await page.route(`**/barb/test-three/${file}`, route =>
     route.fulfill({ body: readFileSync(new URL(`node_modules/three/build/${file}`, root)), contentType: 'text/javascript' }));
+  await page.route('**/barb/test-addons/**', route => {
+    const path = resolve(new URL('node_modules/three/examples/jsm/', root).pathname,
+      new URL(route.request().url()).pathname.slice('/barb/test-addons/'.length));
+    if (!path.startsWith(new URL('node_modules/three/examples/jsm/', root).pathname)) throw new Error('Invalid addon path');
+    return route.fulfill({ body: readFileSync(path), contentType: 'text/javascript' });
+  });
   const html = readFileSync(new URL('index.html', root), 'utf8')
+    .replaceAll('%BASE_URL%', './')
     .replace('<script type="module" src="/src/main.js"></script>', `<link rel="stylesheet" href="./src/ui/style.css">
-      <script type="importmap">{"imports":{"three":"./test-three/three.module.js"}}</script>
+      <script type="importmap">{"imports":{"three":"./test-three/three.module.js","three/addons/":"./test-addons/"}}</script>
       <script type="module" src="./src/main.js"></script>`);
   await page.route('**/barb/qte-production.html', route => route.fulfill({ body: html, contentType: 'text/html' }));
   if (save) await page.addInitScript(({ save, keys }) => {
@@ -54,7 +65,9 @@ window.qteProduct = startGame({ ${enabled ? 'qteEnabled: true,' : ''}
     }
   }, { save, keys: saveKeys });
   await page.goto('./qte-production.html');
-  await page.waitForFunction(() => Boolean(window.qteProduct));
+  await expect.poll(() => page.evaluate(() => ({ started: Boolean(window.qteProduct),
+    error: document.querySelector('#error').hidden ? null : document.querySelector('#error').textContent })))
+    .toEqual({ started: true, error: null });
   await page.clock.fastForward(32);
   await expect(page.locator('#status')).toBeHidden();
   await expect(page.locator('#error')).toBeHidden();
@@ -78,6 +91,10 @@ export async function productInput(page, touch) {
     async move(p) {
       if (touch) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [p] });
       else await page.mouse.move(p.x, p.y);
+    },
+    async cancel() {
+      if (!touch) throw new Error('Native touch cancellation requires a touch context');
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); held = false;
     },
     async click(locator) { if (touch) await locator.tap(); else await locator.click(); },
     get held() { return held; },
@@ -105,7 +122,11 @@ export const productSnapshot = page => page.evaluate(() => {
 
 export async function castAndHookProduct(page, input, { operation = 'tap', speciesId = 'alligator-gar', fightId = 1 } = {}) {
   const individual = individualFor(operation, speciesId, fightId);
-  await input.click(page.locator('#fish-button'));
+  const drawsBefore = await page.evaluate(() => window.productDrawCount);
+  if (await page.evaluate(() => window.qteProduct.state.boat.mode) !== 'fishing') {
+    await input.click(page.locator('#fish-button'));
+    await page.clock.fastForward(250);
+  }
   await input.click(page.locator('#cast-button'));
   await page.clock.fastForward(250);
   await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'aim');
@@ -129,7 +150,7 @@ export async function castAndHookProduct(page, input, { operation = 'tap', speci
   await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'bite');
   await input.down(p); await input.up(); await page.clock.fastForward(16);
   const result = await productSnapshot(page);
-  expect(result.phase).toBe('fight'); expect(result.drawCount).toBe(3);
+  expect(result.phase).toBe('fight'); expect(result.drawCount - drawsBefore).toBe(3);
   expect(await page.evaluate(() => window.qteProduct.state.fishing.state.encounter.speciesId)).toBe(speciesId);
   expect(await page.evaluate(() => window.qteProduct.state.fishing.state.encounter.lengthCm)).toBe(individual.lengthCm);
   return p;
