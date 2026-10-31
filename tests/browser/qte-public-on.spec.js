@@ -65,7 +65,7 @@ async function castAndHook(page, input, operation) {
   await input.click(page.locator('#cast-button')); await page.clock.fastForward(250);
   await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'aim');
   const p = await page.evaluate(() => ({ x: innerWidth * .6, y: innerHeight * .48 }));
-  await input.down(p); await input.up();
+  await input.down(p); await input.up(); await page.clock.fastForward(250);
   for (let n = 0; n < 8 && (await observe(page)).phase === 'cast'; n++) await page.clock.fastForward(250);
   await expect(page.locator('#fishing-panel')).toHaveAttribute('data-phase', 'lure');
   const conditions = await page.locator('#fishing-conditions').evaluate(el => ({
