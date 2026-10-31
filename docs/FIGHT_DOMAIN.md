@@ -17,9 +17,19 @@ a new identity; neither mid-FIGHT nor pending QTE state is restored or saved.
 ON frame order: native canvas ingress → later presentation of the previous
 render's prepared geometry → controls/input polling and finite cut → existing
 fixed physics → normal camera/world/HUD update → QTE DOM measurement/preparation
-→ actual WebGL render. A frame resolving a delivery barrier admits only its
-post-cut portion to ordinary physics, bounded by the existing dt cap. Warning,
-operation and receipt wait cannot be banked as later normal reeling time.
+→ actual WebGL render. `delivery.admitFrame()` and `input.frameSeconds` supply one
+accepted duration to both the normal timestamp origin and physics. The first
+normal frame admits only its post-cut portion, bounded by the existing dt cap;
+ordinary post-C source times are mapped monotonically into that admitted tail.
+Warning, operation and receipt wait cannot be banked as later normal reeling
+time. QTE source/receipt facts and A/D/C remain unchanged.
+
+Ingress proposes a normal contact; `claimNormalContact()` confirms it only when
+the existing controls actually admits that down. Secondary/hybrid pointers
+cannot replace its owner. Matching post-C cancel is delivered even if the
+domain has not sealed yet; cancel/blur cannot leave a queued ghost hold. Old
+up/cancel quarantine is retained. Non-left mouse completion or loss of the
+left button cannot score a QTE contact; valid fresh retries remain available.
 External menu/blur/hidden/page reasons still pause the application; internal
 display/orientation reasons leave rendering opportunities available to recover.
 
