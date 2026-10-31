@@ -278,6 +278,8 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
     return { handled: true, accepted: true };
   }
   return { clock, open, prepareDisplay, presentDisplay, ingest, poll, setSuspended, invalidateGeometry,
+    // Read without sampling E; ingress has already captured its receipt.
+    get interrupted() { return session?.interrupted ?? false; },
     retire(raw = clock.now()) {
       closeContact('fight-ended'); session = null;
       // Internal display/technical reasons belong to one fight. External menu,

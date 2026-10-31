@@ -85,15 +85,6 @@ try {
   if (qteEnabled) {
     const provider = { getDescriptor: index => state.qteProvider.getDescriptor(index) };
     qteDelivery = createQteDelivery({ fishing, clock: createQteClock(), evaluate: createQteEvaluator(provider) });
-    // Explicit recovery uses the same canvas. This contact cannot score: the
-    // old display epoch is closed until subsequent rendering opportunities.
-    canvas.addEventListener('pointerdown', event => {
-      const snapshot = qteDelivery.snapshot;
-      if (snapshot.interrupted && !snapshot.reasons.some(reason => !['technical', 'display', 'orientation'].includes(reason))
-        && event.isPrimary && (event.pointerType === 'touch' || event.pointerType === 'mouse' && event.button === 0)) {
-        qteDelivery.resumeTechnical(performance.now());
-      }
-    });
   }
   const fishingInput = createFishingInput(fishing, undefined, { qteDelivery });
   const controls = createControls(canvas, document.querySelector('#joystick'), document.querySelector('#joystick-knob'), {
@@ -352,7 +343,7 @@ try {
     elapsed += dt;
     // DOM events have already entered controls. The prior frame really
     // rendered its prepared HUD; only a later rAF may present that geometry.
-    const hadDelivery = fishing.state.fight?.qte.delivery;
+    const hadDelivery = qteDelivery && fishing.state.fight?.qte.delivery;
     if (qteHUD) {
       qteFrame++;
       if (qteRenderedFrame === qteFrame - 1) qteHUD.present(qteFrame, performance.now());

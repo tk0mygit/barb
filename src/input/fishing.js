@@ -15,7 +15,17 @@ export function createFishingInput(fishing, mapping = GESTURES, { qteDelivery = 
   }
   return {
     receivePointer(event, receipt) {
-      if (qteDelivery && !received.has(event)) received.set(event, qteDelivery.ingest(event, receipt));
+      if (!qteDelivery || received.has(event)) return;
+      // Controls already stamped the first receipt, before capture/focus. A
+      // technical restart uses this same entrance, never an earlier canvas
+      // listener that could do work before the official receipt. This down
+      // belongs to the suspended epoch and cannot score before re-display.
+      if (event.type === 'pointerdown' && qteDelivery.interrupted && event.isPrimary
+        && (event.pointerType === 'touch' || event.pointerType === 'mouse' && event.button === 0)
+        && !qteDelivery.clock.reasons.some(reason => !['technical', 'display', 'orientation'].includes(reason))) {
+        qteDelivery.resumeTechnical(receipt);
+      }
+      received.set(event, qteDelivery.ingest(event, receipt));
     },
     down(x, y, timestamp, ingress) {
       const routed = route(ingress);

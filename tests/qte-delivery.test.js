@@ -536,3 +536,24 @@ test('private receipt/display/capacity telemetry is bounded and preserves actual
   assert.equal(d.peakEdges, 2); assert.equal(d.receiptLagMs.length, 32);
   assert.ok(d.receiptLagMs.every(ms => ms === 5)); assert.ok(Object.isFrozen(d.receiptLagMs));
 });
+
+test('technical canvas restart retains the first ingress receipt, rejects the restart contact, and deduplicates the overflow event', () => {
+  const s = setup({ operation: 'tap', required: 3, capacity: 2 }); s.activate();
+  s.send('pointerdown', 610); s.send('pointerup', 620);
+  const input = createFishingInput(s.f, undefined, { qteDelivery: s.delivery });
+  s.at(630); const overflow = pointer('pointerdown', 630);
+  input.receivePointer(overflow, 630); assert.equal(s.delivery.interrupted, true);
+  const deadline = s.delivery.snapshot.deadline;
+  input.receivePointer(overflow, 630); assert.equal(s.delivery.interrupted, true);
+  s.at(640); const restart = pointer('pointerdown', 640);
+  input.receivePointer(restart, 640);
+  assert.equal(s.delivery.interrupted, false);
+  assert.equal(input.down(0, 0, 640, { event: restart, receipt: 640 }), false);
+  assert.equal(s.delivery.snapshot.counts['invalid-receipt'] ?? 0, 0);
+  assert.equal(s.delivery.preview().completedOperations, 1);
+  assert.equal(s.delivery.snapshot.deadline, deadline);
+  assert.ok(s.delivery.snapshot.reasons.includes('display'));
+  s.at(650); s.display(); assert.equal(s.f.state.fight.paused, false);
+  assert.equal(s.delivery.snapshot.deadline, deadline);
+  assert.equal(s.delivery.preview().completedOperations, 1);
+});
