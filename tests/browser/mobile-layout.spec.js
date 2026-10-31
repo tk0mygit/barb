@@ -1,5 +1,6 @@
 import { test, expect } from './diagnostics-fixture.js';
 import { startCapture, enterFishing, fishingInput, phase, tick, layout, assertLayout } from './mobile-capture.js';
+import { expirePublicQte } from './input-fixture.js';
 
 // Layout / gesture checks keep the existing low-DPR test optimization. The
 // separate comparison spec covers actual requested DPRs without this reduction.
@@ -81,6 +82,7 @@ test('mobile safe insets, short landscape, font enlargement, menu/fight/result r
   // Land using the unchanged tension feedback, then rotate the real modal.
   let held = false;
   for (let i = 0; i < 140 && await phase(page) === 'fight'; i++) {
+    if (await expirePublicQte(page, () => input.up())) { held = false; continue; }
     const value = await page.locator('#line-tension').evaluate(el => el.value);
     if (!held && value < 0.3) { await input.down(); held = true; }
     else if (held && value > 0.58) { await input.up(); held = false; }

@@ -1,5 +1,27 @@
 import { test, expect } from './diagnostics-fixture.js';
 
+// Existing catch/transaction regressions deliberately do not score a gesture.
+// Public ON cancels the old normal hold at warning. Observe its finite failure
+// and release that native contact, so the caller can send a fresh normal down.
+// Keep the caller's normal-physics step budget and all result assertions intact.
+export async function expirePublicQte(page, release) {
+  const hud = page.locator('.qte-hud');
+  if (!await hud.isVisible()) return false;
+  await release();
+  const states = [];
+  // 600ms warning + at most 2000ms operation + 100ms grace + 450ms result,
+  // with rendering opportunities, must finish within these 4 virtual seconds.
+  for (let n = 0; n < 40 && await hud.isVisible(); n++) {
+    const state = await hud.getAttribute('data-state'); states.push(state);
+    expect(['warning', 'awaiting-display', 'active', 'awaiting-result', 'failure']).toContain(state);
+    await page.clock.fastForward(100);
+  }
+  await expect(hud).toBeHidden();
+  expect(states).toContain('failure');
+  await test.info().attach('public-unscored-qte', { body: JSON.stringify({ states, outcome: 'finite failure; fresh normal contact required' }), contentType: 'application/json' });
+  return true;
+}
+
 export async function activateButton(button, touch = false) {
   await test.step(`${touch ? 'tap' : 'click'} ${button}`, async () => {
     await expect(button).toBeVisible();

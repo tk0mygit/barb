@@ -6,6 +6,7 @@ import { createGameClock } from '../../src/game/game-clock.js';
 import { createSaveData } from '../../src/game/save-data.js';
 import { readFileSync } from 'node:fs';
 import { installPausedClock } from './clock-fixture.js';
+import { expirePublicQte } from './input-fixture.js';
 
 // Match the other production-game E2E fixtures: retain CSS viewport/touch
 // coordinates while bounding software WebGL pixel work on the test runner.
@@ -131,6 +132,7 @@ async function castAndHook(page, input) {
 async function land(page, input) {
   let held = false;
   for (let i = 0; i < 140 && await phase(page) === 'fight'; i++) {
+    if (await expirePublicQte(page, () => input.up())) { held = false; continue; }
     const tension = await page.locator('#line-tension').evaluate(el => el.value);
     if (!held && tension < 0.35) { await input.down(); held = true; }
     else if (held && tension > 0.65) { await input.up(); held = false; }

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { FISH_SPECIES, getFishSpecies, calculateFishWeightKg } from '../../src/game/fish-species.js';
 import { getSpeciesProbabilities, sampleFishSpecies } from '../../src/game/fish-encounters.js';
 import { installPausedClock } from './clock-fixture.js';
+import { expirePublicQte } from './input-fixture.js';
 import { validateFishImage } from '../../scripts/lib/fish-image-validation.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
@@ -108,6 +109,7 @@ async function land(page, input, speciesId) {
       if (snapshot.phase === 'landing') await page.screenshot({ path: `test-results/landing-${page.viewportSize().width}.png` });
       break;
     }
+    if (await expirePublicQte(page, () => input.up())) { held = false; continue; }
     const tension = snapshot.tension;
     if (!held && tension < 0.3) { await input.down(); held = true; }
     else if (held && tension > 0.58) { await input.up(); held = false; }
@@ -351,6 +353,7 @@ test('all 12 species: production cast, hook, fight, matching result image and re
     for (let i = 0; i < 100; i++) {
       const s = await snapshot();
       if (s.phase !== 'fight') break;
+      if (await expirePublicQte(page, () => input.up())) { held = false; continue; }
       if (!held && s.tension < 0.35) { await input.down(); held = true; }
       else if (held && s.tension > 0.65) { await input.up(); held = false; }
       await tick();
