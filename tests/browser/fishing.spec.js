@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { FISH_SPECIES, getFishSpecies, calculateFishWeightKg } from '../../src/game/fish-species.js';
 import { getSpeciesProbabilities, sampleFishSpecies } from '../../src/game/fish-encounters.js';
 import { installPausedClock } from './clock-fixture.js';
-import { expirePublicQte } from './input-fixture.js';
+import { expirePublicQte, succeedMousePublicQte } from './input-fixture.js';
 import { validateFishImage } from '../../scripts/lib/fish-image-validation.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
@@ -325,6 +325,7 @@ test('all 12 species: production cast, hook, fight, matching result image and re
   const input = await inputFor(page, false);
   const tick = () => page.clock.fastForward(250);
   const snapshot = () => page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
+  const confirmedCounts = [];
   for (const [index, species] of FISH_SPECIES.entries()) {
     // Start alternating day/night phases through elapsed time, so a rollover
     // cannot change the probability interval in the middle of this cast.
@@ -349,11 +350,11 @@ test('all 12 species: production cast, hook, fight, matching result image and re
     expect((await snapshot()).phase).toBe('bite');
     await input.tap(); await tick();
     expect((await snapshot()).phase).toBe('fight');
-    let held = false;
+    let held = false, successes = 0;
     for (let i = 0; i < 100; i++) {
       const s = await snapshot();
       if (s.phase !== 'fight') break;
-      if (await expirePublicQte(page, () => input.up())) { held = false; continue; }
+      if (await succeedMousePublicQte(page)) { held = false; successes++; continue; }
       if (!held && s.tension < 0.35) { await input.down(); held = true; }
       else if (held && s.tension > 0.65) { await input.up(); held = false; }
       await tick();
@@ -362,6 +363,9 @@ test('all 12 species: production cast, hook, fight, matching result image and re
     expect((await snapshot()).phase).toBe('landing');
     for (let i = 0; i < 5; i++) await tick();
     await assertCatch(page, species.id, roll);
+    expect(successes).toBeGreaterThanOrEqual(1); expect(successes).toBeLessThanOrEqual(3);
+    await expect(page.locator('#catch-qte-bonus')).toContainText(`QTE成功${successes}回／`);
+    confirmedCounts.push(successes);
     if (index === 0) await page.locator('#catch-dialog').evaluate(dialog => dialog.close());
     else await page.locator('#close-catch').click({ force: true });
     await tick();
@@ -380,6 +384,9 @@ test('all 12 species: production cast, hook, fight, matching result image and re
   expect(scroll.height).toBeGreaterThan(scroll.client); expect(scroll.top).toBeGreaterThan(0);
   await page.locator('#collection-close').click({ force: true });
   await page.clock.resume(); await page.reload(); await expect(page.locator('#status')).toBeHidden();
+  const counts = await page.evaluate(() => ['barb.save.v1.slotA', 'barb.save.v1.slotB'].map(key => localStorage.getItem(key))
+    .filter(Boolean).map(JSON.parse).sort((a, b) => b.generation - a.generation)[0].data.collection.catches.map(record => record.qteSuccessCount));
+  expect(counts).toEqual(confirmedCounts);
   await page.locator('#menu-button').click(); await page.locator('[data-view="storage"]').click();
   await expect(page.locator('.stored-fish')).toHaveCount(12);
   await page.locator('#collection-back').click(); await page.locator('[data-view="encyclopedia"]').click();
