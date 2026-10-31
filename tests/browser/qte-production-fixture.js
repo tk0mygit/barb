@@ -42,6 +42,7 @@ export async function openQteProduction(page, { enabled = true, save = null, fra
           };
         });
       } });
+    window.__THREE_DEVTOOLS__ = new EventTarget();
   });
   await page.addInitScript(() => {
     window.productNativeEvidence = [];

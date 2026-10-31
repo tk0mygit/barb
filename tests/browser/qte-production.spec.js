@@ -354,6 +354,9 @@ for (const touch of [false, true]) test(`production late rAF handoff ${touch ? '
     const d = window.qteProduct.qteDelivery; return d.snapshot.cut + 1900 - d.clock.read().active;
   });
   await page.clock.fastForward(skip);
+  const stalled = await page.evaluate(() => ({ skipped: window.skippedProductionFrames,
+    successes: window.qteProduct.state.fishing.state.fight.qte.successes }));
+  expect(stalled.skipped).toBeGreaterThan(0); expect(stalled.successes).toBe(0);
   // Actual native ingress happens after C while the actual main callback is
   // delayed. It must survive sealing at the next rendering opportunity.
   await input.down(p);
@@ -361,10 +364,11 @@ for (const touch of [false, true]) test(`production late rAF handoff ${touch ? '
   await page.evaluate(() => { window.holdProductionFrame = false; });
   await page.clock.fastForward(touch ? 50 : 100);
   const after = await productSnapshot(page);
+  const native = await page.evaluate(() => window.productNativeEvidence);
+  await test.info().attach('late-frame-handoff-seal', { body: JSON.stringify({ before, stalled, after, native }), contentType: 'application/json' });
   expect(after.fight.qte.successes).toBe(1); expect(after.fight.reeling).toBe(false);
   const resolved = after.events.find(e => e.type === 'qte-resolved').fight;
   expect(after.fight.renderSeconds - resolved.renderSeconds).toBeCloseTo(.25, 10);
-  const native = await page.evaluate(() => window.productNativeEvidence);
   const audit = await auditProductionQte({ before, after, native });
   if (!touch) { await page.clock.fastForward(110); await input.up(); }
   const samples = [];
