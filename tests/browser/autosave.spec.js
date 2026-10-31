@@ -23,7 +23,13 @@ async function latest(page) {
   return (await slots(page)).filter(Boolean).map(JSON.parse).sort((a, b) => b.generation - a.generation)[0];
 }
 async function checkpoint(page) {
-  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  // This helper flushes a checkpoint in a continuing session. Complete the
+  // synthetic hide/return pair: public ON correctly keeps input suspended
+  // until pageshow, whereas the former OFF path had no delivery reason set.
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('pagehide'));
+    window.dispatchEvent(new Event('pageshow'));
+  });
   return latest(page);
 }
 function fixtureData(elapsedSeconds = 45) {
