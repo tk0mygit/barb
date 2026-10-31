@@ -121,14 +121,16 @@ async function operate(page, input, warning, success) {
   return { warning, before, pending, after };
 }
 
-for (const touch of [false, true]) for (const operation of ['flick', 'swipe', 'tap', 'target']) {
-  test(`public build ON ${touch ? 'touch' : 'mouse'} ${operation}: new/V1/V2 → four-operation provider → catch/sale → V2 → ON revisit`, async ({ createContext }, info) => {
+for (const touch of [false, true]) for (const scenario of ['flick', 'swipe', 'tap', 'target', 'all-failures']) {
+  const operation = scenario === 'all-failures' ? 'tap' : scenario;
+  test(`public build ON ${touch ? 'touch' : 'mouse'} ${scenario}: new/V1/V2 → four-operation provider → catch/sale → V2 → ON revisit`, async ({ createContext }, info) => {
     const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 },
       hasTouch: touch, isMobile: touch, deviceScaleFactor: .5 });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
-    const save = operation === 'flick' ? historicalSave(1) : operation === 'swipe' ? historicalSave(2) : null;
+    const save = operation === 'flick' ? historicalSave(1)
+      : operation === 'swipe' || scenario === 'all-failures' ? historicalSave(2) : null;
     const proof = await openPublicBuild(page, save);
     const originalRaw = await page.evaluate(key => localStorage.getItem(key), saveKeys[0]);
     if (save) {
@@ -136,7 +138,7 @@ for (const touch of [false, true]) for (const operation of ['flick', 'swipe', 't
       expect(await page.evaluate(key => localStorage.getItem(key), saveKeys[1])).toBeNull();
     } else expect(await latest(page)).toBeUndefined();
     const input = await productInput(page, touch), { p, species, lengthCm } = await castAndHook(page, input, operation);
-    const successes = operation === 'flick' ? 1 : operation === 'swipe' ? 2 : 3;
+    const successes = scenario === 'all-failures' ? 0 : operation === 'flick' ? 1 : operation === 'swipe' ? 2 : 3;
     const evidence = [];
     for (let index = 0; index < 3; index++) {
       const warning = await reelUntil(page, input, p, s => s.visible && s.mode === 'warning');
