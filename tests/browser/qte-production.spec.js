@@ -310,3 +310,29 @@ test('production real-clock rAF: native three-tap evidence waits for the fixed c
   expect(ingress.filter(e => e.type === 'pointerdown').every(e => e.trusted)).toBe(true);
   await test.info().attach('real-clock-production-proof', { body: JSON.stringify({ before, pending, after, ingress }), contentType: 'application/json' });
 });
+
+for (const [speciesId, count, touch] of [['bluegill', 1, false], ['black-bass', 2, true]]) {
+  test(`production ${count} reservations: ${speciesId} ${touch ? 'touch V1 restore' : 'mouse new'} → independent effects → V2 count`, async ({ createContext }) => {
+    const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 },
+      hasTouch: touch, isMobile: touch, deviceScaleFactor: .5 });
+    const page = await context.newPage(); await openQteProduction(page, { save: touch ? historicalSave(1) : null });
+    const input = await productInput(page, touch), p = await castAndHookProduct(page, input, { speciesId, operation: 'tap' });
+    expect((await productSnapshot(page)).fight.qte.reservations).toHaveLength(count);
+    for (let index = 0; index < count; index++) {
+      await advanceToWarning(page, input, p, index);
+      const e = await performProductOperation(page, input);
+      const native = await page.evaluate(() => window.productNativeEvidence);
+      const audit = await auditProductionQte({ ...e, native });
+      await test.info().attach(`reservation-${index}-source-replay`, { body: JSON.stringify(audit), contentType: 'application/json' });
+    }
+    const record = await landProduct(page, input, p);
+    expect(record.qteSuccessCount).toBe(count);
+    expect((await productSnapshot(page)).events.filter(e => e.type === 'qte-resolved')).toHaveLength(count);
+    await input.click(page.locator('#close-catch')); await page.clock.fastForward(1250);
+    const saved = (await latest(page)).data;
+    expect(saved.collection.catches.at(-1)).toMatchObject({ id: record.id, qteSuccessCount: count, disposition: 'stored' });
+    await page.goto('./'); await page.clock.fastForward(32);
+    await expect(page.locator('#status')).toBeHidden(); await expect(page.locator('.qte-hud')).toHaveCount(0);
+    expect((await latest(page)).data.collection).toEqual(saved.collection);
+  });
+}
