@@ -2,6 +2,7 @@ import { test, expect } from './diagnostics-fixture.js';
 import { createGameplay } from '../../src/game/gameplay.js';
 import { createSaveData } from '../../src/game/save-data.js';
 import { calculateSalePrice } from '../../src/game/fish-sales.js';
+import { auditProductionQte } from '../helpers/qte-production-audit.js';
 import { openQteProduction, productInput, productSnapshot, castAndHookProduct, advanceToWarning,
   performProductOperation, landProduct, saveKeys } from './qte-production-fixture.js';
 
@@ -50,6 +51,9 @@ for (const touch of [false, true]) for (const operation of ['flick', 'swipe', 't
       expect(evidence.after.snapshot.counts['semantic-overflow'] ?? 0).toBe(0);
       if (index < successes) expect(ingress.some(e => e.type === 'pointerdown' && e.trusted
         && e.pointerType === (touch ? 'touch' : 'mouse'))).toBe(true);
+      const native = await page.evaluate(() => window.productNativeEvidence);
+      const audit = await auditProductionQte({ ...evidence, native });
+      await test.info().attach(`production-qte-${index}-source-replay`, { body: JSON.stringify(audit), contentType: 'application/json' });
     }
     const record = await landProduct(page, input, p);
     expect(record.qteSuccessCount).toBe(successes);

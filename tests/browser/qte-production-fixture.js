@@ -23,6 +23,25 @@ export const saveKeys = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
 // code are byte-identical source modules. There is no shipped ON route.
 export async function openQteProduction(page, { enabled = true, save = null } = {}) {
   await installPausedClock(page);
+  await page.addInitScript(() => {
+    window.productNativeEvidence = [];
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture']) {
+      window.addEventListener(type, event => {
+        if (event.target?.id !== 'scene' || !window.qteProduct?.qteDelivery) return;
+        const fight = window.qteProduct.state.fishing.state.fight;
+        if (!fight?.qte.token) return;
+        const samples = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [];
+        // A test evidence ring, independent of delivery's semantic ledger.
+        // Valid operation tests must not silently truncate their source path.
+        window.productNativeEvidence.push({ type, source: event.timeStamp, receipt: performance.now(), trusted: event.isTrusted,
+          fightId: fight.id, index: fight.qte.token.index, generation: fight.generation,
+          pointerId: event.pointerId, pointerType: event.pointerType, button: event.button, isPrimary: event.isPrimary,
+          x: event.clientX, y: event.clientY, coalescedCount: samples.length,
+          coalesced: samples.slice(0, 128).map(p => ({ source: p.timeStamp, x: p.clientX, y: p.clientY })) });
+        if (window.productNativeEvidence.length > 256) window.productNativeEvidence.shift();
+      }, true);
+    }
+  });
   await page.route('**/barb/src/**', route => {
     const pathname = new URL(route.request().url()).pathname.slice('/barb/'.length);
     const path = resolve(new URL(root).pathname, pathname);
@@ -114,6 +133,7 @@ export const productSnapshot = page => page.evaluate(() => {
   const { state, qteDelivery, qteHUD } = window.qteProduct;
   const fight = state.fishing.state.fight;
   return { phase: state.fishing.state.phase, tension: state.fishing.state.tension, fight,
+    encounter: state.fishing.state.encounter, clockSample: qteDelivery?.clock.read(),
     snapshot: qteDelivery?.snapshot, geometry: qteHUD?.geometry,
     descriptor: fight?.qte.token ? state.qteProvider?.getDescriptor(fight.qte.token.index) : null,
     preview: qteDelivery?.preview(), source: window.productSource, events: window.productEvents,
