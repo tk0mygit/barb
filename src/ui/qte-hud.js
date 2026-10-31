@@ -9,7 +9,8 @@ const rect = r => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom 
 
 // Explicit, opt-in component. The standard/new/restored game never constructs
 // it in this phase. It owns no pointer, audio, image, timer or gameplay RNG.
-export function createQteHUD({ fishing, delivery, provider, canvas = document.querySelector('#scene'), root = document.querySelector('#app') }) {
+export function createQteHUD({ fishing, delivery, provider, canvas = document.querySelector('#scene'), root = document.querySelector('#app'),
+  manageGeometry = true, autoPresent = true }) {
   const panel = document.createElement('section');
   panel.className = 'qte-hud'; panel.hidden = true; panel.setAttribute('aria-label', 'ファイト補助操作');
   panel.innerHTML = '<strong class="qte-state" role="status" aria-live="polite"></strong><p class="qte-instruction"></p>'
@@ -27,9 +28,19 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     delivery.invalidateGeometry(orientation); signature = null; preparation = null;
   };
   const resized = () => invalidate(false), rotated = () => invalidate(true);
-  window.addEventListener('resize', resized);
-  window.addEventListener('orientationchange', rotated);
-  window.screen.orientation?.addEventListener('change', rotated);
+  if (manageGeometry) {
+    window.addEventListener('resize', resized);
+    window.addEventListener('orientationchange', rotated);
+    window.screen.orientation?.addEventListener('change', rotated);
+  }
+  function present(frameId, raw = delivery.clock.now()) {
+    const snapshot = delivery.snapshot;
+    if (!preparation || preparation.handle !== snapshot.handle || preparation.revision !== snapshot.geometryRevision
+      || preparation.lifecycle !== snapshot.lifecycle) { preparation = null; return false; }
+    const result = delivery.presentDisplay(preparation, frameId, delivery.clock.now());
+    if (result) preparation = null;
+    return result;
+  }
   function measure() {
     const viewport = window.visualViewport;
     const safe = rect(safeProbe.getBoundingClientRect());
@@ -44,7 +55,7 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
   function update(frameId, raw = delivery.clock.now()) {
     if (disposed) return;
     let snapshot = delivery.snapshot;
-    if (!snapshot.handle || !fishing.state.fight?.qte.finiteDelivery) { panel.hidden = true; return; }
+    if (fishing.state.phase !== 'fight' || !snapshot.handle || !fishing.state.fight?.qte.finiteDelivery) { panel.hidden = true; return; }
     if (snapshot.handle !== handle) { handle = snapshot.handle; signature = null; preparation = null; resultUntil = null; }
     const descriptor = provider.getDescriptor(handle.index);
     const applied = snapshot.status === 'applied';
@@ -78,9 +89,9 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     snapshot = delivery.snapshot;
     const blocked = snapshot.reasons.some(reason => !['orientation', 'display'].includes(reason));
     if (!applied && !blocked && !snapshot.displayReady) {
-      if (preparation && preparation.revision === snapshot.geometryRevision && preparation.lifecycle === snapshot.lifecycle) {
+      if (autoPresent && preparation && preparation.revision === snapshot.geometryRevision && preparation.lifecycle === snapshot.lifecycle) {
         if (delivery.presentDisplay(preparation, frameId, delivery.clock.now())) preparation = null;
-      } else preparation = null;
+      } else if (preparation && (preparation.revision !== snapshot.geometryRevision || preparation.lifecycle !== snapshot.lifecycle)) preparation = null;
       // Snapshot/DOM reads may already have sampled the monotonic clock after
       // the frame timestamp. Stamp this boundary at the actual call, never
       // feed an earlier render timestamp back into the delivery clock.
@@ -97,7 +108,8 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
       success: '✓ 成功', failure: '× 時間切れ', interrupted: 'Ⅱ 入力の混雑で一時停止', suspended: 'Ⅱ 一時停止 · 復帰待ち' }[mode];
     if (layout.compact && mode === 'warning') state.textContent = '予告 · 触れずに待つ';
     if (layout.compact && mode === 'interrupted') state.textContent = 'Ⅱ 入力混雑 · 待機';
-    instruction.textContent = operation === 'target' ? '円内タップ（マウスは内円）' : `${descriptor.direction ? directionNames[descriptor.direction] + 'へ ' : ''}${labels[operation]}`;
+    instruction.textContent = snapshot.interrupted ? '画面をタップして残り時間から再開'
+      : operation === 'target' ? '円内タップ（マウスは内円）' : `${descriptor.direction ? directionNames[descriptor.direction] + 'へ ' : ''}${labels[operation]}`;
     gesture.hidden = false; arrow.hidden = endpoint.hidden = !['flick', 'swipe'].includes(operation);
     target.hidden = operation !== 'target'; taps.hidden = operation !== 'tap';
     arrow.textContent = arrows[descriptor.direction] ?? '';
@@ -111,7 +123,7 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     progress.value = snapshot.active === null ? 1 : Math.max(0, Math.min(1, snapshot.remainingMs / duration));
     time.textContent = snapshot.active === null ? '準備中' : `${(snapshot.remainingMs / 1000).toFixed(1)}秒`;
   }
-  return { update, get geometry() { return layout && Object.freeze({ ...layout, ...actualGeometry }); }, get element() { return panel; },
+  return { update, present, get geometry() { return layout && Object.freeze({ ...layout, ...actualGeometry }); }, get element() { return panel; },
     resumeTechnical: raw => delivery.resumeTechnical(raw),
     dispose() { disposed = true; panel.remove(); safeProbe.remove(); window.removeEventListener('resize', resized);
       window.removeEventListener('orientationchange', rotated); window.screen.orientation?.removeEventListener('change', rotated); } };
