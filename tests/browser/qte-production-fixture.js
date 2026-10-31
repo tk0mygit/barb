@@ -21,8 +21,28 @@ export const saveKeys = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
 // Playwright serves the real application dependency graph. Only the final
 // initializer call is injected; input, loop, renderer, restore, HUD and save
 // code are byte-identical source modules. There is no shipped ON route.
-export async function openQteProduction(page, { enabled = true, save = null } = {}) {
+export async function openQteProduction(page, { enabled = true, save = null, frameFaults = false } = {}) {
   await installPausedClock(page);
+  if (frameFaults) await page.addInitScript(() => {
+    let devtools;
+    window.holdProductionFrame = false; window.skippedProductionFrames = 0;
+    Object.defineProperty(window, '__THREE_DEVTOOLS__', { configurable: true,
+      get: () => devtools, set(value) {
+        devtools = value;
+        value.addEventListener('observe', ({ detail: renderer }) => {
+          if (!renderer.isWebGLRenderer) return;
+          const original = renderer.setAnimationLoop;
+          renderer.setAnimationLoop = function(callback) {
+            return original.call(this, callback && (now => {
+              // Explicit scheduling fault injection. The unchanged production
+              // callback/renderer runs again after the real monotonic gap.
+              if (window.holdProductionFrame) { window.skippedProductionFrames++; return; }
+              return callback(now);
+            }));
+          };
+        });
+      } });
+  });
   await page.addInitScript(() => {
     window.productNativeEvidence = [];
     for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture']) {

@@ -336,3 +336,44 @@ for (const [speciesId, count, touch] of [['bluegill', 1, false], ['black-bass', 
     expect((await latest(page)).data.collection).toEqual(saved.collection);
   });
 }
+
+for (const touch of [false, true]) test(`production late rAF handoff ${touch ? 'touch cancel before seal' : 'mouse up'}: no ghost hold`, async ({ createContext }) => {
+  const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 },
+    hasTouch: touch, isMobile: touch, deviceScaleFactor: .5 });
+  const page = await context.newPage(); await openQteProduction(page, { frameFaults: true });
+  const input = await productInput(page, touch), p = await castAndHookProduct(page, input, { speciesId: 'bluegill', operation: 'tap' });
+  await advanceToWarning(page, input, p, 0);
+  for (let n = 0; n < 12 && !(await productSnapshot(page)).snapshot.displayReady; n++) await page.clock.fastForward(100);
+  const before = await productSnapshot(page), target = before.geometry.target;
+  for (let n = 0; n < 3; n++) {
+    await page.clock.fastForward(10); await input.down(target); await page.clock.fastForward(20); await input.up();
+  }
+  expect((await productSnapshot(page)).preview.success).toBe(true);
+  const skip = await page.evaluate(() => {
+    window.holdProductionFrame = true;
+    const d = window.qteProduct.qteDelivery; return d.snapshot.cut + 1900 - d.clock.read().active;
+  });
+  await page.clock.fastForward(skip);
+  // Actual native ingress happens after C while the actual main callback is
+  // delayed. It must survive sealing at the next rendering opportunity.
+  await input.down(p);
+  if (touch) { await page.clock.fastForward(50); await input.cancel(); }
+  await page.evaluate(() => { window.holdProductionFrame = false; });
+  await page.clock.fastForward(touch ? 50 : 100);
+  const after = await productSnapshot(page);
+  expect(after.fight.qte.successes).toBe(1); expect(after.fight.reeling).toBe(false);
+  const resolved = after.events.find(e => e.type === 'qte-resolved').fight;
+  expect(after.fight.renderSeconds - resolved.renderSeconds).toBeCloseTo(.25, 10);
+  const native = await page.evaluate(() => window.productNativeEvidence);
+  const audit = await auditProductionQte({ before, after, native });
+  if (!touch) { await page.clock.fastForward(110); await input.up(); }
+  const samples = [];
+  for (let n = 0; n < 40; n++) {
+    await page.clock.fastForward(50);
+    const state = await page.evaluate(() => ({ reeling: window.qteProduct.state.fishing.state.fight.reeling,
+      phase: window.qteProduct.state.fishing.state.phase, render: window.qteProduct.state.fishing.state.fight.renderSeconds }));
+    samples.push(state); expect(state.reeling).toBe(false);
+  }
+  expect(await page.evaluate(() => window.skippedProductionFrames)).toBeGreaterThan(0);
+  await test.info().attach('late-frame-handoff-proof', { body: JSON.stringify({ before, after, audit, samples }), contentType: 'application/json' });
+});

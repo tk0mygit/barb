@@ -4,7 +4,7 @@ import { GESTURES } from '../game/fishing-config.js';
 // Replaceable gesture mapping shared by mouse and touch. A gesture belongs to
 // one revision: an old hold or release can never hook a newly biting fish.
 export function createFishingInput(fishing, mapping = GESTURES, { qteDelivery = null } = {}) {
-  let gesture = null, pending = [], origin = null, clockRevision = null, previousFrameEnd = null, identity = 0;
+  let gesture = null, pending = [], origin = null, clockRevision = null, previousFrameEnd = null, identity = 0, frameSeconds = 0;
   const received = new WeakMap();
   const route = ingress => ingress?.event && qteDelivery && (received.get(ingress.event) ?? qteDelivery.ingest(ingress.event, ingress.receipt));
   const current = () => gesture && gesture.revision === fishing.state.revision
@@ -14,6 +14,7 @@ export function createFishingInput(fishing, mapping = GESTURES, { qteDelivery = 
       lifecycleRevision: fishing.state.fight.lifecycleRevision, identity: gesture?.identity, normalAt: gesture?.normalAt });
   }
   return {
+    get frameSeconds() { return frameSeconds; },
     receivePointer(event, receipt) {
       if (!qteDelivery || received.has(event)) return;
       // Controls already stamped the first receipt, before capture/focus. A
@@ -31,6 +32,7 @@ export function createFishingInput(fishing, mapping = GESTURES, { qteDelivery = 
       const routed = route(ingress);
       if (routed?.handled) return routed.accepted;
       if (fishing.state.inputOwner === 'suspended') return false;
+      if (routed?.normalContact && !qteDelivery.claimNormalContact(routed.normalContact)) return false;
       gesture = { x, y, timestamp, dx: 0, dy: 0, age: 0, revision: fishing.state.revision, inputRevision: fishing.state.inputRevision, identity: ++identity, normalAt: routed?.normalAt };
       if (fishing.state.phase === PHASE.FIGHT) contact('down', timestamp);
       return true;
@@ -42,16 +44,17 @@ export function createFishingInput(fishing, mapping = GESTURES, { qteDelivery = 
       fishing.aim(gesture.dx, gesture.dy);
     },
     step(dt, frameEndTimestamp) {
-      qteDelivery?.poll(frameEndTimestamp);
+      const admission = qteDelivery?.admitFrame(dt, frameEndTimestamp);
+      frameSeconds = admission?.seconds ?? dt;
       if (fishing.state.phase === PHASE.FIGHT) {
         const progress = fishing.state.fight;
-        if (progress.paused) { gesture = null; pending = []; origin = null; previousFrameEnd = null; return; }
+        if (progress.paused) { gesture = null; pending = []; origin = null; previousFrameEnd = null; frameSeconds = 0; return frameSeconds; }
         if (clockRevision !== fishing.state.revision) { origin = null; previousFrameEnd = null; clockRevision = fishing.state.revision; }
         if (Number.isFinite(frameEndTimestamp)) {
           // Rebase after an inactive gap or the existing main-loop dt cap;
           // hidden/unfocused wall time must not become held game time.
-          if (origin === null || previousFrameEnd !== null && Math.abs((frameEndTimestamp - previousFrameEnd) / 1000 - dt) > 1e-6) {
-            origin = frameEndTimestamp - (progress.renderSeconds + dt) * 1000;
+          if (origin === null || previousFrameEnd !== null && Math.abs((frameEndTimestamp - previousFrameEnd) / 1000 - frameSeconds) > 1e-6) {
+            origin = frameEndTimestamp - (progress.renderSeconds + frameSeconds) * 1000;
           }
           previousFrameEnd = frameEndTimestamp;
         } else if (origin === null) {
@@ -59,15 +62,18 @@ export function createFishingInput(fishing, mapping = GESTURES, { qteDelivery = 
           if (first) origin = first.timestamp - first.at * 1000;
         }
         for (const event of pending) if (event.revision === fishing.state.revision && event.lifecycleRevision === progress.lifecycleRevision) {
-          const at = event.normalAt ?? (Number.isFinite(event.timestamp) && origin !== null ? (event.timestamp - origin) / 1000 : event.at);
+          const at = event.normalAt !== undefined && Number.isFinite(admission?.startSeconds)
+            ? Math.max(admission.startSeconds, event.normalAt - admission.shiftSeconds)
+            : event.normalAt ?? (Number.isFinite(event.timestamp) && origin !== null ? (event.timestamp - origin) / 1000 : event.at);
           fishing.queueFightContact(event.type, at, event.identity);
         }
-        pending = []; return;
+        pending = []; return frameSeconds;
       }
       pending = []; origin = null; previousFrameEnd = null; clockRevision = null;
-      if (!current()) { fishing.reel(false); return; }
+      if (!current()) { fishing.reel(false); return frameSeconds; }
       gesture.age += dt;
       fishing.reel(gesture.age >= mapping.holdSeconds);
+      return frameSeconds;
     },
     up(timestamp, ingress) {
       const routed = route(ingress);
@@ -90,14 +96,19 @@ export function createFishingInput(fishing, mapping = GESTURES, { qteDelivery = 
     },
     cancel(timestamp, ingress) {
       if (ingress?.event && !['pointercancel', 'lostpointercapture'].includes(ingress.event.type) && qteDelivery && fishing.state.inputOwner === 'qte') {
+        // A fresh post-C normal down can already be pending even when the
+        // lagging domain still reports QTE ownership. Blur must retire it.
+        gesture = null; pending = []; origin = null; previousFrameEnd = null;
         qteDelivery.cancelContact(); return;
       }
-      if (route(ingress)?.handled) return;
+      const routed = route(ingress);
+      if (routed?.handled) return;
       if (!qteDelivery && ['pointercancel', 'lostpointercapture'].includes(ingress?.event?.type)) timestamp = undefined;
       if (fishing.state.phase === PHASE.FIGHT && fishing.state.inputOwner === 'normal' && Number.isFinite(timestamp)) {
         // An unidentified old cancel cannot be attached to the latest gesture
         // merely because it was delivered after that gesture's down.
         if (!gesture || timestamp < gesture.timestamp) return;
+        gesture.normalAt = routed?.normalAt;
         contact('cancel', timestamp); gesture = null; return;
       }
       gesture = null; pending = []; origin = null; previousFrameEnd = null; fishing.cancelInput();

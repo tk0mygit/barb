@@ -343,21 +343,15 @@ try {
     elapsed += dt;
     // DOM events have already entered controls. The prior frame really
     // rendered its prepared HUD; only a later rAF may present that geometry.
-    const hadDelivery = qteDelivery && fishing.state.fight?.qte.delivery;
     if (qteHUD) {
       qteFrame++;
       if (qteRenderedFrame === qteFrame - 1) qteHUD.present(qteFrame, performance.now());
     }
     const input = controls.read(dt, qteDelivery ? performance.now() : now);
     const phaseBefore = fishing.state.phase;
-    let physicsDt = dt;
-    if (qteDelivery && hadDelivery) {
-      const snapshot = qteDelivery.snapshot;
-      // poll/cut precedes fixed physics. Admit only time after C when this
-      // frame resolves a barrier, never the warning/operation/receipt wait.
-      physicsDt = snapshot.status === 'applied'
-        ? Math.min(dt, Math.max(0, (qteDelivery.clock.read().active - snapshot.cut) / 1000)) : 0;
-    }
+    // Input has polled/sealed and based its normal timestamps on this same
+    // accepted duration. The unresolved interval is never banked as physics.
+    const physicsDt = qteDelivery && phaseBefore === PHASE.FIGHT ? fishingInput.frameSeconds : dt;
     if (boat.mode === 'fishing') fishing.step(physicsDt);
     if (fishing.state.phase === PHASE.BITE && phaseBefore !== PHASE.BITE) audio.bite();
     // Substeps preserve real-time braking on slow devices without large collision steps.

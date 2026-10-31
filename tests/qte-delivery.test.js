@@ -557,3 +557,17 @@ test('technical canvas restart retains the first ingress receipt, rejects the re
   assert.equal(s.delivery.snapshot.deadline, deadline);
   assert.equal(s.delivery.preview().completedOperations, 1);
 });
+
+test('secondary mouse release or loss of the left button cannot complete a QTE contact; fresh left retry can', () => {
+  for (const release of ['secondary-up', 'left-missing-move']) {
+    const s = setup(); s.activate();
+    s.send('pointerdown', 610);
+    if (release === 'secondary-up') s.send('pointerup', 620, 620, { clientX: 50, button: 2, buttons: 0 });
+    else { s.send('pointermove', 620, 620, { clientX: 50, buttons: 2 }); s.send('pointerup', 630, 630, { clientX: 50 }); }
+    assert.equal(s.delivery.preview().success, false);
+    s.send('pointerdown', 640); s.send('pointerup', 650, 650, { clientX: 50 });
+    assert.equal(s.delivery.preview().success, true);
+    s.at(s.delivery.snapshot.cut); assert.equal(s.delivery.poll(), true);
+    assert.equal(s.f.state.fight.qte.successes, 1);
+  }
+});
