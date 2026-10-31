@@ -69,3 +69,23 @@ test('prepared target uses actual fractional CSS circle/region bounds, and accep
     if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
   }
 });
+
+test('production HUD prepares before rendering but requires the caller to confirm a later opportunity', () => {
+  const oldWindow = globalThis.window, oldDocument = globalThis.document;
+  try {
+    globalThis.window = new EventTarget(); window.screen = { orientation: new EventTarget() };
+    globalThis.document = { createElement: node };
+    const s = operationSetup({ operation: 'tap' });
+    const hud = createQteHUD({ fishing: s.f, delivery: s.delivery, provider: s.provider,
+      canvas: node(), root: node(), manageGeometry: false, autoPresent: false });
+    s.at(600); hud.update(1); s.at(610); hud.update(2);
+    assert.equal(s.delivery.snapshot.active, null); assert.equal(s.delivery.snapshot.displayReady, false);
+    assert.equal(hud.present(1), false); assert.equal(hud.present(3), true);
+    assert.equal(s.delivery.snapshot.active, 610); assert.equal(s.delivery.snapshot.displayReady, true);
+    assert.equal(s.f.state.fight.qte.successes, 0);
+    hud.dispose();
+  } finally {
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+  }
+});

@@ -512,3 +512,62 @@ test('repeat technical interruptions spend the same remaining budget and end wit
   s.at(raw + 100); assert.equal(s.delivery.poll(), true);
   assert.equal(s.f.state.fight.qte.failures, 1); assert.equal(s.delivery.poll(), false);
 });
+
+test('fight retirement discards stale ingress and internal pause reasons; idle orientation cannot block the next fight', () => {
+  const s = setup(); s.activate(); s.at(700);
+  s.delivery.invalidateGeometry(true); assert.ok(s.delivery.snapshot.reasons.includes('orientation'));
+  s.delivery.retire();
+  assert.equal(s.delivery.snapshot.status, 'idle'); assert.deepEqual(s.delivery.snapshot.reasons, []);
+  assert.equal(s.delivery.poll(700, s.handle), false);
+  assert.deepEqual(s.send('pointerdown', 710), { handled: false, accepted: false });
+  s.at(720); s.delivery.invalidateGeometry(true);
+  assert.deepEqual(s.delivery.snapshot.reasons, []);
+  s.delivery.setSuspended('menu', true); s.delivery.retire();
+  assert.deepEqual(s.delivery.snapshot.reasons, ['menu']);
+  s.delivery.setSuspended('menu', false); assert.deepEqual(s.delivery.snapshot.reasons, []);
+});
+
+test('private receipt/display/capacity telemetry is bounded and preserves actual delays', () => {
+  const s = setup(); s.at(625); s.display();
+  s.send('pointerdown', 630, 637); s.send('pointerup', 640, 650);
+  for (let n = 0; n < 200; n++) s.send('pointermove', 651 + n, 656 + n);
+  const d = s.delivery.snapshot.telemetry;
+  assert.equal(d.displayDelayMs, 25); assert.equal(d.maxReceiptLagMs, 10);
+  assert.equal(d.peakEdges, 2); assert.equal(d.receiptLagMs.length, 32);
+  assert.ok(d.receiptLagMs.every(ms => ms === 5)); assert.ok(Object.isFrozen(d.receiptLagMs));
+});
+
+test('technical canvas restart retains the first ingress receipt, rejects the restart contact, and deduplicates the overflow event', () => {
+  const s = setup({ operation: 'tap', required: 3, capacity: 2 }); s.activate();
+  s.send('pointerdown', 610); s.send('pointerup', 620);
+  const input = createFishingInput(s.f, undefined, { qteDelivery: s.delivery });
+  s.at(630); const overflow = pointer('pointerdown', 630);
+  input.receivePointer(overflow, 630); assert.equal(s.delivery.interrupted, true);
+  const deadline = s.delivery.snapshot.deadline;
+  input.receivePointer(overflow, 630); assert.equal(s.delivery.interrupted, true);
+  s.at(640); const restart = pointer('pointerdown', 640);
+  input.receivePointer(restart, 640);
+  assert.equal(s.delivery.interrupted, false);
+  assert.equal(input.down(0, 0, 640, { event: restart, receipt: 640 }), false);
+  assert.equal(s.delivery.snapshot.counts['invalid-receipt'] ?? 0, 0);
+  assert.equal(s.delivery.preview().completedOperations, 1);
+  assert.equal(s.delivery.snapshot.deadline, deadline);
+  assert.ok(s.delivery.snapshot.reasons.includes('display'));
+  s.at(650); s.display(); assert.equal(s.f.state.fight.paused, false);
+  assert.equal(s.delivery.snapshot.deadline, deadline);
+  assert.equal(s.delivery.preview().completedOperations, 1);
+});
+
+test('secondary mouse release or loss of the left button cannot complete a QTE contact; fresh left retry can', () => {
+  for (const release of ['secondary-up', 'left-missing-move']) {
+    const s = setup(); s.activate();
+    s.send('pointerdown', 610);
+    if (release === 'secondary-up') s.send('pointerup', 620, 620, { clientX: 50, button: 2, buttons: 0 });
+    else { s.send('pointermove', 620, 620, { clientX: 50, buttons: 2 }); s.send('pointerup', 630, 630, { clientX: 50 }); }
+    assert.equal(s.delivery.preview().success, false);
+    s.send('pointerdown', 640); s.send('pointerup', 650, 650, { clientX: 50 });
+    assert.equal(s.delivery.preview().success, true);
+    s.at(s.delivery.snapshot.cut); assert.equal(s.delivery.poll(), true);
+    assert.equal(s.f.state.fight.qte.successes, 1);
+  }
+});

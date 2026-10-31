@@ -2,14 +2,14 @@ import * as THREE from 'three';
 import './ui/style.css';
 import { calculateRenderResolution } from './rendering/resolution.js';
 import { createLake } from './world/lake.js';
-import { createBoatState, stepBoat, enterFishing, leaveFishing } from './game/boat.js';
+import { stepBoat, enterFishing, leaveFishing } from './game/boat.js';
 import { createBoatModel } from './rendering/boat-model.js';
 import { createCameraRig } from './rendering/camera.js';
 import { createCastVisibility } from './rendering/cast-visibility.js';
 import { nearRingExpansion } from './rendering/fishing-visuals.js';
 import { createControls } from './input/controls.js';
 import { createHUD } from './ui/hud.js';
-import { createFishing, PHASE } from './game/fishing.js';
+import { PHASE } from './game/fishing.js';
 import { createFishingInput } from './input/fishing.js';
 import { createFishingView } from './rendering/fishing.js';
 import { createFishingHUD } from './ui/fishing-hud.js';
@@ -17,20 +17,25 @@ import { createCastNotices } from './ui/cast-notices.js';
 import { createFishingAudio } from './ui/fishing-audio.js';
 import { createAudioSession } from './audio/audio-session.js';
 import { createAmbientAudio } from './audio/ambient-audio.js';
-import { shoreRadius } from './world/config.js';
 import { getFishingSpotStatus } from './game/fishing-spots.js';
 import { createFishingSpotsView } from './rendering/fishing-spots.js';
 import { createFishingSpotsHUD } from './ui/fishing-spots-hud.js';
-import { estimateWaterDepth } from './world/depth.js';
-import { createGameClock } from './game/game-clock.js';
 import { createCollectionMenu } from './ui/collection-menu.js';
 import { createSalesHUD } from './ui/sales-hud.js';
-import { createAchievements } from './game/achievements.js';
 import { createAchievementNotice } from './ui/achievement-notice.js';
 import { createSaveStorage, SAVE_STORAGE_KEYS } from './game/save-storage.js';
 import { createAutosave } from './game/autosave.js';
 import { createSaveStatus } from './ui/save-status.js';
 
+import { createGameplay } from './game/gameplay.js';
+import { createQteClock } from './input/qte-clock.js';
+import { createQteDelivery } from './input/qte-delivery.js';
+import { createQteEvaluator } from './game/qte-operations.js';
+import { createQteHUD } from './ui/qte-hud.js';
+
+// One initializer for the shipping OFF call and Playwright's code-only ON
+// injection. No export, URL/storage setting, global or published ON entry.
+function startGame({ qteEnabled = false, random = Math.random, onFightEvent = () => {} } = {}) {
 const canvas = document.querySelector('#scene');
 function showError(message) {
   document.querySelector('#status').hidden = true;
@@ -40,24 +45,21 @@ function showError(message) {
   document.querySelector('#fish-button').disabled = true;
   document.querySelector('#menu-button').disabled = true;
 }
-let autosave, environmentAudio, audioSession;
+let autosave, environmentAudio, audioSession, qteDelivery, qteHUD;
 try {
   // Choose one complete domain before anything subscribes or renders. Storage
   // remains read-only until the scene, controls and every HUD are ready.
-  const storage = createSaveStorage();
+  const gameplayFactory = options => createGameplay({ ...options, qteEnabled, random,
+    onFightEvent(event) {
+      if (event.type === 'qte-warning') qteDelivery.open(performance.now());
+      if (event.type === 'fight-ended') qteDelivery?.retire();
+      onFightEvent(event);
+    },
+  });
+  const storage = createSaveStorage({ gameplayFactory });
   const loaded = storage.load();
-  const state = loaded.state ?? (() => {
-    const boat = createBoatState();
-    const clock = createGameClock();
-    const fishing = createFishing({
-      isWater: (x, z) => Math.hypot(x, z) < shoreRadius(Math.atan2(z, x)) - 2,
-      getBoatPosition: () => boat,
-      getEnvironment: position => ({ depthM: estimateWaterDepth(position), ...clock.state }),
-    });
-    const collection = fishing.collection;
-    const achievements = createAchievements({ collection });
-    return { boat, clock, fishing, collection, achievements };
-  })();
+  if (loaded.status.code === 'restore-failed') throw new Error('Gameplay restoration failed');
+  const state = loaded.state ?? gameplayFactory();
   const { boat, clock: gameClock, fishing, collection, achievements } = state;
   autosave = createAutosave({ state, storage });
   const saveStatus = createSaveStatus();
@@ -80,7 +82,11 @@ try {
   const achievementNotice = createAchievementNotice();
   achievements.subscribe(awards => achievementNotice.notify(awards));
   const spotsHUD = createFishingSpotsHUD();
-  const fishingInput = createFishingInput(fishing);
+  if (qteEnabled) {
+    const provider = { getDescriptor: index => state.qteProvider.getDescriptor(index) };
+    qteDelivery = createQteDelivery({ fishing, clock: createQteClock(), evaluate: createQteEvaluator(provider) });
+  }
+  const fishingInput = createFishingInput(fishing, undefined, { qteDelivery });
   const controls = createControls(canvas, document.querySelector('#joystick'), document.querySelector('#joystick-knob'), {
     input: fishingInput, canLook: () => fishing.state.phase === PHASE.READY,
     onPreparationCancel: () => cancelPreparation(),
@@ -235,6 +241,9 @@ try {
       if (!open) canvas.focus({ preventScroll: true });
     },
   });
+  if (qteDelivery) qteHUD = createQteHUD({ fishing, delivery: qteDelivery,
+    provider: { getDescriptor: index => state.qteProvider.getDescriptor(index) },
+    manageGeometry: false, autoPresent: false });
   // Populate the first rendered frame from the chosen state, including the
   // saved transform. Never show a model at the new-game origin first.
   spotsView.update(getFishingSpotStatus(boat).active?.id);
@@ -252,7 +261,7 @@ try {
     else if (fishing.state.phase === PHASE.AIM) controls.reset();
     else changeMode('sailing');
   });
-  let drawingSize;
+  let drawingSize, qteFrame = 0, qteRenderedFrame = -1;
   let previous = performance.now(), elapsed = 0;
   function resize() {
     fishingInput.geometryChanged(false, performance.now());
@@ -276,8 +285,11 @@ try {
       fishing.cancelForViewChange();
     }
     updateFishingDisplay(gameClock.state);
+    // Resize renders real geometry too; it never advances QTE presentation.
+    qteHUD?.update(qteFrame, performance.now());
     // Orientation can change while the menu pauses animation updates.
     renderer.render(scene, camera);
+    qteRenderedFrame = qteFrame;
   }
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', () => fishingInput.geometryChanged(true, performance.now()));
@@ -329,9 +341,18 @@ try {
     const clockState = gameClock.state;
     ambientAudio.update();
     elapsed += dt;
-    const input = controls.read(dt, now);
+    // DOM events have already entered controls. The prior frame really
+    // rendered its prepared HUD; only a later rAF may present that geometry.
+    if (qteHUD) {
+      qteFrame++;
+      if (qteRenderedFrame === qteFrame - 1) qteHUD.present(qteFrame, performance.now());
+    }
+    const input = controls.read(dt, qteDelivery ? performance.now() : now);
     const phaseBefore = fishing.state.phase;
-    if (boat.mode === 'fishing') fishing.step(dt);
+    // Input has polled/sealed and based its normal timestamps on this same
+    // accepted duration. The unresolved interval is never banked as physics.
+    const physicsDt = qteDelivery && phaseBefore === PHASE.FIGHT ? fishingInput.frameSeconds : dt;
+    if (boat.mode === 'fishing') fishing.step(physicsDt);
     if (fishing.state.phase === PHASE.BITE && phaseBefore !== PHASE.BITE) audio.bite();
     // Substeps preserve real-time braking on slow devices without large collision steps.
     const steps = Math.max(1, Math.ceil(dt / 0.05));
@@ -369,7 +390,9 @@ try {
     lake.update(elapsed, boat, clockState);
     updateFishingDisplay(clockState);
     collectionMenu.update();
+    qteHUD?.update(qteFrame, performance.now());
     renderer.render(scene, camera);
+    qteRenderedFrame = qteFrame;
     hud.ready();
   });
   canvas.addEventListener('webglcontextlost', event => {
@@ -377,6 +400,7 @@ try {
     controls.setEnabled(false);
     renderer.setAnimationLoop(null);
     ambientAudio.dispose(); audioSession.dispose();
+    qteHUD?.dispose(); qteDelivery?.retire();
     autosave.dispose();
     showError('描画が中断されました。ページを再読み込みしてください。');
   });
@@ -384,9 +408,14 @@ try {
   // completed. Only now allow input and attach autosave's timers/subscriptions.
   autosave.start();
   controls.setEnabled(true);
+  return { state, storage, autosave, qteDelivery, qteHUD, renderer };
 } catch (error) {
   environmentAudio?.dispose(); audioSession?.dispose();
-  autosave?.dispose();
+  autosave?.dispose(); qteHUD?.dispose(); qteDelivery?.retire();
   console.error(error);
   showError('3D表示を開始できませんでした。WebGL 2対応のブラウザで、ハードウェアアクセラレーションを有効にしてください。');
 }
+
+}
+
+startGame();

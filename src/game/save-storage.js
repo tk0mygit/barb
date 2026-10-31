@@ -42,7 +42,7 @@ function inspectSlot(raw, index) {
 // detects other tabs without trusting wall time, including generation reuse.
 // localStorage has no compare-and-swap: callers may additionally serialize
 // cooperative tabs with Web Locks, but must not assume this check is a lock.
-export function createSaveStorage({ getStorage = () => globalThis.localStorage } = {}) {
+export function createSaveStorage({ getStorage = () => globalThis.localStorage, gameplayFactory } = {}) {
   const listeners = new Set();
   let status = Object.freeze({ phase: 'unavailable', code: 'not-loaded', canSave: false,
     generation: 0, savedAt: null, restoredFromBackup: false });
@@ -100,7 +100,7 @@ export function createSaveStorage({ getStorage = () => globalThis.localStorage }
       }
       const candidate = valid[0];
       let restored;
-      try { restored = tryRestoreSaveData(candidate.json); }
+      try { restored = tryRestoreSaveData(candidate.json, { gameplayFactory }); }
       catch {
         blocked = true;
         publish({ phase: 'protected', code: 'restore-failed', canSave: false });
@@ -108,7 +108,10 @@ export function createSaveStorage({ getStorage = () => globalThis.localStorage }
       }
       if (!restored.ok) {
         blocked = true;
-        publish({ phase: 'protected', code: restored.error.code, canSave: false });
+        // The slot already passed complete validation. Constructor failures,
+        // including typed validation errors from an injected factory, must
+        // stop application initialization rather than look like absent data.
+        publish({ phase: 'protected', code: 'restore-failed', canSave: false });
         return { state, status };
       }
       state = restored.state;

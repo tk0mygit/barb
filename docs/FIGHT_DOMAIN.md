@@ -1,5 +1,53 @@
 # FIGHTの時計・入力・QTE接続境界（Phase 5C-1）
 
+## Phase 5C-2-4 production composition
+
+`game/gameplay.js` now assembles both new and validated restored domains. The
+shipping `startGame()` call in `main.js` has no arguments, no export/global and
+no player-controlled activation path; its policy is OFF. Playwright replaces
+only that final call inside a private routed document, serving the same source
+graph and actual Three.js renderer. It does not reproduce main's loop.
+
+Before `createFightController`, fishing calls the injected `createFightQte`
+with the new `fightId/speciesId/lengthCm`. The gameplay factory creates one
+independent provider then; the selector, HUD and evaluator reuse its immutable
+descriptors. No additional fishing RNG draws occur. The next legal hook makes
+a new identity; neither mid-FIGHT nor pending QTE state is restored or saved.
+
+ON frame order: native canvas ingress → later presentation of the previous
+render's prepared geometry → controls/input polling and finite cut → existing
+fixed physics → normal camera/world/HUD update → QTE DOM measurement/preparation
+→ actual WebGL render. `delivery.admitFrame()` and `input.frameSeconds` supply one
+accepted duration to both the normal timestamp origin and physics. The first
+normal frame admits only its post-cut portion, bounded by the existing dt cap;
+ordinary post-C source times are mapped monotonically into that admitted tail.
+Warning, operation and receipt wait cannot be banked as later normal reeling
+time. QTE source/receipt facts and A/D/C remain unchanged.
+
+Ingress proposes a normal contact; `claimNormalContact()` confirms it only when
+the existing controls actually admits that down. Secondary/hybrid pointers
+cannot replace its owner. Matching post-C cancel is delivered even if the
+domain has not sealed yet; cancel/blur cannot leave a queued ghost hold. Old
+up/cancel quarantine is retained. Non-left mouse completion or loss of the
+left button cannot score a QTE contact; valid fresh retries remain available.
+External menu/blur/hidden/page reasons still pause the application; internal
+display/orientation reasons leave rendering opportunities available to recover.
+
+Main alone invalidates geometry; idle orientation cannot suspend a future QTE.
+Technical interruption displays an explicit canvas-tap restart instruction.
+The restart contact cannot score before re-presentation and never resets D/C
+or completed taps. `retire()` releases per-fight evidence/internal reasons on
+fight end; external lifecycle reasons remain. Context loss disposes the HUD.
+OFF constructs none of the delivery clock, HUD, extra pointer/geometry handlers
+or timers. The existing normal loop, constants and camera connection remain.
+
+Existing source/cut, epochs, 30/60/144fps, coalesced paths and finite-overflow
+unit contracts below remain applicable. Product composition evidence and its
+limits are in [5C-2-4 validation](PHASE5C2_4_VALIDATION.md); actual devices use
+the [separate acceptance form](QTE_DEVICE_ACCEPTANCE.md).
+
+## Historical domain boundaries (5C-1 / 5C-2-1)
+
 通常起動の`createFishing()`はQTEを有効化しない。押戻し・物理時計・長押しの更新は通常の
 FIGHTへ適用する。QTE HUD、ポインター4操作、売価、釣果成功数、保存形式の変更は含まない。
 

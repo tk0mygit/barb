@@ -19,7 +19,7 @@ export function getLurePosition(state) {
 
 // No DOM, Three.js or input events: callers supply world queries and randomness.
 export function createFishing({ config = {}, random = Math.random, isWater = () => true, now = Date.now, getBoatPosition, getEnvironment,
-  collection = createCatchCollection(), qte = null, onFightEvent = () => {} } = {}) {
+  collection = createCatchCollection(), qte = null, createFightQte, onFightEvent = () => {} } = {}) {
   const settings = { ...FISHING_CONFIG, ...config };
   let fight = null, fightId = 0, fightActionTime = 0;
   const state = {
@@ -201,9 +201,14 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       if (state.phase !== PHASE.BITE || state.time >= settings.hookWindow) return false;
       state.tension = settings.tensionStart;
       fightActionTime = 0;
+      const id = ++fightId;
+      // Prepare the provider before controller construction/operation selection.
+      // state.fight still belongs to the previous fight at this boundary.
+      const fightQte = createFightQte ? createFightQte(Object.freeze({ fightId: id,
+        speciesId: state.encounter.speciesId, lengthCm: state.encounter.lengthCm })) : qte;
       fight = createFightController({ species: getFishSpecies(state.encounter.speciesId), lengthCm: state.encounter.lengthCm,
         startDistance: state.distance, rod: rodPerformance, reel: reelPerformance, settings: Object.freeze({ ...settings }),
-        random, id: ++fightId, qte,
+        random, id, qte: fightQte,
         onEvent(event) { syncFight(); onFightEvent(event); },
         onEnd(outcome) {
           syncFight();

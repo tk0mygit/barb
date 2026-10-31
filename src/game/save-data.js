@@ -1,10 +1,8 @@
 import { createCatchCollection } from './catch-collection.js';
-import { createAchievements, validateAchievementData } from './achievements.js';
+import { validateAchievementData } from './achievements.js';
 import { createBoatState, isNavigableBoatPosition } from './boat.js';
 import { createGameClock } from './game-clock.js';
-import { createFishing } from './fishing.js';
-import { estimateWaterDepth } from '../world/depth.js';
-import { shoreRadius } from '../world/config.js';
+import { createGameplay } from './gameplay.js';
 import { SAVE_LIMITS, SaveDataError, requireValid, objectFields, finite, timestamp, validateCollectionData, validateLegacyCollectionData } from './save-validation.js';
 
 export { SAVE_LIMITS, SaveDataError } from './save-validation.js';
@@ -68,19 +66,12 @@ export function parseSaveData(json) {
 
 // A candidate is returned only after validation AND every constructor succeeds.
 // No current game reference is accepted, so a failure cannot partially restore it.
-export function restoreSaveData(data, { now = Date.now } = {}) {
+export function restoreSaveData(data, { now = Date.now, gameplayFactory = createGameplay } = {}) {
   const validated = migrateValidatedSaveData(validateSaveData(data));
   const collection = createCatchCollection({ initialData: validated.collection, now });
   const boat = createBoatState(validated.boat);
   const clock = createGameClock(undefined, validated.clock);
-  const fishing = createFishing({ collection, now,
-    isWater: (x, z) => Math.hypot(x, z) < shoreRadius(Math.atan2(z, x)) - 2,
-    getBoatPosition: () => boat,
-    getEnvironment: position => ({ depthM: estimateWaterDepth(position), ...clock.state }),
-  });
-  // Construct last: this is the only candidate object that subscribes to another.
-  const achievements = createAchievements({ collection, initialData: validated.achievements, now });
-  return Object.freeze({ collection, achievements, boat, clock, fishing });
+  return gameplayFactory({ collection, boat, clock, now, achievementData: validated.achievements });
 }
 
 // Expected input failures are classified. Programming/environment errors remain

@@ -8,8 +8,9 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
   capacity = QTE_DELIVERY_CONFIG.semanticEdgeCapacity } = {}) {
   if (!fishing || typeof evaluate !== 'function') throw new TypeError('QTE delivery requires a domain and an evidence consumer');
   if (!Number.isInteger(capacity) || capacity < 1) throw new RangeError('Invalid semantic capacity');
-  const adapter = Object.freeze({}), ledgers = new WeakMap(), seen = new WeakSet();
-  const diagnostics = [], counts = {};
+  const adapter = Object.freeze({}), ledgers = new WeakMap(), seen = new WeakSet(), normalClaims = new WeakSet();
+  const diagnostics = [], counts = {}, receiptLagMs = [];
+  let maxReceiptLagMs = 0, peakEdges = 0;
   let session = null, ingress = 0, contactSerial = 0, geometryRevision = 0, lifecycle = 0;
   const diagnose = reason => {
     counts[reason] = Math.min(Number.MAX_SAFE_INTEGER, (counts[reason] ?? 0) + 1);
@@ -157,7 +158,7 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
     geometryRevision++; closeContact('geometry');
     if (session) { session.display = null; session.preparation = null; }
     // Viewport jitter invalidates geometry but never pauses or resets A/D/C.
-    if (orientation) setSuspended('orientation', true, raw);
+    if (orientation && session?.status === 'open' && refresh()) setSuspended('orientation', true, raw);
     return true;
   }
   function ingest(event, raw = clock.now()) {
@@ -171,6 +172,10 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
       if (session.contact?.pointerId === event.pointerId) closeContact('ambiguous-time');
       diagnose('ambiguous-time'); return { handled: true, accepted: false };
     }
+    const lag = receipt.raw - source.raw;
+    receiptLagMs.push(lag);
+    if (receiptLagMs.length > QTE_DELIVERY_CONFIG.diagnosticCapacity) receiptLagMs.shift();
+    maxReceiptLagMs = Math.max(maxReceiptLagMs, lag);
     // Normal fresh down can arrive before the render/timer seals this QTE.
     // Preserve it with its explicit logical boundary rather than the lagging
     // snapshot owner or a rebased normal-input origin.
@@ -179,8 +184,17 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
       && source.active <= session.normalContact.source) {
       diagnose('quarantined-normal-control'); return { handled: true, accepted: false };
     }
-    if (session.cut !== null && source.active >= session.cut && !['pointercancel', 'lostpointercapture'].includes(event.type)) {
-      if (event.type === 'pointerdown') session.normalContact = { pointerId: event.pointerId, source: source.active };
+    const control = ['pointercancel', 'lostpointercapture'].includes(event.type);
+    const normalControl = control && session.normalContact?.pointerId === event.pointerId && source.active >= session.normalContact.source;
+    if (session.cut !== null && source.active >= session.cut && (!control || normalControl)) {
+      let normalContact = null;
+      if (event.type === 'pointerdown' && (event.pointerType !== 'mouse' || event.button === 0)) {
+        normalContact = Object.freeze({ adapter, handle: session.handle, lifecycle, pointerId: event.pointerId, source: source.active });
+        normalClaims.add(normalContact);
+        // Ingress precedes controls' single-pointer admission. An ignored
+        // secondary pointer must not replace an already confirmed owner.
+        if (!session.normalContact?.confirmed) session.normalContact = normalContact;
+      }
       if (event.type === 'pointerup' && event.pointerId === session.retiredPointer) {
         if (!session.normalContact || session.normalContact.pointerId === event.pointerId && source.active <= session.normalContact.source) {
           diagnose('quarantined-normal-up'); return { handled: true, accepted: false };
@@ -190,7 +204,7 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
       const normalAt = session.status !== 'applied'
         ? progress()?.qte.delivery?.startSeconds + (source.active - session.warning) / 1000
         : progress()?.renderSeconds === session.domainCut ? session.domainCut + (source.active - session.cut) / 1000 : undefined;
-      return { handled: false, accepted: false, normalAt };
+      return { handled: false, accepted: false, normalAt, ...(normalContact ? { normalContact } : {}) };
     }
     if (session.status === 'applied') return { handled: source.active < session.cut, accepted: false };
     if (!refresh()) { diagnose('stale-domain'); return { handled: true, accepted: false }; }
@@ -236,6 +250,10 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
       if (contact.pointerType !== event.pointerType) {
         closeContact('ambiguous-pointer-type'); diagnose('ambiguous-pointer-type'); return { handled: true, accepted: false };
       }
+      if (contact.pointerType === 'mouse' && (event.type === 'pointerup' && event.button !== 0
+        || event.type === 'pointermove' && Number.isInteger(event.buttons) && (event.buttons & 1) === 0)) {
+        closeContact('primary-button-released'); diagnose('primary-button-released'); return { handled: true, accepted: false };
+      }
       if (source.active < contact.downSource) { diagnose('old-up-or-move'); return { handled: true, accepted: false }; }
       if (event.type === 'pointerup' && session.lastCancelled?.pointerId === event.pointerId
         && session.lastCancelled.source === contact.downSource && source.active === contact.downSource) {
@@ -269,9 +287,42 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
       }
     } else return { handled: true, accepted: false };
     session.highWater = Math.max(session.highWater, session.edges.length);
+    peakEdges = Math.max(peakEdges, session.highWater);
     return { handled: true, accepted: true };
   }
   return { clock, open, prepareDisplay, presentDisplay, ingest, poll, setSuspended, invalidateGeometry,
+    claimNormalContact(candidate) {
+      if (!candidate || !normalClaims.delete(candidate) || candidate.adapter !== adapter || candidate.handle !== session?.handle
+        || candidate.lifecycle !== lifecycle) return false;
+      session.normalContact = { ...candidate, confirmed: true }; return true;
+    },
+    admitFrame(seconds, raw = clock.now()) {
+      if (!Number.isFinite(seconds) || seconds < 0) throw new RangeError('Invalid frame duration');
+      const receipt = clock.read(raw);
+      if (!receipt) { diagnose('invalid-receipt'); return Object.freeze({ seconds: 0, startSeconds: null, shiftSeconds: 0 }); }
+      poll(raw);
+      const fight = progress();
+      if (receipt.suspended || fight?.paused || session && session.status !== 'applied') {
+        return Object.freeze({ seconds: 0, startSeconds: null, shiftSeconds: 0 });
+      }
+      if (session?.status === 'applied' && fight?.id === session.handle.fightId && fight.renderSeconds === session.domainCut) {
+        const postCut = Math.max(0, (receipt.active - session.cut) / 1000);
+        const admitted = Math.min(seconds, postCut);
+        // Only ordinary post-C input is mapped into the capped physics tail.
+        // Keep its ordering and clamp discarded old normal time at that tail's
+        // start. QTE source/receipt times, A/D/C and scoring never change.
+        return Object.freeze({ seconds: admitted, startSeconds: session.domainCut, shiftSeconds: postCut - admitted });
+      }
+      return Object.freeze({ seconds, startSeconds: null, shiftSeconds: 0 });
+    },
+    // Read without sampling E; ingress has already captured its receipt.
+    get interrupted() { return session?.interrupted ?? false; },
+    retire(raw = clock.now()) {
+      closeContact('fight-ended'); session = null;
+      // Internal display/technical reasons belong to one fight. External menu,
+      // focus and page reasons continue to belong to the application lifecycle.
+      for (const reason of ['orientation', 'technical', 'display']) setSuspended(reason, false, raw);
+    },
     preview() {
       if (!session || session.status !== 'open') return Object.freeze({ success: session?.success === true, completedOperations: session?.completed ?? 0 });
       try { return assess(false); }
@@ -290,6 +341,8 @@ export function createQteDelivery({ fishing, clock = createQteClock(), evaluate,
         remainingMs: session?.deadline === null ? null : Math.max(0, (session?.deadline ?? 0) - (clock.read()?.active ?? 0)),
         edges: session?.edges.length ?? 0, highWater: session?.highWater ?? 0, completedOperations: session?.completed ?? 0,
         provisionalSuccess: session?.provisionalSuccess ?? false, interrupted: session?.interrupted ?? false,
+        telemetry: Object.freeze({ receiptLagMs: Object.freeze([...receiptLagMs]), maxReceiptLagMs, peakEdges,
+          displayDelayMs: session?.active == null ? null : session.active - session.warning - QTE_TIMING.warningSeconds * 1000 }),
         reasons: clock.reasons, diagnostics: Object.freeze([...diagnostics]), counts: Object.freeze({ ...counts }) });
     } };
 }
