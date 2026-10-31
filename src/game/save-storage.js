@@ -108,7 +108,10 @@ export function createSaveStorage({ getStorage = () => globalThis.localStorage, 
       }
       if (!restored.ok) {
         blocked = true;
-        publish({ phase: 'protected', code: restored.error.code, canSave: false });
+        // The slot already passed complete validation. Constructor failures,
+        // including typed validation errors from an injected factory, must
+        // stop application initialization rather than look like absent data.
+        publish({ phase: 'protected', code: 'restore-failed', canSave: false });
         return { state, status };
       }
       state = restored.state;

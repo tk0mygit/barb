@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createGameplay } from '../src/game/gameplay.js';
 import { createFishing } from '../src/game/fishing.js';
-import { createSaveData, restoreSaveData } from '../src/game/save-data.js';
+import { createSaveData, restoreSaveData, SaveDataError } from '../src/game/save-data.js';
 import { createSaveStorage, SAVE_STORAGE_KEYS as keys } from '../src/game/save-storage.js';
 import { createQteOperationProvider } from '../src/game/qte-operation-provider.js';
 import { estimateWaterDepth } from '../src/world/depth.js';
@@ -92,13 +92,15 @@ test('shared OFF gameplay preserves existing encounter RNG and fixed-physics res
 });
 
 test('factory failure never authorizes storage writes or retries restoration as an empty domain', () => {
+  for (const error of [new Error('assembly failed'), new SaveDataError('invalid-data', 'factory')]) {
   const storage = memory(legacy); let calls = 0;
-  const manager = createSaveStorage({ getStorage: () => storage, gameplayFactory() { calls++; throw new Error('assembly failed'); } });
+  const manager = createSaveStorage({ getStorage: () => storage, gameplayFactory() { calls++; throw error; } });
   const result = manager.load();
   assert.equal(result.state, null); assert.equal(result.status.code, 'restore-failed');
   assert.equal(result.status.canSave, false); assert.equal(manager.load().state, null); assert.equal(calls, 1);
   assert.equal(manager.save(legacy).ok, false); assert.deepEqual(storage.writes, []);
   assert.equal(storage.map.get(keys[0]), storage.raw);
+  }
   assert.match(readFileSync(new URL('../src/main.js', import.meta.url), 'utf8'), /loaded\.status\.code === 'restore-failed'\) throw/);
 });
 

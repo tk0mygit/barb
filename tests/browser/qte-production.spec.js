@@ -131,8 +131,18 @@ test('production touch lifecycle: completed tap, reason union, native cancel, ro
   expect((await productSnapshot(page)).preview.completedOperations).toBe(0);
   for (let n = 0; n < 12 && !(await productSnapshot(page)).snapshot.displayReady; n++) await page.clock.fastForward(100);
   const first = await productSnapshot(page), target = first.geometry.target;
+  // A secondary finger inside the scoring area cannot become a second owner.
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [
+    { id: 1, x: first.geometry.region.left - 8, y: target.y }, { id: 2, ...target },
+  ] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  expect((await productSnapshot(page)).preview.completedOperations).toBe(0);
   await page.clock.fastForward(10); await input.down(target); await page.clock.fastForward(20); await input.up();
   expect((await productSnapshot(page)).preview.completedOperations).toBe(1);
+  await page.setViewportSize({ width: 391, height: 844 });
+  expect((await productSnapshot(page)).snapshot.deadline).toBe(first.snapshot.deadline);
+  for (let n = 0; n < 5 && !(await productSnapshot(page)).snapshot.displayReady; n++) await page.clock.fastForward(16);
   await input.click(page.locator('#menu-button'));
   const paused = await productSnapshot(page), deadline = paused.snapshot.deadline, remaining = paused.snapshot.remainingMs;
   // Synthetic lifecycle notifications are explicitly separate from native
@@ -196,8 +206,28 @@ test('production semantic128 interruption: native invalid taps, explicit canvas 
   await advanceToWarning(page, input, p, 0);
   for (let n = 0; n < 12 && !(await productSnapshot(page)).snapshot.displayReady; n++) await page.clock.fastForward(100);
   const target = (await productSnapshot(page)).geometry.target;
+  await page.mouse.move(target.x, target.y);
+  await page.mouse.down({ button: 'right' }); await page.mouse.up({ button: 'right' });
+  expect((await productSnapshot(page)).preview.completedOperations).toBe(0);
+  // Explicit synthetic negative: the coalesced excursion returns to its start
+  // but must still invalidate this tap. The surrounding down/up are native.
+  await input.down(target); await page.clock.fastForward(10);
+  await page.evaluate(target => {
+    const pointerId = window.e2eDiagnostics.events.findLast(e => e.type === 'pointerdown' && e.target === 'scene').pointerId;
+    const event = new PointerEvent('pointermove', { bubbles: true, pointerId, pointerType: 'mouse',
+      isPrimary: true, buttons: 1, clientX: target.x, clientY: target.y });
+    Object.defineProperty(event, 'getCoalescedEvents', { value: () => [
+      { timeStamp: event.timeStamp, clientX: target.x + 20, clientY: target.y },
+      { timeStamp: event.timeStamp, clientX: target.x, clientY: target.y },
+    ] });
+    document.querySelector('#scene').dispatchEvent(event);
+  }, target);
+  await page.clock.fastForward(20); await input.up();
+  let negative = await productSnapshot(page);
+  expect(negative.preview.completedOperations).toBe(0); expect(negative.snapshot.edges).toBe(2);
+  expect(negative.snapshot.counts['ambiguous-move'] ?? 0).toBe(0);
   await page.clock.fastForward(10); await input.down(target); await page.clock.fastForward(20); await input.up();
-  for (let n = 0; n < 63; n++) { await input.down(target); await input.move({ x: target.x + 20, y: target.y }); await input.up(); }
+  for (let n = 0; n < 62; n++) { await input.down(target); await input.move({ x: target.x + 20, y: target.y }); await input.up(); }
   const full = await productSnapshot(page); expect(full.snapshot.edges).toBe(128); expect(full.preview.completedOperations).toBe(1);
   await input.down(target); await input.up();
   await page.clock.fastForward(16);
@@ -232,6 +262,9 @@ test('production restored ON all failures: three penalties, one catch with count
   for (let index = 0; index < 3; index++) {
     await advanceToWarning(page, input, p, index);
     const e = await performProductOperation(page, input, { success: false }); evidence.push(e);
+    const native = await page.evaluate(() => window.productNativeEvidence);
+    const audit = await auditProductionQte({ ...e, native });
+    await test.info().attach(`all-failure-${index}-source-replay`, { body: JSON.stringify(audit), contentType: 'application/json' });
     expect(e.pending.fight.penaltyMeters).toBe(e.before.fight.penaltyMeters);
     expect(e.after.fight.penaltyMeters).toBeGreaterThan(e.before.fight.penaltyMeters);
     expect(e.after.fight.qte.failures).toBe(index + 1); expect(e.after.fight.qte.successes).toBe(0);
@@ -252,12 +285,22 @@ test('production real-clock rAF: native three-tap evidence waits for the fixed c
   const page = await context.newPage(); await openQteProduction(page);
   const input = await productInput(page, false), p = await castAndHookProduct(page, input);
   await advanceToWarning(page, input, p, 0);
+  // Prepare the pointer and large observation while warning time is paused.
+  // Native contact starts after A; no protocol/serialization setup is charged
+  // against the human gesture, and the real 2s deadline remains unchanged.
+  const before = await productSnapshot(page), target = before.geometry.target;
+  await page.mouse.move(target.x, target.y);
+  const cdp = await context.newCDPSession(page);
+  const rendersBefore = await page.evaluate(() => window.qteProduct.renderer.info.render.frame);
   await page.clock.resume();
   await page.waitForFunction(() => window.qteProduct.qteDelivery.snapshot.displayReady);
-  const before = await productSnapshot(page), target = before.geometry.target;
-  const rendersBefore = await page.evaluate(() => window.qteProduct.renderer.info.render.frame);
-  for (let n = 0; n < 3; n++) { await input.down(target); await input.up(); }
-  const pending = await productSnapshot(page);
+  for (let n = 0; n < 3; n++) {
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: target.x, y: target.y, button: 'left', buttons: 1, clickCount: 1 });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: target.x, y: target.y, button: 'left', buttons: 0, clickCount: 1 });
+  }
+  const pending = await page.evaluate(() => ({ preview: window.qteProduct.qteDelivery.preview(),
+    fight: { qte: { successes: window.qteProduct.state.fishing.state.fight.qte.successes } },
+    snapshot: window.qteProduct.qteDelivery.snapshot }));
   expect(pending.preview.success, JSON.stringify(pending)).toBe(true); expect(pending.fight.qte.successes).toBe(0);
   await expect.poll(() => page.evaluate(() => window.qteProduct.state.fishing.state.fight.qte.successes)).toBe(1);
   const after = await productSnapshot(page);
