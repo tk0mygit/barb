@@ -11,8 +11,9 @@ Phase 5C-2-4 adds a code-only `gameplayFactory` injection to `createSaveStorage`
 and `restoreSaveData`. Complete V1/V2 validation still precedes construction.
 The same factory is used for new and restored games before autosave/UI
 subscriptions; no fishing object is replaced after restoration. The default
-factory and ordinary main policy keep QTE OFF. QTE reservation/input state is
-never saved. A constructor failure protects storage and main stops initialization
+factory remains QTE OFF, while the 5C-2-ON-1 public initializer explicitly supplies
+ON for both new and restored domains. QTE reservation/input state is never
+saved. A constructor failure protects storage and main stops initialization
 instead of retrying with an empty domain. The schema, two keys, generations,
 migration, sale amounts and all write/competition protections are unchanged.
 

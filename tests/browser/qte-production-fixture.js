@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { createQteOperationProvider } from '../../src/game/qte-operation-provider.js';
 import { getFishSpecies } from '../../src/game/fish-species.js';
+import { createGameplay } from '../../src/game/gameplay.js';
+import { createSaveData } from '../../src/game/save-data.js';
 import { encounterModel, getRodEncounterModifiers } from '../../src/game/encounter-production.js';
 import { expect } from './diagnostics-fixture.js';
 import { installPausedClock } from './clock-fixture.js';
@@ -18,9 +20,23 @@ const source = { sha: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root }).
   mainSha256: createHash('sha256').update(main).digest('hex') };
 export const saveKeys = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
 
+export function historicalSave(version) {
+  const game = createGameplay({ now: () => 1000 });
+  game.collection.register({ schemaVersion: 1, id: 'historical', speciesId: 'black-bass', lengthCm: 40,
+    weightKg: 10, caughtAt: '2026-10-30T00:00:00Z', qteSuccessCount: 0 });
+  game.collection.sellUnassigned('historical');
+  const data = structuredClone(createSaveData(game, { savedAt: '2026-10-31T00:00:00.000Z' }));
+  data.collection.catches[0].salePrice = 777;
+  data.collection.catches[0].soldAt = '1970-01-01T00:00:01Z';
+  data.collection.wallet = { balance: 777, lifetimeSales: 777 };
+  if (version === 1) { data.saveVersion = 1; for (const record of data.collection.catches) delete record.qteSuccessCount; }
+  return data;
+}
+
 // Playwright serves the real application dependency graph. Only the final
 // initializer call is injected; input, loop, renderer, restore, HUD and save
-// code are byte-identical source modules. There is no shipped ON route.
+// code are byte-identical source modules. Built-entry tests run separately
+// without this routing or initializer replacement.
 export async function openQteProduction(page, { enabled = true, save = null, frameFaults = false } = {}) {
   await installPausedClock(page);
   if (frameFaults) await page.addInitScript(() => {
@@ -70,13 +86,13 @@ export async function openQteProduction(page, { enabled = true, save = null, fra
     const extensions = { js: 'text/javascript', css: 'text/css', json: 'application/json', png: 'image/png', wav: 'audio/wav', svg: 'image/svg+xml' };
     let body = readFileSync(path);
     if (pathname === 'src/main.js') {
-      if (!/\nstartGame\(\);\s*$/.test(main)) throw new Error('Production initializer entry changed');
-      body = main.replace("import './ui/style.css';", '').replace(/\nstartGame\(\);\s*$/, `
+      if (!/\nstartGame\(\{ qteEnabled: true \}\);\s*$/.test(main)) throw new Error('Production initializer entry changed');
+      body = main.replace("import './ui/style.css';", '').replace(/\nstartGame\(\{ qteEnabled: true \}\);\s*$/, `
 window.productSource = ${JSON.stringify(source)};
 window.productEvents = [];
 window.productDrawCount = 0;
 window.productDrawQueue = [];
-window.qteProduct = startGame({ ${enabled ? 'qteEnabled: true,' : ''}
+window.qteProduct = startGame({ qteEnabled: ${enabled},
   random: () => { window.productDrawCount++; return window.productDrawQueue.length ? window.productDrawQueue.shift() : .5; },
   onFightEvent: event => { window.productEvents.push(event); if(window.productEvents.length > 80) window.productEvents.shift(); }
 });

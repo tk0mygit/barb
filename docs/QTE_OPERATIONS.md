@@ -1,8 +1,10 @@
 # QTE operations and visual display boundary (5C-2-2)
 
-The standard new game and save restoration leave QTE disabled. Phase 5C-2-4
-connects these modules to the shared production initializer; Playwright alone
-injects ON into that initializer's final call. No ON route or setting is shipped.
+Phase 5C-2-4 connects these modules to the shared production initializer.
+With user-PM approval on 2026-10-31, 5C-2-ON-1 explicitly enables QTE at the
+ordinary public entry for new games and V1/V2 restoration. Factory defaults
+remain OFF; private code-injected ON/OFF tests and unmodified public-build tests
+are distinct evidence. There is no player setting, URL or storage switch.
 The confirmed catch count, additive +10% price and V2 writer remain the existing
 5C-2-3 contracts. Device acceptance and product enablement are separate gates.
 

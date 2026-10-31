@@ -1,5 +1,8 @@
 # Phase 5C-2-4 implementation and acceptance evidence
 
+The 5C-2-4 OFF evidence below is historical. The separately authorized
+5C-2-ON-1 enablement and its own evidence are recorded at the end of this file.
+
 Baseline: `32cc64e20875693267239bbf5b4f3448c37855c3` (PR #53).
 This is the dedicated 5C-2-4 chat/branch. The implementation brief recommends
 Max-level consideration. Scope ends at local validation and one PR; product
@@ -201,3 +204,32 @@ and current full L2 results, followed by a separate initializer-enablement PR
 and L2 run. This implementation does not publish an ON route or perform that
 change. Current scope ends at one PR URL, with no CI polling, merge, deployment
 or later phase work.
+
+## Phase 5C-2-ON-1: public enablement (2026-10-31)
+
+User-PM explicitly authorized QTE ON and a single enablement PR, based exactly
+on main `dae7faa0585343e751eb63e6eebe648f7101fe42` (PR #54). This is the new
+enablement chat, not Phase 5D. The brief recommends Max-level consideration.
+The initial clean `work` checkout at PR #53 is retained; the dedicated branch
+starts at the fetched, matching main. Open PRs at entry: zero. No worktree,
+reset, clean, force push, merge or deployment is authorized or performed.
+
+### Enablement change impact matrix (before implementation)
+
+| Path | Direct change | Indirect observation / required evidence |
+| --- | --- | --- |
+| Public entry | Explicit `startGame({ qteEnabled: true })` | Unmodified built Pages entry must run ON; no URL/storage/global switch |
+| New / V1 / V2 gameplay | None; retain shared factory and default OFF injection boundary | Both validated restores and new games inherit public ON; never replace restored fishing |
+| Provider / encounters / RNG | None | Actual hook creates existing provider; operations and encounter draws unchanged |
+| Canvas / delivery / clock / HUD | None | Native mouse/touch, four operations, warning/display/finite seal, lifecycle/cancel/rotation, normal fresh hold |
+| Physics / camera / rendering / audio | None | Existing FIGHT settings and input ownership; shipping smoke and shared audio/lifecycle regressions |
+| Catch / price / achievements | None | Confirmed count0–3, additive +10% per success, immediate/individual/bulk, no duplicate settlement or historical recalculation |
+| Save / restore | None | V2 writer and two keys; V1 raw preservation, V2 revisit, corrupt/future/conflict/quota fail-closed; previous main can read ON-written saves |
+| ON/OFF tests / acceptance docs | Update public expectations; retain explicit OFF and fail-closed initializer matching; add built-entry evidence | Injected source evidence is identified separately from actual distribution execution; devices remain unmeasured |
+| Capture / comparison | None planned | Selected real base/head pairs; retain all 34 pairs / 68 images, strict resources/HUD/source replay |
+| CI aggregation / CLI / workflows | None | L2 full Regular/Mobile selection and collection, source/merge parents/artifact hashes, separate `ci-required` review by 8th_PM |
+
+The 100ms grace, 128 semantic edges, all operation thresholds/windows/cuts,
+warning0.6s, reservations/failure effects, sale arithmetic and storage contracts
+remain unchanged. Real device ON acceptance and product suitability of the
+provisional values remain unmeasured; see [the acceptance record](QTE_DEVICE_ACCEPTANCE.md).

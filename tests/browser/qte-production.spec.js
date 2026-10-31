@@ -1,23 +1,8 @@
 import { test, expect } from './diagnostics-fixture.js';
-import { createGameplay } from '../../src/game/gameplay.js';
-import { createSaveData } from '../../src/game/save-data.js';
 import { calculateSalePrice } from '../../src/game/fish-sales.js';
 import { auditProductionQte } from '../helpers/qte-production-audit.js';
 import { openQteProduction, productInput, productSnapshot, castAndHookProduct, advanceToWarning,
-  performProductOperation, landProduct, saveKeys } from './qte-production-fixture.js';
-
-function historicalSave(version) {
-  const game = createGameplay({ now: () => 1000 });
-  game.collection.register({ schemaVersion: 1, id: 'historical', speciesId: 'black-bass', lengthCm: 40,
-    weightKg: 10, caughtAt: '2026-10-30T00:00:00Z', qteSuccessCount: 0 });
-  game.collection.sellUnassigned('historical');
-  const data = structuredClone(createSaveData(game, { savedAt: '2026-10-31T00:00:00.000Z' }));
-  data.collection.catches[0].salePrice = 777;
-  data.collection.catches[0].soldAt = '1970-01-01T00:00:01Z';
-  data.collection.wallet = { balance: 777, lifetimeSales: 777 };
-  if (version === 1) { data.saveVersion = 1; for (const record of data.collection.catches) delete record.qteSuccessCount; }
-  return data;
-}
+  performProductOperation, landProduct, saveKeys, historicalSave } from './qte-production-fixture.js';
 const latest = page => page.evaluate(keys => keys.map(key => localStorage.getItem(key)).filter(Boolean)
   .map(JSON.parse).sort((a, b) => b.generation - a.generation)[0], saveKeys);
 const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
@@ -26,7 +11,7 @@ const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
 // The paused Playwright clock controls time; it does not inject game state or
 // scoring evidence. Chromium touch / SwiftShader remain separate from devices.
 for (const touch of [false, true]) for (const operation of ['flick', 'swipe', 'tap', 'target']) {
-  test(`production ${touch ? 'touch' : 'mouse'} ${operation}: new/restore → native QTE → landing/sale → V2 → shipped OFF`, async ({ createContext }) => {
+  test(`production ${touch ? 'touch' : 'mouse'} ${operation}: injected ON new/restore → native QTE → landing/sale → V2 → shipped ON`, async ({ createContext }) => {
     const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 },
       hasTouch: touch, isMobile: touch, deviceScaleFactor: .5 });
     const page = await context.newPage(), errors = [];
@@ -86,19 +71,21 @@ for (const touch of [false, true]) for (const operation of ['flick', 'swipe', 't
       for (const award of save.achievements.unlocked) expect(sold.achievements.unlocked).toContainEqual(award);
     }
     await test.info().attach('production-sale-save', { body: JSON.stringify({ source: result.source, record, price, sold }), contentType: 'application/json' });
-    // Normal built entry in a fresh document: no test initializer or ON policy.
+    // Normal public ON build in a fresh document, without a test initializer.
     await page.goto('./'); await page.clock.fastForward(32);
     await expect(page.locator('#status')).toBeHidden();
     await expect(page.locator('#wallet-balance')).toHaveText(money(sold.collection.wallet.balance));
     expect(await page.evaluate(() => typeof window.qteProduct)).toBe('undefined');
-    await expect(page.locator('.qte-hud,.qte-safe-probe')).toHaveCount(0);
+    await expect(page.locator('.qte-hud')).toHaveCount(1);
+    await expect(page.locator('.qte-hud')).toBeHidden();
+    await expect(page.locator('.qte-safe-probe')).toHaveCount(1);
     const restored = (await latest(page)).data;
     expect(restored.collection).toEqual(sold.collection); expect(restored.achievements).toEqual(sold.achievements);
     expect(errors).toEqual([]);
   });
 }
 
-for (const touch of [false, true]) for (const variant of ['new', 'v1', 'v2']) test(`production default OFF ${touch ? 'touch' : 'mouse'} ${variant}: native fight → zero bonus → save/restore`, async ({ createContext }) => {
+for (const touch of [false, true]) for (const variant of ['new', 'v1', 'v2']) test(`production explicit OFF ${touch ? 'touch' : 'mouse'} ${variant}: native fight → zero bonus → save/restore in public ON`, async ({ createContext }) => {
   const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 },
     hasTouch: touch, isMobile: touch, deviceScaleFactor: .5 });
   const page = await context.newPage();
@@ -117,7 +104,10 @@ for (const touch of [false, true]) for (const variant of ['new', 'v1', 'v2']) te
   expect(saved.collection.catches.at(-1).qteSuccessCount).toBe(0);
   await page.goto('./'); await page.clock.fastForward(32);
   await expect(page.locator('#status')).toBeHidden();
-  await expect(page.locator('.qte-hud,.qte-safe-probe')).toHaveCount(0);
+  await expect(page.locator('.qte-hud')).toHaveCount(1);
+  await expect(page.locator('.qte-hud')).toBeHidden();
+  await expect(page.locator('.qte-safe-probe')).toHaveCount(1);
+  expect(await page.evaluate(() => typeof window.qteProduct)).toBe('undefined');
   expect((await latest(page)).data.collection).toEqual(saved.collection);
 });
 
@@ -276,7 +266,8 @@ test('production restored ON all failures: three penalties, one catch with count
   expect(saved.collection.wallet).toEqual({ balance: 777, lifetimeSales: 777 });
   await test.info().attach('all-failure-proof', { body: JSON.stringify({ evidence, saved }), contentType: 'application/json' });
   await page.goto('./'); await page.clock.fastForward(32);
-  await expect(page.locator('#status')).toBeHidden(); await expect(page.locator('.qte-hud')).toHaveCount(0);
+  await expect(page.locator('#status')).toBeHidden();
+  await expect(page.locator('.qte-hud')).toHaveCount(1); await expect(page.locator('.qte-hud')).toBeHidden();
   expect((await latest(page)).data.collection).toEqual(saved.collection);
 });
 
@@ -332,7 +323,8 @@ for (const [speciesId, count, touch] of [['bluegill', 1, false], ['black-bass', 
     const saved = (await latest(page)).data;
     expect(saved.collection.catches.at(-1)).toMatchObject({ id: record.id, qteSuccessCount: count, disposition: 'stored' });
     await page.goto('./'); await page.clock.fastForward(32);
-    await expect(page.locator('#status')).toBeHidden(); await expect(page.locator('.qte-hud')).toHaveCount(0);
+    await expect(page.locator('#status')).toBeHidden();
+    await expect(page.locator('.qte-hud')).toHaveCount(1); await expect(page.locator('.qte-hud')).toBeHidden();
     expect((await latest(page)).data.collection).toEqual(saved.collection);
   });
 }

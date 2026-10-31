@@ -1,8 +1,16 @@
-# QTE device acceptance record — Phase 5C-2-4
+# QTE device acceptance record — Phase 5C-2-ON-1
 
-Product QTE remains **OFF**. This form does not authorize enablement. Record
-each platform independently using a controlled local test composition of the
-actual application. Do not publish an ON route, URL switch or player setting.
+On 2026-10-31, user-PM explicitly authorized **public QTE ON** and a separate
+5C-2-ON-1 implementation/validation PR based on main
+`dae7faa0585343e751eb63e6eebe648f7101fe42` (PR #54). Its public initializer
+enables new and restored games. The prior device report confirmed ordinary
+**OFF** behavior only; ON-specific device acceptance below is **unmeasured**.
+PR submission and the final public-release decision are separate gates.
+
+Record each platform independently against the actual approved build and,
+after deployment, the real public Pages entry. A controlled local composition
+may retain internal diagnostics for measurements. No player/URL/storage/global
+switch or diagnostic route is published.
 Chromium touch emulation, synthetic events and software WebGL cannot replace
 PC / Android Chrome / iOS Safari acceptance.
 
@@ -64,7 +72,8 @@ screen emission; align video to the actual visual change separately.
 | V2 save → fresh session; old prices/wallet/achievement dates retained | unmeasured | unmeasured |
 | Loading writes nothing; V1 active raw retained on first V2 save | unmeasured | unmeasured |
 | Menu / RESULT / audio controls receive their own native inputs | unmeasured | unmeasured |
-| ON test session → ordinary OFF launch / restore has no QTE HUD or ON state | unmeasured | unmeasured |
+| Ordinary ON new / V1 / V2 launch and revisit; idle HUD hidden, next fight ON | unmeasured | unmeasured |
+| Explicit test-only OFF still has no QTE HUD / handlers; return to public ON | unmeasured | unmeasured |
 
 For each anomaly record expected/observed outcome, fight ID / species / length /
 provider seed key, QTE index and operation, source and receipt times, A/D/C,
@@ -73,13 +82,29 @@ sequence and reproducibility. Record ON fight duration with normal physics,
 warning, display waiting, operation, receipt wait and intentional pauses split.
 Compare 30/60/144Hz and long-frame observations without shortening any window.
 
-PM decision (unrecorded): retain/revise 100ms; retain/revise 128 edges, including
+PM numerical decision (unrecorded): retain/revise 100ms; retain/revise 128 edges, including
 controlled 64/128/256 diagnostic comparison before changing the product value;
 platform-specific acceptance and unresolved anomalies. If a value changes,
 record the approved specification revision and required new PR / L2 validation.
 
-Product enablement requires all three device acceptances, current-HEAD full L2
-Regular/Mobile evidence (34 comparisons / 68 images), final `ci-required`, review
-of saved-data protections and explicit user-PM authorization. Enabling the
-shipping initializer requires a separate enablement PR and L2 run. This phase
-does not implement or perform that change.
+The ON authorization permits this PR; it does not certify all three devices or
+the product suitability of 100ms/128 edges. The latter values remain unchanged
+and provisional. 8th_PM must review the current-HEAD full L2 Regular/Mobile
+evidence (34 comparisons / 68 images), validation-merge parents, source/artifact
+hashes and `ci-required`. User-PM alone decides merge and final release after
+reviewing device acceptance and remaining gaps. If user-PM separately elects to
+release without measurements, record that decision without calling it measured.
+Codex stops at the PR URL, without CI polling, merge, deployment or device signoff.
+
+After deployment, PC mouse / Android Chrome / iOS Safari public ON checks remain
+required: four operations and directions, shortest0.5s / 3tap2s, visual warning,
+A/D/C, normal input recovery, menu/RESULT/audio ownership, rotation/lifecycle,
+capacity/latency, catch0–3, all sales and V2 revisit. Preserve original failures.
+
+For a serious public ON regression, open a **new revert PR** against the healthy
+main immediately before the enablement merge, with L2 review and user-PM merge.
+Revert only this enablement change; preserve both save slots and never delete,
+reset or rewrite player saves. The previous PR #54 runtime already reads/writes
+V2 and count0–3. Validate that runtime against actual ON-generated V2 before
+rollback, including old V1/V2, historical price/wallet/award dates and slot raw
+protection. A V1-only writer is not a compatible rollback target.
