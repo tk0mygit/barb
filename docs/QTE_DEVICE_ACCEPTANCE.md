@@ -101,8 +101,9 @@ required: four operations and directions, shortest0.5s / 3tap2s, visual warning,
 A/D/C, normal input recovery, menu/RESULT/audio ownership, rotation/lifecycle,
 capacity/latency, catch0–3, all sales and V2 revisit. Preserve original failures.
 
-For a serious public ON regression, open a **new revert PR** against the healthy
-main immediately before the enablement merge, with L2 review and user-PM merge.
+For a serious public ON regression, branch from current main and open a **new
+revert PR** reversing the enablement merge, using its immediately preceding
+healthy main as the reference, with L2 review and user-PM merge.
 Revert only this enablement change; preserve both save slots and never delete,
 reset or rewrite player saves. The previous PR #54 runtime already reads/writes
 V2 and count0–3. Validate that runtime against actual ON-generated V2 before
