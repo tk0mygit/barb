@@ -247,6 +247,9 @@ test('main, shared systems, CI, dependencies and operations documents override l
     'src/game/game-clock.js', 'src/game/save-data.js', 'src/rendering/camera.js', 'src/world/water.js',
     'tests/browser/diagnostics-fixture.js', 'tests/browser/clock-fixture.js', 'tests/browser/input-fixture.js',
     'playwright.config.js', '.github/workflows/pages.yml', 'scripts/ci-risk.js', 'tests/ci-risk.test.js',
+    'scripts/ci-e2e.js', 'scripts/ci-summary.js', 'scripts/ci-regular-profile.json',
+    'scripts/lib/ci-artifacts.js', 'scripts/lib/ci-partition.js', 'tests/ci-e2e.test.js',
+    'tests/ci-summary.test.js', 'tests/ci-partition.test.js', 'docs/P5_CI_SPLIT.md',
     'package.json', 'package-lock.json', 'vite.config.js', 'AGENTS.md', 'docs/TESTING_WORKFLOW.md',
     'docs/new-operations.md', 'unknown.txt']) {
     const plan = classify([change('README.md'), change(audio), change(path)]);

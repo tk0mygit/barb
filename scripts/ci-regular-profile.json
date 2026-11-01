@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 1,
+  "version": "regular-2026-11-01-v1",
+  "method": "Sum intervals from each [n/N] test start to the next start; final interval ends at the passed summary. Arithmetic mean of both runs; includes inter-test and failure overhead.",
+  "sources": [
+    {
+      "runId": "41301076135",
+      "jobId": "124832086355",
+      "headSha": "e8561ffa7f2473d2ec79e8e34c2ed9dcce928bce",
+      "conclusion": "success",
+      "observedTotalMs": 2333830
+    },
+    {
+      "runId": "41293561796",
+      "jobId": "124809848234",
+      "headSha": "4a8205fc1e799e9a3b0e80006ccdf48194ad0147",
+      "conclusion": "failure",
+      "observedTotalMs": 2538037
+    }
+  ],
+  "fallbackEstimateMs": 60000,
+  "specs": [
+    {
+      "spec": "tests/browser/achievement-notice.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        2012,
+        2163
+      ]
+    },
+    {
+      "spec": "tests/browser/achievements.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        4433,
+        4601
+      ]
+    },
+    {
+      "spec": "tests/browser/audio-gain.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        3571,
+        3687
+      ]
+    },
+    {
+      "spec": "tests/browser/audio.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        98732,
+        103412
+      ]
+    },
+    {
+      "spec": "tests/browser/autosave.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        123037,
+        132866
+      ]
+    },
+    {
+      "spec": "tests/browser/bio-audio-quality.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        25137,
+        27243
+      ]
+    },
+    {
+      "spec": "tests/browser/bio-audio.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        38960,
+        40913
+      ]
+    },
+    {
+      "spec": "tests/browser/bio-sources.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        3548,
+        3925
+      ]
+    },
+    {
+      "spec": "tests/browser/cast-visibility.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        259973,
+        275016
+      ]
+    },
+    {
+      "spec": "tests/browser/collection-menu.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        22029,
+        24966
+      ]
+    },
+    {
+      "spec": "tests/browser/day-night.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        118272,
+        128501
+      ]
+    },
+    {
+      "spec": "tests/browser/depth-time.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        16585,
+        18349
+      ]
+    },
+    {
+      "spec": "tests/browser/equipment-game.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        63073,
+        78624
+      ]
+    },
+    {
+      "spec": "tests/browser/equipment-ui.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        17581,
+        21308
+      ]
+    },
+    {
+      "spec": "tests/browser/final-stability.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        55843,
+        60593
+      ]
+    },
+    {
+      "spec": "tests/browser/fish-assets.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        35859,
+        38042
+      ]
+    },
+    {
+      "spec": "tests/browser/fish-image-loading.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        10079,
+        10780
+      ]
+    },
+    {
+      "spec": "tests/browser/fish-sales.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        83379,
+        88868
+      ]
+    },
+    {
+      "spec": "tests/browser/fishing-spots.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        65061,
+        71168
+      ]
+    },
+    {
+      "spec": "tests/browser/fishing.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        297622,
+        341009
+      ]
+    },
+    {
+      "spec": "tests/browser/game.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        66357,
+        69586
+      ]
+    },
+    {
+      "spec": "tests/browser/lake-scenery.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        101931,
+        111863
+      ]
+    },
+    {
+      "spec": "tests/browser/mobile-layout.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        19472,
+        20791
+      ]
+    },
+    {
+      "spec": "tests/browser/night-fog.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        91847,
+        97927
+      ]
+    },
+    {
+      "spec": "tests/browser/qte-economy.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        37682,
+        39385
+      ]
+    },
+    {
+      "spec": "tests/browser/qte-operations.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        20258,
+        20561
+      ]
+    },
+    {
+      "spec": "tests/browser/qte-production.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        354486,
+        379602
+      ]
+    },
+    {
+      "spec": "tests/browser/qte-public-on.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        267867,
+        291215
+      ]
+    },
+    {
+      "spec": "tests/browser/sale-notice.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        1207,
+        1491
+      ]
+    },
+    {
+      "spec": "tests/browser/save-data.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        843,
+        928
+      ]
+    },
+    {
+      "spec": "tests/browser/smoke-pc.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        13905,
+        14617
+      ]
+    },
+    {
+      "spec": "tests/browser/smoke-touch.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        13189,
+        14037
+      ]
+    }
+  ]
+}

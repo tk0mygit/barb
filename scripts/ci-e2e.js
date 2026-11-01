@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createPlan, listBrowserSpecs, SMOKE_SPECS } from './ci-risk.js';
 import { hash, LANES, MOBILE_SPEC, planHash, readRecord, validationContext } from './lib/ci-artifacts.js';
+import { partitionSpecs } from './lib/ci-partition.js';
 
 export { LANES, MOBILE_SPEC };
 export const identities = tests => tests.map(({ key, file }) => [key, file]).sort((a, b) => a[0].localeCompare(b[0]));
@@ -85,8 +86,7 @@ export function splitSpecs(plan, inventory) {
     assert(plan.specs.some(spec => !SMOKE_SPECS.includes(spec)), 'L1 has no related specs');
   }
   if (!plan.runE2E) assert.deepEqual(plan.specs, [], 'Skipped plan contains selected specs');
-  return Object.fromEntries(LANES.map(lane => [lane,
-    plan.specs.filter(spec => (spec === MOBILE_SPEC) === (lane === 'mobile'))]));
+  return partitionSpecs(inventory, plan.specs).lanes;
 }
 
 export function revalidatePlan(plan, { cwd = process.cwd(), env = process.env } = {}) {
@@ -102,10 +102,18 @@ export function revalidatePlan(plan, { cwd = process.cwd(), env = process.env } 
 }
 
 export function executionPlan(plan, inventory, context) {
-  return { schemaVersion: 1, context, planHash: planHash(plan), inventory: [...inventory], lanes: splitSpecs(plan, inventory) };
+  // Validate the original selection before deriving a reproducible assignment.
+  const lanes = splitSpecs(plan, inventory);
+  return { schemaVersion: 2, context, planHash: planHash(plan), inventory: [...inventory],
+    selectedSpecs: [...plan.specs], ...partitionSpecs(inventory, plan.specs), lanes };
 }
 
-function playwrightArgs(specs) {
+export function validateExecutionPlan(plan, execution, inventory, context) {
+  assert.equal(execution.schemaVersion, 2, 'Unknown execution plan schema');
+  assert.deepEqual(execution, executionPlan(plan, inventory, context), 'Inconsistent execution plan');
+}
+
+export function playwrightArgs(specs) {
   const filters = specs.map(spec => `(^|/)${spec.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
   return ['test', ...filters, '--forbid-only', '--workers=1'];
 }
@@ -129,6 +137,7 @@ export function prepareE2E({ cwd = process.cwd(), env = process.env } = {}) {
   const plan = JSON.parse(readFileSync(path.join(output, 'plan.json'), 'utf8'));
   const context = revalidatePlan(plan, { cwd, env });
   const execution = executionPlan(plan, listBrowserSpecs(cwd), context);
+  for (const warning of execution.warnings) console.warn(warning);
   const result = { context, status: 'running', executed: false, passedTests: 0,
     startedAt: new Date().toISOString() };
   const save = () => writeFileSync(path.join(output, 'result.json'), JSON.stringify(result, null, 2));
@@ -165,7 +174,7 @@ export function validateLaneCollection(plan, execution, expectedReport, report, 
   return collected;
 }
 
-export function runE2E({ cwd = process.cwd(), env = process.env, lane = 'regular',
+export function runE2E({ cwd = process.cwd(), env = process.env, lane,
   input = path.join(cwd, '.ci-input') } = {}) {
   assert(LANES.includes(lane), 'Unknown E2E lane');
   const output = path.join(cwd, '.ci');
@@ -182,7 +191,7 @@ export function runE2E({ cwd = process.cwd(), env = process.env, lane = 'regular
     assert.equal(record.jobStatus, 'success', 'Build record is not successful');
     result.buildRecordHash = hash(readFileSync(path.join(input, '.ci/job-record.json')));
     const execution = readInput('execution-plan.json');
-    assert.deepEqual(execution, executionPlan(plan, listBrowserSpecs(cwd), context), 'Inconsistent execution plan');
+    validateExecutionPlan(plan, execution, listBrowserSpecs(cwd), context);
     assert(plan.runE2E && execution.lanes[lane].length > 0, 'Unplanned E2E lane');
     for (const name of ['plan.json', 'execution-plan.json', 'expected-collection.json']) {
       cpSync(path.join(input, '.ci', name), path.join(output, name));
@@ -227,7 +236,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   try {
     if (process.argv[2] === 'prepare') prepareE2E();
     else if (process.argv[2] === 'run' && LANES.includes(process.argv[3])) runE2E({ lane: process.argv[3] });
-    else throw new Error('Usage: node scripts/ci-e2e.js prepare | run regular | run mobile');
+    else throw new Error('Usage: node scripts/ci-e2e.js prepare | run regular_a | run regular_b | run mobile');
   }
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }
