@@ -1,5 +1,8 @@
 # Phase 5C-2-4 implementation and acceptance evidence
 
+The 5C-2-4 OFF evidence below is historical. The separately authorized
+5C-2-ON-1 enablement and its own evidence are recorded at the end of this file.
+
 Baseline: `32cc64e20875693267239bbf5b4f3448c37855c3` (PR #53).
 This is the dedicated 5C-2-4 chat/branch. The implementation brief recommends
 Max-level consideration. Scope ends at local validation and one PR; product
@@ -201,3 +204,284 @@ and current full L2 results, followed by a separate initializer-enablement PR
 and L2 run. This implementation does not publish an ON route or perform that
 change. Current scope ends at one PR URL, with no CI polling, merge, deployment
 or later phase work.
+
+## Phase 5C-2-ON-1: public enablement (2026-10-31)
+
+User-PM explicitly authorized QTE ON and a single enablement PR, based exactly
+on main `dae7faa0585343e751eb63e6eebe648f7101fe42` (PR #54). This is the new
+enablement chat, not Phase 5D. The brief recommends Max-level consideration.
+The initial clean `work` checkout at PR #53 is retained; the dedicated branch
+starts at the fetched, matching main. Open PRs at entry: zero. No worktree,
+reset, clean, force push, merge or deployment is authorized or performed.
+
+### Enablement change impact matrix (before implementation)
+
+| Path | Direct change | Indirect observation / required evidence |
+| --- | --- | --- |
+| Public entry | Explicit `startGame({ qteEnabled: true })` | Unmodified built Pages entry must run ON; no URL/storage/global switch |
+| New / V1 / V2 gameplay | None; retain shared factory and default OFF injection boundary | Both validated restores and new games inherit public ON; never replace restored fishing |
+| Provider / encounters / RNG | None | Actual hook creates existing provider; operations and encounter draws unchanged |
+| Canvas / delivery / clock / HUD | None | Native mouse/touch, four operations, warning/display/finite seal, lifecycle/cancel/rotation, normal fresh hold |
+| Physics / camera / rendering / audio | None | Existing FIGHT settings and input ownership; shipping smoke and shared audio/lifecycle regressions |
+| Catch / price / achievements | None | Confirmed count0–3, additive +10% per success, immediate/individual/bulk, no duplicate settlement or historical recalculation |
+| Save / restore | None | V2 writer and two keys; V1 raw preservation, V2 revisit, corrupt/future/conflict/quota fail-closed; previous main can read ON-written saves |
+| ON/OFF tests / acceptance docs | Update public expectations; retain explicit OFF and fail-closed initializer matching; add built-entry evidence | Injected source evidence is identified separately from actual distribution execution; devices remain unmeasured |
+| Capture / comparison | None planned | Selected real base/head pairs; retain all 34 pairs / 68 images, strict resources/HUD/source replay |
+| CI aggregation / CLI / workflows | None | L2 full Regular/Mobile selection and collection, source/merge parents/artifact hashes, separate `ci-required` review by 8th_PM |
+
+The 100ms grace, 128 semantic edges, all operation thresholds/windows/cuts,
+warning0.6s, reservations/failure effects, sale arithmetic and storage contracts
+remain unchanged. Real device ON acceptance and product suitability of the
+provisional values remain unmeasured; see [the acceptance record](QTE_DEVICE_ACCEPTANCE.md).
+
+### Enablement implementation and local evidence
+
+The only executable product delta is the final initializer argument. A static
+baseline comparison removes comments and proves every other executable byte of
+`main.js` unchanged; every other `src` file, package/lock, workflow, comparator,
+CI aggregator and Playwright configuration is unchanged. New/restore factory
+defaults remain OFF, and the private routed fixture explicitly injects either
+boolean after matching the actual public ON initializer, failing closed on a
+different expression. The earlier OFF-only labels/revisit assertions are updated.
+
+`qte-public-on.spec.js` uses the ordinary built `/barb/` document, without routing,
+source replacement or a returned gameplay handle. It hashes the served HTML and
+entry JS against `dist`, records source/tree/main/build hashes and observes UI,
+trusted canvas input and saved records. Clock/RNG/save fixtures are test-only.
+Mouse/touch cases cover all four initial operations, three finite resolutions,
+counts0/1/2/3, shortest non-tap window, landing, immediate/individual/bulk sale,
+V1/V2 history/raw protection and a new ON fight after ordinary V2 revisit.
+The existing source-injected tests remain separate evidence, with their cold
+exact-source audits and explicit OFF paths retained.
+
+Older catch/transaction fixtures held their local `held` flag across a QTE,
+although the product correctly cancels that contact. `expirePublicQte` sends
+the native release, observes an actual finite failure and requires the HUD to
+hide within the existing warning/window/grace/result duration; then the caller
+must send a fresh normal down. Normal-physics iteration budgets and all result,
+price, save and resource assertions remain intact. It cannot accept success,
+interruption or unavailable layout. The autosave checkpoint helper now pairs
+synthetic pagehide/pageshow when continuing the same session; leaving `page`
+suspended without a return is intentional production behavior.
+
+The twelve-species capture/image driver instead follows each displayed mouse
+gesture and requires its finite success, catch bonus count and V2-restored count.
+This keeps its original100-step normal budget and600s Playwright timeout while
+covering approved ON play. Deliberate all-failure paths remain covered separately;
+they are not forced into that old OFF capture budget.
+
+This task uses Node24.19.0, Playwright1.64.1, installed Chromium154.0.8037.57,
+SwiftShader and the existing DPR settings, with `taskset --cpu-list 0,1` on a
+two-CPU quota. CI's designated browser remains unchanged. Local commands that
+need child-process/loopback access run with that environment access; a default
+sandbox static audit reported `spawnSync git EPERM` before rerunning successfully.
+No product or CI change was made for the environment.
+
+Evidence is under ignored `test-results/qte-public-on/`, not committed artifacts.
+Failures are retained independently from subsequent passes:
+
+| Attempt | Result / cause / treatment |
+| --- | --- |
+| `npm-ci.log` | PASS, locked dependencies; no dependency/lockfile change |
+| `unit-initial.log` | PASS970/970, fail/cancel/skip0, 42.8s; runtime at `34730b6` |
+| `build.log` | PASS at the same runtime; existing Three.js500KB chunk warning only |
+| `public-pilot/`, `public-pilot-run.json` | FAIL2/2 at `34730b6`: cast entered the real state machine but the new DOM-only test read AIM before rendering its next frame. Added one normal250ms frame; no product/timeout/assertion change |
+| `public-pilot-v2/`, `public-pilot-v2-evidence.json` | PASS2/2 at `e432b53`, skip/flaky/retry0, 120.8s: ordinary build mouse tap count3/bulk and touch V2/swipe count2/immediate, both reaching a fresh ON fight after V2 revisit; HTML/JS hashes and exact collected/executed IDs match |
+| `legacy-initial/`, `legacy-initial-run.json` | FAIL2 (PC/touch first landing), then intentional diagnostic stop:1 interrupted and9 unstarted. Native history shows the pre-QTE down at13.3s was not refreshed through46.05s. Corrected the test's old-hold assumption; failures and unexecuted cases remain recorded |
+| `legacy-pilot/`, `legacy-pilot-run.json` | FAIL2/2 at `bb0f2f5`: first captures passed with three observed finite failures; second captures remained paused because the synthetic save checkpoint sent pagehide without pageshow. Corrected the continuing-session event pair; no product lifecycle relaxation |
+| `legacy-pilot-v2/`, `legacy-pilot-v2-evidence.json` | PASS2/2 at `296181f`, skip/flaky/retry0, 187.0s: native PC/touch captures, RESULT rescue, sales, purchases, sailing, repeated reload and a second capture; exact collected/executed IDs match |
+| `rollback-pilot.log` | Diagnostic script failed before execution: default archive buffer included unnecessary artwork and exceeded1MiB (`ENOBUFS`). Restricted archive to actual game/world modules, without changing the source or test assertions |
+| `rollback-pilot-v2.log`, `rollback-compatibility.json` | PASS6 records: actual preceding-main reader/writer, ON-generated count2/3 caught/sold data plus fixed legacy V1 A/B. Read-only load, original raw, history/wallet/awards and one inactive V2 write retained. Final count0–3 matrix recorded with the full public run |
+| `legacy-final/`, `legacy-final-run.json` | At `482a5f2`:4 PASS (PC/touch line continuity and real sale/upgrade/read-only),1 timeout,6 unstarted after explicit fail-fast. `final-stability` hit its unchanged120s limit at the ordinary second sailing/braking `settle()` after all3 catches/saves and both repeated resource plateau checks had passed. No page/console errors or context losses were observed; allocations plateaued at26 geometries/4 textures/13 programs. Lifecycle/reload tail is **incomplete**, not PASS. No timeout/DPR/retry/assertion change or same-source rerun; remaining6 cases run separately |
+| `legacy-tail/`, `legacy-tail-run.json` | At `482a5f2`:4 PASS (PC/touch three sale routes and ordinary cancellation/missed hook/retry/flick/catch),1 FAIL,1 unstarted after fail-fast. Twelve-species case failed at380.8s with FIGHT/9.0m remaining after its100 normal steps and22 observed QTE failures across preceding fish; no browser errors. Its original OFF capture driver was applying approved ON failure penalties. Replaced this case's gestures with actual displayed QTE successes and strengthened count persistence assertions; retained100 steps,600s, all12 images/catches and collection checks |
+| `species-layout/`, `species-layout-evidence.json` | PASS2/2 at `b001a96`, skip/flaky/retry0, 420.6s. All12 actual species captures/images/storage/reload passed in374.1s, including25 UI-driven finite QTE successes and exact V2 count-array restoration; mobile safe insets/short landscape/font/menu/FIGHT/RESULT rotation passed in45.0s. Original100-step/600s bounds and all resource/layout assertions retained |
+| `source-selected/`, `source-selected-evidence.json`, `source-audits-summary.json` | PASS14/14 at `b001a96`, skip/flaky/retry0, 515.4s. Explicit OFF6 new/V1/V2 mouse/touch paths return to public ON; actual-source lifecycle/rotation/cancel/reason union,128edge interruption/recovery, three failures/count0, real-clock3tap,1/2 reservations, and native mouse/touch late-rAF handoff/no ghost hold passed. All8 independent exact-source scoring/effect audits passed. This routed source evidence is distinct from the unmodified public build |
+| `public-final/`, `public-final-evidence.json` | **PASS10/10** at `b001a96`, skip/flaky/retry0, 624.5s. Unmodified public-build mouse/touch flick/swipe/3tap/target and all-failure cases cover new/V1/V2,30 finite resolutions, confirmed count0–3, immediate/individual/bulk, first V2 save's active-raw protection, historical wallet/prices/award dates, and10 fresh ON fights after V2 revisit. All10 served HTML/entry-JS hash proofs match `dist`; no private initializer/global/route is used |
+| `rollback-final.log`, `rollback-compatibility.json` | **PASS22 records**, actual previous main `dae7faa` reader/writer:20 caught/sold records generated by the public ON build plus2 fixed legacy V1 A/B. Counts0/1/2/3, historical amounts/wallet/award timestamps, read-only load, READY rescue, original active raw and one inactive V2 write all pass; the current reader also validates the preceding writer's output |
+| `regression-selected/`, `regression-selected-evidence.json` | PASS15/15 at `b001a96`, skip/flaky/retry0, 172.6s: shared clock/audio/lifecycle; PC/touch fixed legacy A/B purchases/autosave/reload; FIGHT reload; corrupt/backup/future/quota/denied/conflict/renderer-init protection; QTE safe-inset/short-landscape/layout failure/rotation and menu checkpoint; actual public-build PC/touch sailing/end/cancel/menu smoke. Exact collected/executed IDs match |
+| `mobile-selected/`, `mobile-selected-evidence.json`, `mobile-selected-pairs/` | PASS4/4 tests, skip/flaky/retry0, 163.9s. Real base `dae7faa` and code/test head `b001a96`, unchanged DPR2, source-camera replay and strict buffer/resources/HUD comparisons pass for4 pairs/8 images: `portrait-day-tps`, `portrait-bite`, `portrait-fight`, `rotated-fight`. `comparison-incomplete.json` explicitly records the other30 pairs as unexecuted; full34-pair CI is still required |
+
+The final local union is **55 successful browser cases and1 unresolved120s
+timeout** (`final-stability`, later lifecycle/reload portion incomplete), plus
+**970 unit tests and build PASS**. `final-local-summary.json` correlates all
+collected/executed IDs and retains each earlier failure, interruption and
+unstarted case. The unchanged execution validator correctly rejects the failed
+whole batches; their4+4 successful cases are reported individually, never as
+successful whole runs. All successful completed selected batches have exactly
+one execution per case and no skip/flaky/retry. No timeout or comparison rule
+was relaxed and no same-source retry was used to claim a fix.
+
+The final code/test commit is `b001a962dcf868a333bde96c67ef96b1ac3ff9a8`.
+Documentation-only submission commits retain source tree
+`2a1a907e602167e7129d124d0d482b6aff149309` and tests tree
+`50c2d8a726999e0bbc14ca114ccc0d0d6b38257f`. `runtime-build-audit.json`
+records every distribution asset hash. Main SHA256 is
+`f035160c3da92fcb7e288f7808ec7eb8f9c88482e6d359529294c9a0ed465349`;
+the public entry `assets/index-doLohu4I.js` SHA256 is
+`49d2d3bb1b13d6d868628087b8b1e66d7ec62da669c14d73f30f3dce0bccc3ac`.
+
+Actual NUL-delimited base/head classification selects **L2**, all **33 specs**,
+both smokes and `deploy:false`. `final-pr-collection.json` is a **local PR-style
+collection only**: the unchanged `validateCollection`/`splitSpecs` check all
+**323 cases**, Regular **32 specs/265**, Mobile **1 spec/58**. Source/head/base,
+exact IDs and report hashes are retained locally; this is not a GitHub virtual
+merge or a successful full E2E execution.
+
+8th_PM must separately confirm current PR HEAD/current main, actual GitHub
+validation merge SHA and both parents, Unit/Build, all Regular/Mobile execution
+IDs, all **34 pairs/68 images**, artifact/source hashes and `ci-required`.
+GitHub full L2 is **unconfirmed** at submission. Codex does not poll CI, merge,
+deploy, sign off devices or start another phase. The acceptance form preserves
+the explicit ON authorization and the still-unmeasured PC/Android/iOS gates;
+its rollback procedure uses a new revert PR and the verified preceding V2 writer.
+
+The older Phase5C-2-4 failures, earlier G0 and prior local timeouts above remain
+historical records; this task does not claim to resolve them or use them as
+exemptions for new failures. Local execution is selected regression evidence,
+not all L2 E2E and not GitHub `ci-required` success. Device measurements remain
+**unmeasured**. Full current-head L2 and final release remain 8th_PM/user-PM gates.
+
+## PR #55 Regular E2E correction (8th_PM, 2026-11-01)
+
+The correction continues in the same PR and checkout, from clean HEAD
+`4a8205fc1e799e9a3b0e80006ccdf48194ad0147`. Remote main is the approved
+`dae7faa0585343e751eb63e6eebe648f7101fe42`; the remote work branch matched
+the old HEAD at the pre-edit audit. The old CI validation merge
+`8a383a5bbd20fb2113cdbebcd18776e06df5a0a0` was fetched read-only and its
+parents are exactly that main and old HEAD. Its source/tests trees match the
+pre-fix local reproduction. No checkout replacement or worktree was created.
+
+The pre-edit impact review is retained in ignored
+`test-results/pr55-regular-fix/change-impact.md`:
+
+| Layer | Direct correction | Indirect observation / unchanged gate |
+| --- | --- | --- |
+| Game state, probability, clock, physics | None | QTE expiry, normal tension decay and resumed over-tension are observed |
+| Input adapter / delivery | None | The target driver releases its old native contact and sends a fresh down after QTE; existing native late-up/cancel cases cover the seal boundary |
+| Camera / rendering | None | Distance may change during normal FIGHT; no camera or image exemption |
+| HUD / DOM | None | Read the actual public warning, finite failure, hidden result, tension and phase |
+| Save / price | None | Existing selected public ON sale/V2 restore checks retain +10% per success |
+| E2E driver / capture | Only the case at `fishing.spec.js:214` | Keep all previous cancellation/result assertions and the64 ordinary-step budget; use the unchanged bounded `expirePublicQte` |
+| Comparator | None | Full34 pairs/68 images remain required in L2 |
+| CI aggregation, CLI, workflow, config, dependencies | None | Existing L2 selection and `ci-required` remain unchanged |
+| Validation record | This appended correction record | Preserve all original failures, incomplete execution and unmeasured-device gates |
+
+### Cause and pre-fix evidence
+
+Run[41293561796](https://github.com/tk0mygit/barb/actions/runs/41293561796),
+Regular job[124809848234](https://github.com/tk0mygit/barb/actions/runs/41293561796/job/124809848234),
+finished with264 PASS/1 FAIL, and `ci-required` failed. The log is retained as
+`ci-job-124809848234.log`. Unit/Build and Mobile succeeded in that old run;
+those are old-HEAD results, not new-HEAD CI success.
+
+The exact original mouse blur/lost-capture/over-tension case was executed once
+locally before edits and reproduced expected `failed`, actual `fight` at
+`advanceTo('failed')`, including the15s expectation failure. Its original
+trace, error-context, default-diagnostics, collection and execution reports
+remain under `test-results/pr55-regular-fix/before*`. A read-only trace decoder
+retains call IDs, virtual timestamps, QTE DOM, timer, distance and tension in
+`before/.../trace-observations.json`.
+
+The local trace shows warning at virtual19.500s (tension0.626940), active at
+20.250s (2.0s displayed), awaiting-result at22.250s, finite failure at22.500s,
+then hidden result at23.000s. Tension subsequently reaches0 while the distance
+continues to increase to29.1m by33.250s. Diagnostics show `hidden:false`,
+`focused:true`, active canvas and no page/console error. The last normal
+pointerdown is at17.250s; there is no fresh down after the warning. Native
+pointer capture remains held, but it does not imply domain reeling ownership.
+
+The unchanged fight controller clears held input/generation at warning and at
+resolution. Its modes give ownership to QTE during warning/display/active/
+receipt wait; failure enters the existing220ms arm before normal physics.
+These internal fields and pause-reason arrays are not exposed by the public
+build; the old local trace observes their DOM/physics consequences, not a
+fabricated internal snapshot. Awaiting-display/arm were not separately sampled
+in that trace. The finite result and continuing ordinary distance/tension
+rule out a stuck QTE or globally paused simulation for this reproduction.
+
+The confirmed cause is the old test driver's missing fresh normal input after
+public QTE invalidates its hold. Product code was not changed. The target case
+now detects the actual warning, releases the native contact through the
+existing bounded helper, observes failure/result completion, verifies capture
+released and falling tension (no ghost hold), and sends a new native down.
+It then observes real line-break `failed`, the original line-break text, READY
+and successful recast. The64 ordinary ticks are retained; QTE expiry alone
+uses the helper's pre-existing finite budget. There is no fallback second
+ordinary-time loop, timeout/DPR/retry change, forced state or skipped assertion.
+
+Original CI artifact metadata was obtained: Regular artifact13079851175,
+99,475,321 bytes, SHA256
+`4ec956891e4dd29b6a3f74fe710e516beeb27820a1b21c96184720e31f449427`.
+The connector returned a file reference, but workspace download was blocked
+by the running environment's destination policy for
+`productionresultssa31.blob.core.windows.net` (403, including after the user
+reported applying permission). Therefore the **original CI trace,
+error-context and default-diagnostics have not been inspected locally**.
+Zero-byte download outputs are not valid artifacts or hash-verified evidence.
+The distinction between the obtained CI log and same-source local trace is
+retained; the latter is not presented as the former.
+
+### Correction validation
+
+Code/test commit: `1fa9e64d18cbb8f7da09922fafe1652344a19aea`. Source tree
+remains `2a1a907e602167e7129d124d0d482b6aff149309`; corrected tests tree is
+`94d8f0dbb4d34673e5da6fbd17b15074358fc621`. Subsequent submission-document
+changes do not alter these trees. All new evidence is ignored under
+`test-results/pr55-regular-fix/`; earlier evidence is preserved in its original
+directory.
+
+- `npm ci`, `npm test`:970 PASS,0 fail/skip; `npm run build`:PASS. The first
+  install attempt could not create the default home cache and did not start
+  Unit/Build. Its log is preserved; using a writable task cache allowed the
+  unchanged lockfile install. This is not a browser or CI retry.
+- Exact target `--grep`:1 collected/1 executed/1 PASS, retry/skip/flaky0,
+  66.963s test duration. The finite helper observed warning, active,
+  awaiting-result and failure; tension dropped from0.569340 to0.464340 after
+  the old native up/lostcapture, before the new normal down. Line-break,
+  READY and recast all passed. `after-collection.json`, `after-run.json`,
+  `public-unscored-qte.json` and `over-tension-qte-handoff.json` retain the
+  exact IDs and native event history.
+- Related selected regression:9 collected/9 executed, **8 PASS/1 timeout**,
+  retry/skip/flaky0,843.987s overall. PC/touch ordinary fishing, touch QTE
+  lifecycle/cancel/rotation/defeat/recast, both late-rAF handoffs, public
+  touch swipe sale/V2/revisit and both smokes passed. The batch exited1;
+  the unchanged execution validator correctly rejects it. It is not a
+  successful whole run. Exact IDs and per-case outcomes are retained in
+  `regression-collection.json`, `regression-run.json`, `regression.log` and
+  `regression-audit.json`.
+- Both existing native late-rAF mouse-up/touch-cancel tests independently
+  replayed the committed source, sealed exactly one success, and observed
+  `mode:normal`, `owner:normal`, `reeling:false`, pause reasons[] and40
+  subsequent samples each with no ghost hold. These internal source-fixture
+  measurements are distinct from the ordinary public build's DOM evidence.
+- The additional **public mouse flick120s timeout remains unresolved**.
+  Its first catch, sale, V1-to-V2 preservation and reload assertions passed;
+  it timed out at line189 waiting for the first warning of the second FIGHT.
+  The trace shows that fight beginning at virtual57.508s, continuing with
+  native down/up and changing tension/distance through61.008s (about7.5m),
+  with QTE hidden; diagnostics show visible/focused canvas and no errors.
+  This is continuing normal progress, not observed stuck QTE delivery. A
+  wall-clock/software-rendering budget explanation is only a hypothesis;
+  the case is not marked successful or fixed. Its screenshot, context
+  diagnostics, error-context and trace are preserved under
+  `regression/qte-public-on-public-build-0af4c-atch-sale-→-V2-→-ON-revisit/`.
+  No retry, timeout change, spec/fixture change or product change was made
+  in response. The correction's local union is9 successful cases and1
+  unresolved new timeout, in addition to the separately retained old
+  `final-stability` timeout.
+- Full PR-style collection:33 specs/323 cases, Regular32/265, Mobile1/58;
+  all collected IDs match the original submission exactly. L2 and
+  `deploy:false` are unchanged. The first collection omitted the PR event
+  file and selected local-mode286; it is preserved and is not used as the
+  L2 inventory. The complete PR-event collection is `l2-pr-collection.json`
+  with `l2-pr-collection-audit.json`. Collection is not full execution.
+
+No old CI rerun or same-HEAD CI retry was requested. New-HEAD L2 remains a
+separate GitHub gate: Unit/Build, Regular265, Mobile58,34 pairs/68 images and
+`ci-required` must each be reviewed by8th_PM with current main/HEAD and merge
+parents. Codex stops after pushing this correction and reporting the new run,
+without waiting for its completion. The original local `final-stability`
+120s timeout remains unresolved; its later portion was not rerun here or
+declared successful. PC/Android Chrome/iOS Safari public-ON acceptance and
+100ms/128edge suitability remain **unmeasured**. Merge, deployment and device
+acceptance remain outside this correction's authorization.

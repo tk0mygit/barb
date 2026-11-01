@@ -2,7 +2,7 @@ import { test, expect } from './diagnostics-fixture.js';
 import { FISH_SPECIES } from '../../src/game/fish-species.js';
 import { calculateSalePrice } from '../../src/game/fish-sales.js';
 import { BUYER_LINES } from '../../src/game/buyer-lines.js';
-import { activateButton } from './input-fixture.js';
+import { activateButton, expirePublicQte } from './input-fixture.js';
 
 const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
 for (const touch of [false, true]) {
@@ -35,6 +35,7 @@ for (const touch of [false, true]) {
       await down(); await up(); await tick(); expect(await phase()).toBe('fight');
       let held = false;
       for (let i = 0; i < 100 && await phase() === 'fight'; i++) {
+        if (await expirePublicQte(page, up)) { held = false; continue; }
         const tension = await page.locator('#line-tension').evaluate(el => el.value);
         if (!held && tension < 0.35) { await down(); held = true; }
         else if (held && tension > 0.65) { await up(); held = false; }

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { FISH_SPECIES, getFishSpecies, calculateFishWeightKg } from '../../src/game/fish-species.js';
 import { getSpeciesProbabilities, sampleFishSpecies } from '../../src/game/fish-encounters.js';
 import { installPausedClock } from './clock-fixture.js';
+import { expirePublicQte, succeedMousePublicQte } from './input-fixture.js';
 import { validateFishImage } from '../../scripts/lib/fish-image-validation.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
@@ -108,6 +109,7 @@ async function land(page, input, speciesId) {
       if (snapshot.phase === 'landing') await page.screenshot({ path: `test-results/landing-${page.viewportSize().width}.png` });
       break;
     }
+    if (await expirePublicQte(page, () => input.up())) { held = false; continue; }
     const tension = snapshot.tension;
     if (!held && tension < 0.3) { await input.down(); held = true; }
     else if (held && tension > 0.58) { await input.up(); held = false; }
@@ -280,7 +282,29 @@ test('mouse: blur/lost capture reset aim, over-tension fails and retry works', a
     return page.locator('#line-tension').evaluate(el => el.value);
   }).toBeLessThan(tension);
   await input.up(); await input.down();
-  await advanceTo('failed'); await input.up();
+  const hud = page.locator('.qte-hud'), handoffs = [];
+  // Warning invalidates the old normal hold. Keep the 64 ordinary-step
+  // budget; only the existing finite QTE wait has its own bounded clock.
+  for (let frame = 0; frame < 64 && await phase(page).getAttribute('data-phase') !== 'failed'; frame++) {
+    if (await hud.isVisible()) {
+      await expect(hud).toHaveAttribute('data-state', 'warning');
+      expect(await expirePublicQte(page, input.up)).toBe(true);
+      await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
+      await expect.poll(() => page.locator('#scene').evaluate(canvas => canvas.hasPointerCapture(1))).toBe(false);
+      const sealed = await page.locator('#line-tension').evaluate(el => el.value);
+      await tick(); frame++;
+      const released = await page.locator('#line-tension').evaluate(el => el.value);
+      // The stale up/lostcapture must leave no ghost hold after the seal.
+      expect(released).toBeLessThan(sealed);
+      handoffs.push({ sealed, released });
+      await input.down();
+    }
+    await tick();
+  }
+  expect(handoffs.length).toBeGreaterThan(0);
+  await test.info().attach('over-tension-qte-handoff', { body: JSON.stringify({ handoffs,
+    native: await page.evaluate(() => window.e2eDiagnostics.events.filter(e => e.target === 'scene')) }), contentType: 'application/json' });
+  await expect(phase(page)).toHaveAttribute('data-phase', 'failed'); await input.up();
   await expect(phase(page)).toHaveAttribute('data-phase', 'failed');
   await expect(page.locator('#fishing-note')).toContainText('ラインが切れ');
   await advanceTo('ready');
@@ -323,6 +347,7 @@ test('all 12 species: production cast, hook, fight, matching result image and re
   const input = await inputFor(page, false);
   const tick = () => page.clock.fastForward(250);
   const snapshot = () => page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
+  const confirmedCounts = [];
   for (const [index, species] of FISH_SPECIES.entries()) {
     // Start alternating day/night phases through elapsed time, so a rollover
     // cannot change the probability interval in the middle of this cast.
@@ -347,10 +372,11 @@ test('all 12 species: production cast, hook, fight, matching result image and re
     expect((await snapshot()).phase).toBe('bite');
     await input.tap(); await tick();
     expect((await snapshot()).phase).toBe('fight');
-    let held = false;
+    let held = false, successes = 0;
     for (let i = 0; i < 100; i++) {
       const s = await snapshot();
       if (s.phase !== 'fight') break;
+      if (await succeedMousePublicQte(page)) { held = false; successes++; continue; }
       if (!held && s.tension < 0.35) { await input.down(); held = true; }
       else if (held && s.tension > 0.65) { await input.up(); held = false; }
       await tick();
@@ -359,6 +385,9 @@ test('all 12 species: production cast, hook, fight, matching result image and re
     expect((await snapshot()).phase).toBe('landing');
     for (let i = 0; i < 5; i++) await tick();
     await assertCatch(page, species.id, roll);
+    expect(successes).toBeGreaterThanOrEqual(1); expect(successes).toBeLessThanOrEqual(3);
+    await expect(page.locator('#catch-qte-bonus')).toContainText(`QTE成功${successes}回／`);
+    confirmedCounts.push(successes);
     if (index === 0) await page.locator('#catch-dialog').evaluate(dialog => dialog.close());
     else await page.locator('#close-catch').click({ force: true });
     await tick();
@@ -377,6 +406,9 @@ test('all 12 species: production cast, hook, fight, matching result image and re
   expect(scroll.height).toBeGreaterThan(scroll.client); expect(scroll.top).toBeGreaterThan(0);
   await page.locator('#collection-close').click({ force: true });
   await page.clock.resume(); await page.reload(); await expect(page.locator('#status')).toBeHidden();
+  const counts = await page.evaluate(() => ['barb.save.v1.slotA', 'barb.save.v1.slotB'].map(key => localStorage.getItem(key))
+    .filter(Boolean).map(JSON.parse).sort((a, b) => b.generation - a.generation)[0].data.collection.catches.map(record => record.qteSuccessCount));
+  expect(counts).toEqual(confirmedCounts);
   await page.locator('#menu-button').click(); await page.locator('[data-view="storage"]').click();
   await expect(page.locator('.stored-fish')).toHaveCount(12);
   await page.locator('#collection-back').click(); await page.locator('[data-view="encyclopedia"]').click();

@@ -1,7 +1,7 @@
 import { test, expect } from './diagnostics-fixture.js';
 import { writeFile } from 'node:fs/promises';
 import { installPausedClock } from './clock-fixture.js';
-import { activateButton } from './input-fixture.js';
+import { activateButton, expirePublicQte } from './input-fixture.js';
 import { createCatchCollection } from '../../src/game/catch-collection.js';
 import { createAchievements } from '../../src/game/achievements.js';
 import { createBoatState } from '../../src/game/boat.js';
@@ -655,6 +655,7 @@ for (const profile of [profiles[0], profiles[1]]) {
     await save(page, info, 'connected-rotated-fight', await observe());
     let held = false;
     for (let i = 0; i < 140 && await panel(page).getAttribute('data-phase') === 'fight'; i++) {
+      if (await expirePublicQte(page, () => input.up())) { held = false; continue; }
       const tension = await page.locator('#line-tension').evaluate(el => el.value);
       if (!held && tension < 0.3) { await input.down(rotatedSize.width / 2, rotatedSize.height * 0.48); held = true; }
       else if (held && tension > 0.58) { await input.up(); held = false; }

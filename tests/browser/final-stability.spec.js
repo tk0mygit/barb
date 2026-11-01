@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { test, expect } from './diagnostics-fixture.js';
-import { activateButton } from './input-fixture.js';
+import { activateButton, expirePublicQte } from './input-fixture.js';
 import { startCapture, enterFishing, fishingInput, tick, phase } from './mobile-capture.js';
 import { read, assertEnvironment } from './day-night-fixture.js';
 import { createResourceDiagnostics, assertResourcePlateau } from './resource-diagnostics.js';
@@ -110,6 +110,7 @@ test('touch: repeated play, multi-cycle environment and reload keep resources an
         const { currentPhase, tension } = await page.evaluate(() => ({ currentPhase: document.querySelector('#fishing-panel').dataset.phase,
           tension: document.querySelector('#line-tension').value }));
         if (currentPhase !== 'fight') break;
+        if (await expirePublicQte(page, () => input.up())) { held = false; continue; }
         if (!held && tension < 0.35) { await input.down(); held = true; }
         else if (held && tension > 0.65) { await input.up(); held = false; }
         await tick(page);

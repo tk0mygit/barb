@@ -1,6 +1,6 @@
 import { test, expect } from './diagnostics-fixture.js';
 import { installPausedClock } from './clock-fixture.js';
-import { activateButton } from './input-fixture.js';
+import { activateButton, expirePublicQte } from './input-fixture.js';
 
 for (const touch of [false, true]) {
   test(`${touch ? 'touch' : 'mouse'}: real sales fund READY/sailing purchases; active fishing remains read-only`, async ({ createContext }) => {
@@ -75,6 +75,7 @@ for (const touch of [false, true]) {
       if (checkStates) await readOnly();
       let held = false;
       for (let i = 0; i < 140 && await phase() === 'fight'; i++) {
+        if (await expirePublicQte(page, up)) { held = false; continue; }
         const tension = await page.locator('#line-tension').evaluate(el => el.value);
         if (!held && tension < 0.35) { await down(); held = true; }
         else if (held && tension > 0.65) { await up(); held = false; }

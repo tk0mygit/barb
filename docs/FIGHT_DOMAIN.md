@@ -1,12 +1,14 @@
 # FIGHTの時計・入力・QTE接続境界（Phase 5C-1）
 
-## Phase 5C-2-4 production composition
+## Phase 5C-2-4 composition / 5C-2-ON-1 public policy
 
 `game/gameplay.js` now assembles both new and validated restored domains. The
-shipping `startGame()` call in `main.js` has no arguments, no export/global and
-no player-controlled activation path; its policy is OFF. Playwright replaces
-only that final call inside a private routed document, serving the same source
-graph and actual Three.js renderer. It does not reproduce main's loop.
+shipping `startGame({ qteEnabled: true })` call in `main.js` explicitly enables
+QTE for both paths after the user-PM's 2026-10-31 approval. Factory defaults
+remain OFF for code-injected regression tests. There is no export/global or
+player-controlled activation path. The private Playwright ON/OFF route replaces
+only that verified final call, serving the same graph and actual Three.js
+renderer; public-build tests separately use the unchanged distribution entry.
 
 Before `createFightController`, fishing calls the injected `createFightQte`
 with the new `fightId/speciesId/lengthCm`. The gameplay factory creates one

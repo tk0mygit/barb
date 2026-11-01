@@ -19,8 +19,8 @@ for (const touch of [false, true]) test(`${touch ? 'touch immediate' : 'mouse st
   page.on('pageerror', error => errors.push(error.message));
   const click = locator => touch ? locator.tap() : locator.click();
   const cdp = touch ? await context.newCDPSession(page) : null;
-  // Only this Playwright route composes QTE and economics. main.js retains its
-  // ordinary QTE-OFF new-game and restore factories.
+  // This private component route isolates economics. The ordinary public ON
+  // build is exercised independently by qte-public-on.spec.js.
   await openQteFixture(page, 'tap', { economy: true });
   for (let index = 0; index < 3; index++) {
     await page.waitForFunction(index => window.qteFixture.fishing.state.fight.qte.token?.index === index

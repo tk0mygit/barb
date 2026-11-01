@@ -33,8 +33,8 @@ import { createQteDelivery } from './input/qte-delivery.js';
 import { createQteEvaluator } from './game/qte-operations.js';
 import { createQteHUD } from './ui/qte-hud.js';
 
-// One initializer for the shipping OFF call and Playwright's code-only ON
-// injection. No export, URL/storage setting, global or published ON entry.
+// One initializer for public ON and code-injected ON/OFF regression tests.
+// Policy is code-only: no export, URL/storage setting or public global.
 function startGame({ qteEnabled = false, random = Math.random, onFightEvent = () => {} } = {}) {
 const canvas = document.querySelector('#scene');
 function showError(message) {
@@ -418,4 +418,4 @@ try {
 
 }
 
-startGame();
+startGame({ qteEnabled: true });
