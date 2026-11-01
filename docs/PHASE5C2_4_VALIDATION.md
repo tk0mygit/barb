@@ -340,3 +340,148 @@ historical records; this task does not claim to resolve them or use them as
 exemptions for new failures. Local execution is selected regression evidence,
 not all L2 E2E and not GitHub `ci-required` success. Device measurements remain
 **unmeasured**. Full current-head L2 and final release remain 8th_PM/user-PM gates.
+
+## PR #55 Regular E2E correction (8th_PM, 2026-11-01)
+
+The correction continues in the same PR and checkout, from clean HEAD
+`4a8205fc1e799e9a3b0e80006ccdf48194ad0147`. Remote main is the approved
+`dae7faa0585343e751eb63e6eebe648f7101fe42`; the remote work branch matched
+the old HEAD at the pre-edit audit. The old CI validation merge
+`8a383a5bbd20fb2113cdbebcd18776e06df5a0a0` was fetched read-only and its
+parents are exactly that main and old HEAD. Its source/tests trees match the
+pre-fix local reproduction. No checkout replacement or worktree was created.
+
+The pre-edit impact review is retained in ignored
+`test-results/pr55-regular-fix/change-impact.md`:
+
+| Layer | Direct correction | Indirect observation / unchanged gate |
+| --- | --- | --- |
+| Game state, probability, clock, physics | None | QTE expiry, normal tension decay and resumed over-tension are observed |
+| Input adapter / delivery | None | The target driver releases its old native contact and sends a fresh down after QTE; existing native late-up/cancel cases cover the seal boundary |
+| Camera / rendering | None | Distance may change during normal FIGHT; no camera or image exemption |
+| HUD / DOM | None | Read the actual public warning, finite failure, hidden result, tension and phase |
+| Save / price | None | Existing selected public ON sale/V2 restore checks retain +10% per success |
+| E2E driver / capture | Only the case at `fishing.spec.js:214` | Keep all previous cancellation/result assertions and the64 ordinary-step budget; use the unchanged bounded `expirePublicQte` |
+| Comparator | None | Full34 pairs/68 images remain required in L2 |
+| CI aggregation, CLI, workflow, config, dependencies | None | Existing L2 selection and `ci-required` remain unchanged |
+| Validation record | This appended correction record | Preserve all original failures, incomplete execution and unmeasured-device gates |
+
+### Cause and pre-fix evidence
+
+Run[41293561796](https://github.com/tk0mygit/barb/actions/runs/41293561796),
+Regular job[124809848234](https://github.com/tk0mygit/barb/actions/runs/41293561796/job/124809848234),
+finished with264 PASS/1 FAIL, and `ci-required` failed. The log is retained as
+`ci-job-124809848234.log`. Unit/Build and Mobile succeeded in that old run;
+those are old-HEAD results, not new-HEAD CI success.
+
+The exact original mouse blur/lost-capture/over-tension case was executed once
+locally before edits and reproduced expected `failed`, actual `fight` at
+`advanceTo('failed')`, including the15s expectation failure. Its original
+trace, error-context, default-diagnostics, collection and execution reports
+remain under `test-results/pr55-regular-fix/before*`. A read-only trace decoder
+retains call IDs, virtual timestamps, QTE DOM, timer, distance and tension in
+`before/.../trace-observations.json`.
+
+The local trace shows warning at virtual19.500s (tension0.626940), active at
+20.250s (2.0s displayed), awaiting-result at22.250s, finite failure at22.500s,
+then hidden result at23.000s. Tension subsequently reaches0 while the distance
+continues to increase to29.1m by33.250s. Diagnostics show `hidden:false`,
+`focused:true`, active canvas and no page/console error. The last normal
+pointerdown is at17.250s; there is no fresh down after the warning. Native
+pointer capture remains held, but it does not imply domain reeling ownership.
+
+The unchanged fight controller clears held input/generation at warning and at
+resolution. Its modes give ownership to QTE during warning/display/active/
+receipt wait; failure enters the existing220ms arm before normal physics.
+These internal fields and pause-reason arrays are not exposed by the public
+build; the old local trace observes their DOM/physics consequences, not a
+fabricated internal snapshot. Awaiting-display/arm were not separately sampled
+in that trace. The finite result and continuing ordinary distance/tension
+rule out a stuck QTE or globally paused simulation for this reproduction.
+
+The confirmed cause is the old test driver's missing fresh normal input after
+public QTE invalidates its hold. Product code was not changed. The target case
+now detects the actual warning, releases the native contact through the
+existing bounded helper, observes failure/result completion, verifies capture
+released and falling tension (no ghost hold), and sends a new native down.
+It then observes real line-break `failed`, the original line-break text, READY
+and successful recast. The64 ordinary ticks are retained; QTE expiry alone
+uses the helper's pre-existing finite budget. There is no fallback second
+ordinary-time loop, timeout/DPR/retry change, forced state or skipped assertion.
+
+Original CI artifact metadata was obtained: Regular artifact13079851175,
+99,475,321 bytes, SHA256
+`4ec956891e4dd29b6a3f74fe710e516beeb27820a1b21c96184720e31f449427`.
+The connector returned a file reference, but workspace download was blocked
+by the running environment's destination policy for
+`productionresultssa31.blob.core.windows.net` (403, including after the user
+reported applying permission). Therefore the **original CI trace,
+error-context and default-diagnostics have not been inspected locally**.
+Zero-byte download outputs are not valid artifacts or hash-verified evidence.
+The distinction between the obtained CI log and same-source local trace is
+retained; the latter is not presented as the former.
+
+### Correction validation
+
+Code/test commit: `1fa9e64d18cbb8f7da09922fafe1652344a19aea`. Source tree
+remains `2a1a907e602167e7129d124d0d482b6aff149309`; corrected tests tree is
+`94d8f0dbb4d34673e5da6fbd17b15074358fc621`. Subsequent submission-document
+changes do not alter these trees. All new evidence is ignored under
+`test-results/pr55-regular-fix/`; earlier evidence is preserved in its original
+directory.
+
+- `npm ci`, `npm test`:970 PASS,0 fail/skip; `npm run build`:PASS. The first
+  install attempt could not create the default home cache and did not start
+  Unit/Build. Its log is preserved; using a writable task cache allowed the
+  unchanged lockfile install. This is not a browser or CI retry.
+- Exact target `--grep`:1 collected/1 executed/1 PASS, retry/skip/flaky0,
+  66.963s test duration. The finite helper observed warning, active,
+  awaiting-result and failure; tension dropped from0.569340 to0.464340 after
+  the old native up/lostcapture, before the new normal down. Line-break,
+  READY and recast all passed. `after-collection.json`, `after-run.json`,
+  `public-unscored-qte.json` and `over-tension-qte-handoff.json` retain the
+  exact IDs and native event history.
+- Related selected regression:9 collected/9 executed, **8 PASS/1 timeout**,
+  retry/skip/flaky0,843.987s overall. PC/touch ordinary fishing, touch QTE
+  lifecycle/cancel/rotation/defeat/recast, both late-rAF handoffs, public
+  touch swipe sale/V2/revisit and both smokes passed. The batch exited1;
+  the unchanged execution validator correctly rejects it. It is not a
+  successful whole run. Exact IDs and per-case outcomes are retained in
+  `regression-collection.json`, `regression-run.json`, `regression.log` and
+  `regression-audit.json`.
+- Both existing native late-rAF mouse-up/touch-cancel tests independently
+  replayed the committed source, sealed exactly one success, and observed
+  `mode:normal`, `owner:normal`, `reeling:false`, pause reasons[] and40
+  subsequent samples each with no ghost hold. These internal source-fixture
+  measurements are distinct from the ordinary public build's DOM evidence.
+- The additional **public mouse flick120s timeout remains unresolved**.
+  Its first catch, sale, V1-to-V2 preservation and reload assertions passed;
+  it timed out at line189 waiting for the first warning of the second FIGHT.
+  The trace shows that fight beginning at virtual57.508s, continuing with
+  native down/up and changing tension/distance through61.008s (about7.5m),
+  with QTE hidden; diagnostics show visible/focused canvas and no errors.
+  This is continuing normal progress, not observed stuck QTE delivery. A
+  wall-clock/software-rendering budget explanation is only a hypothesis;
+  the case is not marked successful or fixed. Its screenshot, context
+  diagnostics, error-context and trace are preserved under
+  `regression/qte-public-on-public-build-0af4c-atch-sale-→-V2-→-ON-revisit/`.
+  No retry, timeout change, spec/fixture change or product change was made
+  in response. The correction's local union is9 successful cases and1
+  unresolved new timeout, in addition to the separately retained old
+  `final-stability` timeout.
+- Full PR-style collection:33 specs/323 cases, Regular32/265, Mobile1/58;
+  all collected IDs match the original submission exactly. L2 and
+  `deploy:false` are unchanged. The first collection omitted the PR event
+  file and selected local-mode286; it is preserved and is not used as the
+  L2 inventory. The complete PR-event collection is `l2-pr-collection.json`
+  with `l2-pr-collection-audit.json`. Collection is not full execution.
+
+No old CI rerun or same-HEAD CI retry was requested. New-HEAD L2 remains a
+separate GitHub gate: Unit/Build, Regular265, Mobile58,34 pairs/68 images and
+`ci-required` must each be reviewed by8th_PM with current main/HEAD and merge
+parents. Codex stops after pushing this correction and reporting the new run,
+without waiting for its completion. The original local `final-stability`
+120s timeout remains unresolved; its later portion was not rerun here or
+declared successful. PC/Android Chrome/iOS Safari public-ON acceptance and
+100ms/128edge suitability remain **unmeasured**. Merge, deployment and device
+acceptance remain outside this correction's authorization.
