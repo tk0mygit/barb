@@ -17,7 +17,8 @@ jobs:
     name: Unit tests, build and E2E plan
     runs-on: ubuntu-latest
     outputs:
-      run_regular: ${{ steps.prepare.outputs.run_regular }}
+      run_regular_a: ${{ steps.prepare.outputs.run_regular_a }}
+      run_regular_b: ${{ steps.prepare.outputs.run_regular_b }}
       run_mobile: ${{ steps.prepare.outputs.run_mobile }}
       artifact_id: ${{ steps.diagnostics.outputs.artifact-id }}
       pages_artifact_id: ${{ steps.pages.outputs.artifact_id }}
@@ -73,10 +74,10 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  e2e_regular:
-    name: Regular E2E (workers=1)
+  e2e_regular_a:
+    name: Regular A E2E (workers=1)
     needs: build
-    if: needs.build.outputs.run_regular == 'true'
+    if: needs.build.outputs.run_regular_a == 'true'
     runs-on: ubuntu-latest
     outputs:
       artifact_id: ${{ steps.diagnostics.outputs.artifact-id }}
@@ -100,22 +101,72 @@ jobs:
       - name: Set up Chromium
         id: chromium
         run: npx playwright install --with-deps chromium
-      - name: Validate selection and run regular E2E
+      - name: Validate selection and run regular_a E2E
         id: e2e
-        run: node scripts/ci-e2e.js run regular
-      - name: Seal regular validation record
+        run: node scripts/ci-e2e.js run regular_a
+      - name: Seal Regular A validation record
         if: always()
         env:
-          CI_RECORD_JOB: regular
+          CI_RECORD_JOB: regular_a
           CI_STEPS: ${{ toJSON(steps) }}
           CI_JOB_STATUS: ${{ job.status }}
         run: node scripts/ci-summary.js record
-      - name: Upload regular browser diagnostics and validation records
+      - name: Upload Regular A browser diagnostics and validation records
         id: diagnostics
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-regular
+          name: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-regular_a
+          path: |
+            test-results/
+            .ci/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  e2e_regular_b:
+    name: Regular B E2E (workers=1)
+    needs: build
+    if: needs.build.outputs.run_regular_b == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_id: ${{ steps.diagnostics.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v4
+        id: checkout
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        id: node
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+        id: install
+      - uses: actions/download-artifact@v4
+        id: download
+        with:
+          name: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-build
+          path: .ci-input
+      - name: Set up Chromium
+        id: chromium
+        run: npx playwright install --with-deps chromium
+      - name: Validate selection and run regular_b E2E
+        id: e2e
+        run: node scripts/ci-e2e.js run regular_b
+      - name: Seal Regular B validation record
+        if: always()
+        env:
+          CI_RECORD_JOB: regular_b
+          CI_STEPS: ${{ toJSON(steps) }}
+          CI_JOB_STATUS: ${{ job.status }}
+        run: node scripts/ci-summary.js record
+      - name: Upload Regular B browser diagnostics and validation records
+        id: diagnostics
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-regular_b
           path: |
             test-results/
             .ci/
@@ -177,7 +228,7 @@ jobs:
     name: ci-required
     # Without always(), any failed/skipped need can skip the final check.
     if: always()
-    needs: [build, e2e_regular, e2e_mobile]
+    needs: [build, e2e_regular_a, e2e_regular_b, e2e_mobile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

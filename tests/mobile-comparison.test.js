@@ -223,6 +223,9 @@ test('final gate requires all 34 pairs, their report, provenance and every image
   }
   const partial = structuredClone(payload); partial.mobile.before.pop();
   await assert.rejects(() => validateMobileEvidence(partial, data), /all 25 render and 9 HUD/);
+  const extraImage = structuredClone(payload);
+  extraImage.record.files['test-results/mobile-comparison/pr-unexpected.png'] = 'synthetic-manifest-hash';
+  await assert.rejects(() => validateMobileEvidence(extraImage, data), /requires exactly 68 images/);
   const mixed = structuredClone(payload); mixed.mobile.comparison.rows[0].id = 'substituted';
   await assert.rejects(() => validateMobileEvidence(mixed, data), /report differs/);
   const incomplete = structuredClone(payload);

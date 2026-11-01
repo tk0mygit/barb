@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { BUILD_STEPS, E2E_STEPS, planSummary, resultSummary, validateAggregate, writeSummary } from '../scripts/ci-summary.js';
 import { executionPlan, MOBILE_SPEC, splitSpecs } from '../scripts/ci-e2e.js';
 import { classifyChanges, L1_GROUPS, listBrowserSpecs, SMOKE_SPECS } from '../scripts/ci-risk.js';
-import { artifactName, fileManifest, readRecord, recordJob, validationContext } from '../scripts/lib/ci-artifacts.js';
+import { artifactName, fileManifest, LANES, readRecord, recordJob, validationContext } from '../scripts/lib/ci-artifacts.js';
 import { mobileGateFixture } from './helpers/mobile-gate-fixture.js';
 import { readMobileImplementation, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
 
@@ -34,7 +34,7 @@ function fixture({ level = 'L2', eventName = 'workflow_dispatch', specs = invent
   const execution = executionPlan(plan, inventory, context);
   const expected = plan.runE2E ? report(plan.specs) : undefined;
   const build = { plan: clone(plan), execution: clone(execution), expected,
-    recordHash: 'build-record-hash', record: { job: 'build', context: clone(context), jobStatus: 'success',
+    recordHash: 'build-record-hash', record: { schemaVersion: 2, job: 'build', context: clone(context), jobStatus: 'success',
       steps: { ...steps(BUILD_STEPS), pages: { outcome: plan.deploy ? 'success' : 'skipped' } },
       files: { 'dist/index.html': 'build-hash' } },
     result: { context: clone(context), executed: false, status: plan.runE2E ? 'prepared' : 'not-run',
@@ -42,14 +42,14 @@ function fixture({ level = 'L2', eventName = 'workflow_dispatch', specs = invent
   const needs = { build: { result: 'success', outputs: { artifact_id: 'build-id',
     ...(plan.deploy ? { pages_artifact_id: 'pages-id' } : {}) } } };
   const lanes = {};
-  for (const lane of ['regular', 'mobile']) {
+  for (const lane of LANES) {
     const selected = execution.lanes[lane];
     needs[`e2e_${lane}`] = { result: selected.length ? 'success' : 'skipped',
       outputs: selected.length ? { artifact_id: `${lane}-id` } : {} };
     if (!selected.length) continue;
     lanes[lane] = { plan: clone(plan), execution: clone(execution), expected: clone(expected),
       collection: report(selected), report: report(selected),
-      record: { job: lane, context: clone(context), jobStatus: 'success', steps: steps(E2E_STEPS), files: {} },
+      record: { schemaVersion: 2, job: lane, context: clone(context), jobStatus: 'success', steps: steps(E2E_STEPS), files: {} },
       result: { lane, context: clone(context), specs: clone(selected), executed: true, status: 'passed',
         passedTests: selected.length, collectedTests: selected.length, exitCode: 0, signal: null,
         buildRecordHash: build.recordHash, executionMs: 1250, collectionMs: 100 } };
@@ -61,22 +61,22 @@ function fixture({ level = 'L2', eventName = 'workflow_dispatch', specs = invent
   return { plan, context, execution, inventory, build, needs, lanes };
 }
 
-test('all 25 specs are partitioned exactly, and new specs default to regular', () => {
+test('the complete inventory is partitioned exactly, and unprofiled specs cannot disappear', () => {
   assert(inventory.length >= 25, 'Baseline specs must remain in the full inventory');
   const input = fixture();
-  assert.equal(input.execution.lanes.regular.length, inventory.length - 1);
+  assert.equal(input.execution.lanes.regular_a.length + input.execution.lanes.regular_b.length, inventory.length - 1);
   assert.deepEqual(input.execution.lanes.mobile, [MOBILE_SPEC]);
   assert.deepEqual(Object.values(input.execution.lanes).flat().sort(), inventory);
   const expanded = [...inventory, 'tests/browser/new.spec.js'].sort();
   const lanes = splitSpecs({ ...input.plan, specs: expanded }, expanded);
-  assert(lanes.regular.includes('tests/browser/new.spec.js'));
+  assert.equal([...lanes.regular_a, ...lanes.regular_b].filter(spec => spec === 'tests/browser/new.spec.js').length, 1);
   assert.deepEqual(lanes.mobile, [MOBILE_SPEC]);
 });
 
 test('original risk plan and full inventory cannot be weakened by the split plan', async () => {
   for (const mutate of [
-    input => input.execution.inventory.pop(), input => input.execution.lanes.regular.pop(),
-    input => input.execution.lanes.mobile.push(input.execution.lanes.regular[0]),
+    input => input.execution.inventory.pop(), input => input.execution.lanes.regular_a.pop(),
+    input => input.execution.lanes.mobile.push(input.execution.lanes.regular_a[0]),
     input => input.execution.planHash = 'different-plan', input => input.build.plan.level = 'L1',
   ]) {
     const input = fixture(); mutate(input);
@@ -87,7 +87,8 @@ test('original risk plan and full inventory cannot be weakened by the split plan
 test('both collection and execution ID unions match the original selection exactly once', async () => {
   const input = fixture(), result = await validateAggregate(input);
   assert.equal(result.passedTests, inventory.length);
-  assert.equal(result.laneResults.regular.passedTests, inventory.length - 1);
+  for (const lane of LANES) assert.equal(result.laneResults[lane].passedTests, input.execution.lanes[lane].length);
+  assert.equal(result.laneResults.regular_a.passedTests + result.laneResults.regular_b.passedTests, inventory.length - 1);
   assert.equal(result.laneResults.mobile.passedTests, 1);
   assert(resultSummary({ plan: input.plan, result }).includes(`${inventory.length} tests、収集・実行ID`));
 });
@@ -120,14 +121,14 @@ test('source-backed final gate rejects forged states, reports, provenance and in
     const input = clone(original); mutate(input.lanes.mobile);
     await assert.rejects(validateAggregate(input), expected, label);
   }
-  const regular = clone(original); regular.needs.e2e_regular.result = 'failure';
-  await assert.rejects(validateAggregate(regular), /Required job incomplete: e2e_regular/);
+  const regular = clone(original); regular.needs.e2e_regular_a.result = 'failure';
+  await assert.rejects(validateAggregate(regular), /Required job incomplete: e2e_regular_a/);
   const mobile = clone(original); mobile.lanes.mobile.result.executed = false;
   await assert.rejects(validateAggregate(mobile), /No executed E2E tests/);
 });
 
 test('either successful lane cannot replace failed, cancelled, skipped or missing required jobs', async () => {
-  for (const job of ['build', 'e2e_regular', 'e2e_mobile']) {
+  for (const job of ['build', ...LANES.map(lane => `e2e_${lane}`)]) {
     for (const outcome of ['failure', 'cancelled', 'skipped', undefined]) {
       const input = fixture(); input.needs[job].result = outcome;
       await assert.rejects(() => validateAggregate(input), /Required job incomplete/);
@@ -138,7 +139,7 @@ test('either successful lane cannot replace failed, cancelled, skipped or missin
 });
 
 test('missing, failed, interrupted or unexecuted lane records fail even if needs says success', async () => {
-  for (const lane of ['regular', 'mobile']) {
+  for (const lane of LANES) {
     const missing = fixture(); delete missing.lanes[lane];
     await assert.rejects(() => validateAggregate(missing), /Missing .* validation artifact/);
     for (const status of ['failed', 'interrupted', 'running', 'not-run', 'skipped', undefined]) {
@@ -161,12 +162,12 @@ test('missing or substituted IDs cannot pass by keeping the same passing test co
       specs => specs.pop(), specs => specs[0].id = 'unexpected-ID',
       specs => specs.push({ ...clone(specs[0]), id: 'extra-ID' }), specs => specs[1].id = specs[0].id,
     ]) {
-      const input = fixture(); mutate(input.lanes.regular[type].suites[0].specs);
+      const input = fixture(); mutate(input.lanes.regular_a[type].suites[0].specs);
       await assert.rejects(() => validateAggregate(input), /IDs|identities|specs differ|tests differ/);
     }
   }
   const input = fixture();
-  input.lanes.mobile.collection.suites[0].specs[0].id = input.lanes.regular.collection.suites[0].specs[0].id;
+  input.lanes.mobile.collection.suites[0].specs[0].id = input.lanes.regular_a.collection.suites[0].specs[0].id;
   await assert.rejects(() => validateAggregate(input), /Lane collection differs/);
 });
 
@@ -183,7 +184,7 @@ test('skip, expected failure, retry and zero execution fail at the final gate', 
 });
 
 test('all required install/unit/build/setup steps and diagnostic uploads must succeed', async () => {
-  for (const [job, names] of [['build', BUILD_STEPS], ['regular', E2E_STEPS], ['mobile', E2E_STEPS]]) {
+  for (const [job, names] of [['build', BUILD_STEPS], ...LANES.map(lane => [lane, E2E_STEPS])]) {
     for (const name of names) for (const outcome of ['failure', 'cancelled', 'skipped', undefined]) {
       const input = fixture();
       (job === 'build' ? input.build : input.lanes[job]).record.steps[name].outcome = outcome;
@@ -192,13 +193,13 @@ test('all required install/unit/build/setup steps and diagnostic uploads must su
     const input = fixture(); delete input.needs[job === 'build' ? job : `e2e_${job}`].outputs.artifact_id;
     await assert.rejects(() => validateAggregate(input), /Missing uploaded artifact ID/);
   }
-  const duplicate = fixture(); duplicate.needs.e2e_mobile.outputs.artifact_id = duplicate.needs.e2e_regular.outputs.artifact_id;
+  const duplicate = fixture(); duplicate.needs.e2e_mobile.outputs.artifact_id = duplicate.needs.e2e_regular_a.outputs.artifact_id;
   await assert.rejects(() => validateAggregate(duplicate), /Duplicate artifact IDs/);
 });
 
 test('base/head/validation SHA, ref, run and attempt mismatches are rejected for every lane', async () => {
-  for (const job of ['build', 'regular', 'mobile']) for (const kind of ['record', 'result']) {
-    for (const key of ['baseSha', 'headSha', 'validationSha', 'validationRef', 'eventName', 'runId', 'runAttempt']) {
+  for (const job of ['build', ...LANES]) for (const kind of ['record', 'result']) {
+    for (const key of ['baseSha', 'headSha', 'validationSha', 'validationRef', 'eventName', 'prNumber', 'runId', 'runAttempt']) {
       const input = fixture();
       (job === 'build' ? input.build : input.lanes[job])[kind].context[key] = 'mismatch';
       await assert.rejects(() => validateAggregate(input), /provenance differs/);
@@ -217,7 +218,7 @@ test('L1 preserves both smoke specs and related selection, with no unnecessary m
   await assert.rejects(() => validateAggregate(unexpected), /Unplanned E2E job/);
   const future = [...input.plan.specs, MOBILE_SPEC].sort();
   const lanes = splitSpecs({ ...input.plan, specs: future }, inventory);
-  assert.deepEqual(lanes.mobile, [MOBILE_SPEC]); assert.deepEqual(lanes.regular, input.plan.specs);
+  assert.deepEqual(lanes.mobile, [MOBILE_SPEC]); assert.deepEqual(lanes.regular_a, input.plan.specs);
   const futurePlan = classifyChanges([{ status: 'M', paths: ['src/audio/ambient-player.js'] }], {
     availableSpecs: inventory, groups: { ...L1_GROUPS, 'ambient-output': { specs: ['tests/browser/audio.spec.js', MOBILE_SPEC] } },
   });
@@ -225,6 +226,55 @@ test('L1 preserves both smoke specs and related selection, with no unnecessary m
   assert.deepEqual(splitSpecs(futurePlan, inventory), lanes);
   for (const missing of SMOKE_SPECS) assert.throws(() => splitSpecs({ ...input.plan,
     specs: future.filter(file => file !== missing) }, inventory), /Missing smoke/);
+});
+
+test('L1 skips empty Regular B and keeps original smoke coverage across the split', async () => {
+  const aOnly = fixture({ eventName: 'pull_request', level: 'L1', specs: [...SMOKE_SPECS, 'tests/browser/audio.spec.js'].sort() });
+  assert.deepEqual(aOnly.execution.lanes.regular_b, []);
+  assert.equal(aOnly.needs.e2e_regular_b.result, 'skipped');
+  assert.equal((await validateAggregate(aOnly)).passedTests, aOnly.plan.specs.length);
+  // Regular B has only the related spec; its own report needs no smoke tests.
+  const split = fixture({ eventName: 'pull_request', level: 'L1', specs: [...SMOKE_SPECS, 'tests/browser/audio-gain.spec.js'].sort() });
+  assert.equal((await validateAggregate(split)).passedTests, split.plan.specs.length);
+  for (const lane of ['regular_b', 'mobile']) {
+    const unexpectedJob = clone(aOnly); unexpectedJob.needs[`e2e_${lane}`].result = 'success';
+    await assert.rejects(validateAggregate(unexpectedJob), /Unplanned E2E job/);
+    const unexpectedArtifact = clone(aOnly); unexpectedArtifact.needs[`e2e_${lane}`].outputs.artifact_id = 'unplanned';
+    await assert.rejects(validateAggregate(unexpectedArtifact), /Unplanned E2E artifact/);
+  }
+});
+
+test('a future L1 Mobile selection still awaits all 34 source-backed comparisons', async () => {
+  const input = fixture({ eventName: 'pull_request', level: 'L1', mobile: await mobileGateFixture(),
+    specs: [...SMOKE_SPECS, 'tests/browser/audio.spec.js', MOBILE_SPEC].sort() });
+  const result = await validateAggregate(input);
+  assert.equal(result.passedTests, input.plan.specs.length);
+  assert.equal(result.mobilePairs, 34);
+  assert.equal(input.needs.e2e_regular_b.result, 'skipped');
+  assert.equal(input.needs.e2e_mobile.result, 'success');
+});
+
+test('old regular keys/records, surplus needs/lanes and tampered three-lane execution plans fail closed', async () => {
+  for (const mutate of [
+    input => input.needs.e2e_regular = input.needs.e2e_regular_a,
+    input => { input.needs.e2e_regular = input.needs.e2e_regular_a; delete input.needs.e2e_regular_a; },
+    input => input.execution.schemaVersion = 1,
+    input => input.execution.profile.hash = 'forged',
+    input => input.execution.inputHash = 'forged',
+    input => input.execution.selectedSpecs.pop(),
+    input => input.execution.lanes.regular_b.push(input.execution.lanes.regular_a[0]),
+    input => input.execution.lanes.regular_a.push(MOBILE_SPEC),
+    input => input.execution.lanes.regular = input.execution.lanes.regular_a,
+    input => input.execution.lanes.regular_b.push('tests/browser/unselected.spec.js'),
+    input => input.lanes.regular = input.lanes.regular_a,
+    input => input.lanes.regular_a.record.job = 'regular',
+    input => input.lanes.regular_b.record.schemaVersion = 1,
+    input => input.lanes.regular_a.collection = clone(input.lanes.regular_b.collection),
+    input => input.lanes.regular_b.report = clone(input.lanes.regular_a.report),
+  ]) {
+    const input = fixture(); mutate(input);
+    await assert.rejects(validateAggregate(input));
+  }
 });
 
 test('L0 and main push require explicit non-execution and reject unintended E2E', async () => {
@@ -274,7 +324,7 @@ test('artifact manifests reject missing, modified, added files and SHA/job/run m
   rmSync(path.join(cwd, '.ci/injected.json'));
   assert.throws(() => readRecord(cwd, 'mobile', input.context), /Artifact job differs/);
   assert.throws(() => readRecord(cwd, 'build', { ...input.context, validationSha: 'b'.repeat(40) }), /provenance differs/);
-  assert.notEqual(artifactName(input.context, 'regular'), artifactName(input.context, 'mobile'));
+  assert.notEqual(artifactName(input.context, 'regular_a'), artifactName(input.context, 'mobile'));
   assert.notEqual(artifactName(input.context, 'mobile'), artifactName({ ...input.context, runAttempt: '2' }, 'mobile'));
 });
 
@@ -323,28 +373,43 @@ test('summary CLI awaits result rejection, exits nonzero and preserves plan/reco
 });
 
 const workflow = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8').replace(/^\s*#.*$/gm, '');
-test('workflow final ci-required always runs with all three direct dependencies and read-only permissions', () => {
+test('workflow final ci-required always runs with all four direct dependencies and read-only permissions', () => {
   assert.match(workflow, /^permissions:\n  contents: read\n/m);
   assert.equal((workflow.match(/name: ci-required/g) ?? []).length, 1);
   const gate = workflow.slice(workflow.indexOf('\n  required:'), workflow.indexOf('\n  deploy:'));
   assert.match(gate, /if: always\(\)/);
-  assert.match(gate, /needs: \[build, e2e_regular, e2e_mobile\]/);
+  assert.match(gate, /needs: \[build, e2e_regular_a, e2e_regular_b, e2e_mobile\]/);
   assert.match(gate, /CI_NEEDS: \$\{\{ toJSON\(needs\) \}\}/);
   assert.match(gate, /merge-multiple: false/);
   assert.match(gate, /node scripts\/ci-summary\.js result/);
   assert.doesNotMatch(workflow, /continue-on-error:|permissions: write-all|^\s+paths(?:-ignore)?:/m);
 });
 
-test('both E2E lanes depend only on build and preserve failure diagnostics for fourteen days', () => {
-  for (const [job, lane] of [['e2e_regular', 'regular'], ['e2e_mobile', 'mobile']]) {
+test('all three E2E lanes depend only on build and preserve failure diagnostics for fourteen days', () => {
+  assert.equal((workflow.match(/^  e2e_[a-z_]+:/gm) ?? []).length, LANES.length);
+  assert.doesNotMatch(workflow, /^  e2e_regular:|run_regular:/m);
+  for (const [job, lane] of LANES.map(lane => [`e2e_${lane}`, lane])) {
     const section = workflow.slice(workflow.indexOf(`\n  ${job}:`) + 1).split(/\n  [a-z0-9_]+:/)[0];
-    assert.match(section, /needs: build/);
+    assert.match(section, /^    needs: build$/m);
+    assert.match(section, /^    runs-on: ubuntu-latest$/m);
+    assert.match(section, /fetch-depth: 0/); assert.match(section, /node-version: 24/);
     assert(section.includes(`if: needs.build.outputs.run_${lane} == 'true'`));
     assert(section.includes(`run: node scripts/ci-e2e.js run ${lane}`));
+    assert(section.includes(`CI_RECORD_JOB: ${lane}\n`));
+    assert(section.includes(`github.sha }}-${lane}\n`));
+    assert(workflow.includes(`run_${lane}: \u0024{{ steps.prepare.outputs.run_${lane} }}`));
     assert.match(section, /if: always\(\)/); assert.match(section, /retention-days: 14/);
     assert.match(section, /include-hidden-files: true/); assert.match(section, /if-no-files-found: error/);
     assert.match(section, /test-results\//);
   }
+});
+
+test('browser timeout, expectation timeout, worker and retry policy stay unchanged', () => {
+  const config = readFileSync(new URL('../playwright.config.js', import.meta.url), 'utf8');
+  assert.match(config, /timeout: 120000/);
+  assert.match(config, /expect: \{ timeout: 15000 \}/);
+  assert.match(config, /workers: 1/);
+  assert.doesNotMatch(config, /retries:/);
 });
 
 test('Pages upload/deploy require main push, the final gate, and the same SHA-specific artifact', () => {

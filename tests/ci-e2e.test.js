@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { MOBILE_SPEC, prepareE2E, reportTests, runE2E, validateCollection, validateExecution, validatePlan } from '../scripts/ci-e2e.js';
+import { LANES, MOBILE_SPEC, prepareE2E, reportTests, runE2E, validateCollection, validateExecution, validatePlan } from '../scripts/ci-e2e.js';
 import { artifactName, recordJob, validationContext } from '../scripts/lib/ci-artifacts.js';
 import { BUILD_STEPS, E2E_STEPS, verifyArtifacts } from '../scripts/ci-summary.js';
 import { createPlan, SMOKE_SPECS } from '../scripts/ci-risk.js';
+import { mobileGateFixture } from './helpers/mobile-gate-fixture.js';
 
 const SHA = 'a'.repeat(40);
 const relatedSpec = 'tests/browser/audio.spec.js';
@@ -164,10 +165,11 @@ function runnerFixture(t, eventName = 'workflow_dispatch', behavior = 'pass', in
   const originalInventory = eventName === 'pull_request'
     ? [...selectedSpecs, 'tests/browser/audio-gain.spec.js', 'tests/browser/game.spec.js'].sort()
     : selectedSpecs;
-  const inventory = [...originalInventory, ...(includeMobile ? [MOBILE_SPEC] : [])].sort();
+  const inventory = [...new Set([...originalInventory,
+    ...(includeMobile ? [MOBILE_SPEC, 'tests/browser/audio-gain.spec.js'] : [])])].sort();
   for (const [index, file] of inventory.entries()) writeFileSync(path.join(cwd, file), `
     const { test, expect } = require('@playwright/test');
-    test${behavior === 'skip' && index === 0 ? '.skip' : ''}('probe ${index}', () => {
+    test${index === 0 && ['skip', 'only'].includes(behavior) ? `.${behavior}` : ''}('probe ${index}', () => {
       expect(1).toBe(${behavior === 'fail' && index === 0 ? '2' : '1'});
     });
   `);
@@ -190,7 +192,8 @@ function runnerFixture(t, eventName = 'workflow_dispatch', behavior = 'pass', in
   if (eventName === 'pull_request') {
     const baseSha = git(['rev-parse', 'HEAD']);
     git(['switch', '-qc', 'fixture-pr']);
-    writeFileSync(path.join(cwd, behavior === 'docs' ? 'README.md' : 'src/audio/ambient-player.js'), '// PR change\n');
+    writeFileSync(path.join(cwd, behavior === 'docs' ? 'README.md'
+      : behavior === 'ci' ? 'ci-change.txt' : 'src/audio/ambient-player.js'), '// PR change\n');
     git(['add', '.']);
     git([...identity, 'commit', '-qm', 'PR change']);
     const headSha = git(['rev-parse', 'HEAD']);
@@ -221,7 +224,7 @@ function runPrepared(fixture) {
   mkdirSync(input);
   for (const directory of ['.ci', 'dist']) cpSync(path.join(fixture.cwd, directory), path.join(input, directory), { recursive: true });
   rmSync(path.join(fixture.cwd, '.ci'), { recursive: true });
-  return runE2E(fixture);
+  return runE2E({ ...fixture, lane: 'regular_a' });
 }
 
 function seal(fixture, job, names) {
@@ -247,7 +250,7 @@ test('runner records main push E2E omission without launching Playwright', t => 
   assert.equal(fixture.result().passedTests, 0);
 });
 
-test('runner completes only after collecting and executing the full dispatch inventory', t => {
+test('runner completes only after collecting and executing its complete dispatch assignment', t => {
   const fixture = runnerFixture(t);
   assert.equal(runPrepared(fixture).status, 'passed');
   assert.equal(fixture.result().passedTests, selectedSpecs.length);
@@ -267,18 +270,27 @@ test('runner rejects actual skipped tests even when Playwright exits successfull
   assert.equal(fixture.result().status, 'failed');
 });
 
+test('prepare rejects actual test.only without weakening forbid-only', t => {
+  const fixture = runnerFixture(t, 'workflow_dispatch', 'only');
+  assert.throws(() => prepareE2E(fixture), /Playwright collection failed/);
+  assert.equal(fixture.result().status, 'failed');
+});
+
 test('L1 PR runner recomputes the real merge diff and filters only related and smoke specs', t => {
   const fixture = runnerFixture(t, 'pull_request');
   const planned = JSON.parse(readFileSync(path.join(fixture.cwd, '.ci/plan.json'), 'utf8'));
   assert.equal(planned.level, 'L1');
   assert.equal(planned.diff.ok, true);
   assert.deepEqual(planned.changes, [{ status: 'M', paths: ['src/audio/ambient-player.js'] }]);
-  assert.equal(runPrepared(fixture).passedTests, 4);
+  assert.equal(runPrepared(fixture).passedTests, 3);
   const collected = reportTests(JSON.parse(readFileSync(path.join(fixture.cwd, '.ci/collection.json'), 'utf8')));
   assert.deepEqual(collected.map(({ file }) => file).sort(), [
-    'audio-gain.spec.js', 'audio.spec.js', 'smoke-pc.spec.js', 'smoke-touch.spec.js',
+    'audio.spec.js', 'smoke-pc.spec.js', 'smoke-touch.spec.js',
   ]);
   assert.equal(collected.some(({ file }) => file === 'game.spec.js'), false);
+  assert.equal(runE2E({ ...fixture, lane: 'regular_b' }).passedTests, 1);
+  const b = reportTests(JSON.parse(readFileSync(path.join(fixture.cwd, '.ci/collection.json'), 'utf8')));
+  assert.deepEqual(b.map(({ file }) => file), ['audio-gain.spec.js']);
 });
 
 test('L0 documentation PR runner verifies the merge and records intentional E2E omission', t => {
@@ -290,19 +302,43 @@ test('L0 documentation PR runner verifies the merge and records intentional E2E 
   assert.equal(fixture.result().executed, false);
 });
 
-test('real reporter probes from both lanes pass the actual artifact gate; missing/corrupt evidence fails', async t => {
+test('real reporter probes from all three lanes pass the actual artifact gate; missing/corrupt evidence fails', async t => {
   const fixture = runnerFixture(t, 'workflow_dispatch', 'pass', true);
   // No browser/application is used; this exercises runner/report/artifact wiring.
   assert.equal(runPrepared(fixture).passedTests, selectedSpecs.length);
   archive(fixture, path.join(fixture.cwd, '.ci-input'), 'build');
-  seal(fixture, 'regular', E2E_STEPS); archive(fixture, fixture.cwd, 'regular');
+  seal(fixture, 'regular_a', E2E_STEPS); archive(fixture, fixture.cwd, 'regular_a');
+  assert.equal(runE2E({ ...fixture, lane: 'regular_b' }).passedTests, 1);
+  seal(fixture, 'regular_b', E2E_STEPS); archive(fixture, fixture.cwd, 'regular_b');
   assert.equal(runE2E({ ...fixture, lane: 'mobile' }).passedTests, 1);
+  writeFileSync(path.join(fixture.cwd, 'test-results/probe.png'), 'image bytes anchored by the manifest');
   seal(fixture, 'mobile', E2E_STEPS);
   const mobile = archive(fixture, fixture.cwd, 'mobile');
-  const needs = Object.fromEntries(['build', 'e2e_regular', 'e2e_mobile'].map(job =>
+  const needs = Object.fromEntries(['build', ...LANES.map(lane => `e2e_${lane}`)].map(job =>
     [job, { result: 'success', outputs: { artifact_id: `${job}-id` } }]));
   const input = { ...fixture, env: { ...fixture.env, CI_NEEDS: JSON.stringify(needs) } };
-  assert.equal((await verifyArtifacts(input)).result.passedTests, 4);
+  assert.equal((await verifyArtifacts(input)).result.passedTests, selectedSpecs.length + 2);
+  const cli = spawnSync(process.execPath, [path.resolve('scripts/ci-summary.js'), 'result'], {
+    cwd: fixture.cwd, env: { ...input.env, CI_JOB_STATUS: 'success',
+      CI_STEPS: JSON.stringify(Object.fromEntries(['checkout', 'node', 'install', 'download'].map(name => [name, { outcome: 'success' }]))) },
+    encoding: 'utf8',
+  });
+  assert.equal(cli.status, 0, cli.stderr);
+  assert.match(cli.stdout, /検証: 成功/);
+  for (const lane of LANES) assert(cli.stdout.includes(lane));
+  for (const lane of LANES) {
+    const directory = path.join(fixture.cwd, '.ci-artifacts', artifactName(validationContext(
+      JSON.parse(readFileSync(path.join(fixture.cwd, '.ci/plan.json'), 'utf8')), fixture.env), lane));
+    const held = path.join(fixture.cwd, '.ci-held');
+    renameSync(directory, held);
+    await assert.rejects(() => verifyArtifacts(input), /Missing, unexpected or colliding/);
+    renameSync(held, directory);
+  }
+  const imagePath = path.join(mobile, 'test-results/probe.png');
+  const image = readFileSync(imagePath);
+  writeFileSync(imagePath, 'changed image bytes');
+  await assert.rejects(() => verifyArtifacts(input), /missing, added or corrupted/);
+  writeFileSync(imagePath, image);
   const reportFile = path.join(mobile, '.ci/e2e-report.json');
   const original = readFileSync(reportFile);
   writeFileSync(reportFile, '{}');
@@ -311,8 +347,58 @@ test('real reporter probes from both lanes pass the actual artifact gate; missin
   mkdirSync(path.join(fixture.cwd, '.ci-artifacts/unexpected-artifact'));
   await assert.rejects(() => verifyArtifacts(input), /Missing, unexpected or colliding/);
   rmSync(path.join(fixture.cwd, '.ci-artifacts/unexpected-artifact'), { recursive: true });
+  const recordFile = path.join(mobile, '.ci/job-record.json');
+  const record = readFileSync(recordFile, 'utf8');
+  writeFileSync(recordFile, JSON.stringify({ ...JSON.parse(record), schemaVersion: 1 }));
+  await assert.rejects(() => verifyArtifacts(input), /Unknown record schema/);
+  writeFileSync(recordFile, record);
   rmSync(mobile, { recursive: true });
   await assert.rejects(() => verifyArtifacts(input), /Missing, unexpected or colliding/);
+});
+
+test('final result CLI awaits a Mobile source rejection and exits 1 after valid three-lane artifacts', async t => {
+  const fixture = runnerFixture(t, 'pull_request', 'ci', true);
+  runPrepared(fixture);
+  archive(fixture, path.join(fixture.cwd, '.ci-input'), 'build');
+  seal(fixture, 'regular_a', E2E_STEPS); archive(fixture, fixture.cwd, 'regular_a');
+  for (const lane of ['regular_b', 'mobile']) {
+    assert.equal(runE2E({ ...fixture, lane }).status, 'passed');
+    if (lane === 'mobile') {
+      const source = await mobileGateFixture();
+      const plan = JSON.parse(readFileSync(path.join(fixture.cwd, '.ci/plan.json'), 'utf8'));
+      const metadata = { ...source.metadata, baseSha: plan.baseSha, headSha: plan.headSha, validationSha: plan.validationSha,
+        implementations: { main: { ...source.metadata.implementations.main, sha: plan.baseSha },
+          pr: { ...source.metadata.implementations.pr, sha: plan.validationSha } } };
+      const root = path.join(fixture.cwd, 'test-results/mobile-comparison');
+      mkdirSync(root, { recursive: true });
+      const write = (name, value) => writeFileSync(path.join(root, name), JSON.stringify(value));
+      write('comparison-metadata.json', metadata); write('main.json', source.before); write('pr.json', source.after);
+      write('comparison.json', { metadata, rows: source.comparison.rows });
+      writeFileSync(path.join(root, 'comparison.html'), '<p>synthetic source-rejection probe</p>');
+      for (const entry of [...source.before, ...source.after]) {
+        write(`${entry.target}-${entry.id}.json`, entry);
+        writeFileSync(path.join(root, `${entry.target}-${entry.id}.png`), 'manifest probe');
+      }
+    }
+    seal(fixture, lane, E2E_STEPS); archive(fixture, fixture.cwd, lane);
+  }
+  const needs = Object.fromEntries(['build', ...LANES.map(lane => `e2e_${lane}`)].map(job =>
+    [job, { result: 'success', outputs: { artifact_id: `${job}-id` } }]));
+  const summary = path.join(fixture.cwd, 'result-summary.md');
+  const cli = spawnSync(process.execPath, [path.resolve('scripts/ci-summary.js'), 'result'], {
+    cwd: fixture.cwd, env: { ...fixture.env, CI_JOB_STATUS: 'success', CI_NEEDS: JSON.stringify(needs),
+      GITHUB_STEP_SUMMARY: summary,
+      CI_STEPS: JSON.stringify(Object.fromEntries(['checkout', 'node', 'install', 'download'].map(name => [name, { outcome: 'success' }]))) },
+    encoding: 'utf8',
+  });
+  // The temporary repository deliberately has no real runtime source. Only
+  // the asynchronous source replay can reject these sealed probe captures.
+  assert.equal(cli.status, 1, cli.stderr);
+  assert.match(cli.stderr, /src\/main\.js/);
+  assert.match(cli.stdout, /失敗・未完了/);
+  assert.match(readFileSync(summary, 'utf8'), /E2E成功は確認できません/);
+  assert.doesNotMatch(cli.stdout, /検証: 成功|E2E: 実行成功/);
+  assert.doesNotMatch(cli.stderr, /UnhandledPromiseRejection|unhandledRejection/);
 });
 
 test('actual L0 and main push records pass only with explicit omission and required build evidence', async t => {
@@ -323,7 +409,7 @@ test('actual L0 and main push records pass only with explicit omission and requi
     seal(fixture, 'build', BUILD_STEPS); archive(fixture, fixture.cwd, 'build');
     const needs = { build: { result: 'success', outputs: { artifact_id: 'build-id',
       ...(eventName === 'push' ? { pages_artifact_id: 'pages-id' } : {}) } },
-    e2e_regular: { result: 'skipped', outputs: {} }, e2e_mobile: { result: 'skipped', outputs: {} } };
+    e2e_regular_a: { result: 'skipped', outputs: {} }, e2e_regular_b: { result: 'skipped', outputs: {} }, e2e_mobile: { result: 'skipped', outputs: {} } };
     const result = await verifyArtifacts({ ...fixture, env: { ...fixture.env, CI_NEEDS: JSON.stringify(needs) } });
     assert.equal(result.result.passedTests, 0); assert.equal(result.plan.deploy, eventName === 'push');
   }

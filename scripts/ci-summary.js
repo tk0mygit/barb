@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { appendFileSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { executionPlan, identities, revalidatePlan, reportTests, validateCollection,
+import { identities, revalidatePlan, reportTests, validateCollection, validateExecutionPlan,
   validateExecution, validateLaneCollection } from './ci-e2e.js';
 import { listBrowserSpecs } from './ci-risk.js';
 import { artifactName, hash, LANES, readRecord, recordJob } from './lib/ci-artifacts.js';
@@ -37,6 +37,7 @@ export const E2E_STEPS = ['checkout', 'node', 'install', 'download', 'chromium',
 
 function validateJob(payload, job, context, requiredSteps) {
   assert(payload, `Missing ${job} validation artifact`);
+  assert.equal(payload.record.schemaVersion, 2, 'Unknown record schema');
   assert.equal(payload.record.job, job, 'Artifact job differs');
   assert.deepEqual(payload.record.context, context, 'Artifact SHA/ref/run provenance differs');
   assert.equal(payload.record.jobStatus, 'success', `Job failed or was cancelled: ${job}`);
@@ -58,6 +59,8 @@ export async function validateMobileEvidence(payload, plan) {
   const required = ['comparison-metadata.json', 'main.json', 'pr.json', 'comparison.html', 'comparison.json',
     ...['main', 'pr'].flatMap(target => MOBILE_CAPTURE_IDS.flatMap(id => [`${target}-${id}.png`, `${target}-${id}.json`]))];
   for (const file of required) assert(payload.record.files[prefix + file], `Missing mobile artifact: ${file}`);
+  assert.deepEqual(Object.keys(payload.record.files).filter(file => file.startsWith(prefix) && file.endsWith('.png')).sort(),
+    required.filter(file => file.endsWith('.png')).map(file => prefix + file).sort(), 'Unexpected mobile image set (requires exactly 68 images)');
   assert(!payload.record.files[prefix + 'comparison-incomplete.json'], 'Incomplete mobile comparison');
   const rows = await compareMobileCapturesWithSources(before, after, metadata);
   assert.deepEqual(comparison, { metadata, rows }, 'Mobile comparison report differs from captures');
@@ -67,7 +70,9 @@ export async function validateMobileEvidence(payload, plan) {
 // This validates the raw collection/execution reports again at the final gate.
 // Counts in result.json are evidence to check, never the coverage oracle.
 export async function validateAggregate({ plan, execution, inventory, context, needs, build, lanes }) {
-  assert.deepEqual(Object.keys(needs).sort(), ['build', 'e2e_mobile', 'e2e_regular'], 'Missing or unexpected required job');
+  assert.deepEqual(Object.keys(needs).sort(), ['build', ...LANES.map(lane => `e2e_${lane}`)].sort(), 'Missing or unexpected required job');
+  assert(Object.keys(lanes).every(lane => LANES.includes(lane)), 'Unknown E2E artifact lane');
+  validateExecutionPlan(plan, execution, inventory, context);
   assert.equal(needs.build.result, 'success', 'Required job incomplete: build');
   const active = LANES.filter(lane => execution.lanes[lane]?.length > 0);
   const artifactIds = ['build', ...active.map(lane => `e2e_${lane}`)].map(job => {
@@ -78,7 +83,6 @@ export async function validateAggregate({ plan, execution, inventory, context, n
   });
   assert.equal(new Set(artifactIds).size, artifactIds.length, 'Duplicate artifact IDs');
   validateJob(build, 'build', context, [...BUILD_STEPS, ...(plan.deploy ? ['pages'] : [])]);
-  assert.deepEqual(execution, executionPlan(plan, inventory, context), 'Inconsistent execution plan');
   assert.deepEqual(build.plan, plan, 'Build risk plan differs');
   assert.deepEqual(build.execution, execution, 'Build execution plan differs');
   assert(Object.keys(build.record.files).some(file => file.startsWith('dist/')), 'Missing built dist artifact');
