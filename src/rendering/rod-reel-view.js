@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createRodReelModel } from './rod-reel-model.js';
 
-const TAKEBACK = THREE.MathUtils.degToRad(18);
+const TAKEBACK = THREE.MathUtils.degToRad(14);
 const FORWARD = THREE.MathUtils.degToRad(-8);
 const smooth = value => { const t = THREE.MathUtils.clamp(value, 0, 1); return t * t * (3 - 2 * t); };
 

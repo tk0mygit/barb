@@ -63,7 +63,7 @@ Rotated-FIGHT remains <=41 calls; the 5F-1 reservation stays untouched.
 ## Validation ledger
 
 The implementation rotates the existing root around model-local grip
-`[0, .12, 0]`, using the camera's +X pitch axis. AIM smoothsteps to +18 degrees
+`[0, .12, 0]`, using the camera's +X pitch axis. AIM smoothsteps to +14 degrees
 over .18s and holds; CAST reaches -8 degrees at .12s and returns to neutral at
 .50s. Ordinary cancellation returns to neutral over .22s. Phase-entry angles
 are sampled at inferred `elapsed - state.time` boundaries, rather than copied
@@ -105,6 +105,17 @@ cases before the additional lifecycle regression case. The first broader
 focused attempt rejected uncommitted runtime source and encountered sandbox
 child-Node `EPERM` in an existing CLI test. These are recorded failures, not
 passes; final full checks run against committed source with subprocess access.
+
+The first committed source (`6b6aff38d5e20c88cdda43abde0970a2a2bf14d7`)
+passed all 1,027 Unit cases, Build, the three new motion cases and the three
+selected existing FIGHT/QTE/smoke cases. Subsequent screenshot review found
+the original 18-degree takeback crossed the landscape top HUD by about 6px.
+This visual defect was not caught by the original viewport-only assertion.
+The angle was reduced to 14 degrees; every-level Unit vertex bounds and native
+browser checks now require clearance from the top HUD. The browser requirement
+uses the actual DOM rectangles and retains a 2 CSS pixel margin. Existing
+projection, attachment, resource, timeout and quality assertions are unchanged.
+The original screenshots/results are retained separately from final verification.
 
 Final Unit/Build/local browser execution and collection outcomes, exact execution
 SHA, numerical evidence and attachment paths are recorded in the PR description,

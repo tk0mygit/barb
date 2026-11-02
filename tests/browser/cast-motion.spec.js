@@ -10,6 +10,21 @@ const ORIGIN = [10, 20]; // Validated initial save used by openGear.
 // whose exact rounded coordinates are checked without a tolerance in assertGear.
 const SOURCE_WORLD_EPSILON = 2e-12;
 
+function assertAnimatedClear(snapshot) {
+  // Measure the current native HUD after its phase layout. The centred
+  // reticle and lower controls are outside the top HUD exclusion band.
+  const topControls = snapshot.controls.filter(rect => rect.id !== 'reticle'
+    && rect.bottom < snapshot.viewport.height / 2);
+  expect(topControls.length).toBeGreaterThan(0);
+  const bottom = Math.max(...topControls.map(rect => rect.bottom));
+  for (const [kind, part] of [['rod', snapshot.rod], ['reel', snapshot.reel]]) {
+    expect(part.bounds.top, `${snapshot.phase} ${kind} must clear the complete top HUD by 2 CSS pixels`)
+      .toBeGreaterThanOrEqual(bottom + 2);
+  }
+  return { topHudBottomCss: bottom, rodTopCss: snapshot.rod.bounds.top, reelTopCss: snapshot.reel.bounds.top,
+    minimumClearanceCss: Math.min(snapshot.rod.bounds.top, snapshot.reel.bounds.top) - bottom };
+}
+
 function castSeconds(snapshot) {
   const target = snapshot.ring.center.world, lure = snapshot.lure.center.world;
   const dx = target[0] - ORIGIN[0], dz = target[2] - ORIGIN[1];
@@ -86,7 +101,8 @@ for (const scenario of cases) test(`cast motion: ${scenario.id} Lv${scenario.lev
     await gearTick(page);
     expect(await gearPhase(page)).toBe('aim');
     const entered = await gearRead(page);
-    numerical.push({ ...replay.check(entered, 0), clockSource: 'AIM first frame after preparation (domain time zero)' });
+    numerical.push({ ...replay.check(entered, 0), hudClearance: assertAnimatedClear(entered),
+      clockSource: 'AIM first frame after preparation (domain time zero)' });
     expect(entered.line.visible).toBe(false);
     const point = { x: scenario.direction < 0 ? profile.width - 90 : scenario.direction > 0 ? 90 : profile.width / 2,
       y: profile.height * 0.48 };
@@ -98,7 +114,8 @@ for (const scenario of cases) test(`cast motion: ${scenario.id} Lv${scenario.lev
     await expect(page.locator('#line-distance')).toHaveText(`着水予測 ${scenario.distance.toFixed(1)} m`);
     const aim = await gearEvidence(page, info, 'motion-aim-held', { screenshot: true });
     assertGear(aim, scenario.level);
-    numerical.push({ ...replay.check(aim, aim.frame.elapsed - entered.frame.elapsed), clockSource: 'accepted visual elapsed since AIM time zero' });
+    numerical.push({ ...replay.check(aim, aim.frame.elapsed - entered.frame.elapsed), hudClearance: assertAnimatedClear(aim),
+      clockSource: 'accepted visual elapsed since AIM time zero' });
     expect(aim.tip.normalized[1]).toBeLessThan(initial.tip.normalized[1] - 0.1);
     const target = aim.ring.center.world;
     expect(Math.hypot(target[0] - ORIGIN[0], target[2] - ORIGIN[1])).toBeCloseTo(scenario.distance, 10);
@@ -115,7 +132,8 @@ for (const scenario of cases) test(`cast motion: ${scenario.id} Lv${scenario.lev
       const time = castSeconds(snapshot);
       expect(time).toBeGreaterThan(0); expect(time).toBeLessThan(0.8);
       expect(Math.abs(time - (snapshot.frame.elapsed - releasedAt))).toBeLessThanOrEqual(SOURCE_WORLD_EPSILON);
-      numerical.push({ ...replay.check(snapshot, time), clockSource: 'unchanged lure x/z fraction along committed cast ray × 0.8s' });
+      numerical.push({ ...replay.check(snapshot, time), hudClearance: assertAnimatedClear(snapshot),
+        clockSource: 'unchanged lure x/z fraction along committed cast ray × 0.8s' });
       expect(snapshot.ring.center.world).toEqual(target);
       for (const [axis, origin] of [[0, ORIGIN[0]], [2, ORIGIN[1]]]) {
         expect(Math.abs(snapshot.lure.center.world[axis] - (origin + (target[axis] - origin) * time / 0.8)))

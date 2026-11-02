@@ -174,7 +174,7 @@ test('sailing and result screens hide the assembly while non-cast phases preserv
 });
 
 test('phase-time sampler has exact takeback, forward, recovery and cancellation endpoints', () => {
-  const takeback = Math.PI / 10, forward = -Math.PI * 8 / 180;
+  const takeback = Math.PI * 14 / 180, forward = -Math.PI * 8 / 180;
   close(sampleRodPitch(PHASE.AIM, 0), 0, 'initial AIM');
   close(sampleRodPitch(PHASE.AIM, 0.09), takeback / 2, 'half takeback');
   for (const time of [0.18, 1, 600]) close(sampleRodPitch(PHASE.AIM, time), takeback, 'stable AIM hold');
@@ -354,6 +354,13 @@ test('all active animated vertices stay within every viewport throughout takebac
                 point.fromBufferAttribute(geometry.attributes.position, index).applyMatrix4(mesh.matrixWorld).project(camera);
                 assert.ok(point.toArray().every(value => Number.isFinite(value) && value >= -1 && value <= 1),
                   `${width}×${height} ${part.name} Lv.${level} ${phase}/${time}: animated vertex leaves view volume ${point.toArray()}`);
+                if (width === 844 && height === 390) {
+                  // The native landscape controls measured in visual review
+                  // end at CSS y=172. Check every submitted vertex against that
+                  // envelope; browser coverage also reads the actual HUD DOM.
+                  assert.ok((1 - point.y) * height / 2 >= 172,
+                    `${part.name} Lv.${level} ${phase}/${time}: animated vertex enters the landscape control envelope`);
+                }
               }
             }
           }
