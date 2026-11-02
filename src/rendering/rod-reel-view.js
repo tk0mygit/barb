@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { createRodReelModel } from './rod-reel-model.js';
 
-const TAKEBACK = THREE.MathUtils.degToRad(14);
+const TAKEBACK = Math.PI / 2;
 const FORWARD = THREE.MathUtils.degToRad(-8);
 const smooth = value => { const t = THREE.MathUtils.clamp(value, 0, 1); return t * t * (3 - 2 * t); };
 
-// Angles are camera-relative pitch around +X, in radians. Phase time is the
-// existing accepted game time, so a skipped render seeks directly to its pose.
+// The swing coordinate runs from neutral (0) to camera-up (90 degrees).
+// Phase time is the existing accepted game time, so a skipped render seeks
+// directly to its pose, including the short forward continuation below zero.
 export function sampleRodPitch(phase, time, entryPitch = 0) {
   if (phase === 'aim') return THREE.MathUtils.lerp(entryPitch, TAKEBACK, smooth(time / 0.18));
   if (phase === 'cast') {
@@ -29,7 +30,7 @@ export function createRodReelView(scene, camera, collection) {
   scene.add(group);
   const butt = new THREE.Vector3(), tip = new THREE.Vector3(), direction = new THREE.Vector3();
   const axis = new THREE.Vector3(0, 1, 0), pose = new THREE.Quaternion();
-  const pitchAxis = new THREE.Vector3(1, 0, 0), motion = new THREE.Quaternion();
+  const swingAxis = new THREE.Vector3(), motion = new THREE.Quaternion();
   const grip = new THREE.Vector3(), rotatedGrip = new THREE.Vector3();
   let phase = null, revision = -1, phaseStart = 0, entryPitch = 0, lastElapsed = -Infinity;
   let disposed = false;
@@ -66,13 +67,19 @@ export function createRodReelView(scene, camera, collection) {
       direction.subVectors(tip, butt);
       const length = direction.length();
       pose.setFromUnitVectors(axis, direction.divideScalar(length));
-      motion.setFromAxisAngle(pitchAxis, pitch);
-      // The upper grip at model-local [0, .12, 0] stays fixed in camera space.
-      // Rotate its offset back out of the root translation before following
-      // the camera; every Mesh moves through this one rigid root transform.
+      // Swing the neutral shaft exactly onto camera +Y, removing its small
+      // sideways lean too. The same arc continues through the forward stroke.
+      swingAxis.crossVectors(direction, axis).normalize();
+      motion.setFromAxisAngle(swingAxis, direction.angleTo(axis) * pitch / TAKEBACK);
+      // Rotate about the existing upper grip at model-local [0, .12, 0]. A
+      // smooth 20cm retreat during lift keeps the whole upright assembly in
+      // the frustum; its scale and all mesh-local coordinates remain fixed.
       grip.copy(direction).multiplyScalar(length * 0.12);
       rotatedGrip.copy(grip).applyQuaternion(motion);
-      group.position.copy(butt).add(grip).sub(rotatedGrip).applyMatrix4(camera.matrixWorld);
+      group.position.copy(butt).add(grip).sub(rotatedGrip);
+      const lift = Math.max(0, pitch / TAKEBACK);
+      group.position.z -= 0.20 * lift * lift;
+      group.position.applyMatrix4(camera.matrixWorld);
       camera.getWorldQuaternion(group.quaternion);
       group.quaternion.multiply(motion).multiply(pose);
       group.scale.set(halfHeight * 0.55, length, halfHeight * 0.55);
