@@ -1,11 +1,8 @@
 import { expect } from './diagnostics-fixture.js';
 import { installPausedClock } from './clock-fixture.js';
 import { activateButton } from './input-fixture.js';
-import { createCatchCollection } from '../../src/game/catch-collection.js';
-import { createAchievements } from '../../src/game/achievements.js';
-import { createBoatState } from '../../src/game/boat.js';
-import { createGameClock } from '../../src/game/game-clock.js';
-import { createSaveData, validateSaveData } from '../../src/game/save-data.js';
+import { gearSave } from '../helpers/rod-reel-save.js';
+export { gearSave };
 
 export const GEAR_PROFILES = [
   { id: 'pc', width: 1280, height: 800, dpr: 1, touch: false },
@@ -16,16 +13,6 @@ export const GEAR_PROFILES = [
 export const gearTick = page => page.clock.fastForward(250);
 export const gearPhase = page => page.locator('#fishing-panel').getAttribute('data-phase');
 export const gearRead = page => page.evaluate(() => window.readRodReel());
-
-export function gearSave({ level = 1, version = 2, seconds = 90, balance = 0 } = {}) {
-  const collection = createCatchCollection({ initialData: { catches: [],
-    wallet: { balance, lifetimeSales: balance }, equipment: { rodLevel: level, reelLevel: level } } });
-  const data = createSaveData({ collection, achievements: createAchievements({ collection }),
-    boat: createBoatState({ x: 10, z: 20, heading: 0 }), clock: createGameClock(undefined, { elapsedSeconds: seconds }) },
-  { savedAt: '2026-11-02T00:00:00.000Z' });
-  // Empty-history V1 is its real wire schema: no V2 catch fields to remove.
-  return validateSaveData({ ...data, saveVersion: version });
-}
 
 export async function openGear(createContext, profile, options = {}) {
   const context = await createContext({ viewport: { width: profile.width, height: profile.height },
