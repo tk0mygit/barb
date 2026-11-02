@@ -178,3 +178,145 @@ This PR adds no takeback/forward animation, dynamic tip/bending, handle/spool
 rotation, drag audio, physical line attachment, cast judgement or physics change.
 The real-tip world-coordinate line connection remains entirely for 5D-2. Any
 future resource allowance must be independently designed and source-verified.
+
+## B resumption: local results and second STOP (2026-11-02)
+
+The B assertion revision and actual Playwright boundary Unit are complete:
+41 passes, 42 fails. No other limit, timeout, DPR, retry, skip or CI condition
+was revised. No existing-rendering optimization was attempted.
+
+The original 16 new cases were executed: 14 passed, and two purchase cases
+correctly rejected a test seed with money but no sold ledger. The new fixture
+now funds the initial save through the real register/sell APIs using legitimate
+1kg fish. Five additional Unit tests verify ledger totals, wallets and restore.
+The same two native purchase cases then passed, including all levels 2–10 with
+stable GPU geometry/material identities. The failed seed traces are retained in
+`test-results/p5d1-rod-reel-resume/`.
+
+The added first-cast shader helper initially assumed one ring shader cache key.
+Actual Three.js transparent DoubleSide rendering has two preexisting BackSide /
+FrontSide keys. Its corrected check requires exactly those two distinct existing
+keys, one lure key and one line key; the exact new-global-key delta remains one
+with READY shader reuse, or two for the historical cold-lure path. Missing,
+duplicate, extra and previously unseen ring keys are rejected. Its 8 Unit tests
+and the preserved raw cold/LURE evidence pass. The real cold-allocation browser
+case then passed without changing its assertions or game source.
+
+A static foreground-order review found that gear and lure both used order 1;
+Three's material-ID sorting could let gear overwrite the lure where projected
+triangles cross. Gear now uses order 0.5, after the world and before the existing
+order-1 lure guides. No lure, line, camera or physics source changed. A new native
+portrait rightward 18m-cast case proves actual projected triangle intersections
+and the draw-order contract; it passes and saves a screenshot. This makes 17 new
+browser cases. The original 16 were validated in separate batches, not relabeled
+as one all-green run. The latest order change was checked by focused Unit and
+this new browser case; the full 17-case run at that final source is not claimed.
+
+The 15-case related run had 11 passes, three 120-second timeouts and the shader
+helper failure above. Trace inspection found normal state/input progression,
+with most wall time in frame advances and observation calls. Unit ran concurrently
+during part of that first run, which was a plausible load amplifier, not a proven
+sole cause. An unchanged isolated run, with no concurrent Unit/browser work,
+passed lure reuse and cold resources but still timed out in the following two
+existing cases. Initial timeout traces were not discarded.
+
+| Existing case | Approved main, isolated | Implementation, isolated |
+| --- | --- | --- |
+| Night sailing / FPS / cast, mouse 1000×700 | 120s timeout; reported total 126.017s | 120s timeout; reported total 125.980s |
+| Touch real sales / READY-sailing purchases / read-only active fishing | PASS, 112.640s | 120s timeout; reported total 120.914s |
+
+Reported totals include fixture/diagnostic time. These single-run wall times are
+not a GPU benchmark. The main comparison used a separately Git-archived and built
+`936210d2d118e4e66e2e4426a198d626f84742e8`, the same tests and Chromium, and the
+same viewport/DPR/input/clock/timeout/worker/retry settings. Only the reference
+baseURL/server lifecycle differed. A new-function cost contribution to the touch
+case cannot be excluded; the evidence does not establish an environment-only cause.
+
+Measured implementation for the timeout comparison was the pre-order-fix product
+tree `0e953036640037015a65e75f4d9e9f7543d1507a`. The subsequent order-only fix has
+product tree `6d1f829fa250ea3d58b54908ea8fbe13c7216408`, browser-checked at
+`5fa0defe3d7c4fa127dfd80f5ade38798f7bc8f1`. Geometry, material and draw counts did
+not change; the timeout cases have not been claimed to pass at that later source.
+
+Local reports:
+
+- New cases: `/tmp/barb-p5d1-rod-reel-resume.json`,
+  `/tmp/barb-p5d1-isolated-e2e.json`, `/tmp/barb-p5d1-foreground-order.json`.
+- Related cases: `/tmp/barb-p5d1-related-e2e.json`; initial timeout diagnosis:
+  `/tmp/barb-p5d1-timeout-diagnosis.json`.
+- Exact-main probe: `/tmp/barb-p5d1-baseline-timeout-probe.json` and
+  `test-results/p5d1-baseline-timeout-probe/` including reference build log.
+- Representative preview and original-image hashes are preserved locally under
+  `/tmp/barb-p5d1-review-evidence/`; their pre-order-fix source provenance remains
+  explicit. Raw images/traces were not added wholesale to Git.
+
+PR submission is stopped because the required local success is not established.
+Do not solve these failures by extending timeouts, reducing quality, adding retry
+or skipping checks. A PM decision is needed on another execution environment or
+an explicit local-completion exception that delegates the two unresolved cases
+to unchanged L2 CI. No such exception is assumed. No PR, push, CI run, merge or
+deployment was initiated. Final full-L2 coverage, real validation-merge parents,
+34 real Mobile pairs / 68 images, `ci-required`, real devices and frame-time
+p50/p95 remain unverified. The earlier 339-ID collection-only audit predates the
+additional overlap case; the resulting inventory needs re-audit before submission.
+
+
+## Final audit and conditional L2 handoff (2026-11-02)
+
+The STOP records above are historical. After reviewing the bounded 5D-1R
+investigation, the user PM explicitly authorized one independent 5D-1 PR with
+both local timeouts still unresolved. This changes the final verification
+location to GitHub Actions L2; it does not declare the failures successful,
+prove absence of a product performance problem, or authorize merge/deployment.
+The two known 120-second cases are not to be repeated in this local environment.
+
+Final submission G0 preserved `codex/p5d1-rod-reel`, saved HEAD
+`5fa0defe3d7c4fa127dfd80f5ade38798f7bc8f1`, and approved remote/main and
+origin/main `936210d2d118e4e66e2e4426a198d626f84742e8`. Open PR count was zero.
+The 81 previously uncommitted lines above were backed up and retained verbatim;
+their original document Git blob was `e0c281634762e01965556728488eff7c48ef24f6`.
+Existing evidence hashes were checked before editing. No reset, clean, forced
+checkout, branch replacement or new worktree was used.
+
+The final audit found no additional production dependency or essential defect.
+The only product files in the complete PR remain `src/main.js`,
+`src/rendering/rod-reel-model.js`, and `src/rendering/rod-reel-view.js`.
+The product tree remains `6d1f829fa250ea3d58b54908ea8fbe13c7216408`.
+Model ownership, all 20 structural identities, canonical equipment reads,
+atomic integer boundaries, unchanged line/camera/input/save/audio sources,
+and the source-verified Mobile transition retain the impact matrix above.
+The <=41 rotated-FIGHT contract remains specific to this PR and accepts no
+42-call result. Design headroom is not an automatic allowance for 5D-2.
+
+[The 5D-1R evidence summary](PHASE5D1R_DIAGNOSTICS.md) records all four measured
+main/current-product runs, CPU constraints, SwiftShader, observer overhead,
+resource/input equivalence and the limits of causal attribution. Its old main
+success and old-implementation failures remain distinct from current results.
+Raw local traces/images are retained outside Git; no bulk generated assets,
+secret documents or private configuration are included in this PR.
+
+The recovery collection was 340 IDs: Regular A104, Regular B178, Mobile58;
+all original 339 IDs were retained, plus the foreground-order case. The new
+17 cases belong to B. Original versus independent three-lane collection had
+no missing, extra or duplicate IDs. Final submission collection, exact execution
+commit, fresh Unit/Build and selected-browser outcomes are recorded in the PR
+body; collection does not stand for execution success.
+
+The final browser selection is the new 17-case rod/reel spec plus the existing
+PC/touch smoke tests. It does not include the two known timeout cases. New
+appearance evidence retains normal saves/native controls at PC1280x800,
+portrait390x844, landscape844x390 and small360x740 profiles, without changing
+any existing DPR, timeout, worker, retry or assertion. Appearance screenshots
+are Playwright attachments in Regular B's `test-results/` artifact; the
+existing Mobile artifact must still provide the real34 pairs /68 images.
+The PR body separately identifies fresh evidence, older evidence and items
+not executed. No historical failure record is removed.
+
+**Merge prerequisites:** GitHub L2 Unit/Build; exact340-ID execution with all
+Regular A/B and Mobile cases passing; real34-pair/68-image source comparison;
+real SHA/provenance and two-parent validation merge; the same build artifact;
+no skip/retry/flaky/expected-fail; final `ci-required` success; and PM/user
+real-device acceptance. Workflow, aggregator, CLI signatures and quality
+contracts are unchanged. Codex submits the PR URL and stops without waiting
+for CI, merging, deploying or starting 5D-2. CI failures return to this same
+chat only after a separate PM log review and repair instruction.
