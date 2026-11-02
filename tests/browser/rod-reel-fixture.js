@@ -12,7 +12,7 @@ export const GEAR_PROFILES = [
 ];
 export const gearTick = page => page.clock.fastForward(250);
 export const gearPhase = page => page.locator('#fishing-panel').getAttribute('data-phase');
-export const gearRead = page => page.evaluate(() => window.readRodReel());
+export const gearRead = (page, options = {}) => page.evaluate(options => window.readRodReel(options), options);
 
 export async function openGear(createContext, profile, options = {}) {
   const context = await createContext({ viewport: { width: profile.width, height: profile.height },
@@ -46,7 +46,7 @@ export async function openGear(createContext, profile, options = {}) {
         // Test-only, read-only observation. Re-read the observed scene while
         // the menu pauses rendering, so purchase synchronization is not
         // inferred from a later frame or a second persistent equipment value.
-        window.readRodReel = () => {
+        window.readRodReel = ({ includeTriangles = false } = {}) => {
           const root = scene.getObjectByName('fishing-rod-reel');
           const visible = object => Boolean(object && object.visible && (!object.parent || visible(object.parent)));
           const project = world => {
@@ -54,21 +54,36 @@ export async function openGear(createContext, profile, options = {}) {
             return { world: world.toArray(), normalized: [(ndc.x + 1) / 2, (1 - ndc.y) / 2],
               x: (ndc.x + 1) * innerWidth / 2, y: (1 - ndc.y) * innerHeight / 2, depth: ndc.z };
           };
-          const describe = name => {
-            const part = root?.getObjectByName(name), mesh = part?.children.find(child => child.isMesh);
+          const describeMesh = (mesh, metadata = {}) => {
             if (!mesh) return null;
-            const position = mesh.geometry.attributes.position, count = mesh.geometry.drawRange.count;
+            const geometry = mesh.geometry, position = geometry.attributes.position;
+            const available = geometry.index?.count ?? position.count;
+            const start = geometry.drawRange.start, end = Math.min(start + geometry.drawRange.count, available);
             const points = [];
-            for (let i = 0; i < count; i++) points.push(project(mesh.localToWorld(mesh.position.clone().fromBufferAttribute(position, i))));
-            return { visible: visible(mesh), level: part.userData.level, parts: [...part.userData.parts],
-              geometryId: mesh.geometry.id, materialId: mesh.material.id, triangles: count / 3,
-              positionVersion: position.version, colorVersion: mesh.geometry.attributes.color.version,
+            for (let i = start; i < end; i++) {
+              const index = geometry.index ? geometry.index.getX(i) : i;
+              points.push(project(mesh.localToWorld(mesh.position.clone().fromBufferAttribute(position, index))));
+            }
+            return { visible: visible(mesh), ...metadata, renderOrder: mesh.renderOrder,
+              geometryId: geometry.id, materialId: mesh.material.id, triangles: (end - start) / 3,
+              positionVersion: position.version, colorVersion: geometry.attributes.color?.version ?? null,
+              center: project(mesh.getWorldPosition(mesh.position.clone())),
               bounds: { left: Math.min(...points.map(p => p.x)), right: Math.max(...points.map(p => p.x)),
                 top: Math.min(...points.map(p => p.y)), bottom: Math.max(...points.map(p => p.y)) },
-              depth: { min: Math.min(...points.map(p => p.depth)), max: Math.max(...points.map(p => p.depth)) } };
+              depth: { min: Math.min(...points.map(p => p.depth)), max: Math.max(...points.map(p => p.depth)) },
+              ...(includeTriangles ? { projectedTriangles: Array.from({ length: (end - start) / 3 }, (_, i) =>
+                points.slice(i * 3, i * 3 + 3).map(p => [p.x, p.y])) } : {}) };
+          };
+          const describe = name => {
+            const part = root?.getObjectByName(name), mesh = part?.children.find(child => child.isMesh);
+            return mesh ? describeMesh(mesh, { level: part.userData.level, parts: [...part.userData.parts] }) : null;
           };
           const line = scene.getObjectByName('fishing-line');
           const lineStart = line && project(line.localToWorld(line.position.clone().fromBufferAttribute(line.geometry.attributes.position, 0)));
+          let ring;
+          scene.traverse(object => {
+            if (object.geometry?.type === 'RingGeometry' && object.geometry.parameters.outerRadius === 0.7) ring = object;
+          });
           const gl = renderer.getContext();
           const rect = element => ({ id: element.id || element.className, ...element.getBoundingClientRect().toJSON() });
           return { renders, phase: document.querySelector('#fishing-panel').dataset.phase,
@@ -76,6 +91,7 @@ export async function openGear(createContext, profile, options = {}) {
             cameraParent: camera.parent?.type ?? null,
             tip: root && project(root.localToWorld(root.position.clone().fromArray(root.userData.tip))),
             rod: describe('fishing-rod'), reel: describe('fishing-reel'),
+            lure: describeMesh(scene.getObjectByName('fishing-lure')), ring: describeMesh(ring),
             line: { visible: visible(line), start: lineStart },
             resources: { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
               geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs.length },

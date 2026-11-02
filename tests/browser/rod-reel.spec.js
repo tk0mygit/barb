@@ -170,6 +170,53 @@ for (const profile of GEAR_PROFILES.filter(p => ['pc', 'portrait'].includes(p.id
   });
 }
 
+test('rod/reel foreground order: native portrait 18m rightward cast keeps the overlapping lure and marker above equipment', async ({ createContext }, info) => {
+  const profile = GEAR_PROFILES.find(p => p.id === 'portrait');
+  const { page, click, input, errors } = await openGear(createContext, profile);
+  await click('#fish-button'); for (let i = 0; i < 12; i++) await gearTick(page);
+  await click('#cast-button'); await gearTick(page);
+  // Distance and yaw share the ordinary drag. A fixed 75px horizontal move
+  // produces 18m and about 2.15 degrees with this portrait safety envelope;
+  // its actual projected lure intersects the static rod for every bob height.
+  const point = { x: Math.round(profile.width * 0.6), y: Math.round(profile.height * 0.48) };
+  await input.down(point); await input.move({ x: point.x + 75, y: point.y }); await gearTick(page);
+  expect(await gearPhase(page)).toBe('aim');
+  const preview = await gearRead(page);
+  const target = preview.ring.center.world;
+  expect(Math.hypot(target[0] - 10, target[2] - 20)).toBeCloseTo(18, 6);
+  const headingDegrees = Math.atan2(target[0] - 10, 20 - target[2]) * 180 / Math.PI;
+  expect(headingDegrees).toBeGreaterThan(2); expect(headingDegrees).toBeLessThan(2.3);
+  await input.up(); await gearTick(page);
+  for (let i = 0; i < 8 && await gearPhase(page) === 'cast'; i++) await gearTick(page);
+  expect(await gearPhase(page)).toBe('lure');
+  const snapshot = await gearRead(page, { includeTriangles: true });
+  assertGear(snapshot, 1, { line: true });
+  expect(snapshot.lure.visible).toBe(true); expect(snapshot.ring.visible).toBe(true);
+  for (const equipment of [snapshot.rod, snapshot.reel]) {
+    expect(equipment.renderOrder).toBeLessThan(snapshot.lure.renderOrder);
+    expect(equipment.renderOrder).toBeLessThan(snapshot.ring.renderOrder);
+  }
+  // Test real submitted triangles, not only bounding boxes with empty space.
+  const area = t => Math.abs((t[1][0] - t[0][0]) * (t[2][1] - t[0][1])
+    - (t[1][1] - t[0][1]) * (t[2][0] - t[0][0]));
+  const intersects = (a, b) => {
+    for (const triangle of [a, b]) for (let i = 0; i < 3; i++) {
+      const p = triangle[i], q = triangle[(i + 1) % 3], axis = [p[1] - q[1], q[0] - p[0]];
+      const first = a.map(v => v[0] * axis[0] + v[1] * axis[1]);
+      const second = b.map(v => v[0] * axis[0] + v[1] * axis[1]);
+      if (Math.max(...first) <= Math.min(...second) || Math.max(...second) <= Math.min(...first)) return false;
+    }
+    return true;
+  };
+  const rodTriangles = snapshot.rod.projectedTriangles.filter(t => area(t) > 1e-5);
+  const lureTriangles = snapshot.lure.projectedTriangles.filter(t => area(t) > 1e-5);
+  const intersections = rodTriangles.reduce((sum, rod) => sum + lureTriangles.filter(lure => intersects(rod, lure)).length, 0);
+  expect(intersections).toBeGreaterThan(0);
+  await info.attach('native-overlapping-lure-geometry', { body: JSON.stringify({ headingDegrees, intersections, snapshot }), contentType: 'application/json' });
+  await gearEvidence(page, info, 'portrait-near-lure-order', { screenshot: true });
+  expect(errors).toEqual([]);
+});
+
 test('rod/reel context loss: owned GPU resources dispose once with the existing reload error', async ({ createContext }, info) => {
   const { page, click, errors } = await openGear(createContext, GEAR_PROFILES[0]);
   await click('#fish-button'); await gearTick(page);
