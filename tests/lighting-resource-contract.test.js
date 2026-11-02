@@ -34,6 +34,30 @@ test('cold startup rejects a missing shared map or any second crown texture', ()
   }
 });
 
+test('READY equipment reuses the exact lure shader while the first cast initializes only the line', () => {
+  const { cold, lure } = snapshots();
+  const ready = structuredClone(cold);
+  ready.catalog.programKeys = ['lure', 'world']; ready.counts.programs = 2;
+  assertLureInitialization(ready, lure);
+});
+
+test('first-cast shader reuse cannot conceal unknown programs or eager hidden material uploads', () => {
+  for (const mutate of [
+    (before, after) => { after.catalog.programKeys.push('leaked'); after.counts.programs++; },
+    (before, after) => { after.catalog.fishing.find(row => row.type === 'LureGeometry').programKeys.push('extra-lure'); },
+    (before, after) => { after.catalog.fishing.find(row => row.type === 'RingGeometry').programKeys = ['new-ring'];
+      after.catalog.programKeys.push('new-ring'); after.counts.programs++; },
+    before => { before.catalog.programKeys.push('line'); before.counts.programs++; },
+    (before, after) => { after.catalog.fishing.find(row => row.type === 'CircleGeometry').programKeys = ['world']; },
+    (before, after) => { after.catalog.fishing.find(row => row.type === 'BufferGeometry').programKeys = ['lure']; },
+  ]) {
+    const { cold, lure } = snapshots();
+    cold.catalog.programKeys = ['lure', 'world']; cold.counts.programs = 2;
+    mutate(cold, lure);
+    assert.throws(() => assertLureInitialization(cold, lure));
+  }
+});
+
 test('cold contract rejects eager marker upload even when the aggregate looks plausible', () => {
   const { cold } = snapshots();
   cold.catalog.initializedGeometryIds.push(3); cold.catalog.fishing[0].initialized = true; cold.counts.geometries++;

@@ -12,6 +12,7 @@ import { createHUD } from './ui/hud.js';
 import { PHASE } from './game/fishing.js';
 import { createFishingInput } from './input/fishing.js';
 import { createFishingView } from './rendering/fishing.js';
+import { createRodReelView } from './rendering/rod-reel-view.js';
 import { createFishingHUD } from './ui/fishing-hud.js';
 import { createCastNotices } from './ui/cast-notices.js';
 import { createFishingAudio } from './ui/fishing-audio.js';
@@ -45,7 +46,7 @@ function showError(message) {
   document.querySelector('#fish-button').disabled = true;
   document.querySelector('#menu-button').disabled = true;
 }
-let autosave, environmentAudio, audioSession, qteDelivery, qteHUD;
+let autosave, environmentAudio, audioSession, qteDelivery, qteHUD, rodReelView;
 try {
   // Choose one complete domain before anything subscribes or renders. Storage
   // remains read-only until the scene, controls and every HUD are ready.
@@ -93,6 +94,7 @@ try {
   });
   controls.setEnabled(false);
   const fishingView = createFishingView(scene, camera);
+  rodReelView = createRodReelView(scene, camera, collection);
   const castNotices = createCastNotices();
   audioSession = createAudioSession();
   const ambientAudio = environmentAudio = createAmbientAudio({ session: audioSession, clock: gameClock });
@@ -170,6 +172,7 @@ try {
       fishingHUD.update(fishing, boat.mode === 'fishing', clockState);
     }
     fishingView.update(fishing, boat.mode === 'fishing', elapsed);
+    rodReelView.update(boat.mode === 'fishing', fishing.state.phase);
     const activeTarget = boat.mode === 'fishing' && hasWaterTarget();
     const targetVisible = castNotices.update(activeTarget ? fishingView.getScreenBounds(camera, {
       width: window.innerWidth, height: window.innerHeight,
@@ -401,6 +404,7 @@ try {
     renderer.setAnimationLoop(null);
     ambientAudio.dispose(); audioSession.dispose();
     qteHUD?.dispose(); qteDelivery?.retire();
+    rodReelView.dispose();
     autosave.dispose();
     showError('描画が中断されました。ページを再読み込みしてください。');
   });
@@ -412,6 +416,7 @@ try {
 } catch (error) {
   environmentAudio?.dispose(); audioSession?.dispose();
   autosave?.dispose(); qteHUD?.dispose(); qteDelivery?.retire();
+  rodReelView?.dispose();
   console.error(error);
   showError('3D表示を開始できませんでした。WebGL 2対応のブラウザで、ハードウェアアクセラレーションを有効にしてください。');
 }

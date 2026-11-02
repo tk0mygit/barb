@@ -45,9 +45,20 @@ export function assertLureInitialization(before, after) {
   assert.deepEqual(sorted(difference(after.catalog.initializedGeometryIds, before.catalog.initializedGeometryIds)), sorted(expectedNewIds), 'Cast uploaded geometry outside the existing lure/ring/line');
   assert.equal(after.counts.geometries, before.counts.geometries + expectedNewIds.length, 'Cast GPU allocation delta differs');
   assert(after.catalog.fishing.every(row => row.initialized === LURE_GEOMETRY_TYPES.includes(row.type)), 'LURE must upload ring/lure/line and leave the fish shadow cold');
-  const materialKeys = [...new Set(after.catalog.fishing.flatMap(row => row.programKeys))];
-  const expectedNewKeys = difference(materialKeys, before.catalog.programKeys);
-  assert.equal(expectedNewKeys.length, 2, 'The first cast must initialize only the existing lure and line shader variants');
+  const programFor = type => {
+    const keys = after.catalog.fishing.find(row => row.type === type).programKeys;
+    assert.equal(keys.length, 1, `${type}: the first cast must retain one existing material shader variant`);
+    return keys[0];
+  };
+  const ringKey = programFor('RingGeometry'), lureKey = programFor('LureGeometry'), lineKey = programFor('BufferGeometry');
+  assert.equal(new Set([ringKey, lureKey, lineKey]).size, 3, 'Marker materials lost their distinct shader identities');
+  assert(before.catalog.programKeys.includes(ringKey), 'The existing ring shader was not initialized by the world');
+  assert(!before.catalog.programKeys.includes(lineKey), 'The hidden line shader was uploaded before the first cast');
+  assert.deepEqual(after.catalog.fishing.find(row => row.type === 'CircleGeometry').programKeys, [], 'The hidden fish shadow shader was uploaded');
+  // READY's rod/reel uses the lure's exact vertex-color shader. Reuse is
+  // established by its actual cache identity, not an allocation-count ceiling.
+  // The historical scene still initializes both the lure and line variants.
+  const expectedNewKeys = [lineKey, ...(before.catalog.programKeys.includes(lureKey) ? [] : [lureKey])];
   assert.deepEqual(sorted(difference(after.catalog.programKeys, before.catalog.programKeys)), sorted(expectedNewKeys), 'Cast uploaded a shader outside the existing marker materials');
   assert.equal(after.counts.programs, before.counts.programs + expectedNewKeys.length, 'Cast GPU shader delta differs');
   assert.equal(after.counts.textures, before.counts.textures, 'Cast created a texture');

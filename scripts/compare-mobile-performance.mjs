@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, replayMobileCamera,
   mobileGit, expectedMobileResourceCamera } from './lib/mobile-comparison-source.js';
 import { verifyMobileFightCapture } from './lib/mobile-fight-replay.js';
+import { readMobileRodReelTransition, expectedRodReelResources, verifyRodReelCapture } from './lib/mobile-rod-reel-replay.js';
 
 export const MOBILE_COMPARISON_MODES = ['regression', 'historical-improvement'];
 // One reviewed product-source transition, not a per-PR resource allowance.
@@ -139,11 +140,15 @@ async function readComparisonSources(metadata) {
     implementations[target] = await readMobileImplementation(sha);
     assert.deepEqual(metadata.implementations[target], mobileSourceMetadata(implementations[target]), `${target}: implementation provenance differs`);
   }
-  return { implementations, verified: new Map() };
+  return { implementations, verified: new Map(),
+    rodReelTransition: await readMobileRodReelTransition(implementations.main, implementations.pr) };
 }
 
 async function verifyEntries(sources, target, entries) {
-  for (const entry of entries) sources.verified.set(entry, await verifyMobileSourceCapture(sources.implementations[target], entry));
+  for (const entry of entries) {
+    if (sources.rodReelTransition) verifyRodReelCapture(entry);
+    sources.verified.set(entry, await verifyMobileSourceCapture(sources.implementations[target], entry));
+  }
 }
 
 export async function compareMobileCapturePairWithSources(before, after, metadata) {
@@ -209,8 +214,18 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
     } else if (sources && b.id === 'rotated-fight' && !isDeepStrictEqual(a.metrics.camera, b.metrics.camera)) {
       cameraComparison = compareRotatedFightCamera(b, a, metadata, sources);
     } else assert.deepEqual(a.metrics.camera, b.metrics.camera, `${b.id}: camera differs`);
-    const expected = expectedMobileResources(b.metrics.resources, metadata);
+    const gearTransition = sources?.rodReelTransition;
+    const gearResources = expectedRodReelResources(b.metrics.resources, b.id, gearTransition);
+    const expected = gearResources ? { resources: gearResources,
+      transition: 'rod-reel-5D1: exact-source Lv1 mesh counts; all other resources exact' }
+      : expectedMobileResources(b.metrics.resources, metadata);
     assert.deepEqual(a.metrics.resources, expected.resources, `${b.id}: resource regression`);
+    if (gearTransition) {
+      assert(MOBILE_CAPTURE_IDS.includes(b.id), `${b.id}: unrecognized rod/reel comparison ID`);
+      assert(b.metrics.actualResources && a.metrics.actualResources, `${b.id}: missing production-view resources`);
+      assert.deepEqual(a.metrics.actualResources,
+        expectedRodReelResources(b.metrics.actualResources, b.id, gearTransition), `${b.id}: production-view resource regression`);
+    }
     const pixelReduction = (1 - a.metrics.pixels / b.metrics.pixels) * 100;
     if (metadata.mode === 'regression') {
       // With unchanged rendering, both increasing cost and reducing quality
@@ -244,6 +259,7 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
     return { id: b.id, before: b.metrics, after: a.metrics,
       ...(cameraComparison ? { cameraComparison } : {}),
       ...(expected.transition ? { resourceTransition: expected.transition } : {}),
+      ...(gearTransition ? { rodReelComparison: gearTransition } : {}),
       pixelReduction,
       ...(b.layout ? { beforeLayout: b.layout, afterLayout: a.layout } : {}) };
 }
