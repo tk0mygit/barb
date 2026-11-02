@@ -5,16 +5,16 @@ import { assertColdFishingResources, assertLureInitialization, assertStableResou
 function snapshots() {
   const fishing = [{ id: 3, type: 'RingGeometry' }, { id: 4, type: 'LureGeometry' },
     { id: 5, type: 'CircleGeometry' }, { id: 6, type: 'BufferGeometry' }];
-  const cold = { counts: { geometries: 2, programs: 1, textures: 4 }, catalog: {
-    cpuGeometryIds: [1, 2, 3, 4, 5, 6], initializedGeometryIds: [1, 2], programKeys: ['world'], fishingVisible: false,
+  const cold = { counts: { geometries: 2, programs: 2, textures: 4 }, catalog: {
+    cpuGeometryIds: [1, 2, 3, 4, 5, 6], initializedGeometryIds: [1, 2], programKeys: ['world-back', 'world-front'], fishingVisible: false,
     fishing: fishing.map(row => ({ ...row, initialized: false, programKeys: [] })) } };
   const lure = structuredClone(cold);
-  lure.counts = { geometries: 5, programs: 3, textures: 4 };
+  lure.counts = { geometries: 5, programs: 4, textures: 4 };
   lure.catalog.fishingVisible = true;
   lure.catalog.initializedGeometryIds = [1, 2, 3, 4, 6];
-  lure.catalog.programKeys = ['line', 'lure', 'world'];
+  lure.catalog.programKeys = ['line', 'lure', 'world-back', 'world-front'];
   lure.catalog.fishing = fishing.map(row => ({ ...row, initialized: row.type !== 'CircleGeometry',
-    programKeys: row.type === 'RingGeometry' ? ['world'] : row.type === 'LureGeometry' ? ['lure'] : row.type === 'BufferGeometry' ? ['line'] : [] }));
+    programKeys: row.type === 'RingGeometry' ? ['world-back', 'world-front'] : row.type === 'LureGeometry' ? ['lure'] : row.type === 'BufferGeometry' ? ['line'] : [] }));
   return { cold, lure };
 }
 
@@ -31,6 +31,43 @@ test('cold startup rejects a missing shared map or any second crown texture', ()
   for (const textures of [3, 5]) {
     const { cold } = snapshots(); cold.counts.textures = textures;
     assert.throws(() => assertColdFishingResources(cold), /one shared B crown map/);
+  }
+});
+
+test('READY equipment reuses the exact lure shader while the first cast initializes only the line', () => {
+  const { cold, lure } = snapshots();
+  const ready = structuredClone(cold);
+  ready.catalog.programKeys = ['lure', 'world-back', 'world-front']; ready.counts.programs = 3;
+  assertLureInitialization(ready, lure);
+});
+
+test('the transparent ring retains both distinct preexisting BackSide and FrontSide shader keys', () => {
+  for (const ringKeys of [
+    ['world-back'],
+    ['world-back', 'world-back'],
+    ['world-back', 'world-front', 'extra-ring'],
+    ['world-back', 'unseen-front'],
+  ]) {
+    const { cold, lure } = snapshots();
+    lure.catalog.fishing.find(row => row.type === 'RingGeometry').programKeys = ringKeys;
+    assert.throws(() => assertLureInitialization(cold, lure));
+  }
+});
+
+test('first-cast shader reuse cannot conceal unknown programs or eager hidden material uploads', () => {
+  for (const mutate of [
+    (before, after) => { after.catalog.programKeys.push('leaked'); after.counts.programs++; },
+    (before, after) => { after.catalog.fishing.find(row => row.type === 'LureGeometry').programKeys.push('extra-lure'); },
+    (before, after) => { after.catalog.fishing.find(row => row.type === 'RingGeometry').programKeys = ['world-back', 'new-ring'];
+      after.catalog.programKeys.push('new-ring'); after.counts.programs++; },
+    before => { before.catalog.programKeys.push('line'); before.counts.programs++; },
+    (before, after) => { after.catalog.fishing.find(row => row.type === 'CircleGeometry').programKeys = ['world-back']; },
+    (before, after) => { after.catalog.fishing.find(row => row.type === 'BufferGeometry').programKeys = ['lure']; },
+  ]) {
+    const { cold, lure } = snapshots();
+    cold.catalog.programKeys = ['lure', 'world-back', 'world-front']; cold.counts.programs = 3;
+    mutate(cold, lure);
+    assert.throws(() => assertLureInitialization(cold, lure));
   }
 });
 

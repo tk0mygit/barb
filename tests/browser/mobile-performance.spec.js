@@ -283,7 +283,11 @@ for (const target of targets) {
         expect(metrics.pixelRatio).toBe(expected.pixelRatio);
         expect(metrics.buffer).toEqual(expected.buffer);
         for (const field of ['geometries', 'textures', 'programs']) expect(metrics.resources[field]).toBe(fightResources[field]);
-        expect(metrics.resources.calls).toBeLessThan(40);
+        // PM-approved Phase 5D-1 revision (2026-11-02): the same rotated
+        // FIGHT measured 39 calls on main and 41 with the two gear meshes.
+        // Old limit: <40. This absolute <=41 limit grants no future increase;
+        // exact-SHA resource comparison still verifies the complete delta.
+        expect(metrics.resources.calls).toBeLessThanOrEqual(41);
         await saveCapture(target, 'rotated-fight', page, metrics, info, true);
         if (currentHUD) assertLayout(await layout(page));
       }
