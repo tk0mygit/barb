@@ -45,14 +45,17 @@ export function assertLureInitialization(before, after) {
   assert.deepEqual(sorted(difference(after.catalog.initializedGeometryIds, before.catalog.initializedGeometryIds)), sorted(expectedNewIds), 'Cast uploaded geometry outside the existing lure/ring/line');
   assert.equal(after.counts.geometries, before.counts.geometries + expectedNewIds.length, 'Cast GPU allocation delta differs');
   assert(after.catalog.fishing.every(row => row.initialized === LURE_GEOMETRY_TYPES.includes(row.type)), 'LURE must upload ring/lure/line and leave the fish shadow cold');
-  const programFor = type => {
+  const programsFor = (type, count) => {
     const keys = after.catalog.fishing.find(row => row.type === type).programKeys;
-    assert.equal(keys.length, 1, `${type}: the first cast must retain one existing material shader variant`);
-    return keys[0];
+    assert.equal(keys.length, count, `${type}: the first cast must retain its existing material shader variants`);
+    assert.equal(new Set(keys).size, count, `${type}: duplicate material shader cache key`);
+    return keys;
   };
-  const ringKey = programFor('RingGeometry'), lureKey = programFor('LureGeometry'), lineKey = programFor('BufferGeometry');
-  assert.equal(new Set([ringKey, lureKey, lineKey]).size, 3, 'Marker materials lost their distinct shader identities');
-  assert(before.catalog.programKeys.includes(ringKey), 'The existing ring shader was not initialized by the world');
+  // Three renders the transparent DoubleSide ring in BackSide/FrontSide
+  // passes. Both observed cache keys are already owned by the world markers.
+  const ringKeys = programsFor('RingGeometry', 2), [lureKey] = programsFor('LureGeometry', 1), [lineKey] = programsFor('BufferGeometry', 1);
+  assert.equal(new Set([...ringKeys, lureKey, lineKey]).size, 4, 'Marker materials lost their distinct shader identities');
+  assert(ringKeys.every(key => before.catalog.programKeys.includes(key)), 'The existing ring shaders were not initialized by the world');
   assert(!before.catalog.programKeys.includes(lineKey), 'The hidden line shader was uploaded before the first cast');
   assert.deepEqual(after.catalog.fishing.find(row => row.type === 'CircleGeometry').programKeys, [], 'The hidden fish shadow shader was uploaded');
   // READY's rod/reel uses the lure's exact vertex-color shader. Reuse is
