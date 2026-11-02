@@ -25,8 +25,12 @@ const separated = (a, b) => a.right <= b.left || b.right <= a.left || a.bottom <
 
 function assertLine(snapshot) {
   expect(snapshot.line.visible).toBe(true);
-  expect(snapshot.line.points[0].normalized[0]).toBeCloseTo(0.58, 5);
-  expect(snapshot.line.points[0].normalized[1]).toBeCloseTo(0.57, 5);
+  if (snapshot.phase !== 'cast') {
+    expect(snapshot.line.points[0].normalized[0]).toBeCloseTo(0.58, 5);
+    expect(snapshot.line.points[0].normalized[1]).toBeCloseTo(0.57, 5);
+  }
+  expect(snapshot.line.points[0].world).toEqual(snapshot.rodTip.quantizedWorld);
+  expect(snapshot.line.points[0].normalized).toEqual(snapshot.rodTip.quantizedNormalized);
   for (let i = 0; i < 3; i++) expect(snapshot.line.points[1].world[i]).toBeCloseTo(snapshot.lure.world[i], 5);
 }
 
@@ -86,6 +90,11 @@ async function setup(createContext, profile, rodLevel = 1, boatPosition, randomV
             depth: { min: Math.min(...points.map(p => p.ndc[2])), max: Math.max(...points.map(p => p.ndc[2])) } };
         };
         const direction = camera.getWorldDirection(camera.position.clone());
+        const rod = scene.getObjectByName('fishing-rod-reel');
+        const rodTip = rod && rod.localToWorld(rod.position.clone().fromArray(rod.userData.tip));
+        const roundedTip = rodTip && line && line.worldToLocal(rodTip.clone());
+        if (roundedTip) line.localToWorld(roundedTip.set(...roundedTip.toArray().map(Math.fround)));
+        const projectedRoundedTip = roundedTip && project(roundedTip);
         const obstacles = [...document.querySelectorAll('.masthead, .action-panel, .telemetry, .edition, #fishing-panel, #spot-status, .compass, #sale-notice, #achievement-notice')]
           .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden')
           .map(element => ({ id: element.id || element.className, ...element.getBoundingClientRect().toJSON() }));
@@ -95,6 +104,9 @@ async function setup(createContext, profile, rodLevel = 1, boatPosition, randomV
           camera: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(),
             pitch: Math.asin(direction.y), heading: Math.atan2(direction.x, -direction.z), aspect: camera.aspect, fov: camera.fov },
           ring: mesh(ring), lure: mesh(lure), obstacles,
+          rodTip: rodTip && { world: rodTip.toArray(), ...project(rodTip),
+            quantizedWorld: roundedTip.toArray(),
+            quantizedNormalized: [projectedRoundedTip.x / innerWidth, projectedRoundedTip.y / innerHeight] },
           line: line && { visible: Boolean(visible(line)), points: [0, 1].map(i => {
             const position = line.geometry.attributes.position;
             const world = line.position.clone().fromBufferAttribute(position, i).applyMatrix4(line.matrixWorld);

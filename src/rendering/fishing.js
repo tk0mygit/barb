@@ -26,7 +26,6 @@ export function createFishingView(scene, camera) {
   group.add(ring, lure, shadow, line);
   scene.add(group);
   const point = new THREE.Vector3();
-  const lineOrigin = new THREE.Vector3();
   return {
     getScreenBounds(camera, { width, height }) {
       if (!group.visible) return null;
@@ -45,7 +44,7 @@ export function createFishingView(scene, camera) {
       }
       return Number.isFinite(bounds.left) ? bounds : null;
     },
-    update(fishing, active, elapsed) {
+    update(fishing, active, elapsed, rodTipWorld) {
       const s = fishing.state;
       lureModel.select(s.lureId);
       group.visible = active && ![PHASE.READY, PHASE.RESULT, PHASE.FAILED].includes(s.phase);
@@ -74,14 +73,10 @@ export function createFishingView(scene, camera) {
       ring.material.color.set(s.phase === PHASE.BITE ? '#ffb86c' : s.validCast ? '#ffe5a1' : '#ff6655');
       shadow.visible = s.phase === PHASE.FIGHT;
       shadow.position.set(x, 0.11, z);
-      line.visible = s.phase !== PHASE.AIM;
-      // A virtual rod tip in the camera's 3D view volume, one metre ahead.
-      // Scale with its frustum so yaw, tracking and aspect changes preserve a
-      // natural slightly-right-of-centre projection (58%, 57%) on every screen.
-      camera.updateMatrixWorld();
-      const halfHeight = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / camera.zoom;
-      lineOrigin.set(0.16 * halfHeight * camera.aspect, -0.14 * halfHeight, -1).applyMatrix4(camera.matrixWorld);
-      lineOrigin.toArray(positions, 0);
+      line.visible = s.phase !== PHASE.AIM && rodTipWorld != null;
+      // The scene-owned equipment has already followed the camera and applied
+      // this frame's pose. Reuse its actual local-tip world coordinate.
+      if (rodTipWorld) rodTipWorld.toArray(positions, 0);
       lure.position.toArray(positions, 3);
       geometry.attributes.position.needsUpdate = true;
     },

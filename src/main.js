@@ -95,6 +95,7 @@ try {
   controls.setEnabled(false);
   const fishingView = createFishingView(scene, camera);
   rodReelView = createRodReelView(scene, camera, collection);
+  const rodTipWorld = new THREE.Vector3();
   const castNotices = createCastNotices();
   audioSession = createAudioSession();
   const ambientAudio = environmentAudio = createAmbientAudio({ session: audioSession, clock: gameClock });
@@ -171,8 +172,8 @@ try {
       fishing.refreshAim();
       fishingHUD.update(fishing, boat.mode === 'fishing', clockState);
     }
-    fishingView.update(fishing, boat.mode === 'fishing', elapsed);
-    rodReelView.update(boat.mode === 'fishing', fishing.state.phase);
+    rodReelView.update(boat.mode === 'fishing', fishing.state, elapsed);
+    fishingView.update(fishing, boat.mode === 'fishing', elapsed, rodReelView.copyTipWorld(rodTipWorld));
     const activeTarget = boat.mode === 'fishing' && hasWaterTarget();
     const targetVisible = castNotices.update(activeTarget ? fishingView.getScreenBounds(camera, {
       width: window.innerWidth, height: window.innerHeight,
@@ -180,7 +181,8 @@ try {
     if (!targetVisible && fishing.cancelForViewChange('表示を確保できないためルアーを回収しました。向きを調整して再キャストしてください')) {
       controls.reset();
       fishingHUD.update(fishing, true, clockState);
-      fishingView.update(fishing, true, elapsed);
+      rodReelView.update(true, fishing.state, elapsed);
+      fishingView.update(fishing, true, elapsed, rodReelView.copyTipWorld(rodTipWorld));
       castNotices.update(null, false);
     }
   }
@@ -240,6 +242,7 @@ try {
       salesHUD.update();
       achievementNotice.update();
       controls.setEnabled(!open);
+      if (open && fishing.state.phase === PHASE.READY) rodReelView.resetMotion();
       previous = performance.now();
       if (!open) canvas.focus({ preventScroll: true });
     },
@@ -308,6 +311,7 @@ try {
     fishingInput.setSuspended('blur', true, performance.now());
     cancelPreparation();
     focused = false; focusRecovery = 'blurred'; cancelTouch(); ambientAudio.setPaused('blur', true);
+    if (fishing.state.phase === PHASE.READY) rodReelView.resetMotion();
   });
   window.addEventListener('focus', () => {
     fishingInput.setSuspended('blur', false, performance.now());
@@ -320,10 +324,12 @@ try {
     previous = performance.now();
     if (document.hidden) { cancelTouch(); autosave.flush(); }
     if (document.hidden) cancelPreparation();
+    if (document.hidden && fishing.state.phase === PHASE.READY) rodReelView.resetMotion();
   });
   window.addEventListener('pagehide', () => {
     fishingInput.setSuspended('page', true, performance.now());
     cancelTouch(); ambientAudio.setPaused('page', true); autosave.flush();
+    if (fishing.state.phase === PHASE.READY) rodReelView.resetMotion();
   });
   window.addEventListener('pageshow', () => {
     fishingInput.setSuspended('page', false, performance.now());

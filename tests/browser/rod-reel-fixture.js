@@ -31,10 +31,14 @@ export async function openGear(createContext, profile, options = {}) {
     window.__THREE_DEVTOOLS__.addEventListener('observe', ({ detail: renderer }) => {
       if (!renderer.isWebGLRenderer) return;
       const render = renderer.render, disposal = { geometries: [], materials: [] }, hooked = new WeakSet();
-      let renders = 0;
+      let renders = 0, renderedPhase, phaseStartedElapsed = 0;
       renderer.render = function(scene, camera) {
         const result = render.call(this, scene, camera);
         renders++;
+        const phase = document.querySelector('#fishing-panel').dataset.phase;
+        const elapsed = scene.getObjectByName('lake-water').material.uniforms.time.value;
+        if (phase !== renderedPhase) { renderedPhase = phase; phaseStartedElapsed = elapsed; }
+        const frame = { phase, elapsed, observedPhaseSeconds: elapsed - phaseStartedElapsed };
         const group = scene.getObjectByName('fishing-rod-reel');
         group?.traverse(object => {
           for (const [resource, key] of [[object.geometry, 'geometries'], [object.material, 'materials']]) {
@@ -67,6 +71,7 @@ export async function openGear(createContext, profile, options = {}) {
             return { visible: visible(mesh), ...metadata, renderOrder: mesh.renderOrder,
               geometryId: geometry.id, materialId: mesh.material.id, triangles: (end - start) / 3,
               positionVersion: position.version, colorVersion: geometry.attributes.color?.version ?? null,
+              scale: mesh.scale.toArray(),
               center: project(mesh.getWorldPosition(mesh.position.clone())),
               bounds: { left: Math.min(...points.map(p => p.x)), right: Math.max(...points.map(p => p.x)),
                 top: Math.min(...points.map(p => p.y)), bottom: Math.max(...points.map(p => p.y)) },
@@ -80,19 +85,33 @@ export async function openGear(createContext, profile, options = {}) {
           };
           const line = scene.getObjectByName('fishing-line');
           const lineStart = line && project(line.localToWorld(line.position.clone().fromBufferAttribute(line.geometry.attributes.position, 0)));
+          const lineEnd = line && project(line.localToWorld(line.position.clone().fromBufferAttribute(line.geometry.attributes.position, 1)));
+          const tipWorld = root && root.localToWorld(root.position.clone().fromArray(root.userData.tip));
+          // The line's Float32 attribute is the only precision loss allowed.
+          // Recompute its exact quantized expectation from this same model tip.
+          const quantizeForLine = world => {
+            const local = line.worldToLocal(world.clone());
+            return line.localToWorld(local.set(...local.toArray().map(Math.fround)));
+          };
+          const quantizedTip = tipWorld && line && project(quantizeForLine(tipWorld));
           let ring;
           scene.traverse(object => {
             if (object.geometry?.type === 'RingGeometry' && object.geometry.parameters.outerRadius === 0.7) ring = object;
           });
           const gl = renderer.getContext();
           const rect = element => ({ id: element.id || element.className, ...element.getBoundingClientRect().toJSON() });
-          return { renders, phase: document.querySelector('#fishing-panel').dataset.phase,
+          return { renders, phase: document.querySelector('#fishing-panel').dataset.phase, frame,
             visible: visible(root), viewport: { width: innerWidth, height: innerHeight }, dpr: devicePixelRatio,
             cameraParent: camera.parent?.type ?? null,
-            tip: root && project(root.localToWorld(root.position.clone().fromArray(root.userData.tip))),
+            camera: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(),
+              fov: camera.fov, aspect: camera.aspect, near: camera.near, far: camera.far, zoom: camera.zoom },
+            tip: tipWorld && project(tipWorld),
             rod: describe('fishing-rod'), reel: describe('fishing-reel'),
             lure: describeMesh(scene.getObjectByName('fishing-lure')), ring: describeMesh(ring),
-            line: { visible: visible(line), start: lineStart },
+            line: { visible: visible(line), start: lineStart, end: lineEnd, quantizedTip,
+              geometryId: line?.geometry.id, materialId: line?.material.id,
+              worldDelta: tipWorld && lineStart?.world.map((value, index) => value - tipWorld.getComponent(index)),
+              projectionDelta: quantizedTip && lineStart?.normalized.map((value, index) => value - project(tipWorld).normalized[index]) },
             resources: { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
               geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs.length },
             buffer: { width: gl.drawingBufferWidth, height: gl.drawingBufferHeight },
@@ -125,6 +144,15 @@ export async function openGear(createContext, profile, options = {}) {
       if (profile.touch) { if (touching) await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); touching = false; }
       else await page.mouse.up();
     },
+    async cancel() {
+      if (profile.touch) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); touching = false;
+        await expect.poll(() => page.locator('#scene').evaluate(canvas => {
+          const id = window.e2eDiagnostics.events.findLast(event => event.type === 'pointerdown' && event.target === 'scene')?.pointerId;
+          return id === undefined || !canvas.hasPointerCapture(id);
+        })).toBe(true);
+      } else await page.locator('#scene').evaluate(canvas => canvas.releasePointerCapture(1));
+    },
   };
   return { context, page, click, input, errors };
 }
@@ -145,11 +173,18 @@ export function assertGear(snapshot, level, { line = false } = {}) {
     expect(part.bounds.top).toBeGreaterThanOrEqual(0);
     expect(part.bounds.bottom).toBeLessThanOrEqual(snapshot.viewport.height);
   }
-  expect(snapshot.tip.normalized[0]).toBeCloseTo(0.58, 6);
-  expect(snapshot.tip.normalized[1]).toBeCloseTo(0.57, 6);
+  // Keep the original strict projection contract in every neutral phase.
+  // AIM/CAST now move the actual assembly; their line attachment is checked
+  // against the same-frame mesh transform, never a fixed screen coordinate.
+  if (!['aim', 'cast'].includes(snapshot.phase)) {
+    expect(snapshot.tip.normalized[0]).toBeCloseTo(0.58, 6);
+    expect(snapshot.tip.normalized[1]).toBeCloseTo(0.57, 6);
+  }
   if (line) {
     expect(snapshot.line.visible).toBe(true);
-    for (let i = 0; i < 2; i++) expect(snapshot.tip.normalized[i]).toBeCloseTo(snapshot.line.start.normalized[i], 6);
+    expect(snapshot.line.start.world).toEqual(snapshot.line.quantizedTip.world);
+    expect(snapshot.line.start.normalized).toEqual(snapshot.line.quantizedTip.normalized);
+    for (let i = 0; i < 3; i++) expect(snapshot.line.end.world[i]).toBe(Math.fround(snapshot.lure.center.world[i]));
   }
 }
 

@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { createFishingView } from '../src/rendering/fishing.js';
+import { createRodReelView } from '../src/rendering/rod-reel-view.js';
+import { createCatchCollection } from '../src/game/catch-collection.js';
 import { createBoatModel } from '../src/rendering/boat-model.js';
 import { createCastVisibility, projectCastFootprint } from '../src/rendering/cast-visibility.js';
 import { LURES } from '../src/game/lures.js';
@@ -139,31 +141,85 @@ test('world-position guides remain readable when the nearby boat obstructs their
   assert.equal(lure.position.z, state.target.z);
 });
 
-test('line uses the camera frustum through all fishing phases, yaw wrapping and rotation; action stays connected', () => {
+test('line uses the actual animated tip through fishing phases, yaw wrapping and rotation; neutral projection and action stay connected', () => {
   for (const viewport of [{ width: 1000, height: 700 }, { width: 390, height: 844 },
     { width: 844, height: 390 }, { width: 320, height: 568 }, { width: 640, height: 320 }]) {
     const camera = new THREE.PerspectiveCamera(55, viewport.width / viewport.height, 0.1, 2400);
-    const { view, state, fishing, lure, line } = setup(8, 0, 'spinnerbait', camera);
+    const { scene, view, state, fishing, lure, line } = setup(8, 0, 'spinnerbait', camera);
+    const equipment = createRodReelView(scene, camera, createCatchCollection());
+    const tip = new THREE.Vector3();
+    const geometry = line.geometry, buffer = geometry.attributes.position.array, material = line.material;
     for (const heading of [0, 0.7, Math.PI - 1e-8, Math.PI + 1e-8, 2 * Math.PI + 0.7]) {
       camera.position.set(10 - Math.sin(heading) * 1.25, 2.15, 20 + Math.cos(heading) * 1.25);
       for (const pitch of [0, -0.2]) {
         camera.lookAt(camera.position.x + Math.sin(heading) * 20, 2.15 + pitch * 20, camera.position.z - Math.cos(heading) * 20);
         for (const phase of [PHASE.CAST, PHASE.LURE, PHASE.BITE, PHASE.FIGHT, PHASE.LANDING]) {
-          state.phase = phase; state.heading = heading; state.action = 1;
+          state.phase = phase; state.heading = heading; state.action = 1; state.revision = (state.revision ?? 0) + 1;
           const before = structuredClone(state);
-          view.update(fishing, true, 0.2);
+          equipment.update(true, state, 0.2);
+          view.update(fishing, true, 0.2, equipment.copyTipWorld(tip));
           const vertices = line.geometry.attributes.position;
           const start = new THREE.Vector3().fromBufferAttribute(vertices, 0).project(camera);
-          assert.ok(Math.abs((start.x + 1) / 2 - 0.58) < 2e-6);
-          assert.ok(Math.abs((1 - start.y) / 2 - 0.57) < 2e-6);
+          // Every component must be precisely the Float32 encoding of the
+          // current model's localToWorld tip, not an independently placed ray.
+          assert.deepEqual(Array.from(buffer.slice(0, 3)), tip.toArray().map(Math.fround));
+          if (phase !== PHASE.CAST) {
+            assert.ok(Math.abs((start.x + 1) / 2 - 0.58) < 2e-6);
+            assert.ok(Math.abs((1 - start.y) / 2 - 0.57) < 2e-6);
+          }
           assert.ok(start.z > -1 && start.z < 1);
           assert.equal(line.visible, true);
           assert.ok(new THREE.Vector3().fromBufferAttribute(vertices, 1).distanceTo(lure.position) < 3e-6);
           assert.deepEqual(state, before, 'rendering cannot change fishing state');
+          assert.equal(line.geometry, geometry); assert.equal(vertices.array, buffer); assert.equal(line.material, material);
         }
       }
     }
+    equipment.dispose();
   }
+});
+
+test('line attachment survives skipped animation samples, camera parents and synchronous resize without stale hidden endpoints', () => {
+  const camera = new THREE.PerspectiveCamera(55, 390 / 844, 0.1, 2400);
+  const { scene, view, state, fishing, line, lure } = setup(40, -0.2, 'minnow', camera);
+  const parent = new THREE.Group(); parent.position.set(3, 2, -7); parent.rotation.set(0.1, -0.3, 0.04);
+  scene.add(parent); parent.add(camera); camera.position.set(10, 2.15, 20);
+  const collection = createCatchCollection();
+  const equipment = createRodReelView(scene, camera, collection), out = new THREE.Vector3();
+  const ids = [line.geometry.id, line.material.id], buffer = line.geometry.attributes.position.array;
+  try {
+    let revision = 0;
+    for (const [phase, time, elapsed] of [[PHASE.AIM, 0, 0], [PHASE.AIM, 0.4, 0.4],
+      [PHASE.CAST, 0, 0.4], [PHASE.CAST, 0.06, 0.46], [PHASE.CAST, 0.24, 0.64],
+      [PHASE.CAST, 0.79, 1.19], [PHASE.LURE, 0, 1.2], [PHASE.FIGHT, 2, 3.2]]) {
+      if (state.phase !== phase) revision++;
+      Object.assign(state, { phase, time, revision });
+      for (const aspect of [390 / 844, 844 / 390]) {
+        camera.aspect = aspect; camera.updateProjectionMatrix(); parent.rotation.y += 0.1;
+        scene.updateMatrixWorld(true);
+        equipment.update(true, state, elapsed);
+        view.update(fishing, true, elapsed, equipment.copyTipWorld(out));
+        const actual = new THREE.Vector3().fromArray(equipment.group.userData.tip);
+        equipment.group.localToWorld(actual);
+        assert.ok(actual.distanceTo(out) < 1e-12);
+        assert.deepEqual(Array.from(buffer.slice(0, 3)), actual.toArray().map(Math.fround));
+        assert.deepEqual(Array.from(buffer.slice(3)), lure.position.toArray().map(Math.fround));
+        assert.equal(line.visible, phase !== PHASE.AIM);
+        assert.deepEqual([line.geometry.id, line.material.id], ids);
+        assert.equal(line.geometry.attributes.position.array, buffer);
+      }
+    }
+    // A missing/hidden actual model never falls back to the old virtual ray.
+    view.update(fishing, true, 3.2, null); assert.equal(line.visible, false);
+    for (const phase of [PHASE.READY, PHASE.RESULT, PHASE.FAILED]) {
+      state.phase = phase; equipment.update(true, state, 3.2);
+      view.update(fishing, true, 3.2, equipment.copyTipWorld(out));
+      assert.equal(line.parent.visible, false);
+    }
+    state.phase = PHASE.CAST; equipment.update(false, state, 3.2);
+    assert.equal(equipment.copyTipWorld(out), null);
+    view.update(fishing, false, 3.2, null); assert.equal(line.parent.visible, false);
+  } finally { equipment.dispose(); }
 });
 
 test('full model vertices stay inside the actual notice bounds and conservative cast footprint during actions and retrieval', () => {
