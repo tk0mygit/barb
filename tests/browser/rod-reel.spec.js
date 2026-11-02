@@ -22,6 +22,14 @@ for (const profile of GEAR_PROFILES.filter(p => p.id !== 'small')) for (const le
     const stable = await gearRead(page);
     expect([stable.rod.positionVersion, stable.reel.positionVersion]).toEqual(versions);
     expect(stable.resources).toEqual(snapshot.resources);
+    // Keep the READY evidence, then show the same static model with the
+    // ordinary AIM controls. Portrait READY's larger panel can cover part of
+    // the lower model even though the WebGL geometry fits the viewport.
+    await click('#cast-button'); await gearTick(page);
+    expect(await gearPhase(page)).toBe('aim');
+    assertGear(await gearEvidence(page, info, `rod-reel-${profile.id}-lv${level}-aim`, { screenshot: true }), level);
+    await click('#cancel-cast'); await gearTick(page);
+    expect(await gearPhase(page)).toBe('ready');
     await click('#return-button'); await gearTick(page);
     expect((await gearRead(page)).visible).toBe(false);
     expect(errors).toEqual([]);
