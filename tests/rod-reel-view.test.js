@@ -121,6 +121,39 @@ test('tip remains at the existing virtual-line projection across profiles and tr
   } finally { view.dispose(); }
 });
 
+test('all active rod and reel vertices remain inside each supported viewport at every level', () => {
+  const collection = createCatchCollection(); fund(collection);
+  const fixture = setup(collection), { camera, view, rod, reel } = fixture;
+  const point = new THREE.Vector3();
+  try {
+    for (let level = 1; level <= 10; level++) {
+      if (level > 1) {
+        assert.ok(collection.purchaseUpgrade('rod', level - 1));
+        assert.ok(collection.purchaseUpgrade('reel', level - 1));
+      }
+      for (const [width, height] of [[1280, 800], [390, 844], [844, 390], [360, 740]]) {
+        camera.aspect = width / height; camera.updateProjectionMatrix();
+        view.update(true, PHASE.READY); view.group.updateMatrixWorld(true);
+        for (const part of [rod, reel]) {
+          const mesh = part.children[0], { geometry } = mesh;
+          const min = new THREE.Vector3(Infinity, Infinity, Infinity), max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+          // The butt is nearer than the tip. Project the active submitted
+          // vertices so perspective magnification cannot hide an edge overflow.
+          for (let index = geometry.drawRange.start; index < geometry.drawRange.start + geometry.drawRange.count; index++) {
+            point.fromBufferAttribute(geometry.attributes.position, index).applyMatrix4(mesh.matrixWorld).project(camera);
+            assert.ok(point.toArray().every(Number.isFinite), `${part.name} Lv.${level}: invalid projected vertex`);
+            min.min(point); max.max(point);
+          }
+          for (const axis of ['x', 'y', 'z']) {
+            assert.ok(min[axis] >= -1 && max[axis] <= 1,
+              `${width}x${height} ${part.name} Lv.${level}: ${axis} bounds ${min[axis]}..${max[axis]} leave the view volume`);
+          }
+        }
+      }
+    }
+  } finally { view.dispose(); }
+});
+
 test('sailing and result screens hide the assembly while every active fishing phase keeps a static pose', () => {
   const fixture = setup(), { view } = fixture;
   try {

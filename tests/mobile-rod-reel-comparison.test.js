@@ -33,7 +33,21 @@ test('the approved base genuinely has no rod/reel factory or view', async () => 
 
 test('production integration exactly reverses to the approved base and rejects unrelated edits', async () => {
   const before = await mobileGit('show', `${BASE}:src/main.js`);
-  const after = (await readFile(new URL('../src/main.js', import.meta.url), 'utf8')).trim();
+  // Construct the introduction from its reviewed base. Do not require every
+  // future PR's working main to remain byte-identical to this Phase's source.
+  const additions = [
+    ["import { createFishingView } from './rendering/fishing.js';", "\nimport { createRodReelView } from './rendering/rod-reel-view.js';"],
+    ['  const fishingView = createFishingView(scene, camera);', '\n  rodReelView = createRodReelView(scene, camera, collection);'],
+    ["    fishingView.update(fishing, boat.mode === 'fishing', elapsed);", "\n    rodReelView.update(boat.mode === 'fishing', fishing.state.phase);"],
+    ['    qteHUD?.dispose(); qteDelivery?.retire();', '\n    rodReelView.dispose();'],
+    ['  autosave?.dispose(); qteHUD?.dispose(); qteDelivery?.retire();', '\n  rodReelView?.dispose();'],
+  ];
+  let after = before.replace('let autosave, environmentAudio, audioSession, qteDelivery, qteHUD;',
+    'let autosave, environmentAudio, audioSession, qteDelivery, qteHUD, rodReelView;');
+  for (const [anchor, addition] of additions) {
+    assert.equal(after.split(anchor).length, 2);
+    after = after.replace(anchor, anchor + addition);
+  }
   verifyRodReelMainConnection(before, after);
   assert.throws(() => verifyRodReelMainConnection(before, after.replace('renderer.toneMappingExposure = 0.9', 'renderer.toneMappingExposure = 0.8')), /unrelated production main source/);
   assert.throws(() => verifyRodReelMainConnection(before, after.replace("    rodReelView.update(boat.mode === 'fishing', fishing.state.phase);\n", '')), /missing or duplicated/);

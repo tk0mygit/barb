@@ -26,7 +26,7 @@ export function createRodReelView(scene, camera, collection) {
       // line continues to use its own unchanged formula until Phase 5D-2.
       tip.set(0.16 * halfHeight * camera.aspect, -0.14 * halfHeight, -1);
       const gripDepth = 0.45;
-      butt.set(0.75 * halfHeight * camera.aspect * gripDepth, -0.8 * halfHeight * gripDepth, -gripDepth);
+      butt.set(0.60 * halfHeight * camera.aspect * gripDepth, -0.8 * halfHeight * gripDepth, -gripDepth);
       direction.subVectors(tip, butt);
       const length = direction.length();
       pose.setFromUnitVectors(axis, direction.divideScalar(length));
