@@ -60,6 +60,7 @@ test('replay rejects a larger dependency graph instead of loading the working ch
 
 test('factory inspection rejects culling, shadow, shader, draw-range and regeneration changes', () => {
   for (const mutate of [
+    mesh => { mesh.renderOrder = 1; },
     mesh => { mesh.frustumCulled = true; }, mesh => { mesh.castShadow = true; },
     mesh => { mesh.material.fog = false; }, mesh => { mesh.material.transparent = true; },
     mesh => { mesh.geometry.setDrawRange(0, Infinity); },

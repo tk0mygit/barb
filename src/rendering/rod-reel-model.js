@@ -72,7 +72,11 @@ function createModel(kind, templates, material) {
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3).setUsage(THREE.DynamicDrawUsage));
   const mesh = new THREE.Mesh(geometry, material); mesh.name = `fishing-${kind}-mesh`;
-  mesh.frustumCulled = false; mesh.renderOrder = 1;
+  mesh.frustumCulled = false;
+  // Draw after the world (0), before the existing lure/water guides (1).
+  // Near casts can cross the static rod silhouette; equal opaque orders would
+  // let material sorting paint the rod over the lure despite disabled depth.
+  mesh.renderOrder = 0.5;
   group.add(mesh);
   const point = new THREE.Vector3(), color = new THREE.Color();
   let cursor = 0, labels;

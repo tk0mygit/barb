@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import * as THREE from 'three';
 import { createRodReelModel, ROD_REEL_APPEARANCES } from '../src/rendering/rod-reel-model.js';
+import { createLureModel } from '../src/rendering/lure-models.js';
+import { LURES } from '../src/game/lures.js';
 
 const mesh = group => group.children[0];
 const geometry = group => mesh(group).geometry;
@@ -32,6 +34,32 @@ test('rod and reel have separate responsibilities, fixed buffers and a shared lu
     }
     assert.deepEqual(model.group.userData.tip, [0, 1, 0]);
   } finally { model.dispose(); }
+});
+
+test('the static rod and reel draw after the world but before every actual lure, preserving crossing near casts', () => {
+  const model = createRodReelModel(), lure = createLureModel();
+  const lureGeometries = new Set(), worldOrder = new THREE.Object3D().renderOrder;
+  try {
+    // The existing lure factory owns four cached variants but has no dispose
+    // API. Collect all of them before assertions so failure cleanup is complete.
+    for (const { id } of LURES) {
+      lure.select(id); lureGeometries.add(lure.mesh.geometry);
+    }
+    for (const { id } of LURES) {
+      lure.select(id);
+      for (const level of [1, 5, 10]) {
+        model.setLevels({ rodLevel: level, reelLevel: level });
+        for (const part of [model.rod, model.reel]) {
+          assert.ok(mesh(part).renderOrder > worldOrder, 'world geometry must not paint over the first-person equipment');
+          assert.ok(mesh(part).renderOrder < lure.mesh.renderOrder, `${id} must remain visible where its projection crosses ${part.name}`);
+        }
+      }
+    }
+  } finally {
+    model.dispose();
+    for (const value of lureGeometries) value.dispose();
+    lure.mesh.material.dispose();
+  }
 });
 
 test('all twenty appearances have independent structural geometry, useful labelled details and bounded submitted work', () => {

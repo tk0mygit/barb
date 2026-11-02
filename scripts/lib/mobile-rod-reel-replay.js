@@ -93,6 +93,7 @@ export function inspectRodReelFactory(createFactory) {
     } finally { standard.dispose(); }
     for (const mesh of meshes) {
       assert.equal(mesh.type, 'Mesh');
+      assert.equal(mesh.renderOrder, 0.5, 'Rod/reel must render before the existing lure guides');
       assert.equal(mesh.frustumCulled, false, 'Rod/reel draw count depends on diagnostic culling');
       assert.equal(mesh.castShadow, false); assert.equal(mesh.receiveShadow, false);
       assert.equal(mesh.onBeforeRender, Object3D.prototype.onBeforeRender, 'Rod/reel custom render callback is not supported');
