@@ -63,18 +63,26 @@ Display API calls sample the clock at the actual call after snapshot/DOM work;
 an older frame timestamp cannot be fed back into the monotonic delivery clock.
 The prepared region/target centre comes from the laid-out DOM rectangles, so
 CSS borders and fractional pixel quantization cannot shift scoring from the
-visible circles. The surrounding frame uses an outline to keep its origin fixed.
+visible circle. The panel and gesture region have no background, border,
+outline or box shadow; only text, operation marks and a thin timer remain.
 
-The HUD avoids visible masthead, action/fishing panels, reticle, compass and notices,
-intersecting canvas, safe-area and visual viewport bounds. Short landscape
-uses a compact side-by-side layout. Both mouse32 and touch40 target circles
-are visible on hybrid devices. All HUD descendants use `pointer-events:none`;
+For the approved 5C UI refresh, the gesture region is centred in the intersection
+of canvas, safe-area and visual viewport bounds. It may visually overlap the
+existing FIGHT HUD and notices. Short landscape retains the same central axis.
+Flick shows one inline SVG arrow; swipe shows two separate arrows arranged
+vertically for up/down and horizontally for left/right. No endpoint mark remains.
+Target shows one unfilled circle: 64px diameter with a fine primary pointer,
+80px with a coarse primary pointer. The instruction explicitly states the
+unchanged mouse32/touch40 scoring radii, including on hybrid devices where the
+primary-pointer visual cannot describe both input types at once.
+All HUD descendants use `pointer-events:none`;
 the actual input owner remains `#scene`. Insufficient room is an explicit
 layout diagnostic and cannot prepare a successful display. Warning, active,
 receipt wait, result, interruption and resume wait use text and shapes.
 
 Orientation invalidates contacts and freezes time until re-presentation; minor
-resize/obstacle changes invalidate geometry without extending D/C. Lifecycle
+resize or actual canvas/safe/visual-viewport changes invalidate geometry without
+extending D/C. Unrelated HUD movement is excluded from the geometry signature. Lifecycle
 reasons still belong to delivery's existing reason set. The composition owns
 technical resume (`hud.resumeTechnical(raw)`), menu/focus/page wiring and domain
 advancement. `dispose()` removes the opt-in HUD's resize/orientation listeners.
