@@ -38,11 +38,17 @@ test('production central QTE: rendered warning boundary, expanded FIGHT overlap 
     expect(style.outlineStyle).toBe('none'); expect(style.boxShadow).toBe('none'); expect(style.pointerEvents).toBe('none');
   }
   const old = calculateApprovedLayout(measured);
-  const starts = measured.grid.filter(point => !inside(point, old?.region) && inside(point, measured.fight)
+  // Native PointerEvent coordinates can quantize fractional CDP positions.
+  // Choose whole CSS pixels, then prove the same spatial contract explicitly;
+  // keep the exact native coordinate assertion below.
+  const starts = measured.grid.map(point => ({ x: Math.round(point.x), y: Math.round(point.y) }))
+    .filter(point => inside(point, measured.geometry.region) && !inside(point, old?.region) && inside(point, measured.fight)
     && inside({ x: point.x + 80, y: point.y }, measured.geometry.region));
   expect(starts.length, JSON.stringify({ measured, old })).toBeGreaterThan(0);
   const start = { x: starts[0].x, y: starts[0].y }, end = { x: start.x + 80, y: start.y };
-  expect(await page.evaluate(p => document.elementFromPoint(p.x, p.y)?.id, end)).toBe('scene');
+  expect(inside(start, measured.geometry.region)).toBe(true); expect(inside(start, measured.fight)).toBe(true);
+  expect(inside(start, old?.region)).toBeFalsy();
+  expect(await page.evaluate(points => points.map(p => document.elementFromPoint(p.x, p.y)?.id), [start, end])).toEqual(['scene', 'scene']);
   await captureQteUI(page, info, 'production-fight-central-qte', { approvedBase, old, measured, before, frames, start, end });
   await input.down(start); await input.move(end); await page.clock.fastForward(20); await input.up();
   const pending = await productSnapshot(page);

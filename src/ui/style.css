@@ -1,10 +1,10 @@
 :root { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; color: #f4f2e6; background: #123e42; font-synthesis: none; }
 .qte-safe-probe { position: fixed; inset: var(--safe-top, 0px) var(--safe-right, 0px) var(--safe-bottom, 0px) var(--safe-left, 0px); visibility: hidden; pointer-events: none; }
 .qte-hud, .qte-hud * { pointer-events: none; }
-.qte-hud, .qte-gesture { padding: 0; border: 0; outline: none; box-shadow: none; background: transparent; }
+.qte-hud, .qte-gesture { padding: 0; border: 0; outline: 0 none transparent; box-shadow: none; background: transparent; }
 .qte-hud { position: fixed; z-index: 3; text-align: center; color: #dce2de; font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; font-size: 12px; line-height: 1.4; letter-spacing: .05em; text-shadow: 0 1px 3px #071b1bcc; --qte-gauge-color: #bacdc7; }
-.qte-state { position: absolute; left: 0; right: 0; top: 0; display: block; font-size: 13px; font-weight: 600; }
-.qte-instruction { position: absolute; left: 0; right: 0; top: 22px; margin: 0; font-size: 12px; font-weight: 400; }
+.qte-state { position: absolute; left: 0; right: 0; top: max(0px, calc(50% - 128px)); display: block; font-size: 13px; font-weight: 600; }
+.qte-instruction { position: absolute; left: 0; right: 0; top: max(22px, calc(50% - 106px)); margin: 0; font-size: 12px; font-weight: 400; }
 .qte-gesture { position: absolute; }
 .qte-arrow { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: clamp(10px, 2vmin, 18px); color: #e1e5e1; opacity: .68; }
 .qte-arrow-shape { display: block; flex: none; width: clamp(64px, 12vmin, 100px); height: clamp(64px, 12vmin, 100px); fill: currentColor; }
@@ -16,7 +16,7 @@
 .qte-target { position: absolute; width: 64px; height: 64px; transform: translate(-50%, -50%); border: 1px solid #dce3dfb3; border-radius: 50%; background: transparent; }
 @media (pointer: coarse) { .qte-target { width: 80px; height: 80px; } }
 .qte-taps { position: absolute; inset: 0; display: grid; place-items: center; font-size: 24px; font-weight: 400; letter-spacing: .12em; font-variant-numeric: tabular-nums; color: #dce2decc; }
-.qte-timer { position: absolute; bottom: 0; left: 50%; width: min(100%, 360px); transform: translateX(-50%); display: flex; gap: 10px; align-items: center; font-size: 11px; font-variant-numeric: tabular-nums; }
+.qte-timer { position: absolute; bottom: max(0px, calc(50% - 128px)); left: 50%; width: min(100%, 360px); transform: translateX(-50%); display: flex; gap: 10px; align-items: center; font-size: 11px; font-variant-numeric: tabular-nums; }
 .qte-timer progress { appearance: none; width: 100%; min-width: 0; height: 3px; border: 0; border-radius: 0; background: #dce2de25; color: var(--qte-gauge-color); accent-color: var(--qte-gauge-color); }
 .qte-timer progress::-webkit-progress-bar { background: #dce2de25; }
 .qte-timer progress::-webkit-progress-value { background: var(--qte-gauge-color); }
