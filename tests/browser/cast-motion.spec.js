@@ -17,12 +17,35 @@ function assertAnimatedClear(snapshot) {
     && rect.bottom < snapshot.viewport.height / 2);
   expect(topControls.length).toBeGreaterThan(0);
   const bottom = Math.max(...topControls.map(rect => rect.bottom));
-  for (const [kind, part] of [['rod', snapshot.rod], ['reel', snapshot.reel]]) {
-    expect(part.bounds.top, `${snapshot.phase} ${kind} must clear the complete top HUD by 2 CSS pixels`)
-      .toBeGreaterThanOrEqual(bottom + 2);
-  }
+  // PM approved visual overlap for the upright rod only. Preserve the reel's
+  // exclusion and all existing viewport, input and actual-tip assertions.
+  expect(snapshot.reel.bounds.top, `${snapshot.phase} reel must clear the complete top HUD by 2 CSS pixels`)
+    .toBeGreaterThanOrEqual(bottom + 2);
   return { topHudBottomCss: bottom, rodTopCss: snapshot.rod.bounds.top, reelTopCss: snapshot.reel.bounds.top,
-    minimumClearanceCss: Math.min(snapshot.rod.bounds.top, snapshot.reel.bounds.top) - bottom };
+    rodClearanceCss: snapshot.rod.bounds.top - bottom, reelClearanceCss: snapshot.reel.bounds.top - bottom };
+}
+
+function rodDirection(snapshot) {
+  const world = new THREE.Vector3(...snapshot.tip.world).sub(new THREE.Vector3(...snapshot.grip.world)).normalize();
+  const camera = world.applyQuaternion(new THREE.Quaternion(...snapshot.camera.quaternion).invert());
+  return { cameraAxis: camera.toArray(), elevationDegrees: THREE.MathUtils.radToDeg(Math.atan2(camera.y, Math.hypot(camera.x, camera.z))) };
+}
+
+function assertUpright(snapshot) {
+  const direction = rodDirection(snapshot);
+  for (const [index, value] of direction.cameraAxis.entries()) {
+    expect(Math.abs(value - (index === 1 ? 1 : 0))).toBeLessThanOrEqual(SOURCE_WORLD_EPSILON);
+  }
+  expect(Math.abs(snapshot.tip.x - snapshot.grip.x)).toBeLessThanOrEqual(1e-8);
+  return direction;
+}
+
+async function rotateGear(page, viewport) {
+  await page.setViewportSize(viewport);
+  await expect.poll(async () => {
+    await page.clock.runFor(16);
+    return (await gearRead(page)).camera.aspect;
+  }, { intervals: [0] }).toBe(viewport.width / viewport.height);
 }
 
 function castSeconds(snapshot) {
@@ -49,6 +72,7 @@ function sourceReplay(level) {
       for (let i = 0; i < 3; i++) expect(Math.abs(expected.getComponent(i) - snapshot.tip.world[i])).toBeLessThanOrEqual(SOURCE_WORLD_EPSILON);
       return { phase, phaseSeconds, visualElapsed: snapshot.frame.elapsed, expectedTipWorld: expected.toArray(),
         actualTipWorld: snapshot.tip.world, lineStartWorld: snapshot.line.start.world,
+        shaft: rodDirection(snapshot),
         worldDelta: snapshot.line.worldDelta, projectionDelta: snapshot.line.projectionDelta };
     },
     dispose: () => view.dispose(),
@@ -75,11 +99,37 @@ for (const scenario of cases) test(`cast motion: ${scenario.id} Lv${scenario.lev
     await click('#cast-button'); await gearTick(page);
     const point = { x: 90, y: profile.height * 0.48 };
     await input.down(point); await input.move({ x: point.x + 50, y: point.y }); await gearTick(page);
+    assertUpright(await gearRead(page));
+    // Resize while the actual shaft is upright and the native drag is held.
+    // Recompute the pose in each aspect before exercising pointercancel.
+    for (const viewport of [{ width: 844, height: 390 }, { width: 390, height: 844 }]) {
+      await rotateGear(page, viewport);
+      expect(await gearPhase(page)).toBe('aim');
+      const rotated = await gearEvidence(page, info, `motion-upright-aim-${viewport.width}`);
+      assertGear(rotated, scenario.level); assertUpright(rotated); assertAnimatedClear(rotated);
+    }
     await input.cancel(); await input.up(); await gearTick(page);
     expect(await gearPhase(page)).toBe('ready');
     assertGear(await gearEvidence(page, info, 'motion-native-cancel'), scenario.level);
   }
   if (scenario.id === 'landscape') {
+    await click('#cast-button'); await gearTick(page); await gearTick(page);
+    const overlap = await gearRead(page, { includeTriangles: true });
+    assertUpright(overlap);
+    const button = overlap.controls.find(rect => rect.id === 'cancel-cast');
+    const point = overlap.rod.projectedTriangles.map(triangle => ({
+      x: triangle.reduce((sum, p) => sum + p[0], 0) / 3,
+      y: triangle.reduce((sum, p) => sum + p[1], 0) / 3,
+    })).find(p => p.x > button.left + 2 && p.x < button.right - 2
+      && p.y > button.top + 2 && p.y < button.bottom - 2);
+    expect(point, 'the approved rod/dialog overlap must be reproduced by actual submitted triangles').toBeDefined();
+    expect(await page.evaluate(p => document.elementFromPoint(p.x, p.y)?.closest('button')?.id, point)).toBe('cancel-cast');
+    await page.locator('#cancel-cast').tap({ position: { x: point.x - button.left, y: point.y - button.top } });
+    await gearTick(page);
+    expect(await gearPhase(page)).toBe('ready');
+    assertGear(await gearRead(page), scenario.level);
+    await info.attach('upright-rod-dialog-native-hit', { body: JSON.stringify({ point, button,
+      shaft: rodDirection(overlap), phaseAfterNativeTap: await gearPhase(page) }), contentType: 'application/json' });
     // Menu opening uses the ordinary input reset to cancel AIM. Its first
     // resumed frame must already be neutral, without replaying the old hold.
     await click('#cast-button'); await gearTick(page); await gearTick(page);
@@ -114,6 +164,7 @@ for (const scenario of cases) test(`cast motion: ${scenario.id} Lv${scenario.lev
     await expect(page.locator('#line-distance')).toHaveText(`着水予測 ${scenario.distance.toFixed(1)} m`);
     const aim = await gearEvidence(page, info, 'motion-aim-held', { screenshot: true });
     assertGear(aim, scenario.level);
+    assertUpright(aim);
     numerical.push({ ...replay.check(aim, aim.frame.elapsed - entered.frame.elapsed), hudClearance: assertAnimatedClear(aim),
       clockSource: 'accepted visual elapsed since AIM time zero' });
     expect(aim.tip.normalized[1]).toBeLessThan(initial.tip.normalized[1] - 0.1);
@@ -124,16 +175,23 @@ for (const scenario of cases) test(`cast motion: ${scenario.id} Lv${scenario.lev
 
     let previous = 0, firstCast;
     for (const seconds of [0.032, 0.128, 0.3, 0.6, 0.78]) {
-      await page.clock.runFor(Math.round((seconds - previous) * 1000)); previous = seconds;
+      const skipped = seconds === 0.3 ? await gearRead(page) : null;
+      const advanceMs = Math.round((seconds - previous) * 1000);
+      if (skipped) await page.clock.fastForward(advanceMs);
+      else await page.clock.runFor(advanceMs);
+      previous = seconds;
       expect(await gearPhase(page)).toBe('cast');
       const snapshot = await gearEvidence(page, info, `motion-cast-${Math.round(seconds * 1000)}ms`,
-        { screenshot: seconds === 0.032 || seconds === 0.6 });
+        { screenshot: seconds === 0.032 || seconds === 0.128 || seconds === 0.6 });
       assertGear(snapshot, scenario.level, { line: true });
       const time = castSeconds(snapshot);
       expect(time).toBeGreaterThan(0); expect(time).toBeLessThan(0.8);
       expect(Math.abs(time - (snapshot.frame.elapsed - releasedAt))).toBeLessThanOrEqual(SOURCE_WORLD_EPSILON);
       numerical.push({ ...replay.check(snapshot, time), hudClearance: assertAnimatedClear(snapshot),
+        ...(skipped ? { lowFps: { requestedMs: advanceMs, renderedFrames: snapshot.renders - skipped.renders,
+          acceptedSeconds: time - castSeconds(skipped) } } : {}),
         clockSource: 'unchanged lure x/z fraction along committed cast ray × 0.8s' });
+      if (skipped) expect(snapshot.renders - skipped.renders).toBe(1);
       expect(snapshot.ring.center.world).toEqual(target);
       for (const [axis, origin] of [[0, ORIGIN[0]], [2, ORIGIN[1]]]) {
         expect(Math.abs(snapshot.lure.center.world[axis] - (origin + (target[axis] - origin) * time / 0.8)))
@@ -170,11 +228,7 @@ for (const scenario of cases) test(`cast motion: ${scenario.id} Lv${scenario.lev
     expect(FISHING_CONFIG.flightSeconds).toBe(0.8);
 
     if (scenario.id === 'portrait') {
-      await page.setViewportSize({ width: 844, height: 390 });
-      await expect.poll(async () => {
-        await page.clock.runFor(16);
-        return (await gearRead(page)).camera.aspect;
-      }, { intervals: [0] }).toBe(844 / 390);
+      await rotateGear(page, { width: 844, height: 390 });
       expect(await gearPhase(page)).toBe('lure');
       const rotated = await gearEvidence(page, info, 'motion-lure-rotated');
       assertGear(rotated, scenario.level, { line: true });

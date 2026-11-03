@@ -174,7 +174,7 @@ test('sailing and result screens hide the assembly while non-cast phases preserv
 });
 
 test('phase-time sampler has exact takeback, forward, recovery and cancellation endpoints', () => {
-  const takeback = Math.PI * 14 / 180, forward = -Math.PI * 8 / 180;
+  const takeback = Math.PI / 2, forward = -Math.PI * 8 / 180;
   close(sampleRodPitch(PHASE.AIM, 0), 0, 'initial AIM');
   close(sampleRodPitch(PHASE.AIM, 0.09), takeback / 2, 'half takeback');
   for (const time of [0.18, 1, 600]) close(sampleRodPitch(PHASE.AIM, time), takeback, 'stable AIM hold');
@@ -291,7 +291,7 @@ test('lifecycle reset clears canceled READY recovery without moving resources, w
   } finally { interrupted.view.dispose(); ordinary.view.dispose(); neutral.view.dispose(); }
 });
 
-test('animated tip uses the actual model world transform at Lv1/5/10 with camera parents and grip-fixed rigid motion', () => {
+test('upright motion uses the actual tip and a rigid grip pivot with bounded camera-local retreat at Lv1/5/10', () => {
   const funded = createCatchCollection(); fund(funded);
   for (const level of [1, 5, 10]) {
     const collection = createCatchCollection({ initialData: { catches: funded.catches, wallet: funded.wallet,
@@ -307,18 +307,26 @@ test('animated tip uses the actual model world transform at Lv1/5/10 with camera
         const cameraPose = camera.matrixWorld.clone(), projection = camera.projectionMatrix.clone();
         view.update(true, phaseState(PHASE.READY, 1, 0), 1);
         const neutralScale = view.group.scale.clone();
-        const fixedGrip = view.group.localToWorld(new THREE.Vector3(0, 0.12, 0));
-        for (const [phase, time, revision, elapsed] of [
-          [PHASE.AIM, 0, 1, 2], [PHASE.AIM, 0.09, 1, 2.09], [PHASE.AIM, 1, 1, 3],
-          [PHASE.CAST, 0, 2, 3], [PHASE.CAST, 0.06, 2, 3.06], [PHASE.CAST, 0.12, 2, 3.12],
-          [PHASE.CAST, 0.31, 2, 3.31], [PHASE.CAST, 0.5, 2, 3.5], [PHASE.LURE, 0, 3, 3.8],
-          [PHASE.FIGHT, 0, 4, 4],
+        const fixedGrip = view.group.localToWorld(new THREE.Vector3(0, 0.12, 0)).applyMatrix4(camera.matrixWorldInverse);
+        for (const [phase, time, revision, elapsed, retreat] of [
+          [PHASE.AIM, 0, 1, 2, 0], [PHASE.AIM, 0.09, 1, 2.09, 0.05], [PHASE.AIM, 1, 1, 3, 0.20],
+          [PHASE.CAST, 0, 2, 3, 0.20], [PHASE.CAST, 0.06, 2, 3.06, 0.20 * (41 / 90) ** 2], [PHASE.CAST, 0.12, 2, 3.12, 0],
+          [PHASE.CAST, 0.31, 2, 3.31, 0], [PHASE.CAST, 0.5, 2, 3.5, 0], [PHASE.LURE, 0, 3, 3.8, 0],
+          [PHASE.FIGHT, 0, 4, 4, 0],
         ]) {
           view.update(true, phaseState(phase, time, revision), elapsed);
           assert.equal(view.copyTipWorld(out), out);
           expected.fromArray(view.group.userData.tip).applyMatrix4(view.group.matrixWorld);
           assert.ok(out.distanceTo(expected) < 1e-12, `${phase}/${time}: actual local tip matches public world API`);
-          assert.ok(view.group.localToWorld(expected.set(0, 0.12, 0)).distanceTo(fixedGrip) < 1e-12, 'grip pivot does not jump');
+          const actualGrip = view.group.localToWorld(expected.set(0, 0.12, 0)).applyMatrix4(camera.matrixWorldInverse);
+          close(actualGrip.x, fixedGrip.x, 'grip stays on the original camera-local horizontal axis');
+          close(actualGrip.y, fixedGrip.y, 'grip stays at its original camera-local height');
+          close(actualGrip.z, fixedGrip.z - retreat, 'grip retreat follows the bounded display trajectory');
+          if (phase === PHASE.AIM && time >= 0.18 || phase === PHASE.CAST && time === 0) {
+            const rodAxis = new THREE.Vector3(0, 1, 0).transformDirection(view.group.matrixWorld);
+            const cameraUp = new THREE.Vector3(0, 1, 0).transformDirection(camera.matrixWorld);
+            assert.ok(rodAxis.distanceTo(cameraUp) < 1e-12, 'held shaft stands at 90 degrees in the actual camera frame');
+          }
           assert.deepEqual(view.group.scale, neutralScale, 'motion does not stretch the assembly');
           matrixClose(camera.matrixWorld, cameraPose, 'view does not move camera');
           assert.deepEqual(camera.projectionMatrix, projection, 'view does not alter camera projection');
@@ -354,10 +362,10 @@ test('all active animated vertices stay within every viewport throughout takebac
                 point.fromBufferAttribute(geometry.attributes.position, index).applyMatrix4(mesh.matrixWorld).project(camera);
                 assert.ok(point.toArray().every(value => Number.isFinite(value) && value >= -1 && value <= 1),
                   `${width}×${height} ${part.name} Lv.${level} ${phase}/${time}: animated vertex leaves view volume ${point.toArray()}`);
-                if (width === 844 && height === 390) {
-                  // The native landscape controls measured in visual review
-                  // end at CSS y=172. Check every submitted vertex against that
-                  // envelope; browser coverage also reads the actual HUD DOM.
+                if (part === reel && width === 844 && height === 390) {
+                  // PM permits the upright rod to overlap dialogs. The reel
+                  // retains its existing landscape control exclusion envelope;
+                  // browser coverage also reads the actual HUD DOM.
                   assert.ok((1 - point.y) * height / 2 >= 172,
                     `${part.name} Lv.${level} ${phase}/${time}: animated vertex enters the landscape control envelope`);
                 }

@@ -106,6 +106,7 @@ export async function openGear(createContext, profile, options = {}) {
             camera: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(),
               fov: camera.fov, aspect: camera.aspect, near: camera.near, far: camera.far, zoom: camera.zoom },
             tip: tipWorld && project(tipWorld),
+            grip: root && project(root.localToWorld(root.position.clone().set(0, 0.12, 0))),
             rod: describe('fishing-rod'), reel: describe('fishing-reel'),
             lure: describeMesh(scene.getObjectByName('fishing-lure')), ring: describeMesh(ring),
             line: { visible: visible(line), start: lineStart, end: lineEnd, quantizedTip,
