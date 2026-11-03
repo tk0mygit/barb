@@ -4,6 +4,7 @@ import { scoreQteContact, evaluateQteOperation, QTE_DIRECTIONS } from '../src/ga
 import { operationSetup, displayGeometry } from './helpers/qte-operations.js';
 import { getQteDifficulty } from '../src/game/fight-qte.js';
 import { FISH_SPECIES } from '../src/game/fish-species.js';
+import { calculateQteLayout } from '../src/ui/qte-layout.js';
 
 const window = { active: 600, deadline: 1100, cut: 1200 };
 const geometry = Object.freeze({ ...displayGeometry, revision: 0 });
@@ -15,6 +16,24 @@ const endpoint = (direction, distance, degrees = 0) => {
   const v = QTE_DIRECTIONS[direction], angle = degrees * Math.PI / 180;
   return { endX: distance * (v.x * Math.cos(angle) - v.y * Math.sin(angle)), endY: distance * (v.y * Math.cos(angle) + v.x * Math.sin(angle)) };
 };
+
+test('enlarged central region only admits newly included starts; distance, direction, timing and outside rejection remain unchanged', () => {
+  const { region, target } = calculateQteLayout({ canvas: { left: 0, top: 0, right: 1000, bottom: 700 },
+    safe: { left: 24, top: 16, right: 976, bottom: 684 } });
+  const expandedGeometry = { region, target, revision: 0 };
+  // Old unobstructed 304x216 panel region at this same canvas/safe centre.
+  const oldGeometry = { region: { left: 360, top: 294, right: 640, bottom: 434 }, target: { x: 500, y: 364 }, revision: 0 };
+  for (const operation of ['flick', 'swipe']) {
+    const distance = operation === 'flick' ? 35 : 75;
+    const start = { startX: 220, startY: 350, endX: 220 + distance, endY: 350, maxDisplacement: distance };
+    assert.equal(score(operation, { ...start, geometry: oldGeometry }), false);
+    assert.equal(score(operation, { ...start, geometry: expandedGeometry }), true);
+    assert.equal(score(operation, { ...start, geometry: expandedGeometry, endX: 220 + distance - .000001 }), false);
+    assert.equal(score(operation, { ...start, geometry: expandedGeometry, endX: 220 - distance }), false);
+    assert.equal(score(operation, { ...start, geometry: expandedGeometry, upSource: 1100.001, upReceipt: 1100.001 }), false);
+    assert.equal(score(operation, { ...start, geometry: expandedGeometry, startX: region.left - .000001 }), false);
+  }
+});
 
 for (const operation of ['flick', 'swipe']) for (const direction of Object.keys(QTE_DIRECTIONS)) {
   test(`${operation}/${direction}: inclusive distance, both angle boundaries, zero and reverse direction`, () => {

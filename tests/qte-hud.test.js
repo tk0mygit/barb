@@ -89,3 +89,164 @@ test('production HUD prepares before rendering but requires the caller to confir
     if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
   }
 });
+
+
+function withHUDDOM(run) {
+  const oldWindow = globalThis.window, oldDocument = globalThis.document;
+  try {
+    globalThis.window = new EventTarget(); window.screen = { orientation: new EventTarget() };
+    globalThis.document = { createElement: node };
+    run();
+  } finally {
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+  }
+}
+
+test('descriptor selects one or two uniform SVG arrows in all four directions; tap and target keep their own cues', () => withHUDDOM(() => {
+  for (const operation of ['flick', 'swipe', 'tap', 'target']) for (const direction of ['up', 'down', 'left', 'right']) {
+    const s = operationSetup({ operation, direction });
+    const hud = createQteHUD({ fishing: s.f, delivery: s.delivery, provider: s.provider, canvas: node(), root: node() });
+    s.at(600); hud.update(1); s.at(610); hud.update(2);
+    const panel = hud.element, arrow = panel.querySelector('.qte-arrow');
+    assert.equal(panel.dataset.operation, operation);
+    assert.equal(arrow.dataset.direction, direction);
+    assert.equal(arrow.hidden, !['flick', 'swipe'].includes(operation));
+    assert.equal(panel.querySelector('.qte-arrow-secondary').style.display, operation === 'swipe' ? '' : 'none');
+    assert.equal(panel.querySelector('.qte-target').hidden, operation !== 'target');
+    assert.equal(panel.querySelector('.qte-taps').hidden, operation !== 'tap');
+    assert.equal((panel.innerHTML.match(/<svg /g) ?? []).length, 2);
+    assert.equal((panel.innerHTML.match(/M12 36H53V18L86 50 53 82V64H12Z/g) ?? []).length, 2);
+    assert.doesNotMatch(panel.innerHTML, /qte-endpoint|◎|[↑↓←→]/);
+    assert.match(panel.innerHTML, /qte-gesture" aria-hidden="true"/);
+    assert.doesNotMatch(panel.innerHTML, /qte-target"><span/);
+    if (operation === 'target') assert.match(panel.querySelector('.qte-instruction').textContent, /半径 マウス32／タッチ40px/);
+    if (operation === 'tap') assert.equal(panel.querySelector('.qte-taps').textContent, '0/3 ○○○');
+    hud.dispose();
+  }
+}));
+
+test('HUD movement cannot consume the half-second window; only effective canvas/safe/visual viewport coordinates revise geometry', () => withHUDDOM(() => {
+  const s = operationSetup({ operation: 'flick' });
+  const root = node();
+  let obstacleReads = 0;
+  root.querySelectorAll = () => { obstacleReads++; return [node()]; };
+  let canvasBounds = { left: 0, top: 0, right: 1000, bottom: 700 };
+  let safeBounds = { ...canvasBounds };
+  const canvas = node(), safeProbe = node();
+  canvas.getBoundingClientRect = () => canvasBounds;
+  safeProbe.getBoundingClientRect = () => safeBounds;
+  globalThis.document.createElement = tag => tag === 'div' ? safeProbe : node();
+  window.visualViewport = { offsetLeft: 0, offsetTop: 0, width: 1000, height: 700 };
+  const hud = createQteHUD({ fishing: s.f, delivery: s.delivery, provider: s.provider, canvas, root, manageGeometry: false });
+  s.at(600); hud.update(1); s.at(610); hud.update(2);
+  const initial = s.delivery.snapshot;
+  assert.equal(initial.deadline - initial.active, 500);
+  s.at(620); hud.update(3);
+  assert.equal(obstacleReads, 0);
+  assert.equal(s.delivery.snapshot.geometryRevision, initial.geometryRevision);
+  assert.equal(s.delivery.snapshot.deadline, initial.deadline);
+  assert.equal(s.delivery.snapshot.remainingMs, initial.remainingMs - 10);
+  // Even a viewport measurement change has no effect when it does not change
+  // the safe intersection actually used for placement.
+  window.visualViewport.width = 1100;
+  s.at(630); hud.update(4);
+  assert.equal(s.delivery.snapshot.geometryRevision, initial.geometryRevision);
+  let frame = 4, raw = 630;
+  for (const change of [
+    () => { canvasBounds = { ...canvasBounds, right: 999.875 }; },
+    () => { safeBounds = { ...safeBounds, left: 24.125 }; },
+    () => { window.visualViewport.height = 650.375; },
+  ]) {
+    const before = s.delivery.snapshot.geometryRevision;
+    change(); s.at(raw += 10); hud.update(++frame);
+    assert.equal(s.delivery.snapshot.geometryRevision, before + 1);
+    assert.equal(s.delivery.snapshot.deadline, initial.deadline);
+    s.at(raw += 10); hud.update(++frame);
+    assert.equal(s.delivery.snapshot.displayReady, true);
+    assert.equal(s.delivery.snapshot.deadline, initial.deadline);
+  }
+  hud.dispose();
+}));
+
+test('thin timer keeps remaining fraction/seconds and marks urgency without altering the deadline', () => withHUDDOM(() => {
+  const s = operationSetup({ operation: 'flick' });
+  const hud = createQteHUD({ fishing: s.f, delivery: s.delivery, provider: s.provider, canvas: node(), root: node() });
+  s.at(600); hud.update(1); s.at(610); hud.update(2);
+  const deadline = s.delivery.snapshot.deadline;
+  assert.equal(hud.element.dataset.urgent, 'false');
+  s.at(1010); hud.update(3);
+  assert.equal(s.delivery.snapshot.deadline, deadline);
+  assert.equal(hud.element.dataset.urgent, 'true');
+  assert.equal(hud.element.querySelector('progress').value, .2);
+  assert.equal(hud.element.querySelector('.qte-timer span').textContent, '0.1秒');
+  hud.dispose();
+}));
+
+
+test('canvas edges outside the effective intersection retain revision/deadline, while actual DOM zoom still revises', () => withHUDDOM(() => {
+  const s = operationSetup({ operation: 'flick' });
+  let canvasBounds = { left: 0, top: 0, right: 1000, bottom: 700 };
+  const safeBounds = { left: 0, top: 0, right: 800, bottom: 700 };
+  let regionBounds = { left: 30, top: 174, right: 770, bottom: 526 };
+  const canvas = node(), safeProbe = node();
+  canvas.getBoundingClientRect = () => canvasBounds;
+  safeProbe.getBoundingClientRect = () => safeBounds;
+  globalThis.document.createElement = tag => {
+    if (tag === 'div') return safeProbe;
+    const panel = node();
+    panel.querySelector('.qte-gesture').getBoundingClientRect = () => regionBounds;
+    return panel;
+  };
+  const hud = createQteHUD({ fishing: s.f, delivery: s.delivery, provider: s.provider, canvas, root: node(), manageGeometry: false });
+  s.at(600); hud.update(1); s.at(610); hud.update(2);
+  const initial = s.delivery.snapshot;
+  canvasBounds = { ...canvasBounds, right: 999 };
+  s.at(620); hud.update(3);
+  assert.equal(s.delivery.snapshot.geometryRevision, initial.geometryRevision);
+  assert.equal(s.delivery.snapshot.deadline, initial.deadline);
+  assert.equal(s.delivery.snapshot.displayReady, true);
+  regionBounds = { ...regionBounds, left: 30.125, right: 770.125 };
+  s.at(630); hud.update(4);
+  assert.equal(s.delivery.snapshot.geometryRevision, initial.geometryRevision + 1);
+  assert.equal(s.delivery.snapshot.deadline, initial.deadline);
+  assert.equal(s.delivery.snapshot.displayReady, false);
+  s.at(640); hud.update(5);
+  assert.equal(s.delivery.snapshot.displayReady, true);
+  assert.equal(s.delivery.snapshot.geometryRevision, initial.geometryRevision + 1);
+  s.at(650); hud.update(6);
+  assert.equal(s.delivery.snapshot.geometryRevision, initial.geometryRevision + 1);
+  assert.equal(s.delivery.snapshot.deadline, initial.deadline);
+  assert.deepEqual(hud.geometry.region, regionBounds);
+  hud.dispose();
+}));
+
+test('unavailable diagnostic stays within a finite clipped intersection and never prepares display', () => withHUDDOM(() => {
+  const s = operationSetup({ operation: 'tap' });
+  const canvas = node(), safeProbe = node();
+  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1000, bottom: 700 });
+  safeProbe.getBoundingClientRect = () => ({ left: 24, top: 16, right: 976, bottom: 684 });
+  globalThis.document.createElement = tag => tag === 'div' ? safeProbe : node();
+  window.visualViewport = { offsetLeft: 300.125, offsetTop: 200.375, width: 180.5, height: 180.25 };
+  let prepareCalls = 0;
+  const prepare = s.delivery.prepareDisplay;
+  s.delivery.prepareDisplay = (...args) => { prepareCalls++; return prepare(...args); };
+  const hud = createQteHUD({ fishing: s.f, delivery: s.delivery, provider: s.provider, canvas, root: node(), manageGeometry: false });
+  s.at(600); hud.update(1);
+  assert.equal(hud.element.dataset.state, 'layout-unavailable');
+  assert.equal(hud.element.querySelector('.qte-gesture').hidden, true);
+  assert.equal(hud.geometry, null);
+  assert.equal(prepareCalls, 0);
+  assert.equal(s.delivery.snapshot.displayReady, false);
+  const { style } = hud.element;
+  assert.equal(style.left, '390.375px'); assert.equal(style.top, '290.5px');
+  assert.equal(style.width, '164.5px'); assert.equal(style.maxHeight, '164.25px');
+  assert.equal(style.height, '');
+  // Invalid raw rectangles must not be turned into a usable region by the
+  // canonical signature; the CSS diagnostic fallback also clears old bounds.
+  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, right: NaN, bottom: 700 });
+  s.at(610); hud.update(2);
+  assert.equal(hud.geometry, null); assert.equal(prepareCalls, 0);
+  assert.equal(style.left, ''); assert.equal(style.top, ''); assert.equal(style.width, '');
+  hud.dispose();
+}));

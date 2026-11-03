@@ -1,26 +1,35 @@
 import { calculateQteLayout } from './qte-layout.js';
-import { QTE_DIRECTIONS } from '../game/qte-operations.js';
 
-const obstacleSelectors = '.masthead, .action-panel, #fishing-panel, #reticle, .compass, .telemetry, .edition, #spot-status, #sale-notice, #achievement-notice';
 const labels = { flick: '短く素早くフリック', swipe: '長くスワイプ', tap: '3回タップ', target: '円の中をタップ' };
-const arrows = { up: '↑', right: '→', down: '↓', left: '←' };
+// One filled shape for every direction; CSS only rotates it, never stretches it.
+const arrowShape = '<svg class="qte-arrow-shape" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="M12 36H53V18L86 50 53 82V64H12Z"/></svg>';
+const secondArrowShape = arrowShape.replace('qte-arrow-shape', 'qte-arrow-shape qte-arrow-secondary');
 const directionNames = { up: '上', right: '右', down: '下', left: '左' };
 const rect = r => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+const finiteRect = r => r && Object.values(r).every(Number.isFinite)
+  && r.right > r.left && r.bottom > r.top && Number.isFinite(r.right - r.left) && Number.isFinite(r.bottom - r.top);
+const effectiveBounds = ({ canvas, safe }) => {
+  if (!finiteRect(canvas) || !finiteRect(safe)) return null;
+  const bounds = { left: Math.max(canvas.left, safe.left), top: Math.max(canvas.top, safe.top),
+    right: Math.min(canvas.right, safe.right), bottom: Math.min(canvas.bottom, safe.bottom) };
+  return finiteRect(bounds) ? bounds : null;
+};
 
-// Explicit, opt-in component. The standard/new/restored game never constructs
-// it in this phase. It owns no pointer, audio, image, timer or gameplay RNG.
+// Visual guidance only. Native canvas input and all delivery clocks stay with
+// their existing owners; the HUD owns no pointer, timer or gameplay RNG.
 export function createQteHUD({ fishing, delivery, provider, canvas = document.querySelector('#scene'), root = document.querySelector('#app'),
   manageGeometry = true, autoPresent = true }) {
   const panel = document.createElement('section');
   panel.className = 'qte-hud'; panel.hidden = true; panel.setAttribute('aria-label', 'ファイト補助操作');
   panel.innerHTML = '<strong class="qte-state" role="status" aria-live="polite"></strong><p class="qte-instruction"></p>'
-    + '<div class="qte-gesture" aria-hidden="true"><span class="qte-arrow"></span><span class="qte-endpoint">◎</span>'
-    + '<span class="qte-target"><span></span></span><span class="qte-taps"></span></div>'
+    + '<div class="qte-gesture" aria-hidden="true"><span class="qte-arrow">' + arrowShape + secondArrowShape + '</span>'
+    + '<span class="qte-target"></span><span class="qte-taps"></span></div>'
     + '<div class="qte-timer"><progress max="1" value="1" aria-label="操作の残り時間"></progress><span></span></div>';
   const safeProbe = document.createElement('div'); safeProbe.className = 'qte-safe-probe'; safeProbe.setAttribute('aria-hidden', 'true');
   root.append(safeProbe, panel);
   const state = panel.querySelector('.qte-state'), instruction = panel.querySelector('.qte-instruction');
-  const gesture = panel.querySelector('.qte-gesture'), arrow = panel.querySelector('.qte-arrow'), endpoint = panel.querySelector('.qte-endpoint');
+  const gesture = panel.querySelector('.qte-gesture'), arrow = panel.querySelector('.qte-arrow');
+  const secondArrow = panel.querySelector('.qte-arrow-secondary');
   const target = panel.querySelector('.qte-target'), taps = panel.querySelector('.qte-taps');
   const progress = panel.querySelector('progress'), time = panel.querySelector('.qte-timer span');
   let signature = null, layout = null, actualGeometry = null, preparation = null, handle = null, resultUntil = null, disposed = false;
@@ -48,9 +57,9 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
       safe.left = Math.max(safe.left, viewport.offsetLeft); safe.top = Math.max(safe.top, viewport.offsetTop);
       safe.right = Math.min(safe.right, viewport.offsetLeft + viewport.width); safe.bottom = Math.min(safe.bottom, viewport.offsetTop + viewport.height);
     }
-    return { canvas: rect(canvas.getBoundingClientRect()), safe, obstacles: [...root.querySelectorAll(obstacleSelectors)]
-      .filter(el => { const s = getComputedStyle(el); return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) !== 0; })
-      .map(el => rect(el.getBoundingClientRect())).filter(r => r.right > r.left && r.bottom > r.top) };
+    // Other HUD rectangles no longer affect this centered layout. Including
+    // them in the signature would discard contacts during a 0.5s operation.
+    return { canvas: rect(canvas.getBoundingClientRect()), safe };
   }
   function update(frameId, raw = delivery.clock.now()) {
     if (disposed) return;
@@ -61,7 +70,9 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     const applied = snapshot.status === 'applied';
     if (applied) { resultUntil ??= raw + 450; if (raw >= resultUntil) { panel.hidden = true; return; } }
     panel.hidden = false; panel.dataset.operation = descriptor.operation;
-    const measurements = measure(), nextSignature = JSON.stringify(measurements);
+    const measurements = measure(), bounds = effectiveBounds(measurements);
+    // Raw canvas/safe edges outside their intersection cannot move this QTE.
+    const nextSignature = JSON.stringify(bounds);
     if (signature !== nextSignature) {
       if (signature !== null) delivery.invalidateGeometry(false, delivery.clock.now());
       signature = nextSignature; preparation = null; layout = calculateQteLayout(measurements); actualGeometry = null;
@@ -70,9 +81,15 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
       panel.dataset.state = 'layout-unavailable';
       state.textContent = '操作スペースを確保できません'; instruction.textContent = '画面の向きや表示サイズを確認してください';
       panel.classList.add('qte-layout-unavailable'); gesture.hidden = true;
+      for (const property of ['left', 'top', 'width', 'height', 'maxHeight', 'overflow']) panel.style[property] = '';
+      if (bounds && bounds.right - bounds.left > 16 && bounds.bottom - bounds.top > 16) {
+        Object.assign(panel.style, { left: `${(bounds.left + bounds.right) / 2}px`, top: `${(bounds.top + bounds.bottom) / 2}px`,
+          width: `${Math.min(280, bounds.right - bounds.left - 16)}px`, maxHeight: `${bounds.bottom - bounds.top - 16}px`, overflow: 'hidden' });
+      }
       return;
     }
     panel.classList.remove('qte-layout-unavailable');
+    panel.style.maxHeight = ''; panel.style.overflow = '';
     panel.dataset.compact = String(layout.compact);
     const { panel: p, region: r, target: t } = layout;
     Object.assign(panel.style, { left: `${p.left}px`, top: `${p.top}px`, width: `${p.right - p.left}px`, height: `${p.bottom - p.top}px` });
@@ -83,9 +100,15 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     // fractional zoom/insets. Desired layout coordinates alone are not proof
     // that the displayed scoring circle has that exact client-pixel centre.
     const circle = target.getBoundingClientRect();
-    actualGeometry = Object.freeze({ region: Object.freeze(rect(gesture.getBoundingClientRect())),
+    const nextGeometry = Object.freeze({ region: Object.freeze(rect(gesture.getBoundingClientRect())),
       target: Object.freeze(descriptor.operation === 'target'
         ? { x: (circle.left + circle.right) / 2, y: (circle.top + circle.bottom) / 2 } : t) });
+    // An ancestor's CSS zoom/transform can change actual client coordinates
+    // while leaving canvas/safe intersection measurements unchanged.
+    if (actualGeometry && JSON.stringify(actualGeometry) !== JSON.stringify(nextGeometry)) {
+      delivery.invalidateGeometry(false, delivery.clock.now()); preparation = null;
+    }
+    actualGeometry = nextGeometry;
     snapshot = delivery.snapshot;
     const blocked = snapshot.reasons.some(reason => !['orientation', 'display'].includes(reason));
     if (!applied && !blocked && !snapshot.displayReady) {
@@ -109,17 +132,18 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     if (layout.compact && mode === 'warning') state.textContent = '予告 · 触れずに待つ';
     if (layout.compact && mode === 'interrupted') state.textContent = 'Ⅱ 入力混雑 · 待機';
     instruction.textContent = snapshot.interrupted ? '画面をタップして残り時間から再開'
-      : operation === 'target' ? '円内タップ（マウスは内円）' : `${descriptor.direction ? directionNames[descriptor.direction] + 'へ ' : ''}${labels[operation]}`;
-    gesture.hidden = false; arrow.hidden = endpoint.hidden = !['flick', 'swipe'].includes(operation);
+      : operation === 'target' ? '円内タップ · 半径 マウス32／タッチ40px' : `${descriptor.direction ? directionNames[descriptor.direction] + 'へ ' : ''}${labels[operation]}`;
+    gesture.hidden = false; arrow.hidden = !['flick', 'swipe'].includes(operation);
+    // SVGElement has no HTMLElement.hidden property; set its presentation
+    // directly so the second real SVG is absent from flick's visible shape.
+    secondArrow.style.display = operation === 'swipe' ? '' : 'none';
     target.hidden = operation !== 'target'; taps.hidden = operation !== 'tap';
-    arrow.textContent = arrows[descriptor.direction] ?? '';
     arrow.dataset.direction = descriptor.direction ?? '';
-    const vector = QTE_DIRECTIONS[descriptor.direction] ?? { x: 0, y: 0 };
-    endpoint.style.left = `calc(50% + ${vector.x * 40}px)`; endpoint.style.top = `calc(50% + ${vector.y * 40}px)`;
-    // Two concentric hit circles are both visible on hybrid mouse/touch PCs.
-    // Their fixed 64/80px diameters exactly match the two scoring radii.
+    // The circle follows the primary pointer's visual diameter; the guide
+    // states both unchanged scoring radii for hybrid mouse/touch devices.
     taps.textContent = `${preview.completedOperations}/3 ${'●'.repeat(preview.completedOperations)}${'○'.repeat(3 - preview.completedOperations)}`;
     const duration = snapshot.deadline - snapshot.active;
+    panel.dataset.urgent = String(snapshot.active !== null && snapshot.remainingMs <= Math.min(300, duration * .3));
     progress.value = snapshot.active === null ? 1 : Math.max(0, Math.min(1, snapshot.remainingMs / duration));
     time.textContent = snapshot.active === null ? '準備中' : `${(snapshot.remainingMs / 1000).toFixed(1)}秒`;
   }
