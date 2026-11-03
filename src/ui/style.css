@@ -40,17 +40,28 @@ body { margin: 0; overflow: hidden; }
 #scene { display: block; touch-action: none; outline: none; }
 #scene:focus-visible { outline: 2px solid #e2d8ac; outline-offset: -4px; }
 #app::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, #12312c30, transparent 25%, transparent 55%, #092e36c2); }
-.masthead, .lake-title, .compass, .bottom-bar, #reticle { position: absolute; z-index: 1; pointer-events: none; }
+.masthead, .compass, .bottom-bar, #reticle { position: absolute; z-index: 1; pointer-events: none; }
 .masthead { top: max(32px, env(safe-area-inset-top)); left: 40px; right: 40px; display: flex; align-items: center; justify-content: space-between; }
 .wordmark { color: inherit; text-decoration: none; font-weight: 900; font-size: 43px; letter-spacing: -3px; line-height: 1; pointer-events: auto; }
 .wordmark span { display: block; white-space: nowrap; font-size: 8px; letter-spacing: 3px; font-weight: 500; margin: 9px 0 0 3px; }
 .location { font-size: 10px; letter-spacing: 2px; display: flex; gap: 12px; align-items: center; }
 .location-name { font-size: 12px; letter-spacing: 2px; border-left: 1px solid #ffffff40; padding-left: 14px; }
 .live-dot { width: 5px; height: 5px; background: #d2e6b5; border-radius: 50%; box-shadow: 0 0 8px #d2e6b566; }
-.lake-title { left: 42px; top: 23%; text-shadow: 0 2px 20px #133c3666; transition: opacity 0.4s; }
 .eyebrow { font-size: 9px; letter-spacing: 2.3px; font-weight: 500; }
-h1 { font-family: 'Yu Mincho', 'Hiragino Mincho ProN', Georgia, serif; font-size: clamp(30px, 3.2vw, 49px); font-weight: 400; line-height: 1.7; letter-spacing: 6px; margin: 20px 0; }
-.lake-title > p:last-child { font-size: 11px; line-height: 2.1; letter-spacing: 1.5px; opacity: 0.78; }
+#opening-title {
+  position: fixed; inset: 0; z-index: 2; display: grid; place-items: center;
+  padding: calc(var(--safe-top) + 24px) calc(var(--safe-right) + 24px) calc(var(--safe-bottom) + 24px) calc(var(--safe-left) + 24px);
+  pointer-events: none; text-align: center;
+  background: radial-gradient(ellipse at center, #102c2c80, #102c2c18 70%, transparent);
+  animation: opening-title-fade 3s linear both;
+}
+.opening-content { max-width: 100%; text-shadow: 0 2px 20px #102c2c80; }
+#opening-logo { margin: 0; font-size: clamp(60px, 12vmin, 112px); font-weight: 900; line-height: 1; letter-spacing: -.065em; }
+#opening-copy { margin: clamp(20px, 4vmin, 32px) 0 0; font-size: clamp(12px, 2.5vmin, 16px); line-height: 1.8; letter-spacing: .12em; overflow-wrap: anywhere; }
+@keyframes opening-title-fade {
+  0%, 100% { opacity: 0; }
+  20%, 80% { opacity: 1; }
+}
 .compass { right: 48px; top: 47%; display: grid; gap: 12px; justify-items: center; font-size: 10px; }
 #compass-needle { font-size: 35px; font-weight: 200; }
 .bottom-bar { left: 42px; right: 42px; bottom: max(30px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: 1fr minmax(230px, 300px) 1fr; align-items: end; gap: 20px; }
@@ -74,7 +85,6 @@ button:disabled { opacity: 0.5; cursor: wait; }
 @media (max-width: 640px) { #spot-status { top: 90px; right: 22px; } }
 @media (max-height: 500px) { #spot-status { top: 68px; right: 42px; } }
 #fishing-note { font-size: 10px; line-height: 1.8; margin: 12px 0 0; opacity: 0.8; }
-.fishing .lake-title { opacity: 0; }
 #joystick { position: fixed; z-index: 2; pointer-events: none; width: 100px; height: 100px; margin: -50px; border: 1px solid #ffffff80; border-radius: 50%; background: #ffffff12; }
 #joystick-knob { position: absolute; left: 35px; top: 35px; width: 28px; height: 28px; border-radius: 50%; background: #eee9d788; }
 .status, .error { position: fixed; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 24px; background: #143b38ed; border: 1px solid #eeeecc50; border-radius: 4px; font-size: 14px; max-width: 90vw; line-height: 1.8; }
@@ -83,9 +93,6 @@ button:disabled { opacity: 0.5; cursor: wait; }
   .wordmark { font-size: 35px; }
   .location { font-size: 8px; gap: 7px; }
   .location-name { display: none; }
-  .lake-title { left: 24px; top: 20%; }
-  h1 { font-size: 30px; letter-spacing: 4px; margin: 15px 0; }
-  .lake-title > p:last-child { font-size: 10px; }
   .compass { right: 25px; top: 36%; }
   .bottom-bar { left: 22px; right: 22px; bottom: max(24px, env(safe-area-inset-bottom)); grid-template-columns: 70px 1fr; gap: 16px; }
   .telemetry strong { font-size: 28px; }
@@ -94,8 +101,11 @@ button:disabled { opacity: 0.5; cursor: wait; }
   #hint { font-size: 9px; letter-spacing: 0; }
   button { min-height: 50px; padding: 14px 17px; }
 }
-@media (max-height: 500px) { .lake-title { display: none; } .masthead { top: 16px; } .bottom-bar { bottom: 16px; } .compass { top: 35%; } }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-height: 500px) { .masthead { top: 16px; } .bottom-bar { bottom: 16px; } .compass { top: 35%; } }
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+  #opening-title { animation: none; opacity: 1; }
+}
 #fishing-panel { position: fixed; z-index: 2; left: 42px; top: 25%; width: min(280px, 40vw); pointer-events: none; padding: 18px 22px; background: #123936d9; border-left: 2px solid #e0d5a9; border-radius: 3px; }
 #fishing-panel p { margin: 8px 0; font-size: 12px; }
 #fishing-panel #fishing-state { font-size: 18px; line-height: 1.5; }

@@ -1,6 +1,8 @@
 import { isStopped } from '../game/boat.js';
+import { createOpeningTitle } from './opening-title.js';
 
 export function createHUD({ onFish, onReturn }) {
+  const openingTitle = createOpeningTitle();
   const fish = document.querySelector('#fish-button');
   const back = document.querySelector('#return-button');
   const hint = document.querySelector('#hint');
@@ -28,6 +30,9 @@ export function createHUD({ onFish, onReturn }) {
       hint.textContent = fishing ? 'ドラッグで周囲を見渡す · Escで戻る' : 'ドラッグして操船 · 離すと停船';
       compass.style.transform = `rotate(${-boat.heading}rad)`;
     },
-    ready() { document.querySelector('#status').hidden = true; },
+    ready() {
+      document.querySelector('#status').hidden = true;
+      openingTitle.start();
+    },
   };
 }
