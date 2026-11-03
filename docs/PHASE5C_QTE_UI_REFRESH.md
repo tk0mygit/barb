@@ -60,3 +60,90 @@
 
 - 最初の`npm ci`は既定cache `/home/agent/.npm/_cacache`の書き込み不可によりENOENTとなった。依存関係／lockfileを変えず、`npm ci --cache /tmp/barb-npm-cache`は成功（21 packages）。環境固有のcache先変更であり依存の緩和はない。
 - Chromiumは環境既存の`/usr/bin/chromium`を`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`で指定する。
+- 初回`npm test`は69ファイル中9ファイルで失敗。詳細診断では制限sandbox内の`spawnSync git EPERM`と既存比較Unitが参照する履歴commit `eb10aa13ec302a7a4c9b4a421a596f447c8f6e7c`不足を確認した。通常の`git fetch --no-tags origin <そのSHA>`で履歴objectだけ取得し、子プロセスが動作するnetwork許可環境で再実行した。全1,032件PASS、skip／retry／assertion緩和なし（ログ`/tmp/barb-npm-test-network.log`）。
+- 初回Buildは成功。既存Three.js chunkの500kB警告は残る。依存・build設定は無変更。
+
+## 最終実装・ローカル結果
+
+検証ソースHEADは`a5d32a5fb76e617c7bca65af66615ee3bcd1c43f`、`src` treeは`f086bd876d3a1737fa1300cd420f1478534311ab`。以降の引き継ぎ文書コミットはこのruntime treeを変えない。承認baseは冒頭の`0cc246e387585363747a24ea82d818f91ba95bfe`。提出直前の実remote mainも同SHAだった。
+
+- 最終`npm test`: **1,034件PASS**、fail／skip／retryなし。最終ログ`/tmp/barb-npm-test-final2.log`。
+- 最終`npm run build`: PASS、94 modules。`/tmp/barb-build-final2.log`。Three.js chunk警告のみ。
+- QTE局所E2E: **20件PASS**、skip／flaky／retryなし、105.46秒。`/tmp/barb-qte-ui-final.json`と`.log`。
+- PC／タッチ共通スモーク: **2件PASS**、約1.3分。`/tmp/barb-qte-smoke.log`。QTE修正前後で起動／操船／タップの実装は無変更。
+- `git diff --check`: PASS。ゲーム／入力／時計／provider／main／保存／経済／描画／Mobile比較／CI／依存への差分なし。追加アセットなし。画像・trace・dist・node_modulesはコミットしない。
+- 全件E2Eは**未実行**。CI比較モード相当の`--list`のみで**36 spec／345件**（Regular287＋Mobile58）、ID重複0。`/tmp/barb-qte-all-collection.json`と`/tmp/barb-qte-collection-ids.json`。これはCI成功ではなく、この時点の収集結果である。
+
+前景はSVG灰白`#e1e5e1`・opacity **0.68**、flick正方形64〜100px、swipe各44〜68px、gap10〜18px。上下／左右各2個の実SVGで、引き伸ばしなし。文字13／12px、ゲージ3px・最大幅360px、残り`min(300ms, duration×0.3)`以下で鈍い赤`#b9827b`。時間計算は既存式のまま。大画面の状態文は中心から上128px、案内は上106px、タイマーは下約128px以内へ寄せ、短画面ではpanel内へ収める。panel／gestureの背景・border・outline・box-shadowは全状態でなし。
+
+geometry署名は有効交差矩形だけにする。外側canvas端や無関係なHUD移動でrevisionは変わらず、実DOMのregion／target中心がCSS transform等で変われば1回だけ失効する。explicit resize／orientation、blur／hidden／menu、prepare／present・次フレーム成立の既存delivery契約は維持した。配置不可の文言も有限の交差領域内へ収め、採点geometryを捏造しない。
+
+### 初回E2E失敗と局所修正
+
+初回20件は1件PASS／19件FAIL（`/tmp/barb-qte-ui-first.json`、`test-results/local-qte-ui/`にtrace／診断を保持）。18件はこのChromiumの`outline:none`が計算値に幅3pxを残す点で失敗し、CSSを`outline:0 none transparent`に明示してassertionを維持した。残る本番ケースは実操作・採点・単一commitまで成功後、要求Y191.6とnative Y191.60000610351562の完全一致で失敗した。新テストの候補始点を**入力前に整数CSS pxで選択**し、region内／FIGHT内／旧region外・hit-test・native座標完全一致の全条件を維持した。タイムアウト増量、skip、retry、採点変更なし。実装変更と根拠に基づく再検証であり、同一HEADの無根拠再試行ではない。
+
+### 旧テストの置換根拠
+
+- layout Unitの「HUD非重複」「全域障害物で不成立」は、承認された中央・重なり許可へ置換。safe、最低寸法、targetの40px余裕、不成立時nullを保持し、中央・旧region縦横拡大・fractional・非有限値を追加。
+- compact横並びの位置条件は廃止。短横でも中央で入力距離を確保する。
+- browserのtarget二重円80／64pxは単円fine64／coarse80pxへ置換し、実DOM中心と両入力半径の案内を検査する。採点境界の既存Unitは全件保持。
+- browserのHUD非重複assertionは中央・safe・拡大・25地点hit-testへ置換。旧layout関数は承認SHAから独立に読み込み、新しい始点が旧region外であることを実証する。
+- `.qte-arrow`／`data-direction`等の参照先を保持。`.qte-endpoint`は生成・CSSから撤去し、DOMに存在しないことを検査する。
+
+### 実行ID（QTE20件すべてPASS、retry0）
+
+`tests/browser/qte-operations.spec.js`:
+
+| 操作／ケース | Playwright ID |
+| --- | --- |
+| mouse flick | `2310e6ca7b6bef0d3153-32aa2d76357eb9106193` |
+| mouse swipe | `2310e6ca7b6bef0d3153-5fc2ca05d81e4a3dfdd0` |
+| mouse tap | `2310e6ca7b6bef0d3153-fd381eb07607f56622cd` |
+| mouse target | `2310e6ca7b6bef0d3153-1bcac4e4d14195023d3c` |
+| touch flick | `2310e6ca7b6bef0d3153-a50d3c0ec83579f82fc7` |
+| touch swipe | `2310e6ca7b6bef0d3153-167a0581115237b482f3` |
+| touch tap | `2310e6ca7b6bef0d3153-7d91c6e760433127a922` |
+| touch target | `2310e6ca7b6bef0d3153-ed7ceb5b66d411aa44dc` |
+| safe／resize／短横／pinch1.125／不成立 | `2310e6ca7b6bef0d3153-49c05714b662aa07894a` |
+| menu／tap checkpoint復帰 | `2310e6ca7b6bef0d3153-9fd9b4170c1a2c9b9ed1` |
+| flick右PC1000×700 | `2310e6ca7b6bef0d3153-d775456e06eee353ab62` |
+| flick上touch390×844 | `2310e6ca7b6bef0d3153-2d4d196e3488b2aea192` |
+| flick下touch844×390 | `2310e6ca7b6bef0d3153-f0e5974eaf8ee676a47f` |
+| flick左touch568×320 | `2310e6ca7b6bef0d3153-d607828b103b6407fdd9` |
+| swipe右PC | `2310e6ca7b6bef0d3153-3c0bf6a940795292252a` |
+| swipe上touch縦 | `2310e6ca7b6bef0d3153-2a366c2011c7b20ad640` |
+| swipe下touch横 | `2310e6ca7b6bef0d3153-4a7b6730878bc69c3116` |
+| swipe左touch短横 | `2310e6ca7b6bef0d3153-94fb1d2da45a0d44d90d` |
+| warning／active／suspended／復帰／urgent／確定待ち／failure | `2310e6ca7b6bef0d3153-fa6ed090d54aa9adced6` |
+
+`tests/browser/qte-ui-production.spec.js`の本番描画・0.5秒・予告入力拒否・拡大regionのnative操作・ソース再採点: `0fd00a4b862b88fc55d9-401c73e740399e724b85`。
+
+### 画像／DOM／入力・時刻証跡
+
+`test-results/local-qte-ui-final/`の各テスト配下に、`flick|swipe-<direction>-<profile>.png/.json`（8組）、`transparent-state-timeline.png/.json`、`production-fight-central-qte.png/.json`を保存。Playwright添付JSONにはnative入力・scoring evidence・前後snapshotもある。最終レポート・ID一覧と併せた引き継ぎarchiveは`/workspace/qte-ui-evidence.zip`（git外）。CIでも同じtestInfo添付を既存artifact保存経路で収集する。
+
+本番証跡では、旧region x580.171875〜860.171875／y277〜417に対し、新region x140〜860／y174〜526。始点**(176,192)**から右へ80pxのnative mouse swipeはFIGHTパネル実矩形内かつ旧region外で、始点・終点ともhit targetは`scene`。25地点gridもすべて`scene`だった。active18156／deadline18656／cut18756ms、trusted pointerdown18169ms。予告時の入力は拒否され、次の描画フレームで開始する500ms窓内の操作だけ成功した。commitは1回。独立再採点も成功し、入力SHA-256は`9229d5a61936832057837227e031ce090a2ecf9d5706ca6edbe8590df26b096a`。
+
+8方向ケースでも25地点ずつlive hit-testし、native操作を確認した。重なったDOMは入力を横取りしなかったため、入力制御・既存HUDの非表示／移動・追加回避レイアウトは不要だった。menuのmodal hit-testは既存のsuspend中だけ別扱いである。
+
+### 最終変更ファイル（11）
+
+- `src/ui/qte-layout.js`
+- `src/ui/qte-hud.js`
+- `src/ui/style.css`（冒頭QTE定義だけ）
+- `tests/qte-layout.test.js`
+- `tests/qte-hud.test.js`
+- `tests/qte-operations.test.js`
+- `tests/browser/qte-fixture.js`（QTE専用fixture）
+- `tests/browser/qte-operations.spec.js`
+- `tests/browser/qte-ui-production.spec.js`（新規）
+- `docs/QTE_OPERATIONS.md`
+- `docs/PHASE5C_QTE_UI_REFRESH.md`
+
+## CI・残留リスク・終了境界
+
+L2で提出する。全Regular A／B、Mobile34組／68画像、原本収集／実行IDの完全和集合、同一build artifact、base／HEADとvalidation merge二親、`ci-required`は未検証としてPMへ委任する。上記345件を将来Runの固定合格数として使用しない。比較器・capture・最終集約契約は無変更。
+
+Chromium touchは実Android／iOSではない。OS文字描画・端末safe-area・アドレスバー／keyboard／実機pinch・hybrid機器の見え方はユーザーPMの実機受入が残る。targetは主pointer種別の単円なので、案内の32／40pxを併読する。明るい水面での半透明矢印／小文字の視認性は実機で最終確認が必要。本番WebGLケースは既存方式のDPR0.5で描画負荷を抑え、画質比較の代用にはしていない。短横のFIGHT文字やreticleとの視覚的重なりは承認範囲内。
+
+PR提出後はCI完了待ち・監視・マージ・デプロイ・実機受入・5D／5E／5Fを行わず終了する。CI監査とマージ可否は9th_PM、実機受入と最終承認はユーザーPMが担当する。
