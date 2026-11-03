@@ -3,6 +3,9 @@
 .qte-hud, .qte-hud * { pointer-events: none; }
 .qte-hud, .qte-gesture { padding: 0; border: 0; outline: 0 none transparent; box-shadow: none; background: transparent; }
 .qte-hud { position: fixed; z-index: 3; text-align: center; color: #dce2de; font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; font-size: 12px; line-height: 1.4; letter-spacing: .05em; text-shadow: 0 1px 3px #071b1bcc; --qte-gauge-color: #bacdc7; }
+.qte-state, .qte-instruction, .qte-timer span, .qte-taps {
+  text-shadow: -0.5px 0 0 #0b282bb3, 0.5px 0 0 #0b282bb3, 0 -0.5px 0 #0b282bb3, 0 0.5px 0 #0b282bb3, 0 1px 3px #071b1bcc;
+}
 .qte-state { position: absolute; left: 0; right: 0; top: max(0px, calc(50% - 128px)); display: block; font-size: 13px; font-weight: 600; }
 .qte-instruction { position: absolute; left: 0; right: 0; top: max(22px, calc(50% - 106px)); margin: 0; font-size: 12px; font-weight: 400; }
 .qte-gesture { position: absolute; }
