@@ -6,6 +6,14 @@ const arrowShape = '<svg class="qte-arrow-shape" viewBox="0 0 100 100" aria-hidd
 const secondArrowShape = arrowShape.replace('qte-arrow-shape', 'qte-arrow-shape qte-arrow-secondary');
 const directionNames = { up: '上', right: '右', down: '下', left: '左' };
 const rect = r => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+const finiteRect = r => r && Object.values(r).every(Number.isFinite)
+  && r.right > r.left && r.bottom > r.top && Number.isFinite(r.right - r.left) && Number.isFinite(r.bottom - r.top);
+const effectiveBounds = ({ canvas, safe }) => {
+  if (!finiteRect(canvas) || !finiteRect(safe)) return null;
+  const bounds = { left: Math.max(canvas.left, safe.left), top: Math.max(canvas.top, safe.top),
+    right: Math.min(canvas.right, safe.right), bottom: Math.min(canvas.bottom, safe.bottom) };
+  return finiteRect(bounds) ? bounds : null;
+};
 
 // Visual guidance only. Native canvas input and all delivery clocks stay with
 // their existing owners; the HUD owns no pointer, timer or gameplay RNG.
@@ -62,7 +70,9 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     const applied = snapshot.status === 'applied';
     if (applied) { resultUntil ??= raw + 450; if (raw >= resultUntil) { panel.hidden = true; return; } }
     panel.hidden = false; panel.dataset.operation = descriptor.operation;
-    const measurements = measure(), nextSignature = JSON.stringify(measurements);
+    const measurements = measure(), bounds = effectiveBounds(measurements);
+    // Raw canvas/safe edges outside their intersection cannot move this QTE.
+    const nextSignature = JSON.stringify(bounds);
     if (signature !== nextSignature) {
       if (signature !== null) delivery.invalidateGeometry(false, delivery.clock.now());
       signature = nextSignature; preparation = null; layout = calculateQteLayout(measurements); actualGeometry = null;
@@ -71,10 +81,15 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
       panel.dataset.state = 'layout-unavailable';
       state.textContent = '操作スペースを確保できません'; instruction.textContent = '画面の向きや表示サイズを確認してください';
       panel.classList.add('qte-layout-unavailable'); gesture.hidden = true;
-      for (const property of ['left', 'top', 'width', 'height']) panel.style[property] = '';
+      for (const property of ['left', 'top', 'width', 'height', 'maxHeight', 'overflow']) panel.style[property] = '';
+      if (bounds && bounds.right - bounds.left > 16 && bounds.bottom - bounds.top > 16) {
+        Object.assign(panel.style, { left: `${(bounds.left + bounds.right) / 2}px`, top: `${(bounds.top + bounds.bottom) / 2}px`,
+          width: `${Math.min(280, bounds.right - bounds.left - 16)}px`, maxHeight: `${bounds.bottom - bounds.top - 16}px`, overflow: 'hidden' });
+      }
       return;
     }
     panel.classList.remove('qte-layout-unavailable');
+    panel.style.maxHeight = ''; panel.style.overflow = '';
     panel.dataset.compact = String(layout.compact);
     const { panel: p, region: r, target: t } = layout;
     Object.assign(panel.style, { left: `${p.left}px`, top: `${p.top}px`, width: `${p.right - p.left}px`, height: `${p.bottom - p.top}px` });
@@ -85,9 +100,15 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     // fractional zoom/insets. Desired layout coordinates alone are not proof
     // that the displayed scoring circle has that exact client-pixel centre.
     const circle = target.getBoundingClientRect();
-    actualGeometry = Object.freeze({ region: Object.freeze(rect(gesture.getBoundingClientRect())),
+    const nextGeometry = Object.freeze({ region: Object.freeze(rect(gesture.getBoundingClientRect())),
       target: Object.freeze(descriptor.operation === 'target'
         ? { x: (circle.left + circle.right) / 2, y: (circle.top + circle.bottom) / 2 } : t) });
+    // An ancestor's CSS zoom/transform can change actual client coordinates
+    // while leaving canvas/safe intersection measurements unchanged.
+    if (actualGeometry && JSON.stringify(actualGeometry) !== JSON.stringify(nextGeometry)) {
+      delivery.invalidateGeometry(false, delivery.clock.now()); preparation = null;
+    }
+    actualGeometry = nextGeometry;
     snapshot = delivery.snapshot;
     const blocked = snapshot.reasons.some(reason => !['orientation', 'display'].includes(reason));
     if (!applied && !blocked && !snapshot.displayReady) {

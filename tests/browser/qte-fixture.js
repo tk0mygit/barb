@@ -1,13 +1,15 @@
 import { readFileSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
 import { getFishSpecies } from '../../src/game/fish-species.js';
 import { createQteOperationProvider } from '../../src/game/qte-operation-provider.js';
 
-export async function openQteFixture(page, operation = 'tap', { economy = false } = {}) {
+export async function openQteFixture(page, operation = 'tap', { economy = false, direction } = {}) {
   const species = getFishSpecies('alligator-gar');
   let lengthCm;
   for (let n = 0; n < 100; n++) {
     const length = Number((species.maxLengthCm - n / 10).toFixed(1));
-    if (createQteOperationProvider({ fightId: 1, speciesId: species.id, lengthCm: length }).getDescriptor(0).operation === operation) { lengthCm = length; break; }
+    const descriptor = createQteOperationProvider({ fightId: 1, speciesId: species.id, lengthCm: length }).getDescriptor(0);
+    if (descriptor.operation === operation && (!direction || descriptor.direction === direction)) { lengthCm = length; break; }
   }
   if (!lengthCm) throw new Error(`No deterministic fixture for ${operation}`);
   await page.route('**/barb/src/**', route => {
@@ -119,4 +121,63 @@ export async function openQteFixture(page, operation = 'tap', { economy = false 
   // Navigation/image/module preparation completes before the legal HOOK and
   // warning anchor. Native input thereafter uses the unmodified real clock.
   await page.evaluate(() => window.qteFixture.start());
+}
+
+// Read-only visual/input evidence. The grid deliberately probes the displayed
+// scoring rectangle, including positions over the unchanged FIGHT HUD.
+export async function observeQteUI(page) {
+  return page.evaluate(() => {
+    const fixture = window.qteFixture, product = window.qteProduct;
+    const hud = fixture?.hud ?? product?.qteHUD, delivery = fixture?.delivery ?? product?.qteDelivery;
+    const panel = hud.element, gesture = panel.querySelector('.qte-gesture');
+    const rect = element => element.getBoundingClientRect().toJSON();
+    const visible = element => Boolean(element.getClientRects().length) && getComputedStyle(element).visibility !== 'hidden';
+    const style = element => {
+      const s = getComputedStyle(element);
+      return { backgroundColor: s.backgroundColor, backgroundImage: s.backgroundImage, borderTopWidth: s.borderTopWidth,
+        borderRightWidth: s.borderRightWidth, borderBottomWidth: s.borderBottomWidth, borderLeftWidth: s.borderLeftWidth,
+        outlineStyle: s.outlineStyle, outlineWidth: s.outlineWidth, boxShadow: s.boxShadow, pointerEvents: s.pointerEvents };
+    };
+    const region = gesture.getBoundingClientRect(), grid = [];
+    for (let row = 0; row < 5; row++) for (let col = 0; col < 5; col++) {
+      const x = region.left + region.width * (.05 + col * .225), y = region.top + region.height * (.05 + row * .225);
+      const hit = document.elementFromPoint(x, y);
+      grid.push({ x, y, hit: hit?.id || hit?.className || hit?.tagName });
+    }
+    const snapshot = delivery.snapshot;
+    const provider = fixture?.provider ?? product?.state.qteProvider;
+    return { geometry: hud.geometry, descriptor: snapshot.handle ? provider.getDescriptor(snapshot.handle.index) : null,
+      snapshot, now: performance.now(), state: panel.dataset.state, operation: panel.dataset.operation,
+      direction: panel.querySelector('.qte-arrow').dataset.direction, urgent: panel.dataset.urgent,
+      instruction: panel.querySelector('.qte-instruction').textContent, stateText: panel.querySelector('.qte-state').textContent,
+      taps: panel.querySelector('.qte-taps').textContent,
+      panel: rect(panel), region: rect(gesture), safe: rect(document.querySelector('.qte-safe-probe')),
+      canvas: rect(document.querySelector('#scene')), fight: rect(document.querySelector('#fishing-panel')),
+      viewport: window.visualViewport && { left: visualViewport.offsetLeft, top: visualViewport.offsetTop,
+        right: visualViewport.offsetLeft + visualViewport.width, bottom: visualViewport.offsetTop + visualViewport.height, scale: visualViewport.scale },
+      styles: [style(panel), style(gesture)], grid,
+      arrowOpacity: Number(getComputedStyle(panel.querySelector('.qte-arrow')).opacity),
+      foreground: [...panel.querySelectorAll('.qte-state,.qte-instruction,.qte-timer')].filter(visible).map(rect),
+      timer: { value: panel.querySelector('progress').value, text: panel.querySelector('.qte-timer span').textContent,
+        height: panel.querySelector('progress').getBoundingClientRect().height },
+      arrows: [...panel.querySelectorAll('.qte-arrow svg')].filter(visible).map(element => ({ rect: rect(element),
+        transform: getComputedStyle(element).transform, paths: element.querySelectorAll('path').length })),
+      arrowVisible: visible(panel.querySelector('.qte-arrow')), targetVisible: visible(panel.querySelector('.qte-target')),
+      tapsVisible: visible(panel.querySelector('.qte-taps')),
+      circles: [...panel.querySelectorAll('.qte-target,.qte-target > span')].filter(visible).map(rect),
+      endpoints: panel.querySelectorAll('.qte-endpoint').length,
+      obstacles: [...document.querySelectorAll('.masthead,.action-panel,#fishing-panel,#reticle,.compass,.telemetry,.edition,#spot-status,#sale-notice,#achievement-notice')]
+        .filter(element => visible(element) && Number(getComputedStyle(element).opacity) !== 0).map(rect),
+      displays: fixture?.displayCalls,
+      ingress: window.e2eDiagnostics?.events.filter(event => event.target === 'scene'),
+    };
+  });
+}
+
+export async function captureQteUI(page, info, name, evidence) {
+  const png = info.outputPath(`${name}.png`), json = info.outputPath(`${name}.json`);
+  await page.screenshot({ path: png });
+  await writeFile(json, JSON.stringify(evidence, null, 2));
+  await info.attach(name, { path: png, contentType: 'image/png' });
+  await info.attach(`${name}-geometry-input-time`, { path: json, contentType: 'application/json' });
 }
