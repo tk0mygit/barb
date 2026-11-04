@@ -152,7 +152,7 @@ async function land(page, input, speciesId, keepPaused = false) {
 // remain above/below unchanged in coverage; this clock is installed before
 // startup and every phase below comes from native input and ordinary steps.
 for (const touch of [false, true]) {
-  test(`5E-2B ${touch ? 'touch' : 'mouse'} text: native retry, slack, catch and ${touch ? 'sale' : 'storage'}`, async ({ createContext }) => {
+  test(`5E-2B ${touch ? 'touch' : 'mouse'} text: native retry, slack, break, catch and ${touch ? 'sale' : 'storage'}`, async ({ createContext }) => {
     test.setTimeout(360000);
     const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 },
       hasTouch: touch, isMobile: touch, deviceScaleFactor: .5 });
@@ -169,13 +169,13 @@ for (const touch of [false, true]) {
         hint ? expect(page.locator('#hint')).toBeVisible() : expect(page.locator('#hint')).toBeHidden(),
       ]);
     };
-    const castShort = async () => {
+    const castForText = async (long = false) => {
       // Only the exponential waiting roll is zero. Species/size and FIGHT
       // use the existing deterministic .5 fixture after legal splashdown.
       await page.evaluate(() => { window.testRandomValue = 0; });
       await input.click(page.locator('#cast-button')); await tick();
       await expect(phase(page)).toHaveAttribute('data-phase', 'aim'); await text('キャスト準備');
-      await input.down(); await input.up(); await tick();
+      await input.down(); if (long) await input.move(300, 270); await input.up(); await tick();
       await expect(phase(page)).toHaveAttribute('data-phase', 'cast'); await text('キャスト中', '着水待ち...');
       await toPhase('lure'); await text('静寂を聴く');
       await page.evaluate(() => { window.testRandomValue = .5; });
@@ -187,13 +187,33 @@ for (const touch of [false, true]) {
     };
     await Promise.all([expect(page.locator('#hint')).toBeHidden(), expect(page.locator('#hint')).toHaveText('')]);
     await input.click(page.locator('#fish-button')); await tick(); await text('キャスト前');
-    await castShort(); await toPhase('failed'); await text('個体を見失った', '再試行を待機');
+    await castForText(); await toPhase('failed'); await text('個体を見失った', '再試行を待機');
     await expect(page.locator('#fishing-note')).toHaveText('応答が遅れ、個体を見失った。');
     await toPhase('ready'); await text('キャスト前');
-    await castShort(); await hookShort(); await toPhase('failed');
+    await castForText(); await hookShort();
+    await expect(page.locator('#tension-warning')).toHaveText('張力が安定している');
+    for (let n = 0; n < 20 && await page.locator('#line-tension').evaluate(el => el.value) >= .18; n++) await tick();
+    await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
+    await expect(page.locator('#tension-warning')).toHaveText('長押しで巻く！');
+    await toPhase('failed');
     await text('個体を見失った', '再試行を待機');
     await expect(page.locator('#fishing-note')).toHaveText('針が外れ、個体を見失った。');
-    await toPhase('ready'); await castShort();
+    await toPhase('ready'); await castForText(true); await hookShort();
+    let held = false, sawHigh = false;
+    for (let n = 0; n < 140 && await readPhase() === 'fight'; n++) {
+      if (await expirePublicQte(page, () => input.up())) { held = false; continue; }
+      if (!held) { await input.down(); held = true; }
+      await tick();
+      if (await readPhase() === 'fight' && await page.locator('#line-tension').evaluate(el => el.value) > .78) {
+        sawHigh = true; await expect(page.locator('#tension-warning')).toHaveText('離して緩める！');
+      }
+    }
+    if (held) await input.up();
+    expect(sawHigh).toBe(true);
+    await expect(phase(page)).toHaveAttribute('data-phase', 'failed');
+    await text('個体を見失った', '再試行を待機');
+    await expect(page.locator('#fishing-note')).toHaveText('ラインが断裂した。');
+    await toPhase('ready'); await castForText();
     const conditions = await page.locator('#fishing-conditions').evaluate(el => ({ depthM: Number(el.dataset.depthM), timeOfDay: el.dataset.timeOfDay }));
     const species = sampleFishSpecies('minnow', () => .5, conditions);
     await hookShort(); await land(page, input, species.id, true); await text('個体を回収した');
