@@ -5,6 +5,7 @@ import { getSpeciesProbabilities, sampleFishSpecies } from '../../src/game/fish-
 import { installPausedClock } from './clock-fixture.js';
 import { expirePublicQte, succeedMousePublicQte } from './input-fixture.js';
 import { validateFishImage } from '../../scripts/lib/fish-image-validation.js';
+import { calculateSalePrice } from '../../src/game/fish-sales.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
 test.use({ deviceScaleFactor: 0.5 });
@@ -121,7 +122,7 @@ async function assertCatch(page, speciesId, size = 0.5) {
     expect(normalize(Buffer.from(actual.bytes).toString('utf8'))).toBe(normalize(expectedBytes.toString('utf8')));
   } else expect(Buffer.from(actual.bytes)).toEqual(expectedBytes);
 }
-async function land(page, input, speciesId) {
+async function land(page, input, speciesId, keepPaused = false) {
   let held = false;
   for (let i = 0; i < 140; i++) {
     const snapshot = await page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
@@ -144,7 +145,74 @@ async function land(page, input, speciesId) {
   if (held) await input.up();
   for (let i = 0; i < 5; i++) await page.clock.fastForward(250);
   await assertCatch(page, speciesId);
-  await page.clock.resume();
+  if (!keepPaused) await page.clock.resume();
+}
+
+// Keep the 5E-2B display contract local. The broader fishing/menu regressions
+// remain above/below unchanged in coverage; this clock is installed before
+// startup and every phase below comes from native input and ordinary steps.
+for (const touch of [false, true]) {
+  test(`5E-2B ${touch ? 'touch' : 'mouse'} text: native retry, slack, catch and ${touch ? 'sale' : 'storage'}`, async ({ createContext }) => {
+    test.setTimeout(360000);
+    const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1000, height: 700 },
+      hasTouch: touch, isMobile: touch, deviceScaleFactor: .5 });
+    const page = await context.newPage(); await setup(page, { paused: true });
+    const input = await inputFor(page, touch), tick = () => page.clock.fastForward(250);
+    const readPhase = () => phase(page).getAttribute('data-phase');
+    const toPhase = async expected => {
+      for (let n = 0; n < 80 && await readPhase() !== expected; n++) await tick();
+      await expect(phase(page)).toHaveAttribute('data-phase', expected);
+    };
+    const text = async (label, hint = '') => {
+      await Promise.all([
+        expect(page.locator('#fishing-state')).toHaveText(label), expect(page.locator('#hint')).toHaveText(hint),
+        hint ? expect(page.locator('#hint')).toBeVisible() : expect(page.locator('#hint')).toBeHidden(),
+      ]);
+    };
+    const castShort = async () => {
+      // Only the exponential waiting roll is zero. Species/size and FIGHT
+      // use the existing deterministic .5 fixture after legal splashdown.
+      await page.evaluate(() => { window.testRandomValue = 0; });
+      await input.click(page.locator('#cast-button')); await tick();
+      await expect(phase(page)).toHaveAttribute('data-phase', 'aim'); await text('キャスト準備');
+      await input.down(); await input.up(); await tick();
+      await expect(phase(page)).toHaveAttribute('data-phase', 'cast'); await text('キャスト中', '着水待ち...');
+      await toPhase('lure'); await text('静寂を聴く');
+      await page.evaluate(() => { window.testRandomValue = .5; });
+      await toPhase('bite'); await text('シグナルを検知した');
+    };
+    const hookShort = async () => {
+      await input.tap(); await page.clock.fastForward(16);
+      await expect(phase(page)).toHaveAttribute('data-phase', 'fight'); await text('抵抗を検知');
+    };
+    await Promise.all([expect(page.locator('#hint')).toBeHidden(), expect(page.locator('#hint')).toHaveText('')]);
+    await input.click(page.locator('#fish-button')); await tick(); await text('キャスト前');
+    await castShort(); await toPhase('failed'); await text('個体を見失った', '再試行を待機');
+    await expect(page.locator('#fishing-note')).toHaveText('応答が遅れ、個体を見失った。');
+    await toPhase('ready'); await text('キャスト前');
+    await castShort(); await hookShort(); await toPhase('failed');
+    await text('個体を見失った', '再試行を待機');
+    await expect(page.locator('#fishing-note')).toHaveText('針が外れ、個体を見失った。');
+    await toPhase('ready'); await castShort();
+    const conditions = await page.locator('#fishing-conditions').evaluate(el => ({ depthM: Number(el.dataset.depthM), timeOfDay: el.dataset.timeOfDay }));
+    const species = sampleFishSpecies('minnow', () => .5, conditions);
+    await hookShort(); await land(page, input, species.id, true); await text('個体を回収した');
+    await expect(page.locator('#catch-qte-bonus')).toContainText('QTE成功0回');
+    const lengthCm = Math.round((species.minLengthCm + .5 * (species.maxLengthCm - species.minLengthCm)) * 10) / 10;
+    const price = calculateSalePrice({ speciesId: species.id, weightKg: calculateFishWeightKg(species.id, lengthCm), qteSuccessCount: 0 });
+    await expect(page.locator('#catch-sale-price')).toHaveText(`売却価格 ${price.toLocaleString('ja-JP')} Value`);
+    await input.click(page.locator(touch ? '#sell-catch' : '#close-catch')); await tick();
+    await Promise.all([expect(page.locator('#catch-dialog')).toBeHidden(), expect(phase(page)).toHaveAttribute('data-phase', 'ready')]);
+    await text('キャスト前');
+    if (touch) await expect(page.locator('#wallet-balance')).toHaveText(`${price.toLocaleString('ja-JP')} Value`);
+    else {
+      await input.click(page.locator('#menu-button')); await input.click(page.locator('[data-view="storage"]'));
+      await Promise.all([expect(page.locator('.stored-fish')).toHaveCount(1), expect(page.locator('.stored-fish')).toContainText(species.name)]);
+      await input.click(page.locator('#collection-close'));
+    }
+    await input.click(page.locator('#return-button')); await tick();
+    await Promise.all([expect(phase(page)).toHaveAttribute('data-phase', 'inactive'), expect(page.locator('#hint')).toBeHidden()]);
+  });
 }
 
 for (const touch of [false, true]) {
