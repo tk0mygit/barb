@@ -219,7 +219,8 @@ test('actual 5B-1A retains exact pre-FIGHT state/RNG and rows; FIGHT matches its
         let elapsed = 0;
         while (f.state.phase === PHASE.FIGHT && elapsed < 30) { f.step(1 / hz); elapsed += 1 / hz; }
         if (f.state.phase === PHASE.LANDING) { assert.ok(elapsed > 2); times.push(elapsed); landed.push(`${species.id}/${size}`); }
-        else { assert.equal(f.state.phase, PHASE.FAILED); assert.equal(f.state.message, 'ラインが断裂した。'); }
+        else { assert.equal(f.state.phase, PHASE.FAILED); assert.equal(f.state.message,
+          legacy ? 'テンションが高すぎてラインが切れました' : 'ラインが断裂した。'); }
         if (species.id === 'alligator-gar' && size === 1) assert.equal(f.state.phase, PHASE.FAILED);
       }
       outcome.push(landed);

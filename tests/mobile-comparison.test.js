@@ -4,7 +4,8 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compareMobileCaptures, compareMobileCapturesWithSources, compareMobileCapturePair, writeMobileComparison, MOBILE_CAPTURE_IDS } from '../scripts/compare-mobile-performance.mjs';
+import { compareMobileCaptures, compareMobileCapturesWithSources, compareMobileCapturePair, writeMobileComparison, MOBILE_CAPTURE_IDS,
+  readFishingHintRemoval } from '../scripts/compare-mobile-performance.mjs';
 import { HISTORICAL_MOBILE_BASE, mobileGit, readMobileImplementation, mobileSourceMetadata, expectedMobileResolution, replayMobileCamera,
   expectedMobileResourceCamera, assertMobileWorkingSource } from '../scripts/lib/mobile-comparison-source.js';
 import { createCameraRig } from '../src/rendering/camera.js';
@@ -261,6 +262,30 @@ test('HUD area and position regressions cannot pass as 0% pixel reduction', () =
     s => { s.panel = box(21, s.panel.y, s.panel.width, s.panel.height); }]) {
     const [before, after] = captures(); change(after.find(c => c.id === 'portrait-fight').layout);
     assert.throws(() => compareMobileCaptures(before, after, metadata()), /HUD .*regression/);
+  }
+});
+
+test('5E-2B hint removal permits exactly the source-bound BITE return-row shift and rejects other layout changes', async () => {
+  const main = await readMobileImplementation('87c7822e0dd0af71e08baa3b92e2e85f23fae897');
+  const pr = await readMobileImplementation(await mobileGit('rev-parse', 'HEAD'));
+  const proof = await readFishingHintRemoval(main, pr); assert(proof);
+  const data = { mode: 'regression', baseSha: main.sha, headSha: pr.sha, validationSha: pr.sha,
+    implementations: { main: mobileSourceMetadata(main), pr: mobileSourceMetadata(pr) } };
+  const sources = { fishingHintRemoval: proof };
+  for (const id of ['portrait-bite', 'landscape-bite', 'small-bite', 'pc-bite']) {
+    const [before, after] = captures().map(entries => entries.find(entry => entry.id === id));
+    const button = after.layout.buttons[0];
+    for (const key of ['y', 'top', 'bottom']) button[key] -= 38;
+    assert.equal(compareMobileCapturePair(before, after, data, sources).fishingHintRemoval.kind, proof.kind);
+    assert.throws(() => compareMobileCapturePair(before, after, data), /HUD buttons regression/);
+    button.x++;
+    assert.throws(() => compareMobileCapturePair(before, after, data, sources), /return button regression/);
+    button.x--; button.top--;
+    assert.throws(() => compareMobileCapturePair(before, after, data, sources), /return button regression/);
+  }
+  assert.equal(await readFishingHintRemoval({ ...main, sha: MAIN }, pr), null);
+  for (const key of ['hudLogicBlob', 'hudBlob', 'indexBlob']) {
+    assert.equal(await readFishingHintRemoval(main, { ...pr, [key]: 'f'.repeat(40) }), null);
   }
 });
 

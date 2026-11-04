@@ -79,6 +79,23 @@ function checkCamera(actual, expected, id) {
 }
 
 const box = (x, y, width, height) => ({ x, y, width, height, top: y, right: x + width, bottom: y + height, left: x });
+
+// Removing BITE's 30px hint row and its 8px gap naturally raises only the
+// return button. Bind that display difference to the reviewed source blobs;
+// do not grant a layout allowance to later HUD/CSS/index changes.
+export async function readFishingHintRemoval(main, pr) {
+  if (main.sha !== '87c7822e0dd0af71e08baa3b92e2e85f23fae897'
+    || main.hudLogicBlob !== '1d07d872d4540490ca72883584026b4f2f302b26'
+    || pr.hudLogicBlob !== '43e7908b9bfe9be76ec044f85a77a6302a160871'
+    || main.hudBlob !== 'ffcae1f9a3a05756cbe8c4d1120fd533c3f42608' || pr.hudBlob !== main.hudBlob
+    || main.indexBlob !== '893848201e58ed949b2ef0a12bced9b71bda2c34'
+    || pr.indexBlob !== 'b6ee30353cb2176c7f96c6717800e35c2dbf1da5') return null;
+  const [before, after] = await Promise.all([main, pr].map(source => mobileGit('rev-parse', `${source.sha}:src/ui/hud.js`)));
+  if (before !== '35fecd7d9a6aecd51e166d4e5c1a8b7b4d32503e' || after !== '883d74243f3974795f6cca5c8fb7259d0228b201') return null;
+  return { kind: 'fishing-hint-removal-5E2B', baseSha: main.sha, validationSha: pr.sha,
+    beforeHud: main.hudLogicBlob, afterHud: pr.hudLogicBlob, returnOffsetY: -38 };
+}
+
 function checkUpperCastBiteLayout(s, id) {
   const { width, height } = s.viewport, portrait = width <= 640 && height > 500;
   const mobile = width <= 640 || height <= 500;
@@ -140,11 +157,12 @@ async function readComparisonSources(metadata) {
     implementations[target] = await readMobileImplementation(sha);
     assert.deepEqual(metadata.implementations[target], mobileSourceMetadata(implementations[target]), `${target}: implementation provenance differs`);
   }
-  const [rodReelTransition, castDisplayTransition] = await Promise.all([
+  const [rodReelTransition, castDisplayTransition, fishingHintRemoval] = await Promise.all([
     readMobileRodReelTransition(implementations.main, implementations.pr),
     readMobileCastDisplayTransition(implementations.main, implementations.pr),
+    readFishingHintRemoval(implementations.main, implementations.pr),
   ]);
-  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition };
+  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval };
 }
 
 async function verifyEntries(sources, target, entries) {
@@ -210,6 +228,14 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
     checkMetadata(metadata);
     const castDisplay = sources?.castDisplayTransition;
     if (castDisplay) checkCastDisplayProof(castDisplay, metadata);
+    const hintRemoval = sources?.fishingHintRemoval;
+    if (hintRemoval) {
+      assert.equal(hintRemoval.kind, 'fishing-hint-removal-5E2B');
+      assert.equal(hintRemoval.baseSha, metadata.baseSha); assert.equal(hintRemoval.validationSha, metadata.validationSha);
+      assert.equal(hintRemoval.beforeHud, metadata.implementations.main.hudLogicBlob);
+      assert.equal(hintRemoval.afterHud, metadata.implementations.pr.hudLogicBlob);
+      assert.equal(hintRemoval.returnOffsetY, -38);
+    }
     let cameraComparison;
     assert.equal(a?.id, b.id, `Missing comparison ${b.id}`);
     assert(a, `Missing comparison ${b.id}`);
@@ -273,6 +299,13 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
           checkUpperCastBiteLayout(a.layout, b.id);
         }
         for (const key of ['viewport', 'panel', 'occupancy', 'reticle', 'meter', 'buttons', 'header', 'notices', 'scrollWidth']) {
+          if (key === 'buttons' && hintRemoval && ['portrait-bite', 'landscape-bite', 'small-bite', 'pc-bite'].includes(b.id)) {
+            assert.equal(b.layout.buttons.filter(button => button.id === 'return-button').length, 1, `${b.id}: missing return button`);
+            const expected = b.layout.buttons.map(button => button.id === 'return-button'
+              ? { ...button, y: button.y - 38, top: button.top - 38, bottom: button.bottom - 38 } : button);
+            assert.deepEqual(a.layout.buttons, expected, `${b.id}: hint removal return button regression`);
+            continue;
+          }
           if (upperCast && ['panel', 'occupancy'].includes(key)) continue; // checked against the explicit upper HUD geometry above
           if (upperCast && key === 'buttons') {
             assert.deepEqual(a.layout.buttons.filter(button => button.id !== 'return-button'), b.layout.buttons.filter(button => button.id !== 'return-button'), `${b.id}: HUD other buttons regression`);
@@ -289,6 +322,7 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       ...(expected.transition ? { resourceTransition: expected.transition } : {}),
       ...(gearTransition ? { rodReelComparison: gearTransition } : {}),
       ...(castDisplay ? { castDisplayComparison: castDisplay } : {}),
+      ...(hintRemoval && b.id.endsWith('-bite') ? { fishingHintRemoval: hintRemoval } : {}),
       pixelReduction,
       ...(b.layout ? { beforeLayout: b.layout, afterLayout: a.layout } : {}) };
 }
