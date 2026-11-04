@@ -47,7 +47,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen a
   await expect(card(page, 'length-100').locator('.achievement-progress')).toHaveText('最大体長：82.5 / 100cm');
   await expect(notice(page)).toContainText('始まり');
   expect(await notice(page).evaluate(el => el.parentElement.id)).toBe('collection-dialog');
-  await page.clock.fastForward(3500); await expect(notice(page)).toBeHidden();
+  await page.clock.fastForward(3000); await expect(notice(page)).toBeHidden();
   // Individual sale then a second capture worth 3,800 and a confirmed bulk sale.
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="storage"]'));
   await click(page.locator('.sell-stored'));
@@ -63,17 +63,17 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen a
   expect(await page.evaluate(() => fixture.achievements.unlockedCount)).toBe(1);
   await click(page.locator('#sell-all')); await click(page.locator('#confirm-sale'));
   await expect(notice(page)).toContainText('等価交換');
-  const noOverlap = await page.evaluate(() => {
-    const a = document.querySelector('#achievement-notice').getBoundingClientRect();
-    const b = document.querySelector('#collection-sale-notice').getBoundingClientRect();
-    return a.top >= b.bottom || a.bottom <= b.top;
-  });
-  expect(noOverlap).toBe(true);
+  // The approved viewport overlay replaces the former in-flow strip. It keeps
+  // its anchor even over menu content, without changing the sale UI's layout.
+  const anchor = await notice(page).boundingBox();
+  expect(anchor.y + anchor.height / 2).toBeCloseTo(page.viewportSize().height * 0.35, 1);
+  await expect(page.locator('#collection-sale-notice')).toBeVisible();
+  expect(await notice(page).evaluate(el => getComputedStyle(el).position)).toBe('fixed');
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="equipment"]'));
   await click(page.locator('[data-upgrade="rod"]')); await click(page.locator('#cancel-upgrade'));
   expect(await page.evaluate(() => fixture.achievements.unlockedCount)).toBe(2);
   await click(page.locator('[data-upgrade="rod"]')); await click(page.locator('#confirm-upgrade'));
-  await page.clock.fastForward(3500); await expect(notice(page)).toContainText('更新');
+  await page.clock.fastForward(3000); await expect(notice(page)).toContainText('更新');
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 3 / 15');
   await expect(card(page, 'sales-10000')).toHaveAttribute('data-unlocked', 'true');
@@ -144,16 +144,16 @@ test('simultaneous awards queue exactly once and expire without frames, includin
     fixture.collection.register({ schemaVersion: 1, id: 'big', speciesId: 'arowana', lengthCm: 100,
       weightKg: 1, caughtAt: '2026-01-01T00:00:00Z' });
   });
-  await expect(notice(page)).toContainText('実績解除始まり');
+  await expect(notice(page)).toContainText('実績を解除した始まり');
   await expect(notice(page)).toHaveAttribute('aria-live', 'polite');
   await expect(notice(page)).toHaveAttribute('aria-atomic', 'true');
   await page.clock.fastForward(1000); await openAchievements(page);
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 15');
-  await page.clock.fastForward(2499); await expect(notice(page)).toContainText('始まり');
+  await page.clock.fastForward(1999); await expect(notice(page)).toContainText('始まり');
   await page.clock.fastForward(1); await expect(notice(page)).toContainText('特異個体');
   await page.locator('#collection-close').click();
   await page.evaluate(() => fixture.achievementNotice.notify(fixture.achievements.entries.filter(entry => entry.unlocked)));
-  await page.clock.fastForward(3499); await expect(notice(page)).toBeVisible();
+  await page.clock.fastForward(2999); await expect(notice(page)).toBeVisible();
   await page.clock.fastForward(1); await expect(notice(page)).toBeHidden();
   await page.evaluate(() => fixture.achievements.evaluate());
   await openAchievements(page); await expect(notice(page)).toBeHidden();
@@ -176,7 +176,7 @@ test('throttled background timer expires the visible award and preserves pending
   });
   await expect(notice(page)).toContainText('特異個体');
   expect(await page.evaluate(() => fixture.achievements.unlockedCount)).toBe(2);
-  await page.clock.fastForward(3499); await expect(notice(page)).toBeVisible();
+  await page.clock.fastForward(2999); await expect(notice(page)).toBeVisible();
   await page.clock.fastForward(1); await expect(notice(page)).toBeHidden();
 });
 
@@ -193,20 +193,24 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: notice pa
     document.querySelector('#scene').addEventListener('pointerdown', () => window.canvasPresses++);
     fixture.fund(300, true);
   });
-  // Compact save labels must keep the notification gap, including the longest
-  // warning/backup message while the full explanation remains in the menus.
+  // The new overlay retains its anchor with every compact save label. Native
+  // controls must remain hit targets even if fixed text crosses their area.
   for (const savePhase of ['dirty', 'failed', 'protected', 'conflict']) {
     await page.evaluate(async savePhase => {
       const { createSaveStatus } = await import('./src/ui/save-status.js');
       createSaveStatus().update({ phase: savePhase, code: null, savedAt: null, restoredFromBackup: true });
     }, savePhase);
-    expect(await page.evaluate(() => {
+    const layout = await page.evaluate(() => {
       const a = document.querySelector('#achievement-notice').getBoundingClientRect();
-      return ['.masthead', '#fishing-panel', '#sale-notice', '#cast-button'].every(selector => {
-        const b = document.querySelector(selector).getBoundingClientRect();
-        return a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom;
-      });
-    })).toBe(true);
+      return { centerX: a.x + a.width / 2, centerY: a.y + a.height / 2,
+        hits: ['#cast-button', '[data-lure-id="minnow"]', '#menu-button'].map(selector => {
+          const button = document.querySelector(selector), b = button.getBoundingClientRect();
+          return document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2)?.closest('button') === button;
+        }) };
+    });
+    expect(layout.centerX).toBeCloseTo(160, 1);
+    expect(layout.centerY).toBeCloseTo(568 * 0.35, 1);
+    expect(layout.hits).toEqual([true, true, true]);
   }
   const box = await notice(page).boundingBox();
   const x = box.x + box.width / 2, y = box.y + box.height / 2;

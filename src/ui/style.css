@@ -245,29 +245,24 @@ button.fish-card:hover { background: #335e4c; }
 .achievement-card[data-unlocked="true"] .achievement-state { color: #e5f4c9; }
 .achievement-progress { font-variant-numeric: tabular-nums; }
 .achievement-card time { font-size: 10px; line-height: 1.8; opacity: 0.8; }
-#achievement-notice { pointer-events: none; padding: 8px 14px; border: 1px solid #d2e6b580; border-radius: 4px; color: #f4f2e6; background: #254c40f5; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }
+#achievement-notice {
+  position: fixed; z-index: 4;
+  left: calc((var(--safe-left) + 100vw - var(--safe-right)) / 2);
+  top: clamp(calc(var(--safe-top) + 48px), 35dvh, calc(100dvh - var(--safe-bottom) - 48px));
+  transform: translate(-50%, -50%);
+  width: max-content; max-width: min(640px, calc(100vw - var(--safe-left) - var(--safe-right) - 32px));
+  display: grid; gap: 6px; margin: 0; padding: 0; border: 0; border-radius: 0;
+  background: transparent; box-shadow: none; pointer-events: none;
+  color: #e6e8e1; line-height: 1.4; text-align: center; overflow-wrap: anywhere;
+  text-shadow: 0 1px 3px #071b1bcc;
+}
 #achievement-notice * { pointer-events: none; }
 #achievement-notice span, #achievement-notice strong { display: block; }
-#achievement-notice span { font-size: 10px; color: #d2e6b5; letter-spacing: 2px; }
-#achievement-notice strong { font-size: 13px; font-weight: 500; }
-#app > #achievement-notice { position: fixed; z-index: 4; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: 230px; max-width: calc(100vw - 44px); }
-dialog > #achievement-notice { position: static; flex-shrink: 0; margin: 8px 0; }
-@media (max-width: 1100px) {
-  #app:has(> #achievement-notice:not([hidden])) .location { display: none; }
-}
+#achievement-notice span { font-size: clamp(12px, 2.2vmin, 14px); letter-spacing: .08em; }
+#achievement-notice strong { min-width: 0; font-size: clamp(24px, 4.8vmin, 30px); font-weight: 400; letter-spacing: .04em; }
 @media (max-width: 640px) and (min-height: 501px) {
   .achievement-list { grid-template-columns: 1fr; }
   .achievement-card { padding: 12px; }
-  #app > #achievement-notice { top: max(80px, calc(env(safe-area-inset-top) + 56px)); padding: 4px 12px; }
-  #app:has(> #achievement-notice:not([hidden])) > #sale-notice { top: 130px; }
-}
-@media (max-width: 640px) and (min-height: 501px) and (max-height: 640px) {
-  /* Keep the strip between the masthead and fishing HUD on short portraits. */
-  #app > #achievement-notice { top: 77px; padding: 3px 10px; display: flex; justify-content: center; align-items: center; gap: 8px; }
-}
-@media (max-height: 500px) {
-  #achievement-notice { padding: 4px 12px; }
-  dialog > #achievement-notice { margin: 4px 0; }
 }
 
 .sound-settings { max-width: 540px; line-height: 1.7; overflow-wrap: anywhere; }
@@ -455,20 +450,6 @@ dialog > #achievement-notice { position: static; flex-shrink: 0; margin: 8px 0; 
   width: min(220px, 36vw);
   padding: 8px 10px;
 }
-/* Keep the simultaneous-notice portrait rule from moving sales back into
-   the cast controls. */
-#app:is([data-cast-view="true"], [data-cast-preparing="true"]):has(> #achievement-notice:not([hidden])) > #sale-notice {
-  top: max(55%, calc(var(--safe-top) + 310px));
-}
-#app:is([data-cast-view="true"], [data-cast-preparing="true"]) > #achievement-notice {
-  display: block;
-  top: auto;
-  bottom: max(12px, calc(var(--safe-bottom) + 12px));
-  left: max(12px, calc(var(--safe-left) + 12px));
-  transform: none;
-  width: min(180px, 32vw);
-  padding: 6px 8px;
-}
 #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel.bite { background: #78532af2; border-width: 2px; border-color: #ffcf77; }
 #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel.bite #fishing-state { grid-column: 1 / -1; font-size: 18px; }
 #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel.bite #line-distance { grid-column: 1 / -1; grid-row: 2; text-align: left; }
@@ -483,7 +464,6 @@ dialog > #achievement-notice { position: static; flex-shrink: 0; margin: 8px 0; 
 @media (max-height: 500px) {
   #app:is([data-cast-view="true"], [data-cast-preparing="true"]) .bottom-bar { top: max(84px, calc(var(--safe-top) + 64px)); gap: 16px 40px; }
   #app:is([data-cast-view="true"], [data-cast-preparing="true"]) :is(#spot-status, #sale-notice) { top: max(54%, calc(var(--safe-top) + 208px)); }
-  #app:is([data-cast-view="true"], [data-cast-preparing="true"]):has(> #achievement-notice:not([hidden])) > #sale-notice { top: max(54%, calc(var(--safe-top) + 208px)); }
 }
 @media (max-width: 340px) and (min-height: 501px) {
   /* The bite label needs an extra line on the smallest portrait. Put its
