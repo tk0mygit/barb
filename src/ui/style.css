@@ -152,6 +152,8 @@ button:disabled { opacity: 0.5; cursor: wait; }
 #collection-dialog[open] { display: flex; flex-direction: column; }
 #collection-dialog::backdrop { background: #071f22c9; }
 .collection-header { display: flex; gap: 14px; align-items: center; flex-shrink: 0; }
+.collection-heading { flex: 1; min-width: 0; }
+#collection-menu-note { margin: 0; font-size: 10px; line-height: 1.3; color: #b8bfc0; }
 .collection-header h2 { font-size: clamp(17px, 3vw, 24px); font-weight: 400; letter-spacing: 1px; margin: 0; flex: 1; }
 .collection-header button { width: 44px; min-height: 44px; padding: 0; justify-content: center; font-size: 23px; flex-shrink: 0; }
 #collection-content { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; min-height: 0; padding: 4px 6px 14px; }

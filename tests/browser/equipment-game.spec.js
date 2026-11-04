@@ -95,7 +95,7 @@ for (const touch of [false, true]) {
     await cast(); await land();
     // Reach achievements through a real cast/hook/fight/landing on the shipped
     // build. Capture unlocks before the sale/storage decision.
-    await expect(page.locator('#achievement-notice')).toContainText('初めての一匹');
+    await expect(page.locator('#achievement-notice')).toContainText('始まり');
     expect(await page.locator('#achievement-notice').evaluate(el => el.parentElement.id)).toBe('catch-dialog');
     await page.clock.fastForward(3500);
     await expect(page.locator('#achievement-notice')).toBeHidden();
@@ -106,7 +106,7 @@ for (const touch of [false, true]) {
     await click(page.locator('[data-upgrade="rod"]')); await click(page.locator('#confirm-upgrade'));
     rodLevel = 2;
     await expect(page.locator('[data-equipment="rod"] h3')).toHaveText('ロッド · Lv.2');
-    await expect(page.locator('#achievement-notice')).toContainText('初強化');
+    await expect(page.locator('#achievement-notice')).toContainText('更新');
     await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
     await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 15');
     await expect(page.locator('[data-achievement-id="normal-first-catch"].achievement-card')).toHaveAttribute('data-unlocked', 'true');
@@ -128,7 +128,7 @@ for (const touch of [false, true]) {
     await click(page.locator('#return-button')); await tick();
     await openEquipment(); await expect(page.locator('[data-upgrade="reel"]')).toBeEnabled();
     await click(page.locator('[data-upgrade="reel"]')); await click(page.locator('#confirm-upgrade'));
-    const money = `${(income - 600).toLocaleString('ja-JP')} 通貨`;
+    const money = `${(income - 600).toLocaleString('ja-JP')} Value`;
     await expect(page.locator('#wallet-balance')).toHaveText(money);
     await expect(page.locator('#collection-wallet')).toHaveText(`所持金 ${money}`);
     await expect(page.locator('[data-equipment="reel"] h3')).toHaveText('リール · Lv.2');

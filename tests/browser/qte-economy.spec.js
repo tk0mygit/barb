@@ -8,7 +8,7 @@ import { createBoatState } from '../../src/game/boat.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 
 const keys = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
-const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
+const money = value => `${value.toLocaleString('ja-JP')} Value`;
 const latest = page => page.evaluate(keys => keys.map(key => localStorage.getItem(key)).filter(Boolean).map(JSON.parse)
   .sort((a, b) => b.generation - a.generation)[0]?.data, keys);
 

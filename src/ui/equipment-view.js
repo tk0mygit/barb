@@ -33,7 +33,7 @@ function appendBonuses(content, kind, currentRow, nextRow, confirmation = false)
     row.append(element('dt', label), element('dd', `現在 ×${value.toFixed(2)}`, 'equipment-bonus-current'));
     if (next) {
       const nextValue = next[index][1];
-      row.append(element('dd', `${confirmation ? '購入後 Lv.' : '次Lv.'}${nextRow.level} ×${nextValue.toFixed(2)}`, 'equipment-bonus-next'),
+      row.append(element('dd', `${confirmation ? '購入後 Lv.' : 'Next : Lv.'}${nextRow.level} ×${nextValue.toFixed(2)}`, 'equipment-bonus-next'),
         element('dd', `強化差 +${(nextValue - value).toFixed(2)}倍`, 'equipment-bonus-delta'));
     }
     stats.append(row);
@@ -71,21 +71,21 @@ export function renderEquipment(content, collection, allowed, onUpgrade) {
       row.append(element('dt', label), element('dd', `現在 ${value}${unit}`, 'equipment-current'));
       if (next) {
         const nextValue = next[index][1];
-        row.append(element('dd', `次Lv.${status.next.level} ${nextValue}${unit}`, 'equipment-next'),
+        row.append(element('dd', `Next : Lv.${status.next.level} ${nextValue}${unit}`, 'equipment-next'),
           element('dd', `強化差 +${nextValue - value}${unit === '%' ? 'ポイント' : unit}`, 'equipment-delta'));
       }
       stats.append(row);
     });
     card.append(heading, stats);
     appendBonuses(card, kind, currentRow, status.next);
-    if (status.next) card.append(element('p', `次Lv.${status.next.level}の購入価格 ${formatMoney(status.next.cost)}`, 'upgrade-price'));
-    let reason = '購入可能';
-    if (!status.next) reason = '最大強化済み';
+    if (status.next) card.append(element('p', `Next : Lv.${status.next.level}の購入価格 ${formatMoney(status.next.cost)}`, 'upgrade-price'));
+    let reason = 'アップグレード可能';
+    if (!status.next) reason = `MAX : Lv.${status.currentLevel}`;
     else if (status.reason === 'insufficient-funds') reason = `所持金不足 · 必要 ${formatMoney(status.next.cost)}`;
     else if (!status.canPurchase) reason = '購入できません。所持金と装備をご確認ください。';
     else if (!allowed) reason = '現在は強化できません';
     const state = element('p', reason, 'upgrade-state'); state.id = `${kind}-upgrade-state`;
-    const button = element('button', status.next ? `${name}を強化` : '最大強化済み');
+    const button = element('button', status.next ? `${name}を強化` : 'MAX');
     button.type = 'button'; button.dataset.upgrade = kind;
     button.disabled = !allowed || !status.canPurchase;
     button.setAttribute('aria-describedby', `${state.id} upgrade-guidance`);

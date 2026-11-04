@@ -196,7 +196,8 @@ for (const touch of [false, true]) {
     await expect(page.locator('.fish-detail')).toContainText(caughtLength);
     const fish = FISH_SPECIES.find(item => item.name === caughtName);
     await expect(page.locator('.fish-description')).toHaveText(fish.description);
-    await expect(page.locator('.fish-detail')).toContainText(`${fish.basePricePerKg} 通貨/kg`);
+    await expect(page.locator('.fish-detail dt')).toHaveText(['捕獲数', '最大記録', '規定売価']);
+    await expect(page.locator('.fish-detail')).toContainText(`${fish.basePricePerKg} Val/kg`);
     await input.click(page.locator('#collection-back')); await input.click(page.locator('#collection-back'));
     await input.click(page.locator('[data-view="storage"]'));
     await expect(page.locator('.stored-fish')).toHaveCount(1);

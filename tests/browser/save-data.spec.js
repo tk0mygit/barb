@@ -1,7 +1,8 @@
 import { test, expect } from './diagnostics-fixture.js';
+import { readFileSync } from 'node:fs';
 import { openUIFixture } from './ui-fixture.js';
 import { createCatchCollection } from '../../src/game/catch-collection.js';
-import { createAchievements } from '../../src/game/achievements.js';
+import { createAchievements, NORMAL_ACHIEVEMENTS } from '../../src/game/achievements.js';
 import { createBoatState } from '../../src/game/boat.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 import { createSaveData } from '../../src/game/save-data.js';
@@ -35,7 +36,12 @@ for (const touch of [false, true]) test(`restored domain renders menus silently,
   });
   await click(page.locator('#menu-button')); await click(page.locator('[data-view="achievements"]'));
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 3 / 15');
-  await expect(page.locator('#collection-content')).toContainText('累計10匹');
+  await expect(page.locator('[data-achievement-id="normal-catch-10"] h3')).toHaveText('？？？');
+  await expect(page.locator('[data-achievement-id="normal-catch-10"]')).toContainText('魚を累計10匹以上釣り上げる。');
+  for (const [id, name] of [['first-catch', '始まり'], ['sales-10000', '等価交換'], ['first-upgrade', '更新']]) {
+    await expect(page.locator(`[data-achievement-id="normal-${id}"] h3`)).toHaveText(name);
+    await expect(page.locator(`[data-achievement-id="normal-${id}"] time`)).toHaveAttribute('datetime', '1970-01-01T00:00:01.000Z');
+  }
   await expect(notice).toBeHidden();
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="storage"]'));
   await expect(page.locator('#collection-content')).toContainText('48.0'); // rescued RESULT fish
@@ -46,7 +52,23 @@ for (const touch of [false, true]) test(`restored domain renders menus silently,
       weightKg: 1, caughtAt: '2026-10-23T00:00:00.000Z' });
     fixture.menu.update();
   });
-  await expect(notice).toContainText('累計10匹');
+  await expect(notice).toContainText('収集せよ');
   expect(await page.evaluate(() => fixture.achievements.snapshot.unlocked.find(item => item.id === 'normal-first-catch').unlockedAt)).toBe('1970-01-01T00:00:01.000Z');
   expect(errors).toEqual([]);
+});
+
+test('existing V1 save renders renamed unlocked achievements silently and preserves IDs and timestamps', async ({ page }) => {
+  const { data } = JSON.parse(readFileSync(new URL('../fixtures/saves/phase5b1a-legacy-slot-a.json', import.meta.url), 'utf8'));
+  await openUIFixture(page, data);
+  await page.locator('#menu-button').click(); await page.locator('[data-view="achievements"]').click();
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 6 / 15');
+  for (const definition of NORMAL_ACHIEVEMENTS) {
+    const saved = data.achievements.unlocked.find(entry => entry.id === definition.id);
+    const card = page.locator(`.achievement-card[data-achievement-id="${definition.id}"]`);
+    await expect(card.locator('h3')).toHaveText(saved ? definition.name : '？？？');
+    if (saved) await expect(card.locator('time')).toHaveAttribute('datetime', saved.unlockedAt);
+    else await expect(card.locator('time')).toHaveCount(0);
+  }
+  expect(await page.evaluate(() => fixture.achievements.snapshot.unlocked)).toEqual(data.achievements.unlocked);
+  await expect(page.locator('#achievement-notice')).toBeHidden();
 });

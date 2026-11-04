@@ -28,7 +28,7 @@ for (const { name, viewport, touch } of layouts) {
       fixture.fund(300);
     });
     await expect(notice).toBeVisible();
-    await expect(notice).toHaveText('実績解除初めての一匹');
+    await expect(notice).toHaveText('実績解除始まり');
     await expect(notice).toHaveCSS('pointer-events', 'none');
     if (name === 'short portrait') await expect(notice).toHaveCSS('display', 'flex');
     const box = await notice.boundingBox();
@@ -80,10 +80,10 @@ for (const { name, viewport, touch } of layouts) {
     const { x, y, width, height } = positions.opened;
     if (touch) await page.touchscreen.tap(x + width / 2, y + height / 2);
     else await page.mouse.click(x + width / 2, y + height / 2);
-    await expect(page.locator('#collection-title')).toHaveText('保管魚');
+    await expect(page.locator('#collection-title')).toHaveText('生けす');
     await expect(page.locator('#sell-all')).toBeDisabled();
     await expect(page.locator('.stored-fish')).toHaveCount(0);
-    await expect(page.locator('#achievement-notice')).toContainText('初めての一匹');
+    await expect(page.locator('#achievement-notice')).toContainText('始まり');
     expect(await page.evaluate(() => fixture.achievements.unlockedCount)).toBe(1);
   });
 }

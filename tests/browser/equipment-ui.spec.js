@@ -3,7 +3,7 @@ import { openUIFixture } from './ui-fixture.js';
 import { EQUIPMENT_LEVELS } from '../../src/game/equipment.js';
 import { FISHING_CONFIG } from '../../src/game/fishing-config.js';
 
-const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
+const money = value => `${value.toLocaleString('ja-JP')} Value`;
 const card = (page, kind) => page.locator(`[data-equipment="${kind}"]`);
 async function openEquipment(page, click = locator => locator.click()) {
   await click(page.locator('#menu-button'));
@@ -24,7 +24,7 @@ async function assertBonuses(scope, kind, level, confirmation = false) {
     ? ['Uncommon 出現重み', 'Rare 出現重み'] : ['大型魚 FIGHT巻取り補助']);
   await expect(scope.locator('.equipment-bonus-current')).toHaveText(currentValues.map(value => `現在 ×${value.toFixed(2)}`));
   await expect(scope.locator('.equipment-bonus-next')).toHaveText(next
-    ? nextValues.map(value => `${confirmation ? '購入後 Lv.' : '次Lv.'}${next.level} ×${value.toFixed(2)}`) : []);
+    ? nextValues.map(value => `${confirmation ? '購入後 Lv.' : 'Next : Lv.'}${next.level} ×${value.toFixed(2)}`) : []);
   await expect(scope.locator('.equipment-bonus-delta')).toHaveText(next
     ? nextValues.map((value, index) => `強化差 +${(value - currentValues[index]).toFixed(2)}倍`) : []);
   if (level < 6) await expect(scope.locator('.equipment-bonus-note')).toHaveText(confirmation && next.level < 6
@@ -49,10 +49,10 @@ async function assertEquipment(page, kind, level) {
   await expect(scope.locator('button')).toHaveAttribute('aria-describedby', `${kind}-upgrade-state upgrade-guidance`);
   await expect(scope.locator('.equipment-current')).toHaveText(currentValues.map((value, index) => `現在 ${value}${units[index]}`));
   await expect(scope.locator('.equipment-next')).toHaveText(next
-    ? nextValues.map((value, index) => `次Lv.${next.level} ${value}${units[index]}`) : []);
+    ? nextValues.map((value, index) => `Next : Lv.${next.level} ${value}${units[index]}`) : []);
   await expect(scope.locator('.equipment-delta')).toHaveText(next
     ? nextValues.map((value, index) => `強化差 +${value - currentValues[index]}${units[index] === '%' ? 'ポイント' : 'm'}`) : []);
-  await expect(scope.locator('.upgrade-price')).toHaveText(next ? [`次Lv.${next.level}の購入価格 ${money(next.cost)}`] : []);
+  await expect(scope.locator('.upgrade-price')).toHaveText(next ? [`Next : Lv.${next.level}の購入価格 ${money(next.cost)}`] : []);
   await assertBonuses(scope, kind, level);
 }
 
@@ -97,7 +97,7 @@ for (const touch of [false, true]) {
     await openEquipment(page, click);
     for (const kind of ['rod', 'reel']) {
       await expect(card(page, kind).locator('h3')).toContainText('Lv.1');
-      await expect(card(page, kind).locator('.upgrade-state')).toHaveText('所持金不足 · 必要 300 通貨');
+      await expect(card(page, kind).locator('.upgrade-state')).toHaveText('所持金不足 · 必要 300 Value');
       await expect(card(page, kind).locator('button')).toBeDisabled();
       await assertEquipment(page, kind, 1);
     }
@@ -117,21 +117,21 @@ for (const touch of [false, true]) {
         await expect(card(page, kind).locator('.equipment-current')).toHaveText(current);
         await assertEquipment(page, kind, level);
         if (level === 5) {
-          await expect(card(page, kind).locator('.upgrade-state')).toHaveText('所持金不足 · 必要 4,200 通貨');
+          await expect(card(page, kind).locator('.upgrade-state')).toHaveText('所持金不足 · 必要 4,200 Value');
           await expect(card(page, kind).locator('button')).toBeDisabled();
           await expect(card(page, kind).locator('.equipment-next')).toHaveText(kind === 'rod'
-            ? ['次Lv.6 44m', '次Lv.6 21%'] : ['次Lv.6 133%', '次Lv.6 122%']);
+            ? ['Next : Lv.6 44m', 'Next : Lv.6 21%'] : ['Next : Lv.6 133%', 'Next : Lv.6 122%']);
           continue;
         }
         await expect(card(page, kind).locator('.equipment-next')).toHaveText(kind === 'rod'
-          ? [`次Lv.${level + 1} ${32 + 2 * level}m`, `次Lv.${level + 1} ${4 * level}%`]
-          : [`次Lv.${level + 1} ${100 + 6 * level}%`, `次Lv.${level + 1} ${100 + 4 * level}%`]);
+          ? [`Next : Lv.${level + 1} ${32 + 2 * level}m`, `Next : Lv.${level + 1} ${4 * level}%`]
+          : [`Next : Lv.${level + 1} ${100 + 6 * level}%`, `Next : Lv.${level + 1} ${100 + 4 * level}%`]);
         await expect(card(page, kind).locator('.equipment-delta')).toHaveText(kind === 'rod'
           ? ['強化差 +2m', '強化差 +4ポイント'] : ['強化差 +6ポイント', '強化差 +4ポイント']);
         await expect(card(page, kind).locator('.upgrade-price')).toContainText(money(prices[level - 1]));
-        await expect(card(page, kind).locator('.upgrade-state')).toHaveText('購入可能');
+        await expect(card(page, kind).locator('.upgrade-state')).toHaveText('アップグレード可能');
         await click(card(page, kind).locator('button'));
-        await expect(page.locator('#collection-title')).toHaveText('装備強化の購入確認');
+        await expect(page.locator('#collection-title')).toHaveText('アップグレード確認');
         await expect(page.locator('.upgrade-confirm-name')).toHaveText(`${kind === 'rod' ? 'ロッド' : 'リール'}を強化します。`);
         await expect(page.locator('.upgrade-confirm-level')).toHaveText(`現在 Lv.${level} → 購入後 Lv.${level + 1}`);
         await expect(page.locator('.upgrade-price')).toHaveText(`購入価格 ${money(prices[level - 1])}`);
@@ -148,6 +148,7 @@ for (const touch of [false, true]) {
         balance -= prices[level - 1]; await assertBalance(page, balance);
         await expect(card(page, kind).locator('h3')).toContainText(`Lv.${level + 1}`);
         await expect(page.locator('.upgrade-message')).toHaveAttribute('role', 'status');
+        await expect(page.locator('.upgrade-message')).toHaveText(`${kind === 'rod' ? 'ロッド' : 'リール'}はLv.${level + 1}と記憶しました。`);
       }
     }
     const after = await page.evaluate(() => fixture.collection.snapshot);
@@ -182,8 +183,8 @@ for (const touch of [false, true]) {
       for (const kind of ['rod', 'reel']) {
         await assertEquipment(page, kind, level - 1);
         await expect(card(page, kind).locator('.equipment-next')).toHaveText(kind === 'rod'
-          ? [`次Lv.${level} ${distance}m`, `次Lv.${level} ${suppression}%`]
-          : [`次Lv.${level} ${speed}%`, `次Lv.${level} ${relief}%`]);
+          ? [`Next : Lv.${level} ${distance}m`, `Next : Lv.${level} ${suppression}%`]
+          : [`Next : Lv.${level} ${speed}%`, `Next : Lv.${level} ${relief}%`]);
         await expect(card(page, kind).locator('.upgrade-price')).toContainText(money(cost));
         await click(card(page, kind).locator('button'));
         await expect(page.locator('.upgrade-confirm-level')).toHaveText(`現在 Lv.${level - 1} → 購入後 Lv.${level}`);
@@ -206,6 +207,7 @@ for (const touch of [false, true]) {
         }
         await click(page.locator('#confirm-upgrade'));
         balance -= cost; await assertBalance(page, balance);
+        await expect(page.locator('.upgrade-message')).toHaveText(`${kind === 'rod' ? 'ロッド' : 'リール'}はLv.${level}と記憶しました。`);
         await expect(card(page, kind).locator('h3')).toHaveText(`${kind === 'rod' ? 'ロッド' : 'リール'} · Lv.${level}`);
         await expect(card(page, kind).locator('.equipment-current')).toHaveText(kind === 'rod'
           ? [`現在 ${distance}m`, `現在 ${suppression}%`] : [`現在 ${speed}%`, `現在 ${relief}%`]);
@@ -215,8 +217,9 @@ for (const touch of [false, true]) {
         level === 10 ? `equipment-lv10-${touch ? 'touch' : 'mouse'}` : null);
     }
     for (const kind of ['rod', 'reel']) {
-      await expect(card(page, kind).locator('.upgrade-state')).toHaveText('最大強化済み');
+      await expect(card(page, kind).locator('.upgrade-state')).toHaveText('MAX : Lv.10');
       await expect(card(page, kind).locator('button')).toBeDisabled();
+      await expect(card(page, kind).locator('button')).toHaveText('MAX');
       await expect(card(page, kind).locator('.equipment-next')).toHaveCount(0);
     }
     const maximum = await page.evaluate(() => fixture.collection.snapshot);
@@ -277,7 +280,7 @@ test('cancel/back/Esc/close, stale confirmations and latest game state/balance n
   await page.evaluate(() => fixture.collection.purchaseUpgrade('reel', 1));
   await page.locator('#confirm-upgrade').click(); await assertBalance(page, 500);
   await expect(page.locator('.upgrade-message')).toHaveAttribute('role', 'alert');
-  await expect(card(page, 'rod').locator('.upgrade-state')).toHaveText('所持金不足 · 必要 800 通貨');
+  await expect(card(page, 'rod').locator('.upgrade-state')).toHaveText('所持金不足 · 必要 800 Value');
   await expect(card(page, 'reel').locator('h3')).toContainText('Lv.2');
 });
 

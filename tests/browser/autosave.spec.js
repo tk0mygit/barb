@@ -272,7 +272,7 @@ test('corrupt newest slot restores the valid backup and explains the fallback', 
   await seed(page, [envelope(4, fixtureData()), '{broken-newest']);
   await ready(page);
   await expect(page.locator('#save-status')).toContainText('バックアップ');
-  await expect(page.locator('#wallet-balance')).toHaveText('10,000 通貨');
+  await expect(page.locator('#wallet-balance')).toHaveText('10,000 Value');
   const data = await checkpoint(page);
   expect(data.data.collection.wallet.balance).toBe(10000);
   expect(data.data.boat).toEqual(fixtureData().boat);
@@ -284,7 +284,7 @@ for (const unsupported of [false, true]) test(`${unsupported ? 'future version' 
   const original = unsupported ? [envelope(4, data), null] : ['{broken-A', '{broken-B'];
   await seed(page, original); await ready(page);
   await expect(page.locator('#save-status')).toHaveAttribute('data-phase', 'protected');
-  await expect(page.locator('#wallet-balance')).toHaveText('0 通貨');
+  await expect(page.locator('#wallet-balance')).toHaveText('0 Value');
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   expect(await slots(page)).toEqual(original);
   await page.locator('#fish-button').click();

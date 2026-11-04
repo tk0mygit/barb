@@ -30,6 +30,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
   const trigger = document.querySelector('#menu-button');
   const dialog = document.querySelector('#collection-dialog');
   const title = document.querySelector('#collection-title');
+  const menuNote = document.querySelector('#collection-menu-note');
   const content = document.querySelector('#collection-content');
   const back = document.querySelector('#collection-back');
   const close = document.querySelector('#collection-close');
@@ -47,9 +48,10 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
     screen = next;
     content.replaceChildren(); content.scrollTop = 0;
     back.hidden = next === 'menu';
+    menuNote.hidden = next !== 'menu';
     if (next === 'menu') {
       title.textContent = '湖の記録';
-      const views = [['encyclopedia', '魚図鑑'], ['storage', '保管魚'], ['equipment', '装備強化'], ['achievements', '実績']];
+      const views = [['encyclopedia', '図鑑'], ['storage', '生けす'], ['equipment', 'ギア／アップグレード'], ['achievements', '実績']];
       if (ambientAudio) views.push(['sound', 'サウンド設定']);
       for (const [view, label] of views) {
         const button = element('button', label); button.type = 'button'; button.dataset.view = view;
@@ -57,7 +59,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
       }
     } else if (next === 'encyclopedia') {
       const entries = collection.encyclopedia;
-      title.textContent = '魚図鑑';
+      title.textContent = '図鑑';
       content.append(element('p', `発見 ${entries.filter(entry => entry.count > 0).length} / ${FISH_SPECIES.length} 種`, 'collection-summary'));
       const grid = element('div', undefined, 'fish-grid');
       for (const [index, entry] of entries.entries()) {
@@ -81,23 +83,23 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
       const detail = element('article', undefined, 'fish-detail');
       detail.append(fishImage(fish.image, fish.name, visibleImages), element('p', fish.description, 'fish-description'));
       const stats = element('dl');
-      for (const [label, value] of [['累計捕獲数', `${entry.count}匹`], ['自己最大体長', `${entry.maxLengthCm.toFixed(1)} cm`], ['基準売却単価', `${fish.basePricePerKg} 通貨/kg`]]) {
+      for (const [label, value] of [['捕獲数', `${entry.count}匹`], ['最大記録', `${entry.maxLengthCm.toFixed(1)} cm`], ['規定売価', `${fish.basePricePerKg} Val/kg`]]) {
         const row = element('div'); row.append(element('dt', label), element('dd', value)); stats.append(row);
       }
       detail.append(stats); content.append(detail);
     } else if (next === 'storage') {
-      title.textContent = '保管魚';
+      title.textContent = '生けす';
       const records = collection.stored;
-      content.append(element('p', `${records.length}匹を保管中 · 容量制限なし`, 'collection-summary'));
+      content.append(element('p', `${records.length}匹が生きている。`, 'collection-summary'));
       const quote = collection.quoteStored();
-      const sellAll = element('button', quote ? `すべて売却（${quote.count}匹 · ${formatMoney(quote.total)}）` : 'すべて売却');
+      const sellAll = element('button', quote ? `生けす内をすべて売却（${quote.count}匹 · ${formatMoney(quote.total)}）` : '生けす内をすべて売却');
       sellAll.type = 'button'; sellAll.id = 'sell-all'; sellAll.disabled = !quote;
       sellAll.addEventListener('click', () => {
         pendingSale = collection.quoteStored();
         if (pendingSale) { render('confirm-sale'); title.focus(); }
       });
       content.append(sellAll);
-      if (!records.length) content.append(element('p', '保管中の魚はいません。釣り上げた魚を保管すると、ここに表示されます。', 'collection-empty'));
+      if (!records.length) content.append(element('p', '現在生けすは虚です。', 'collection-empty'));
       const list = element('div', undefined, 'stored-list');
       // Newest first, with full stable IDs so identical fish remain distinct.
       for (const record of [...records].reverse()) {
@@ -107,7 +109,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
         const time = element('time', dates.format(new Date(record.caughtAt))); time.dateTime = record.caughtAt;
         info.append(element('h3', fish.name), element('p', `${record.lengthCm.toFixed(1)} cm · ${record.weightKg.toFixed(2)} kg`), time, element('small', `個体ID ${record.id}`));
         info.append(element('p', `売却価格 ${formatMoney(calculateSalePrice(record))}`, 'stored-price'));
-        const sell = element('button', 'この魚を売却'); sell.type = 'button'; sell.className = 'sell-stored';
+        const sell = element('button', 'この個体を売却'); sell.type = 'button'; sell.className = 'sell-stored';
         sell.addEventListener('click', () => {
           // A stale/detached button cannot sell another fish or re-sell this ID.
           completeSale(collection.sellStored([record.id]));
@@ -123,7 +125,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
       title.textContent = '実績';
       renderAchievements(content, achievements);
     } else if (next === 'equipment') {
-      title.textContent = '装備強化';
+      title.textContent = 'ギア／アップグレード';
       renderEquipment(content, collection, purchaseAllowed(), kind => {
         if (!active || !dialog.open || screen !== 'equipment' || !purchaseAllowed()) return;
         const status = collection.getUpgradeStatus(kind);
@@ -133,7 +135,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
       });
     } else if (next === 'confirm-upgrade') {
       if (!pendingUpgrade) { render('equipment'); return; }
-      title.textContent = '装備強化の購入確認';
+      title.textContent = 'アップグレード確認';
       const displayedQuote = pendingUpgrade;
       renderUpgradeConfirmation(content, displayedQuote, () => {
         if (!active || !dialog.open || screen !== 'confirm-upgrade' || pendingUpgrade !== displayedQuote) return;
@@ -148,7 +150,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
       }, () => { render('equipment'); title.focus(); });
     } else if (next === 'confirm-sale') {
       if (!pendingSale) { render('storage'); return; }
-      title.textContent = '保管魚をすべて売却';
+      title.textContent = '生けす内をすべて売却';
       content.append(element('p', `${pendingSale.count}匹を ${formatMoney(pendingSale.total)} で売却します。`, 'sale-confirm-summary'),
         element('p', '売却しても図鑑と捕獲履歴は残ります。'));
       const confirm = element('button', '売却を確定'); confirm.type = 'button'; confirm.id = 'confirm-sale';
@@ -167,13 +169,13 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
   function completeUpgrade(receipt, error = '購入できませんでした。最新の所持金と装備をご確認ください。') {
     onUpgrade(); // The shared HUD owns both wallet displays, even on failure.
     render('equipment'); title.focus();
-    const message = element('p', receipt ? `${EQUIPMENT_NAMES[receipt.kind]}をLv.${receipt.level}に強化しました。` : error, 'upgrade-message');
+    const message = element('p', receipt ? `${EQUIPMENT_NAMES[receipt.kind]}はLv.${receipt.level}と記憶しました。` : error, 'upgrade-message');
     message.setAttribute('role', receipt ? 'status' : 'alert'); content.prepend(message);
   }
   function completeSale(receipt) {
     render('storage'); title.focus();
     if (receipt) onSale(receipt);
-    else { const message = element('p', '売却できませんでした。保管魚と所持金をご確認ください。'); message.setAttribute('role', 'alert'); content.prepend(message); }
+    else { const message = element('p', '売却できませんでした。生けすと所持金をご確認ください。'); message.setAttribute('role', 'alert'); content.prepend(message); }
   }
   function finishClose() {
     if (!active) return;

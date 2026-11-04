@@ -1,6 +1,6 @@
 import { pickBuyerLine } from '../game/buyer-lines.js';
 
-export function formatMoney(amount) { return `${amount.toLocaleString('ja-JP')} 通貨`; }
+export function formatMoney(amount) { return `${amount.toLocaleString('ja-JP')} Value`; }
 
 export function createSalesHUD(collection) {
   const balance = document.querySelector('#wallet-balance');

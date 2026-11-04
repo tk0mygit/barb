@@ -24,7 +24,7 @@ export function renderAchievements(content, achievements) {
     const card = element('li', undefined, 'achievement-card');
     card.dataset.achievementId = entry.id; card.dataset.unlocked = String(entry.unlocked);
     card.append(element('span', entry.unlocked ? '✓ 解除済み' : '未解除', 'achievement-state'),
-      element('h3', entry.name), element('p', entry.description),
+      element('h3', entry.unlocked ? entry.name : '？？？'), element('p', entry.description),
       element('p', formatAchievementProgress(entry), 'achievement-progress'));
     if (entry.unlockedAt) {
       const time = element('time', `解除日時：${dates.format(new Date(entry.unlockedAt))}`);
