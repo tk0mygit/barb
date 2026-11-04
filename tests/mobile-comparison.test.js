@@ -274,6 +274,13 @@ test('5E-2B hint removal permits exactly the source-bound BITE return-row shift 
   const sources = { fishingHintRemoval: proof };
   for (const id of ['portrait-bite', 'landscape-bite', 'small-bite', 'pc-bite']) {
     const [before, after] = captures().map(entries => entries.find(entry => entry.id === id));
+    // These synthetic BITE panels sit above the water, as in the real HUD.
+    // A bottom FIGHT-style fixture would collide with the raised button.
+    for (const entry of [before, after]) {
+      const s = entry.layout; s.panel = box(22, 88, Math.min(300, s.viewport.width - 44), 99);
+      s.occupancy = s.panel.width * s.panel.height / (s.viewport.width * s.viewport.height) * 100;
+      s.meter = box(27, 108, 200, 18);
+    }
     const button = after.layout.buttons[0];
     for (const key of ['y', 'top', 'bottom']) button[key] -= 38;
     assert.equal(compareMobileCapturePair(before, after, data, sources).fishingHintRemoval.kind, proof.kind);
