@@ -55,10 +55,13 @@ async function cast(page, input, advance = async () => {}) {
   await input.click(page.locator('#cast-button'));
   await advance();
   await expect(phase(page)).toHaveAttribute('data-phase', 'aim');
-  await expect(page.locator('#fishing-state')).toHaveText('キャスト準備');
-  await expect(page.locator('#hint')).toBeHidden();
-  await expect(page.locator('#lure-picker')).toBeHidden();
-  for (const button of await page.locator('#lure-picker button').all()) await expect(button).toBeDisabled();
+  const lureButtons = await page.locator('#lure-picker button').all();
+  await Promise.all([
+    expect(page.locator('#fishing-state')).toHaveText('キャスト準備'),
+    expect(page.locator('#hint')).toBeHidden(),
+    expect(page.locator('#lure-picker')).toBeHidden(),
+    ...lureButtons.map(button => expect(button).toBeDisabled()),
+  ]);
   await input.down(); await input.move(300, 270);
   await advance();
   await expect(page.locator('#line-distance')).toContainText('着水予測 28.0 m');
@@ -67,8 +70,9 @@ async function cast(page, input, advance = async () => {}) {
     await advance();
     return phase(page).getAttribute('data-phase');
   }).toBe('lure');
-  await expect(page.locator('#fishing-state')).toHaveText('静寂を聴く');
-  await expect(page.locator('#hint')).toBeHidden();
+  await Promise.all([
+    expect(page.locator('#fishing-state')).toHaveText('静寂を聴く'), expect(page.locator('#hint')).toBeHidden(),
+  ]);
 }
 async function hook(page, input, keepPaused = false) {
   // Software WebGL/CDP round trips can exceed the one-second hook window.
@@ -78,25 +82,31 @@ async function hook(page, input, keepPaused = false) {
   await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
   for (let i = 0; i < 120 && await phase(page).getAttribute('data-phase') !== 'bite'; i++) await page.clock.fastForward(250);
   expect(await phase(page).getAttribute('data-phase')).toBe('bite');
-  await expect(page.locator('#fishing-state')).toHaveText('シグナルを検知した');
-  await expect(page.locator('#hint')).toBeHidden();
+  await Promise.all([
+    expect(page.locator('#fishing-state')).toHaveText('シグナルを検知した'), expect(page.locator('#hint')).toBeHidden(),
+  ]);
   await input.tap();
   await page.clock.fastForward(16);
   await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
-  await expect(page.locator('#fishing-state')).toHaveText('抵抗を検知');
-  await expect(page.locator('#hint')).toBeHidden();
+  await Promise.all([
+    expect(page.locator('#fishing-state')).toHaveText('抵抗を検知'), expect(page.locator('#hint')).toBeHidden(),
+  ]);
   if (!keepPaused) await page.clock.resume();
 }
 async function assertCatch(page, speciesId, size = 0.5) {
   const species = getFishSpecies(speciesId);
   const length = Math.round((species.minLengthCm + size * (species.maxLengthCm - species.minLengthCm)) * 10) / 10;
-  await expect(page.locator('#catch-dialog')).toBeVisible();
-  await expect(page.locator('#fishing-state')).toHaveText('個体を回収した');
-  await expect(page.locator('#hint')).toBeHidden();
-  await expect(page.locator('#catch-species')).toHaveText(species.name);
-  await expect(page.locator('#catch-length')).toHaveText(`${length.toFixed(1)} cm`);
-  await expect(page.locator('#catch-weight')).toHaveText(`${calculateFishWeightKg(species.id, length).toFixed(2)} kg`);
-  await expect(page.locator('#catch-image')).toHaveAttribute('alt', `${species.name}の側面イラスト`);
+  // Observe the same settled result together; extra text coverage must not
+  // add one software-rendering round trip per independent field.
+  await Promise.all([
+    expect(page.locator('#catch-dialog')).toBeVisible(),
+    expect(page.locator('#fishing-state')).toHaveText('個体を回収した'),
+    expect(page.locator('#hint')).toBeHidden(),
+    expect(page.locator('#catch-species')).toHaveText(species.name),
+    expect(page.locator('#catch-length')).toHaveText(`${length.toFixed(1)} cm`),
+    expect(page.locator('#catch-weight')).toHaveText(`${calculateFishWeightKg(species.id, length).toFixed(2)} kg`),
+    expect(page.locator('#catch-image')).toHaveAttribute('alt', `${species.name}の側面イラスト`),
+  ]);
   const expectedBytes = readFileSync(new URL(species.image));
   const expectedImage = validateFishImage(new URL(species.image).pathname, expectedBytes);
   // Compare actual bytes/content and decoded dimensions; Vite may inline assets.
@@ -117,9 +127,10 @@ async function land(page, input, speciesId) {
     const snapshot = await page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
     if (snapshot.phase !== 'fight') {
       if (snapshot.phase === 'landing') {
-        await expect(page.locator('#fishing-state')).toHaveText('回収中...');
-        await expect(page.locator('#hint')).toHaveText('回収まで、あとわずか');
-        await expect(page.locator('#hint')).toBeVisible();
+        await Promise.all([
+          expect(page.locator('#fishing-state')).toHaveText('回収中...'),
+          expect(page.locator('#hint')).toHaveText('回収まで、あとわずか'), expect(page.locator('#hint')).toBeVisible(),
+        ]);
         await page.screenshot({ path: `test-results/landing-${page.viewportSize().width}.png` });
       }
       break;
@@ -174,9 +185,10 @@ for (const touch of [false, true]) {
     await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
     for (let i = 0; i < 160 && await phase(page).getAttribute('data-phase') !== 'failed'; i++) await page.clock.fastForward(250);
     await expect(phase(page)).toHaveAttribute('data-phase', 'failed');
-    await expect(page.locator('#fishing-state')).toHaveText('個体を見失った');
-    await expect(page.locator('#hint')).toHaveText('再試行を待機');
-    await expect(page.locator('#hint')).toBeVisible();
+    await Promise.all([
+      expect(page.locator('#fishing-state')).toHaveText('個体を見失った'),
+      expect(page.locator('#hint')).toHaveText('再試行を待機'), expect(page.locator('#hint')).toBeVisible(),
+    ]);
     for (let i = 0; i < 12 && await phase(page).getAttribute('data-phase') !== 'ready'; i++) await page.clock.fastForward(250);
     await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
     await page.clock.resume();
@@ -194,35 +206,37 @@ for (const touch of [false, true]) {
     await expect(page.locator('#lure-picker')).toBeHidden();
     const conditions = await page.locator('#fishing-conditions').evaluate(el => ({ depthM: Number(el.dataset.depthM), timeOfDay: el.dataset.timeOfDay }));
     await land(page, input, sampleFishSpecies(lureId, () => 0.5, conditions).id);
-    const caughtName = await page.locator('#catch-species').textContent();
-    const caughtLength = await page.locator('#catch-length').textContent();
-    const caughtWeight = await page.locator('#catch-weight').textContent();
+    const [caughtName, caughtLength, caughtWeight] = await Promise.all([
+      page.locator('#catch-species').textContent(), page.locator('#catch-length').textContent(), page.locator('#catch-weight').textContent(),
+    ]);
     await expect(page.locator('#menu-button')).toBeDisabled();
     await page.locator('#menu-button').evaluate(button => button.dispatchEvent(new MouseEvent('click')));
     await expect(page.locator('#collection-dialog')).toBeHidden();
     await page.screenshot({ path: `test-results/${touch ? 'mobile' : 'desktop'}-catch.png` });
     if (touch) await input.click(page.locator('#close-catch')); else await page.keyboard.press('Escape');
-    await expect(page.locator('#catch-dialog')).toBeHidden();
-    await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
-    await expect(page.locator('#lure-picker')).toBeVisible();
+    await Promise.all([
+      expect(page.locator('#catch-dialog')).toBeHidden(), expect(phase(page)).toHaveAttribute('data-phase', 'ready'),
+      expect(page.locator('#lure-picker')).toBeVisible(),
+    ]);
     await input.click(page.locator('#menu-button'));
     await input.click(page.locator('[data-view="encyclopedia"]'));
     await expect(page.locator('button.fish-card')).toHaveCount(1);
     await input.click(page.locator('button.fish-card'));
-    await expect(page.locator('#collection-title')).toHaveText(caughtName);
-    await expect(page.locator('.fish-detail')).toContainText('1匹');
-    await expect(page.locator('.fish-detail')).toContainText(caughtLength);
     const fish = FISH_SPECIES.find(item => item.name === caughtName);
-    await expect(page.locator('.fish-description')).toHaveText(fish.description);
-    await expect(page.locator('.fish-detail dt')).toHaveText(['捕獲数', '最大記録', '規定売価']);
-    await expect(page.locator('.fish-detail')).toContainText(`${fish.basePricePerKg} Val/kg`);
+    await Promise.all([
+      expect(page.locator('#collection-title')).toHaveText(caughtName),
+      expect(page.locator('.fish-detail')).toContainText('1匹'), expect(page.locator('.fish-detail')).toContainText(caughtLength),
+      expect(page.locator('.fish-description')).toHaveText(fish.description),
+      expect(page.locator('.fish-detail dt')).toHaveText(['捕獲数', '最大記録', '規定売価']),
+      expect(page.locator('.fish-detail')).toContainText(`${fish.basePricePerKg} Val/kg`),
+    ]);
     await input.click(page.locator('#collection-back')); await input.click(page.locator('#collection-back'));
     await input.click(page.locator('[data-view="storage"]'));
-    await expect(page.locator('.stored-fish')).toHaveCount(1);
-    await expect(page.locator('.stored-fish')).toContainText(caughtName);
-    await expect(page.locator('.stored-fish')).toContainText(caughtLength);
-    await expect(page.locator('.stored-fish')).toContainText(caughtWeight);
-    await expect(page.locator('.stored-fish time')).toHaveAttribute('datetime', /T/);
+    await Promise.all([
+      expect(page.locator('.stored-fish')).toHaveCount(1), expect(page.locator('.stored-fish')).toContainText(caughtName),
+      expect(page.locator('.stored-fish')).toContainText(caughtLength), expect(page.locator('.stored-fish')).toContainText(caughtWeight),
+      expect(page.locator('.stored-fish time')).toHaveAttribute('datetime', /T/),
+    ]);
     await page.screenshot({ path: `test-results/${touch ? 'mobile' : 'desktop'}-storage.png` });
     await input.click(page.locator('#collection-close'));
     await cast(page, input);
