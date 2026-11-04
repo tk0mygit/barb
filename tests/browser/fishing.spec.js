@@ -195,6 +195,9 @@ for (const touch of [false, true]) {
     for (let n = 0; n < 20 && await page.locator('#line-tension').evaluate(el => el.value) >= .18; n++) await tick();
     await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
     await expect(page.locator('#tension-warning')).toHaveText('長押しで巻く！');
+    // Slack escape is probabilistic after its grace period. Supply a valid
+    // zero roll for that draw; the already sampled individual stays fixed.
+    await page.evaluate(() => { window.testRandomValue = 0; });
     await toPhase('failed');
     await text('個体を見失った', '再試行を待機');
     await expect(page.locator('#fishing-note')).toHaveText('針が外れ、個体を見失った。');
