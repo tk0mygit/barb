@@ -99,7 +99,7 @@ for (const touch of [false, true]) {
     expect(await page.locator('#achievement-notice').evaluate(el => el.parentElement.id)).toBe('catch-dialog');
     await expect(page.locator('#achievement-notice')).toHaveCSS('opacity', '1');
     await page.screenshot({ path: info.outputPath('achievement-in-production-catch.png') });
-    await page.clock.fastForward(3000);
+    await page.clock.fastForward(5000);
     await expect(page.locator('#achievement-notice')).toBeHidden();
     await click(page.locator('#sell-catch')); await tick(); expect(await phase()).toBe('ready');
     const income = parseInt((await page.locator('#wallet-balance').textContent()).replaceAll(',', ''));

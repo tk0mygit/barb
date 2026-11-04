@@ -47,7 +47,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen a
   await expect(card(page, 'length-100').locator('.achievement-progress')).toHaveText('最大体長：82.5 / 100cm');
   await expect(notice(page)).toContainText('始まり');
   expect(await notice(page).evaluate(el => el.parentElement.id)).toBe('collection-dialog');
-  await page.clock.fastForward(3000); await expect(notice(page)).toBeHidden();
+  await page.clock.fastForward(5000); await expect(notice(page)).toBeHidden();
   // Individual sale then a second capture worth 3,800 and a confirmed bulk sale.
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="storage"]'));
   await click(page.locator('.sell-stored'));
@@ -73,7 +73,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen a
   await click(page.locator('[data-upgrade="rod"]')); await click(page.locator('#cancel-upgrade'));
   expect(await page.evaluate(() => fixture.achievements.unlockedCount)).toBe(2);
   await click(page.locator('[data-upgrade="rod"]')); await click(page.locator('#confirm-upgrade'));
-  await page.clock.fastForward(3000); await expect(notice(page)).toContainText('更新');
+  await page.clock.fastForward(5000); await expect(notice(page)).toContainText('更新');
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 3 / 15');
   await expect(card(page, 'sales-10000')).toHaveAttribute('data-unlocked', 'true');
@@ -149,11 +149,11 @@ test('simultaneous awards queue exactly once and expire without frames, includin
   await expect(notice(page)).toHaveAttribute('aria-atomic', 'true');
   await page.clock.fastForward(1000); await openAchievements(page);
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 15');
-  await page.clock.fastForward(1999); await expect(notice(page)).toContainText('始まり');
+  await page.clock.fastForward(3999); await expect(notice(page)).toContainText('始まり');
   await page.clock.fastForward(1); await expect(notice(page)).toContainText('特異個体');
   await page.locator('#collection-close').click();
   await page.evaluate(() => fixture.achievementNotice.notify(fixture.achievements.entries.filter(entry => entry.unlocked)));
-  await page.clock.fastForward(2999); await expect(notice(page)).toBeVisible();
+  await page.clock.fastForward(4999); await expect(notice(page)).toBeVisible();
   await page.clock.fastForward(1); await expect(notice(page)).toBeHidden();
   await page.evaluate(() => fixture.achievements.evaluate());
   await openAchievements(page); await expect(notice(page)).toBeHidden();
@@ -176,7 +176,7 @@ test('throttled background timer expires the visible award and preserves pending
   });
   await expect(notice(page)).toContainText('特異個体');
   expect(await page.evaluate(() => fixture.achievements.unlockedCount)).toBe(2);
-  await page.clock.fastForward(2999); await expect(notice(page)).toBeVisible();
+  await page.clock.fastForward(4999); await expect(notice(page)).toBeVisible();
   await page.clock.fastForward(1); await expect(notice(page)).toBeHidden();
 });
 
