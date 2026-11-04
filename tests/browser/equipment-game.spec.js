@@ -3,7 +3,7 @@ import { installPausedClock } from './clock-fixture.js';
 import { activateButton, expirePublicQte } from './input-fixture.js';
 
 for (const touch of [false, true]) {
-  test(`${touch ? 'touch' : 'mouse'}: real sales fund READY/sailing purchases; active fishing remains read-only`, async ({ createContext }) => {
+  test(`${touch ? 'touch' : 'mouse'}: real sales fund READY/sailing purchases; active fishing remains read-only`, async ({ createContext }, info) => {
     const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 800, height: 600 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -97,7 +97,9 @@ for (const touch of [false, true]) {
     // build. Capture unlocks before the sale/storage decision.
     await expect(page.locator('#achievement-notice')).toContainText('始まり');
     expect(await page.locator('#achievement-notice').evaluate(el => el.parentElement.id)).toBe('catch-dialog');
-    await page.clock.fastForward(3500);
+    await expect(page.locator('#achievement-notice')).toHaveCSS('opacity', '1');
+    await page.screenshot({ path: info.outputPath('achievement-in-production-catch.png') });
+    await page.clock.fastForward(3000);
     await expect(page.locator('#achievement-notice')).toBeHidden();
     await click(page.locator('#sell-catch')); await tick(); expect(await phase()).toBe('ready');
     const income = parseInt((await page.locator('#wallet-balance').textContent()).replaceAll(',', ''));

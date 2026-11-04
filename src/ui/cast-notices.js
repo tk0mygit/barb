@@ -1,4 +1,5 @@
-const NOTICE_IDS = ['spot-status', 'sale-notice', 'achievement-notice'];
+// The text-only achievement overlay keeps its viewport anchor in every mode.
+const NOTICE_IDS = ['spot-status', 'sale-notice'];
 const OWNED_STYLES = ['left', 'right', 'top', 'bottom', 'transform', 'width'];
 const rect = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height });
 const separated = (a, b, gap) => a.right + gap <= b.left || b.right + gap <= a.left
@@ -53,6 +54,7 @@ export function placeCastNotices({ width, height, insets = {}, blocked = [], not
 export function createCastNotices(root = document) {
   const app = root.querySelector('#app');
   const elements = NOTICE_IDS.map(id => root.querySelector(`#${id}`));
+  const achievement = root.querySelector('#achievement-notice');
   const originals = new Map();
   let viewportKey = null;
   function reset() {
@@ -60,8 +62,7 @@ export function createCastNotices(root = document) {
     originals.clear();
     viewportKey = null;
   }
-  // Achievement messages move into native dialogs before they open. Restore
-  // the ordinary dialog layout in that same turn, including while paused.
+  // Restore the movable notices before native dialogs open, including while paused.
   for (const dialog of root.querySelectorAll('dialog')) dialog.addEventListener('beforetoggle', reset);
   return {
     reset,
@@ -83,7 +84,12 @@ export function createCastNotices(root = document) {
       blocked.push({ ...bounds, gap: 12 });
       const options = { width: innerWidth, height: innerHeight, insets, blocked,
         notices: notices.map(element => ({ id: element.id, ...element.getBoundingClientRect().toJSON() })) };
-      let positions = placeCastNotices(options);
+      // Avoid the fixed text when space allows. It must never make an otherwise
+      // valid cast fail: retain the ordinary notice/marker constraints as fallback.
+      const overlay = visible(achievement) ? { ...achievement.getBoundingClientRect().toJSON(), gap: 8 } : null;
+      const place = notices => (overlay && placeCastNotices({ ...options, notices, blocked: [...blocked, overlay] }))
+        || placeCastNotices({ ...options, notices });
+      let positions = place(options.notices);
       if (!positions) {
         const usableWidth = innerWidth - insets.left - insets.right - 24;
         const natural = notices.map(element => {
@@ -107,7 +113,7 @@ export function createCastNotices(root = document) {
           element.style.width = previousWidth;
           return { ...notice, variants };
         });
-        positions = placeCastNotices({ ...options, notices: reflowed });
+        positions = place(reflowed);
       }
       if (!positions) return false;
       for (const position of positions) {
