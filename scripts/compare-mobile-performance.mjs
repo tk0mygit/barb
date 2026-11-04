@@ -80,8 +80,9 @@ function checkCamera(actual, expected, id) {
 
 const box = (x, y, width, height) => ({ x, y, width, height, top: y, right: x + width, bottom: y + height, left: x });
 
-// Removing BITE's 30px hint row and its 8px gap naturally raises only the
-// return button. Bind that display difference to the reviewed source blobs;
+// Removing BITE's 30px hint row and its 8px gap raises the return button;
+// portrait FIGHT's 18px hint and 8px margin collapse above that button.
+// Bind those display differences to the reviewed source blobs;
 // do not grant a layout allowance to later HUD/CSS/index changes.
 export async function readFishingHintRemoval(main, pr) {
   if (main.sha !== '87c7822e0dd0af71e08baa3b92e2e85f23fae897'
@@ -93,7 +94,7 @@ export async function readFishingHintRemoval(main, pr) {
   const [before, after] = await Promise.all([main, pr].map(source => mobileGit('rev-parse', `${source.sha}:src/ui/hud.js`)));
   if (before !== '35fecd7d9a6aecd51e166d4e5c1a8b7b4d32503e' || after !== '883d74243f3974795f6cca5c8fb7259d0228b201') return null;
   return { kind: 'fishing-hint-removal-5E2B', baseSha: main.sha, validationSha: pr.sha,
-    beforeHud: main.hudLogicBlob, afterHud: pr.hudLogicBlob, returnOffsetY: -38 };
+    beforeHud: main.hudLogicBlob, afterHud: pr.hudLogicBlob, returnOffsetY: -38, fightOffsetY: 26 };
 }
 
 function checkUpperCastBiteLayout(s, id) {
@@ -235,6 +236,7 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       assert.equal(hintRemoval.beforeHud, metadata.implementations.main.hudLogicBlob);
       assert.equal(hintRemoval.afterHud, metadata.implementations.pr.hudLogicBlob);
       assert.equal(hintRemoval.returnOffsetY, -38);
+      assert.equal(hintRemoval.fightOffsetY, 26);
     }
     let cameraComparison;
     assert.equal(a?.id, b.id, `Missing comparison ${b.id}`);
@@ -299,6 +301,12 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
           checkUpperCastBiteLayout(a.layout, b.id);
         }
         for (const key of ['viewport', 'panel', 'occupancy', 'reticle', 'meter', 'buttons', 'header', 'notices', 'scrollWidth']) {
+          if (hintRemoval && ['portrait-fight', 'small-fight'].includes(b.id) && ['panel', 'meter'].includes(key)) {
+            const expected = { ...b.layout[key] };
+            for (const coordinate of ['y', 'top', 'bottom']) expected[coordinate] += 26;
+            assert.deepEqual(a.layout[key], expected, `${b.id}: hint removal ${key} regression`);
+            continue;
+          }
           if (key === 'buttons' && hintRemoval && ['portrait-bite', 'landscape-bite', 'small-bite', 'pc-bite'].includes(b.id)) {
             assert.equal(b.layout.buttons.filter(button => button.id === 'return-button').length, 1, `${b.id}: missing return button`);
             const expected = b.layout.buttons.map(button => button.id === 'return-button'
@@ -322,7 +330,8 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       ...(expected.transition ? { resourceTransition: expected.transition } : {}),
       ...(gearTransition ? { rodReelComparison: gearTransition } : {}),
       ...(castDisplay ? { castDisplayComparison: castDisplay } : {}),
-      ...(hintRemoval && b.id.endsWith('-bite') ? { fishingHintRemoval: hintRemoval } : {}),
+      ...(hintRemoval && ['portrait-bite', 'landscape-bite', 'small-bite', 'pc-bite', 'portrait-fight', 'small-fight'].includes(b.id)
+        ? { fishingHintRemoval: hintRemoval } : {}),
       pixelReduction,
       ...(b.layout ? { beforeLayout: b.layout, afterLayout: a.layout } : {}) };
 }
@@ -340,7 +349,7 @@ export async function writeMobileComparison(before, after, output, metadata = be
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output.replace(/\.html$/, '.json'), JSON.stringify({ metadata, rows }, null, 2));
   const figures = rows.map((r, index) => `<article id="${r.id}"><h2>${r.id}</h2><p>buffer ${r.before.buffer.width}×${r.before.buffer.height} → ${r.after.buffer.width}×${r.after.buffer.height}; pixel reduction ${r.pixelReduction.toFixed(2)}%${r.beforeLayout ? `; HUD ${r.beforeLayout.occupancy.toFixed(2)}% → ${r.afterLayout.occupancy.toFixed(2)}%` : ''}</p><div>${images[index].map((image, i) => `<figure><figcaption>${i ? 'PR' : 'main'}</figcaption><img src="data:image/png;base64,${image.toString('base64')}"></figure>`).join('')}</div><details><summary>Metrics / layout</summary><pre>${JSON.stringify({ before: r.before, after: r.after, beforeLayout: r.beforeLayout, afterLayout: r.afterLayout, cameraComparison: r.cameraComparison, resourceTransition: r.resourceTransition, rodReelComparison: r.rodReelComparison, castDisplayComparison: r.castDisplayComparison }, null, 2)}</pre></details></article>`).join('');
-  await writeFile(output, `<!doctype html><html lang="ja"><meta charset="utf-8"><title>BARB mobile comparison</title><style>body{background:#142329;color:#eee;font:15px system-ui;margin:24px}article{border-top:1px solid #789;padding:20px 0}article>div{display:flex;align-items:start;gap:12px}figure{margin:0;max-width:49%}img{max-width:100%;height:auto}pre{white-space:pre-wrap}</style><h1>BARB mobile comparison: ${metadata.mode}</h1><pre>${JSON.stringify(metadata, null, 2)}</pre><p>Production builds, boat (10,20), heading 0, saved clock, viewport / DPR and native fishing input fixed. Software Chromium / SwiftShader, single sample: setup→ready and 6 ordinary frames (96ms virtual time), Node monotonic wall clock and CDP TaskDuration. Includes automation overhead, paired diagnostic renders and waits; these are not device FPS or GPU timings. Screenshots and actualResources retain the production camera. Resources are compared strictly using the same fixed diagnostic camera; production camera poses are replayed from each recorded source SHA. Only rotated-fight can have a different quaternion with unchanged camera code: its tracking and HUD tension must independently match each source FIGHT engine, and both camera rigs must agree under each common tracking/time history. BITE's intentional upper HUD is checked against explicit geometry; FIGHT retains exact base/PR layout comparison. Raw JSON accompanies this report. The approved rod/reel introduction independently loads both exact Git sources and reverses its additive main connection, then permits only two warmed geometries and the exact Lv1 draws/triangles in the 14 fishing captures; textures, shader programs, all other resources and the production-view counters remain exact. Phase 5D-2 grants no resource allowance: its approved-base origin/update-order changes must reverse exactly, both model sources are inspected, and all fixed-camera and production-view resources remain identical. Only that proof can establish that a changed fishing-view source still preserves the existing independently replayed rotated-FIGHT camera contract. Regression mode otherwise expects unchanged resolution/resources and unchanged layouts outside the explicit cast HUD; historical-improvement requires the explicit pre-4C-2A SHA and the original ≥20% mobile pixel reduction and smaller fight HUD.</p>${figures}</html>`);
+  await writeFile(output, `<!doctype html><html lang="ja"><meta charset="utf-8"><title>BARB mobile comparison</title><style>body{background:#142329;color:#eee;font:15px system-ui;margin:24px}article{border-top:1px solid #789;padding:20px 0}article>div{display:flex;align-items:start;gap:12px}figure{margin:0;max-width:49%}img{max-width:100%;height:auto}pre{white-space:pre-wrap}</style><h1>BARB mobile comparison: ${metadata.mode}</h1><pre>${JSON.stringify(metadata, null, 2)}</pre><p>Production builds, boat (10,20), heading 0, saved clock, viewport / DPR and native fishing input fixed. Software Chromium / SwiftShader, single sample: setup→ready and 6 ordinary frames (96ms virtual time), Node monotonic wall clock and CDP TaskDuration. Includes automation overhead, paired diagnostic renders and waits; these are not device FPS or GPU timings. Screenshots and actualResources retain the production camera. Resources are compared strictly using the same fixed diagnostic camera; production camera poses are replayed from each recorded source SHA. Only rotated-fight can have a different quaternion with unchanged camera code: its tracking and HUD tension must independently match each source FIGHT engine, and both camera rigs must agree under each common tracking/time history. BITE's intentional upper HUD is checked against explicit geometry. Phase 5E-2B's exact-source hint removal permits only the BITE return button moving up 38px and portrait/small FIGHT panel and meter moving down 26px; sizes, other controls, other coordinates and all other captures retain exact comparison. Raw JSON accompanies this report. The approved rod/reel introduction independently loads both exact Git sources and reverses its additive main connection, then permits only two warmed geometries and the exact Lv1 draws/triangles in the 14 fishing captures; textures, shader programs, all other resources and the production-view counters remain exact. Phase 5D-2 grants no resource allowance: its approved-base origin/update-order changes must reverse exactly, both model sources are inspected, and all fixed-camera and production-view resources remain identical. Only that proof can establish that a changed fishing-view source still preserves the existing independently replayed rotated-FIGHT camera contract. Regression mode otherwise expects unchanged resolution/resources and unchanged layouts outside the explicit cast HUD; historical-improvement requires the explicit pre-4C-2A SHA and the original ≥20% mobile pixel reduction and smaller fight HUD.</p>${figures}</html>`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [beforeFile, afterFile, output, mode, baseSha, headSha] = process.argv.slice(2);

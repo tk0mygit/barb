@@ -265,7 +265,7 @@ test('HUD area and position regressions cannot pass as 0% pixel reduction', () =
   }
 });
 
-test('5E-2B hint removal permits exactly the source-bound BITE return-row shift and rejects other layout changes', async () => {
+test('5E-2B hint removal permits exactly its source-bound row collapse and rejects other layout changes', async () => {
   const main = await readMobileImplementation('87c7822e0dd0af71e08baa3b92e2e85f23fae897');
   const pr = await readMobileImplementation(await mobileGit('rev-parse', 'HEAD'));
   const proof = await readFishingHintRemoval(main, pr); assert(proof);
@@ -289,6 +289,23 @@ test('5E-2B hint removal permits exactly the source-bound BITE return-row shift 
     assert.throws(() => compareMobileCapturePair(before, after, data, sources), /return button regression/);
     button.x--; button.top--;
     assert.throws(() => compareMobileCapturePair(before, after, data, sources), /return button regression/);
+  }
+  for (const id of ['portrait-fight', 'small-fight']) {
+    const [before, after] = captures().map(entries => entries.find(entry => entry.id === id));
+    // Make room for the collapsed row without introducing an overlap in the
+    // synthetic record; real captured geometry is checked separately.
+    for (const entry of [before, after]) {
+      const s = entry.layout; s.panel = box(22, s.viewport.height - 233, 280, 122);
+      s.occupancy = s.panel.width * s.panel.height / (s.viewport.width * s.viewport.height) * 100;
+      s.meter = box(35, s.viewport.height - 168, 254, 22);
+    }
+    for (const key of ['panel', 'meter']) for (const coordinate of ['y', 'top', 'bottom']) after.layout[key][coordinate] += 26;
+    assert.equal(compareMobileCapturePair(before, after, data, sources).fishingHintRemoval.kind, proof.kind);
+    assert.throws(() => compareMobileCapturePair(before, after, data), /HUD panel regression/);
+    after.layout.meter.x++;
+    assert.throws(() => compareMobileCapturePair(before, after, data, sources), /hint removal meter regression/);
+    after.layout.meter.x--; after.layout.panel.top++;
+    assert.throws(() => compareMobileCapturePair(before, after, data, sources), /hint removal panel regression/);
   }
   assert.equal(await readFishingHintRemoval({ ...main, sha: MAIN }, pr), null);
   for (const key of ['hudLogicBlob', 'hudBlob', 'indexBlob']) {
