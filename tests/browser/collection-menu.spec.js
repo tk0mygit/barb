@@ -12,7 +12,29 @@ for (const touch of [false, true]) {
     await click(page.locator('#menu-button'));
     await expect(page.locator('#collection-dialog')).toBeVisible();
     await expect(page.locator('#collection-notice')).toContainText('ゲームは一時停止中');
+    await expect(page.locator('#collection-title')).toHaveText('湖の記録');
+    const menuNote = page.locator('#collection-menu-note');
+    await expect(menuNote).toHaveText('記憶の回収を続ける。');
+    await expect(menuNote).toBeVisible();
+    await expect(menuNote).toHaveCSS('font-size', '10px');
+    await expect(menuNote).toHaveCSS('color', 'rgb(184, 191, 192)');
+    const views = [['encyclopedia', '図鑑'], ['storage', '生けす'], ['equipment', 'ギア／アップグレード'],
+      ['achievements', '実績'], ['sound', 'サウンド設定']];
+    await expect(page.locator('#collection-content > button')).toHaveText(views.map(([, label]) => label));
+    for (const [view, label] of views) {
+      const button = page.getByRole('button', { name: label, exact: true });
+      await expect(button).toHaveAttribute('data-view', view);
+      await click(button);
+      await expect(page.locator('#collection-title')).toHaveText(label);
+      await expect(menuNote).toBeHidden();
+      expect(await page.locator('#collection-dialog, #collection-content').evaluateAll(
+        nodes => nodes.every(node => node.scrollWidth <= node.clientWidth))).toBe(true);
+      await click(page.locator('#collection-back'));
+      await expect(page.locator('#collection-title')).toHaveText('湖の記録');
+      await expect(menuNote).toBeVisible();
+    }
     await click(page.locator('[data-view="encyclopedia"]'));
+    await expect(page.locator('.collection-summary')).toHaveText('発見 0 / 12 種');
     const cards = page.locator('.fish-card');
     await expect(cards).toHaveCount(12);
     expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(Array(12).fill('？？？'));
@@ -25,7 +47,12 @@ for (const touch of [false, true]) {
     expect(new Set(await cards.locator('img').evaluateAll(nodes => nodes.map(node => node.src))).size).toBe(1);
     await page.screenshot({ path: `test-results/encyclopedia-unknown-${touch ? 'touch' : 'mouse'}.png` });
     await click(page.locator('#collection-back')); await click(page.locator('[data-view="storage"]'));
-    await expect(page.locator('.collection-empty')).toBeVisible(); await expect(page.locator('.stored-fish')).toHaveCount(0);
+    await expect(page.locator('.collection-summary')).toHaveText('0匹が生きている。');
+    await expect(page.locator('.collection-empty')).toBeVisible();
+    await expect(page.locator('.collection-empty')).toHaveText('現在生けすは虚です。');
+    await expect(page.locator('#sell-all')).toHaveText('生けす内をすべて売却');
+    await expect(page.locator('#sell-all')).toBeDisabled();
+    await expect(page.locator('.stored-fish')).toHaveCount(0);
     if (touch) {
       await page.setViewportSize({ width: 844, height: 390 });
       for (const id of ['collection-close', 'collection-back']) {

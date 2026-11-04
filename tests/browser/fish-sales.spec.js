@@ -4,7 +4,7 @@ import { calculateSalePrice } from '../../src/game/fish-sales.js';
 import { BUYER_LINES } from '../../src/game/buyer-lines.js';
 import { activateButton, expirePublicQte } from './input-fixture.js';
 
-const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
+const money = value => `${value.toLocaleString('ja-JP')} Value`;
 for (const touch of [false, true]) {
   test(`${touch ? 'touch' : 'mouse'}: immediate, individual and confirmed bulk sales preserve collection and pause`, async ({ createContext }) => {
     test.setTimeout(180000);
@@ -61,7 +61,7 @@ for (const touch of [false, true]) {
       await click(page.locator('[data-view="storage"]'));
       // Zero rows alone also passes on the wrong screen. Confirm navigation
       // before checking storage counts or the bulk-sale button's state.
-      await expect(page.locator('#collection-title')).toHaveText('保管魚');
+      await expect(page.locator('#collection-title')).toHaveText('生けす');
       await expect(page.locator('#sell-all')).toBeVisible();
     };
     const assertMoney = async value => {
@@ -87,6 +87,8 @@ for (const touch of [false, true]) {
 
     const second = await catchFish(); await click(page.locator('#close-catch')); await tick();
     await openStorage(); await expect(page.locator('.stored-fish')).toHaveCount(1);
+    await expect(page.locator('.collection-summary')).toHaveText('1匹が生きている。');
+    await expect(page.locator('.sell-stored')).toHaveText('この個体を売却');
     await expect(page.locator('.stored-price')).toHaveText(`売却価格 ${money(second.price)}`);
     const progress = await page.locator('#fishing-conditions').getAttribute('data-cycle-progress');
     const staleButton = await page.locator('.sell-stored').elementHandle();
@@ -103,7 +105,10 @@ for (const touch of [false, true]) {
     const fourth = await catchFish(); await page.locator('#catch-dialog').evaluate(dialog => dialog.close()); await tick();
     expect(await phase()).toBe('ready'); await assertMoney(balance);
     await openStorage(); await expect(page.locator('.stored-fish')).toHaveCount(2);
+    await expect(page.locator('.collection-summary')).toHaveText('2匹が生きている。');
+    await expect(page.locator('#sell-all')).toHaveText(`生けす内をすべて売却（2匹 · ${money(third.price + fourth.price)}）`);
     await click(page.locator('#sell-all'));
+    await expect(page.locator('#collection-title')).toHaveText('生けす内をすべて売却');
     await expect(page.locator('.sale-confirm-summary')).toHaveText(`2匹を ${money(third.price + fourth.price)} で売却します。`);
     await click(page.locator('#cancel-sale')); await assertMoney(balance);
     await expect(page.locator('.stored-fish')).toHaveCount(2);

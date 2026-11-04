@@ -13,11 +13,19 @@ import { createGameClock } from '../src/game/game-clock.js';
 import { createSaveData, serializeSaveData, parseSaveData } from '../src/game/save-data.js';
 import { fishSpeciesSandbox } from './helpers/fish-species-sandbox.js';
 
-test('all gameplay definitions exactly retain main 51ab225 values, including fixed achievement targets', () => {
+test('gameplay definitions retain main 51ab225 values with the approved Phase 5E-2A achievement labels', () => {
   const data = { fish: FISH_SPECIES.map(({ image, ...data }) => data), LURES, APPEARANCE_WEIGHTS,
     FISH_ENVIRONMENT_AFFINITIES, LURE_DEPTH_AFFINITIES, NORMAL_ACHIEVEMENTS: NORMAL_ACHIEVEMENTS.slice(0, 10) };
-  assert.equal(createHash('sha256').update(JSON.stringify(data)).digest('hex'),
+  // Preserve the original gameplay guard by reversing only approved UI labels.
+  const legacyNames = ['初めての一匹', '累計10匹', '累計50匹', '累計100匹', '5種発見', '全12種発見',
+    '大物ハンター', '累計売却10,000', '初強化', '最大強化'];
+  const legacy = { ...data, NORMAL_ACHIEVEMENTS: data.NORMAL_ACHIEVEMENTS.map((entry, index) => ({
+    ...entry, name: legacyNames[index], description: entry.description.replace('10,000 Value', '10,000通貨'),
+  })) };
+  assert.equal(createHash('sha256').update(JSON.stringify(legacy)).digest('hex'),
     '000d079bde84a88d7002541db875987adebf956b43bdaa3533d581b7095ee0a3');
+  assert.equal(createHash('sha256').update(JSON.stringify(data)).digest('hex'),
+    'a81a36ce9a8ef295eaab608f5aca6d08076902920085ceacc10a2e94c908660d');
   assert.equal(NORMAL_ACHIEVEMENTS.length, 15);
   assert.deepEqual(NORMAL_ACHIEVEMENTS.filter(item => item.metric === 'species').map(item => item.target), [5, 12]);
 });

@@ -7,7 +7,7 @@ import { createResourceDiagnostics, assertResourcePlateau } from './resource-dia
 import { validateSaveData } from '../../src/game/save-data.js';
 
 const SAVE_KEYS = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
-const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
+const money = value => `${value.toLocaleString('ja-JP')} Value`;
 const elapsed = async page => (await read(page)).mistTime;
 
 async function savedSlots(page) {
@@ -128,7 +128,7 @@ test('touch: repeated play, multi-cycle environment and reload keep resources an
       await expect(page.locator('#wallet-balance')).toHaveText(money(balance));
 
       await openView('storage');
-      await expect(page.locator('#collection-title')).toHaveText('保管魚');
+      await expect(page.locator('#collection-title')).toHaveText('生けす');
       await expect(page.locator('.stored-fish')).toHaveCount(round === 0 ? 0 : 1);
       const clockBefore = await elapsed(page);
       await page.clock.fastForward(720000);

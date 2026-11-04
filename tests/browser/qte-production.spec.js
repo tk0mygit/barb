@@ -5,7 +5,7 @@ import { openQteProduction, productInput, productSnapshot, castAndHookProduct, a
   performProductOperation, landProduct, saveKeys, historicalSave } from './qte-production-fixture.js';
 const latest = page => page.evaluate(keys => keys.map(key => localStorage.getItem(key)).filter(Boolean)
   .map(JSON.parse).sort((a, b) => b.generation - a.generation)[0], saveKeys);
-const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
+const money = value => `${value.toLocaleString('ja-JP')} Value`;
 
 // Every operation uses trusted canvas events and the entire real main loop.
 // The paused Playwright clock controls time; it does not inject game state or
@@ -97,7 +97,7 @@ for (const touch of [false, true]) for (const variant of ['new', 'v1', 'v2']) te
   const record = await landProduct(page, input, p);
   expect(record.qteSuccessCount).toBe(0);
   const price = calculateSalePrice(record);
-  await expect(page.locator('#catch-qte-bonus')).toHaveText('QTE成功0回／ボーナス+0 通貨');
+  await expect(page.locator('#catch-qte-bonus')).toHaveText('QTE成功0回／ボーナス+0 Value');
   await input.click(page.locator('#sell-catch')); await page.clock.fastForward(1250);
   const saved = (await latest(page)).data;
   expect(saved.saveVersion).toBe(2); expect(saved.collection.catches.at(-1).salePrice).toBe(price);

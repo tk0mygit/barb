@@ -17,10 +17,16 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen a
   await installPausedClock(page); await openUIFixture(page);
   const click = locator => touch ? locator.tap() : locator.click();
   await click(page.locator('#menu-button'));
-  await expect(page.locator('#collection-content > button')).toHaveText(['魚図鑑', '保管魚', '装備強化', '実績']);
+  await expect(page.locator('#collection-content > button')).toHaveText(['図鑑', '生けす', 'ギア／アップグレード', '実績']);
   await click(page.locator('[data-view="achievements"]'));
   await expect(page.locator('.achievement-card')).toHaveCount(15);
-  await expect(page.locator('.achievement-card h3')).toHaveText(NORMAL_ACHIEVEMENTS.map(entry => entry.name));
+  await expect(page.locator('.achievement-card h3')).toHaveText(Array(15).fill('？？？'));
+  await expect(page.locator('.achievement-card > p:first-of-type')).toHaveText(NORMAL_ACHIEVEMENTS.map(entry => entry.description));
+  for (const entry of NORMAL_ACHIEVEMENTS) {
+    const locked = page.locator(`.achievement-card[data-achievement-id="${entry.id}"]`);
+    expect(await locked.evaluate(node => node.outerHTML)).not.toContain(entry.name);
+    expect(await locked.ariaSnapshot()).not.toContain(entry.name);
+  }
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 0 / 15');
   await expect(page.locator('.achievement-card[data-unlocked="false"]')).toHaveCount(15);
   await expect(card(page, 'catch-10').locator('.achievement-progress')).toHaveText('累計捕獲：0 / 10匹');
@@ -34,18 +40,19 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen a
   });
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 1 / 15');
   await expect(card(page, 'first-catch')).toHaveAttribute('data-unlocked', 'true');
+  await expect(card(page, 'first-catch').locator('h3')).toHaveText('始まり');
   await expect(card(page, 'first-catch').locator('.achievement-state')).toHaveText('✓ 解除済み');
   await expect(card(page, 'first-catch').locator('time')).toHaveAttribute('datetime', /T.*Z$/);
   await expect(card(page, 'species-5').locator('.achievement-progress')).toHaveText('魚種発見：1 / 5種');
   await expect(card(page, 'length-100').locator('.achievement-progress')).toHaveText('最大体長：82.5 / 100cm');
-  await expect(notice(page)).toContainText('初めての一匹');
+  await expect(notice(page)).toContainText('始まり');
   expect(await notice(page).evaluate(el => el.parentElement.id)).toBe('collection-dialog');
   await page.clock.fastForward(3500); await expect(notice(page)).toBeHidden();
   // Individual sale then a second capture worth 3,800 and a confirmed bulk sale.
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="storage"]'));
   await click(page.locator('.sell-stored'));
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
-  await expect(card(page, 'sales-10000').locator('.achievement-progress')).toHaveText('累計売却額：6,200 / 10,000 通貨');
+  await expect(card(page, 'sales-10000').locator('.achievement-progress')).toHaveText('累計売却額：6,200 / 10,000 Value');
   await expect(card(page, 'sales-10000')).toHaveAttribute('data-unlocked', 'false');
   await page.evaluate(() => {
     fixture.collection.register({ schemaVersion: 1, id: 'second', speciesId: 'black-bass',
@@ -55,7 +62,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen a
   await click(page.locator('#sell-all')); await click(page.locator('#cancel-sale'));
   expect(await page.evaluate(() => fixture.achievements.unlockedCount)).toBe(1);
   await click(page.locator('#sell-all')); await click(page.locator('#confirm-sale'));
-  await expect(notice(page)).toContainText('累計売却10,000');
+  await expect(notice(page)).toContainText('等価交換');
   const noOverlap = await page.evaluate(() => {
     const a = document.querySelector('#achievement-notice').getBoundingClientRect();
     const b = document.querySelector('#collection-sale-notice').getBoundingClientRect();
@@ -66,11 +73,11 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen a
   await click(page.locator('[data-upgrade="rod"]')); await click(page.locator('#cancel-upgrade'));
   expect(await page.evaluate(() => fixture.achievements.unlockedCount)).toBe(2);
   await click(page.locator('[data-upgrade="rod"]')); await click(page.locator('#confirm-upgrade'));
-  await page.clock.fastForward(3500); await expect(notice(page)).toContainText('初強化');
+  await page.clock.fastForward(3500); await expect(notice(page)).toContainText('更新');
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 3 / 15');
   await expect(card(page, 'sales-10000')).toHaveAttribute('data-unlocked', 'true');
-  await expect(card(page, 'sales-10000').locator('.achievement-progress')).toHaveText('累計売却額：10,000 / 10,000 通貨');
+  await expect(card(page, 'sales-10000').locator('.achievement-progress')).toHaveText('累計売却額：10,000 / 10,000 Value');
   await expect(card(page, 'first-upgrade').locator('.achievement-progress')).toHaveText('ロッドLv.2・リールLv.1 / いずれかLv.2');
   // Fill the collection and buy through the public API, checking the open view
   // refreshes to all ten old awards plus two Lv.5 awards without reopening.
@@ -89,6 +96,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen a
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 12 / 15');
   await expect(card(page, 'equipment-max').locator('.achievement-progress')).toHaveText('ロッドLv.5・リールLv.5 / 両方Lv.5');
   await expect(page.locator('.achievement-card[data-unlocked="true"]')).toHaveCount(12);
+  await expect(page.locator('.achievement-card[data-unlocked="false"] h3')).toHaveText(Array(3).fill('？？？'));
   for (const definition of NORMAL_ACHIEVEMENTS.slice(0, 10)) {
     await expect(page.locator(`.achievement-card[data-achievement-id="${definition.id}"]`)).toHaveAttribute('data-unlocked', 'true');
   }
@@ -101,6 +109,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen a
   });
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 15 / 15');
   await expect(page.locator('.achievement-card[data-unlocked="true"]')).toHaveCount(15);
+  await expect(page.locator('.achievement-card h3')).toHaveText(NORMAL_ACHIEVEMENTS.map(entry => entry.name));
   await expect(card(page, 'rod-level-10').locator('.achievement-progress')).toHaveText('ロッドLv.10 / Lv.10');
   await expect(card(page, 'reel-level-10').locator('.achievement-progress')).toHaveText('リールLv.10 / Lv.10');
   await expect(card(page, 'equipment-level-10').locator('.achievement-progress')).toHaveText('ロッドLv.10・リールLv.10 / 両方Lv.10');
@@ -135,13 +144,13 @@ test('simultaneous awards queue exactly once and expire without frames, includin
     fixture.collection.register({ schemaVersion: 1, id: 'big', speciesId: 'arowana', lengthCm: 100,
       weightKg: 1, caughtAt: '2026-01-01T00:00:00Z' });
   });
-  await expect(notice(page)).toContainText('実績解除初めての一匹');
+  await expect(notice(page)).toContainText('実績解除始まり');
   await expect(notice(page)).toHaveAttribute('aria-live', 'polite');
   await expect(notice(page)).toHaveAttribute('aria-atomic', 'true');
   await page.clock.fastForward(1000); await openAchievements(page);
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 15');
-  await page.clock.fastForward(2499); await expect(notice(page)).toContainText('初めての一匹');
-  await page.clock.fastForward(1); await expect(notice(page)).toContainText('大物ハンター');
+  await page.clock.fastForward(2499); await expect(notice(page)).toContainText('始まり');
+  await page.clock.fastForward(1); await expect(notice(page)).toContainText('特異個体');
   await page.locator('#collection-close').click();
   await page.evaluate(() => fixture.achievementNotice.notify(fixture.achievements.entries.filter(entry => entry.unlocked)));
   await page.clock.fastForward(3499); await expect(notice(page)).toBeVisible();
@@ -165,7 +174,7 @@ test('throttled background timer expires the visible award and preserves pending
     Object.defineProperty(document, 'hidden', { configurable: true, value: false });
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await expect(notice(page)).toContainText('大物ハンター');
+  await expect(notice(page)).toContainText('特異個体');
   expect(await page.evaluate(() => fixture.achievements.unlockedCount)).toBe(2);
   await page.clock.fastForward(3499); await expect(notice(page)).toBeVisible();
   await page.clock.fastForward(1); await expect(notice(page)).toBeHidden();

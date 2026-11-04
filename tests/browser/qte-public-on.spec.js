@@ -9,7 +9,7 @@ import { calculateSalePrice } from '../../src/game/fish-sales.js';
 
 const root = new URL('../../', import.meta.url);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const money = value => `${value.toLocaleString('ja-JP')} 通貨`;
+const money = value => `${value.toLocaleString('ja-JP')} Value`;
 const latest = page => page.evaluate(keys => keys.map(key => localStorage.getItem(key)).filter(Boolean)
   .map(JSON.parse).sort((a, b) => b.generation - a.generation)[0], saveKeys);
 

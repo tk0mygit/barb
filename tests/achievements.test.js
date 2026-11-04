@@ -25,6 +25,13 @@ test('new session is 0 / 15 with stable immutable definitions and canonical zero
   const { collection, achievements } = setup();
   assert.equal(NORMAL_ACHIEVEMENTS.length, 15);
   assert.equal(new Set(NORMAL_ACHIEVEMENTS.map(item => item.id)).size, 15);
+  assert.deepEqual(Object.fromEntries(NORMAL_ACHIEVEMENTS.map(({ id, name }) => [id, name])), {
+    'normal-first-catch': '始まり', 'normal-catch-10': '収集せよ', 'normal-catch-50': '積み重なる記録',
+    'normal-catch-100': 'ノスタルジア', 'normal-species-5': '記録、収集', 'normal-species-12': '多様性',
+    'normal-length-100': '特異個体', 'normal-sales-10000': '等価交換', 'normal-first-upgrade': '更新',
+    'normal-rod-level-5': '手に馴染む', 'normal-reel-level-5': '反復動作', 'normal-equipment-max': '適合',
+    'normal-rod-level-10': '手が覚えている', 'normal-reel-level-10': '円環', 'normal-equipment-level-10': '日が暮れる',
+  });
   assert.equal(achievements.unlockedCount, 0);
   assert.ok(achievements.entries.every(item => !item.unlocked && item.unlockedAt === null));
   assert.equal(entry(achievements, 'catch-10').progress.value, 0);
@@ -219,11 +226,11 @@ test('fishing.step landing registers and unlocks without an animation/UI loop', 
 test('exactly five specified equipment definitions append after the immutable legacy prefix', () => {
   assert.equal(NORMAL_ACHIEVEMENTS.slice(0, 10).length, 10);
   assert.deepEqual(NORMAL_ACHIEVEMENTS.slice(10), [
-    { id: 'normal-rod-level-5', name: 'ロッドLv.5', description: 'ロッドをLv.5以上に強化する。', metric: 'rod-level', target: 5 },
-    { id: 'normal-reel-level-5', name: 'リールLv.5', description: 'リールをLv.5以上に強化する。', metric: 'reel-level', target: 5 },
-    { id: 'normal-rod-level-10', name: 'ロッドLv.10', description: 'ロッドをLv.10に強化する。', metric: 'rod-level', target: 10 },
-    { id: 'normal-reel-level-10', name: 'リールLv.10', description: 'リールをLv.10に強化する。', metric: 'reel-level', target: 10 },
-    { id: 'normal-equipment-level-10', name: '両装備Lv.10', description: 'ロッドとリールの両方をLv.10にする。', metric: 'equipment-max', target: 10 },
+    { id: 'normal-rod-level-5', name: '手に馴染む', description: 'ロッドをLv.5以上に強化する。', metric: 'rod-level', target: 5 },
+    { id: 'normal-reel-level-5', name: '反復動作', description: 'リールをLv.5以上に強化する。', metric: 'reel-level', target: 5 },
+    { id: 'normal-rod-level-10', name: '手が覚えている', description: 'ロッドをLv.10に強化する。', metric: 'rod-level', target: 10 },
+    { id: 'normal-reel-level-10', name: '円環', description: 'リールをLv.10に強化する。', metric: 'reel-level', target: 10 },
+    { id: 'normal-equipment-level-10', name: '日が暮れる', description: 'ロッドとリールの両方をLv.10にする。', metric: 'equipment-max', target: 10 },
   ]);
 });
 

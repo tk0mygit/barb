@@ -2,21 +2,21 @@ import { objectFields, arrayData, timestamp, requireValid } from './save-validat
 
 // Stable public IDs. Definitions are shared by evaluation and presentation.
 export const NORMAL_ACHIEVEMENTS = Object.freeze([
-  { id: 'normal-first-catch', name: '初めての一匹', description: '魚を初めて1匹釣り上げる。', metric: 'catches', target: 1 },
-  { id: 'normal-catch-10', name: '累計10匹', description: '魚を累計10匹以上釣り上げる。', metric: 'catches', target: 10 },
-  { id: 'normal-catch-50', name: '累計50匹', description: '魚を累計50匹以上釣り上げる。', metric: 'catches', target: 50 },
-  { id: 'normal-catch-100', name: '累計100匹', description: '魚を累計100匹以上釣り上げる。', metric: 'catches', target: 100 },
-  { id: 'normal-species-5', name: '5種発見', description: '異なる通常魚を5種以上捕獲する。', metric: 'species', target: 5 },
-  { id: 'normal-species-12', name: '全12種発見', description: '通常魚12種すべてを捕獲する。', metric: 'species', target: 12 },
-  { id: 'normal-length-100', name: '大物ハンター', description: '体長100.0cm以上の魚を捕獲する。', metric: 'length', target: 100 },
-  { id: 'normal-sales-10000', name: '累計売却10,000', description: '累計売却額が10,000通貨以上になる。', metric: 'sales', target: 10000 },
-  { id: 'normal-first-upgrade', name: '初強化', description: 'ロッドまたはリールをLv.2以上に強化する。', metric: 'first-upgrade', target: 2 },
-  { id: 'normal-equipment-max', name: '最大強化', description: 'ロッドとリールの両方をLv.5にする。', metric: 'equipment-max', target: 5 },
-  { id: 'normal-rod-level-5', name: 'ロッドLv.5', description: 'ロッドをLv.5以上に強化する。', metric: 'rod-level', target: 5 },
-  { id: 'normal-reel-level-5', name: 'リールLv.5', description: 'リールをLv.5以上に強化する。', metric: 'reel-level', target: 5 },
-  { id: 'normal-rod-level-10', name: 'ロッドLv.10', description: 'ロッドをLv.10に強化する。', metric: 'rod-level', target: 10 },
-  { id: 'normal-reel-level-10', name: 'リールLv.10', description: 'リールをLv.10に強化する。', metric: 'reel-level', target: 10 },
-  { id: 'normal-equipment-level-10', name: '両装備Lv.10', description: 'ロッドとリールの両方をLv.10にする。', metric: 'equipment-max', target: 10 },
+  { id: 'normal-first-catch', name: '始まり', description: '魚を初めて1匹釣り上げる。', metric: 'catches', target: 1 },
+  { id: 'normal-catch-10', name: '収集せよ', description: '魚を累計10匹以上釣り上げる。', metric: 'catches', target: 10 },
+  { id: 'normal-catch-50', name: '積み重なる記録', description: '魚を累計50匹以上釣り上げる。', metric: 'catches', target: 50 },
+  { id: 'normal-catch-100', name: 'ノスタルジア', description: '魚を累計100匹以上釣り上げる。', metric: 'catches', target: 100 },
+  { id: 'normal-species-5', name: '記録、収集', description: '異なる通常魚を5種以上捕獲する。', metric: 'species', target: 5 },
+  { id: 'normal-species-12', name: '多様性', description: '通常魚12種すべてを捕獲する。', metric: 'species', target: 12 },
+  { id: 'normal-length-100', name: '特異個体', description: '体長100.0cm以上の魚を捕獲する。', metric: 'length', target: 100 },
+  { id: 'normal-sales-10000', name: '等価交換', description: '累計売却額が10,000 Value以上になる。', metric: 'sales', target: 10000 },
+  { id: 'normal-first-upgrade', name: '更新', description: 'ロッドまたはリールをLv.2以上に強化する。', metric: 'first-upgrade', target: 2 },
+  { id: 'normal-equipment-max', name: '適合', description: 'ロッドとリールの両方をLv.5にする。', metric: 'equipment-max', target: 5 },
+  { id: 'normal-rod-level-5', name: '手に馴染む', description: 'ロッドをLv.5以上に強化する。', metric: 'rod-level', target: 5 },
+  { id: 'normal-reel-level-5', name: '反復動作', description: 'リールをLv.5以上に強化する。', metric: 'reel-level', target: 5 },
+  { id: 'normal-rod-level-10', name: '手が覚えている', description: 'ロッドをLv.10に強化する。', metric: 'rod-level', target: 10 },
+  { id: 'normal-reel-level-10', name: '円環', description: 'リールをLv.10に強化する。', metric: 'reel-level', target: 10 },
+  { id: 'normal-equipment-level-10', name: '日が暮れる', description: 'ロッドとリールの両方をLv.10にする。', metric: 'equipment-max', target: 10 },
 ].map(Object.freeze));
 
 const LEGACY_ACHIEVEMENTS = Object.freeze(NORMAL_ACHIEVEMENTS.slice(0, 10));
