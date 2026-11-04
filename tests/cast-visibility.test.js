@@ -159,7 +159,7 @@ test('a new notice after the preview rejects an unsafe release without moving th
   fishing.cast();
   assert.equal(fishing.state.phase, PHASE.READY);
   assert.equal(fishing.state.validCast, false);
-  assert.match(fishing.state.message, /画面内/);
+  assert.equal(fishing.state.message, '認識範囲外への投擲を検知。方向調整がいる。');
   assert.equal(fishing.state.heading, heading); assert.equal(fishing.state.distance, distance);
   assert.deepEqual(fishing.state.target, target);
 });
@@ -173,7 +173,7 @@ test('new intervening land rejects a release rather than shortening the last dis
   island = true; fishing.cast();
   assert.equal(fishing.state.phase, PHASE.READY);
   assert.equal(fishing.state.validCast, false);
-  assert.match(fishing.state.message, /岸/);
+  assert.equal(fishing.state.message, '帰るにはまだ早い。');
   assert.equal(fishing.state.heading, heading); assert.equal(fishing.state.distance, distance);
   assert.deepEqual(fishing.state.target, target);
 });
@@ -193,7 +193,7 @@ test('shore ray clipping is retained and unavailable visible water refuses to ca
   blocked.prepare(origin, 0, obscured); blocked.aim(180, 0);
   assert.equal(blocked.state.validCast, false);
   blocked.cast(); assert.equal(blocked.state.phase, PHASE.READY);
-  assert.match(blocked.state.message, /画面内/);
+  assert.equal(blocked.state.message, '認識範囲外への投擲を検知。方向調整がいる。');
 });
 
 test('fixed FOV55 keeps a central cast visible after rotation but cannot retain the desktop extreme', () => {
@@ -228,7 +228,7 @@ for (const phase of [PHASE.CAST, PHASE.LURE, PHASE.BITE]) {
     assert.equal(fishing.cancelForViewChange(), true);
     assert.equal(fishing.state.phase, PHASE.READY);
     assert.equal(fishing.state.revision, revision + 1);
-    assert.match(fishing.state.message, /画面サイズ.*回収/);
+    assert.equal(fishing.state.message, '外界の変更を検知したためルアーを回収した。');
     assert.equal(fishing.state.reeling, false);
     assert.equal(fishing.state.action, 0);
     assert.equal(fishing.state.biteRemaining, 0);

@@ -403,7 +403,7 @@ test('cast visibility: no safe shore target rejects release with an explanation'
   await expect(page.locator('#line-distance')).toContainText('投げられません');
   await input.up(); await tick(page);
   await expect(panel(page)).toHaveAttribute('data-phase', 'ready');
-  await expect(page.locator('#fishing-note')).toContainText(/岸|画面|安全|湖側/);
+  await expect(page.locator('#fishing-note')).toHaveText('帰るにはまだ早い。');
   await save(page, info, 'blocked-shore', await read(page));
 });
 
@@ -435,7 +435,7 @@ for (const phase of ['cast', 'lure', 'bite']) {
     await input.down(500, 336);
     await resizeAndObserve(page, { width: 390, height: 844 });
     await expect(panel(page)).toHaveAttribute('data-phase', 'ready');
-    await expect(page.locator('#fishing-note')).toContainText(/画面サイズ.*回収/);
+    await expect(page.locator('#fishing-note')).toHaveText('外界の変更を検知したためルアーを回収した。');
     const recalled = await read(page);
     expect(recalled.camera.fov).toBe(55);
     expect(recalled.camera.heading).toBe(before.camera.heading);

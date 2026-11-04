@@ -100,7 +100,7 @@ export async function layout(page) {
 export function separated(a, b, margin = 0) {
   return a.right + margin <= b.left || b.right + margin <= a.left || a.bottom + margin <= b.top || b.bottom + margin <= a.top;
 }
-export function assertLayout(s, { fight = true, inset = { top: 0, right: 0, bottom: 0, left: 0 } } = {}) {
+export function assertLayout(s, { fight = true, inset = { top: 0, right: 0, bottom: 0, left: 0 }, text } = {}) {
   const p = s.panel;
   expect(p.left).toBeGreaterThanOrEqual(inset.left + 8); expect(p.top).toBeGreaterThanOrEqual(inset.top + 8);
   expect(p.right).toBeLessThanOrEqual(s.viewport.width - inset.right - 8);
@@ -115,8 +115,8 @@ export function assertLayout(s, { fight = true, inset = { top: 0, right: 0, bott
     expect(b.bottom).toBeLessThanOrEqual(s.viewport.height - inset.bottom);
   }
   if (fight) {
-    expect(s.state).toBe('ファイト'); expect(s.meter.width).toBeGreaterThanOrEqual(190);
+    expect(s.state).toBe(text.fight); expect(s.meter.width).toBeGreaterThanOrEqual(190);
     expect(s.meter.height).toBeGreaterThanOrEqual(18);
-    expect(s.warning).toBe(s.tension > 0.78 ? '離して緩める！' : s.tension < 0.18 ? '長押しで巻く！' : 'テンションを保つ');
+    expect(s.warning).toBe(s.tension > 0.78 ? '離して緩める！' : s.tension < 0.18 ? '長押しで巻く！' : text.safeTension);
   }
 }

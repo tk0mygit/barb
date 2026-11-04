@@ -119,10 +119,10 @@ test('relief, tension bounds, slack escape and large-fish line breaks survive ev
     f.step(0.6); assert.equal(f.state.tension, 0);
     f.reel(true);
     for (let i = 0; i < 1000 && f.state.phase === PHASE.FIGHT; i++) f.step(1 / 60);
-    assert.equal(f.state.phase, PHASE.FAILED); assert.equal(f.state.tension, 1); assert.match(f.state.message, /切れ/);
+    assert.equal(f.state.phase, PHASE.FAILED); assert.equal(f.state.tension, 1); assert.equal(f.state.message, 'ラインが断裂した。');
     const slack = fishing(level, undefined, undefined, { random: () => 0 });
     prepare(slack); hook(slack); slack.step(3);
-    assert.equal(slack.state.phase, PHASE.FAILED); assert.match(slack.state.message, /緩み/);
+    assert.equal(slack.state.phase, PHASE.FAILED); assert.equal(slack.state.message, '針が外れ、個体を見失った。');
   }
 });
 

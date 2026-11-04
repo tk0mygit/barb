@@ -161,7 +161,7 @@ test('Tier and large-fish assist freeze through AIM/CAST/LURE/BITE/FIGHT purchas
     assert.deepEqual(a.f.state, b.f.state);
     a.f.reel(false);
     for (let frame = 0; frame < 1000 && a.f.state.phase === PHASE.FIGHT; frame++) a.f.step(1 / 60);
-    assert.equal(a.f.state.phase, PHASE.FAILED); assert.match(a.f.state.message, /緩み/);
+    assert.equal(a.f.state.phase, PHASE.FAILED); assert.equal(a.f.state.message, '針が外れ、個体を見失った。');
     a.f.step(2); a.reset(10); prepare(a.f); hook(a.f);
     const next = scenario(10, 10, species, 180); prepare(next.f); hook(next.f);
     assert.equal(a.f.state.encounter.speciesId, species.id); assert.equal(a.f.state.encounter.lengthCm, 180);
@@ -219,7 +219,7 @@ test('actual 5B-1A retains exact pre-FIGHT state/RNG and rows; FIGHT matches its
         let elapsed = 0;
         while (f.state.phase === PHASE.FIGHT && elapsed < 30) { f.step(1 / hz); elapsed += 1 / hz; }
         if (f.state.phase === PHASE.LANDING) { assert.ok(elapsed > 2); times.push(elapsed); landed.push(`${species.id}/${size}`); }
-        else { assert.equal(f.state.phase, PHASE.FAILED); assert.match(f.state.message, /切れ/); }
+        else { assert.equal(f.state.phase, PHASE.FAILED); assert.equal(f.state.message, 'ラインが断裂した。'); }
         if (species.id === 'alligator-gar' && size === 1) assert.equal(f.state.phase, PHASE.FAILED);
       }
       outcome.push(landed);
@@ -231,6 +231,6 @@ test('actual 5B-1A retains exact pre-FIGHT state/RNG and rows; FIGHT matches its
     for (let frame = 0; frame < hz * 5 && slack.state.phase === PHASE.FIGHT; frame++) {
       slack.step(1 / hz); assert.ok(slack.state.distance >= start && slack.state.distance <= start + 4);
     }
-    assert.equal(slack.state.phase, PHASE.FAILED); assert.match(slack.state.message, /緩み/); assert.equal(slack.state.tension, 0);
+    assert.equal(slack.state.phase, PHASE.FAILED); assert.equal(slack.state.message, '針が外れ、個体を見失った。'); assert.equal(slack.state.tension, 0);
   }
 });

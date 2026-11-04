@@ -55,6 +55,8 @@ async function cast(page, input, advance = async () => {}) {
   await input.click(page.locator('#cast-button'));
   await advance();
   await expect(phase(page)).toHaveAttribute('data-phase', 'aim');
+  await expect(page.locator('#fishing-state')).toHaveText('キャスト準備');
+  await expect(page.locator('#hint')).toBeHidden();
   await expect(page.locator('#lure-picker')).toBeHidden();
   for (const button of await page.locator('#lure-picker button').all()) await expect(button).toBeDisabled();
   await input.down(); await input.move(300, 270);
@@ -65,6 +67,8 @@ async function cast(page, input, advance = async () => {}) {
     await advance();
     return phase(page).getAttribute('data-phase');
   }).toBe('lure');
+  await expect(page.locator('#fishing-state')).toHaveText('静寂を聴く');
+  await expect(page.locator('#hint')).toBeHidden();
 }
 async function hook(page, input, keepPaused = false) {
   // Software WebGL/CDP round trips can exceed the one-second hook window.
@@ -74,15 +78,21 @@ async function hook(page, input, keepPaused = false) {
   await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
   for (let i = 0; i < 120 && await phase(page).getAttribute('data-phase') !== 'bite'; i++) await page.clock.fastForward(250);
   expect(await phase(page).getAttribute('data-phase')).toBe('bite');
+  await expect(page.locator('#fishing-state')).toHaveText('シグナルを検知した');
+  await expect(page.locator('#hint')).toBeHidden();
   await input.tap();
   await page.clock.fastForward(16);
   await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
+  await expect(page.locator('#fishing-state')).toHaveText('抵抗を検知');
+  await expect(page.locator('#hint')).toBeHidden();
   if (!keepPaused) await page.clock.resume();
 }
 async function assertCatch(page, speciesId, size = 0.5) {
   const species = getFishSpecies(speciesId);
   const length = Math.round((species.minLengthCm + size * (species.maxLengthCm - species.minLengthCm)) * 10) / 10;
   await expect(page.locator('#catch-dialog')).toBeVisible();
+  await expect(page.locator('#fishing-state')).toHaveText('個体を回収した');
+  await expect(page.locator('#hint')).toBeHidden();
   await expect(page.locator('#catch-species')).toHaveText(species.name);
   await expect(page.locator('#catch-length')).toHaveText(`${length.toFixed(1)} cm`);
   await expect(page.locator('#catch-weight')).toHaveText(`${calculateFishWeightKg(species.id, length).toFixed(2)} kg`);
@@ -106,7 +116,12 @@ async function land(page, input, speciesId) {
   for (let i = 0; i < 140; i++) {
     const snapshot = await page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
     if (snapshot.phase !== 'fight') {
-      if (snapshot.phase === 'landing') await page.screenshot({ path: `test-results/landing-${page.viewportSize().width}.png` });
+      if (snapshot.phase === 'landing') {
+        await expect(page.locator('#fishing-state')).toHaveText('回収中...');
+        await expect(page.locator('#hint')).toHaveText('回収まで、あとわずか');
+        await expect(page.locator('#hint')).toBeVisible();
+        await page.screenshot({ path: `test-results/landing-${page.viewportSize().width}.png` });
+      }
       break;
     }
     if (await expirePublicQte(page, () => input.up())) { held = false; continue; }
@@ -159,10 +174,13 @@ for (const touch of [false, true]) {
     await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
     for (let i = 0; i < 160 && await phase(page).getAttribute('data-phase') !== 'failed'; i++) await page.clock.fastForward(250);
     await expect(phase(page)).toHaveAttribute('data-phase', 'failed');
+    await expect(page.locator('#fishing-state')).toHaveText('個体を見失った');
+    await expect(page.locator('#hint')).toHaveText('再試行を待機');
+    await expect(page.locator('#hint')).toBeVisible();
     for (let i = 0; i < 12 && await phase(page).getAttribute('data-phase') !== 'ready'; i++) await page.clock.fastForward(250);
     await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
     await page.clock.resume();
-    await expect(page.locator('#fishing-note')).toContainText('アワセ');
+    await expect(page.locator('#fishing-note')).toHaveText('応答が遅れ、個体を見失った。');
     await cast(page, input);
     // Installed Playwright clocks also virtualize Event.timeStamp. Keep time
     // still across the short native flick, then render its action explicitly.
@@ -307,7 +325,7 @@ test('mouse: blur/lost capture reset aim, over-tension fails and retry works', a
     native: await page.evaluate(() => window.e2eDiagnostics.events.filter(e => e.target === 'scene')) }), contentType: 'application/json' });
   await expect(phase(page)).toHaveAttribute('data-phase', 'failed'); await input.up();
   await expect(phase(page)).toHaveAttribute('data-phase', 'failed');
-  await expect(page.locator('#fishing-note')).toContainText('ラインが切れ');
+  await expect(page.locator('#fishing-note')).toHaveText('ラインが断裂した。');
   await advanceTo('ready');
   await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
   await expect(page.locator('#cast-button')).toBeVisible();

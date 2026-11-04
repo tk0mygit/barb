@@ -225,6 +225,7 @@ test('production semantic128 interruption: native invalid taps, explicit canvas 
   expect(interrupted.snapshot.interrupted).toBe(true); expect(interrupted.snapshot.completedOperations).toBe(1);
   expect(interrupted.snapshot.highWater).toBe(128); expect(interrupted.snapshot.counts['semantic-overflow']).toBe(1);
   expect(interrupted.fight.qte.successes).toBe(0);
+  await expect(page.locator('.qte-state')).toHaveText('処理中断');
   await expect(page.locator('.qte-instruction')).toHaveText('画面をタップして残り時間から再開');
   const remaining = interrupted.snapshot.remainingMs, deadline = interrupted.snapshot.deadline;
   await page.clock.fastForward(1000); expect((await productSnapshot(page)).snapshot.remainingMs).toBe(remaining);

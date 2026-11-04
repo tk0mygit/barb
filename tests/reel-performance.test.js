@@ -109,7 +109,7 @@ test('all reel levels retain large-fish line breaks and slack escape with both r
       for (let i = 0; i < 1800 && f.state.phase === PHASE.FIGHT; i++) f.step(1 / 60);
       assert.equal(f.state.phase, PHASE.FAILED);
       assert.equal(f.state.tension, held ? 1 : 0);
-      assert.match(f.state.message, held ? /切れ/ : /緩み/);
+      assert.equal(f.state.message, held ? 'ラインが断裂した。' : '針が外れ、個体を見失った。');
     }
   }
 });
@@ -236,7 +236,7 @@ test('legacy continuous reeling balance: Lv.5 upgrades allow only small/mid blue
       if (f.state.phase === PHASE.LANDING) landed.push(`${species.id}:${sizeName}`);
       else {
         assert.equal(f.state.phase, PHASE.FAILED);
-        assert.match(f.state.message, /切れ/);
+        assert.equal(f.state.message, 'ラインが断裂した。');
       }
     }
     assert.deepEqual(landed, level === 1 ? [] : ['bluegill:min', 'bluegill:mid']);

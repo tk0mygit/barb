@@ -14,6 +14,8 @@ test('Touch smoke: boot, sailing end/cancel and primary UI taps', async ({ creat
   await expect(page.locator('#scene')).toBeVisible();
   await expect(page.locator('#status')).toBeHidden();
   await expect(page.locator('#error')).toBeHidden();
+  await expect(page.locator('#hint')).toBeHidden();
+  await expect(page.locator('#hint')).toHaveText('');
   await expect(page.getByRole('button', { name: '釣りをする' })).toBeEnabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
@@ -43,9 +45,11 @@ test('Touch smoke: boot, sailing end/cancel and primary UI taps', async ({ creat
   await Promise.all([
     expect(page.locator('#motion-label')).toHaveText('釣り視点'),
     expect(page.locator('#reticle')).toBeVisible(),
+    expect(page.locator('#hint')).toBeHidden(),
   ]);
   await activateButton(page.getByRole('button', { name: '操船に戻る' }), true);
   await expect(page.locator('#motion-label')).toHaveText('停船中');
+  await expect(page.locator('#hint')).toBeHidden();
   await activateButton(page.locator('#menu-button'), true);
   await expect(page.locator('#collection-dialog')).toBeVisible();
   await activateButton(page.locator('#collection-close'), true);

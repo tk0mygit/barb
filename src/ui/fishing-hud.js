@@ -5,19 +5,16 @@ import { calculateSalePrice } from '../game/fish-sales.js';
 import { formatMoney } from './sales-hud.js';
 import { createFishImageLoader } from './fish-image-loader.js';
 
-const labels = { ready: 'キャスト前', aim: 'キャスト準備', cast: 'キャスト中', lure: 'アタリを待つ', bite: 'アタリ！ 今すぐタップ', fight: 'ファイト', landing: 'ランディング', result: '釣り上げました', failed: '魚が逃げました' };
+const labels = { ready: 'キャスト前', aim: 'キャスト準備', cast: 'キャスト中', lure: '静寂を聴く', bite: 'シグナルを検知した', fight: '抵抗を検知', landing: '回収中...', result: '個体を回収した', failed: '個体を見失った' };
 const hints = {
-  ready: '画面をドラッグして視線調整 → キャスト準備',
-  aim: '左右で方向・長さで飛距離 · 離して投げる',
-  cast: '着水を待っています…', lure: '長押しで巻く · フリックで誘う · 離して待つ',
-  bite: 'いったん離して、1秒以内に画面をタップ！',
-  fight: '長押しで引く · 高くなったら離す · 緩めすぎに注意',
-  landing: 'もうすぐ、釣り上がります', failed: 'まもなく再挑戦できます', result: '',
+  ready: '', aim: '', cast: '着水待ち...', lure: '', bite: '', fight: '',
+  landing: '回収まで、あとわずか', failed: '再試行を待機', result: '',
 };
 export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelectLure }) {
   const panel = document.querySelector('#fishing-panel');
   const app = document.querySelector('#app');
   const status = document.querySelector('#fishing-state');
+  const hint = document.querySelector('#hint');
   const prepare = document.querySelector('#cast-button');
   const cancel = document.querySelector('#cancel-cast');
   const distance = document.querySelector('#line-distance');
@@ -97,6 +94,9 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
       prepare.disabled = app.dataset.castPreparing === 'true';
       lurePicker.update(s.lureId, active && s.phase === PHASE.READY);
       cancel.hidden = !active || s.phase !== PHASE.AIM;
+      // This HUD is the sole hint writer, including when returning to sailing.
+      hint.textContent = active ? hints[s.phase] : '';
+      hint.hidden = !hint.textContent;
       if (!active) { previous = null; return; }
       const environment = document.querySelector('#fishing-conditions');
       const conditions = s.encounter?.conditions ?? ([PHASE.AIM, PHASE.LURE].includes(s.phase) ? fishing.getConditions() : null);
@@ -108,7 +108,6 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
       environment.textContent = `${s.encounter ? 'アタリ時：' : ''}${timeOfDay === 'day' ? '昼' : '夜'}の時間帯`
         + (conditions?.depthM != null ? ` · 推定水深 ${conditions.depthM.toFixed(1)}m（${depthNames[conditions.depthBand]}）` : '');
       document.querySelector('#return-button').disabled = !fishing.canLeave();
-      document.querySelector('#hint').textContent = hints[s.phase];
       document.querySelector('#fishing-note').textContent = s.message;
       const label = app.dataset.castPreparing === 'true' ? '視点を準備中' : labels[s.phase];
       if (status.textContent !== label) status.textContent = label;
@@ -119,7 +118,7 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
       tension.value = s.tension;
       tension.dataset.level = s.tension > tension.high ? 'high' : s.tension < tension.low ? 'low' : 'safe';
       document.querySelector('#tension-value').textContent = `${Math.round(s.tension * 100)}%`;
-      document.querySelector('#tension-warning').textContent = s.tension > 0.78 ? '離して緩める！' : s.tension < 0.18 ? '長押しで巻く！' : 'テンションを保つ';
+      document.querySelector('#tension-warning').textContent = s.tension > 0.78 ? '離して緩める！' : s.tension < 0.18 ? '長押しで巻く！' : '張力が安定している';
       document.querySelector('#reel-state').textContent = s.phase === PHASE.LURE ? s.reeling ? '巻き取り中' : s.action > 0 ? 'ルアーアクション' : '待機中' : '';
       if (s.phase === PHASE.RESULT && (!dialog.open || currentRequest?.catchId !== s.catch.id
         || currentRequest?.speciesId !== s.catch.speciesId)) {

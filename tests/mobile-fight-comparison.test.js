@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MOBILE_CAPTURE_IDS, compareMobileCapturePairWithSources, verifyMobileSourceCapture,
   writeMobileComparison } from '../scripts/compare-mobile-performance.mjs';
-import { mobileGit, readMobileImplementation, mobileSourceMetadata, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
+import { mobileGit, readMobileImplementation, mobileSourceMetadata, replayMobileCamera,
+  parseMobileFishingText, readMobileFishingText } from '../scripts/lib/mobile-comparison-source.js';
 import { PR48_REPLAY_SHA } from './helpers/mobile-gate-fixture.js';
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/mobile-pr48-rotated-fight.json', import.meta.url)));
@@ -23,6 +24,26 @@ function pair(sameSource = false) {
   return { before, after, metadata };
 }
 const compare = p => compareMobileCapturePairWithSources(p.before, p.after, p.metadata);
+
+test('HUD text is exact for the recorded legacy source and current 5E-2B source; mixed or unapproved words fail', async () => {
+  assert.deepEqual(await readMobileFishingText(PR48_REPLAY_SHA), {
+    bite: 'アタリ！ 今すぐタップ', fight: 'ファイト', biteHint: 'いったん離して、1秒以内に画面をタップ！', safeTension: 'テンションを保つ',
+  });
+  const source = await readFile(new URL('../src/ui/fishing-hud.js', import.meta.url), 'utf8');
+  assert.deepEqual(parseMobileFishingText(source), {
+    bite: 'シグナルを検知した', fight: '抵抗を検知', biteHint: '', safeTension: '張力が安定している',
+  });
+  for (const [before, after] of [['抵抗を検知', 'ファイト'], ['張力が安定している', '安定'], ['離して緩める！', '離して緩める']]) {
+    assert.throws(() => parseMobileFishingText(source.replace(before, after)), /Unrecognized|Expected values/);
+  }
+});
+
+test('source replay rejects even approved 5E-2B labels when attached to a legacy SHA', async () => {
+  const state = pair(); state.after.layout.state = '抵抗を検知';
+  await assert.rejects(compare(state), /HUD state differs from source/);
+  const warning = pair(); warning.after.layout.warning = '張力が安定している';
+  await assert.rejects(compare(warning), /HUD warning differs from source/);
+});
 
 test('PR48 real tracking histories match their source physics and normalized camera inputs', async () => {
   const p = pair(), row = await compare(p);

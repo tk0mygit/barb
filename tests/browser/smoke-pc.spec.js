@@ -15,6 +15,8 @@ test('PC smoke: boot, mouse sailing, stop and fishing view', async ({ page }) =>
   await expect(page.locator('#status')).toBeHidden();
   await expect(page.locator('#error')).toBeHidden();
   await expect(page.locator('#motion-label')).toHaveText('停船中');
+  await expect(page.locator('#hint')).toBeHidden();
+  await expect(page.locator('#hint')).toHaveText('');
   await expect(page.getByRole('button', { name: '釣りをする' })).toBeEnabled();
 
   await page.mouse.move(650, 400);
@@ -31,6 +33,8 @@ test('PC smoke: boot, mouse sailing, stop and fishing view', async ({ page }) =>
   await expect(page.locator('#speed')).toHaveText('0.0');
   await activateButton(page.getByRole('button', { name: '釣りをする' }));
   await expect(page.locator('#motion-label')).toHaveText('釣り視点');
+  await expect(page.locator('#fishing-state')).toHaveText('キャスト前');
+  await expect(page.locator('#hint')).toBeHidden();
   await expect(page.locator('#reticle')).toBeVisible();
   await expect(page.getByRole('button', { name: '操船に戻る' })).toBeEnabled();
   await expect(page.locator('#error')).toBeHidden();
