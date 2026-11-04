@@ -10,7 +10,7 @@ const layouts = [
 ];
 
 for (const { name, viewport, touch } of layouts) {
-  test(`${name}: hidden notice has no box; text-only award passes input and expires at 3 seconds`, async ({ createContext }) => {
+  test(`${name}: hidden notice has no box; text-only award passes input and expires at 5 seconds`, async ({ createContext }) => {
     const context = await createContext({ viewport, hasTouch: touch, isMobile: touch });
     const page = await context.newPage();
     await installPausedClock(page);
@@ -53,7 +53,7 @@ for (const { name, viewport, touch } of layouts) {
     expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y).id, { x, y })).toBe('scene');
     if (touch) await page.touchscreen.tap(x, y); else await page.mouse.click(x, y);
     expect(await page.evaluate(() => window.canvasPresses)).toBe(1);
-    await page.clock.fastForward(2999); await expect(notice).toBeVisible();
+    await page.clock.fastForward(4999); await expect(notice).toBeVisible();
     await page.clock.fastForward(1); await expectNoBox();
     // A hidden notice stays boxless after both directions of modal reparenting.
     const click = locator => touch ? locator.tap() : locator.click();
@@ -105,7 +105,7 @@ for (const { name, viewport, touch } of layouts) {
   });
 }
 
-test('opacity alone fades at 0/600/2400/3000ms; queued and later awards each start a new effect', async ({ page }) => {
+test('opacity alone fades at 0/600/4400/5000ms; queued and later awards each start a new effect', async ({ page }) => {
   await installPausedClock(page); await openUIFixture(page);
   const notice = page.locator('#achievement-notice');
   await page.evaluate(() => fixture.collection.register({ schemaVersion: 1, id: 'big', speciesId: 'arowana',
@@ -117,15 +117,15 @@ test('opacity alone fades at 0/600/2400/3000ms; queued and later awards each sta
       frames: effect.getKeyframes().map(({ offset, opacity, ...rest }) => ({ offset, opacity,
         properties: Object.keys(rest).filter(key => !['easing', 'composite', 'computedOffset'].includes(key)) })) };
   });
-  expect(effect).toEqual({ duration: 3000, easing: 'linear', frames: [
-    { offset: 0, opacity: '0', properties: [] }, { offset: 0.2, opacity: '1', properties: [] },
-    { offset: 0.8, opacity: '1', properties: [] }, { offset: 1, opacity: '0', properties: [] },
+  expect(effect).toEqual({ duration: 5000, easing: 'linear', frames: [
+    { offset: 0, opacity: '0', properties: [] }, { offset: 0.12, opacity: '1', properties: [] },
+    { offset: 0.88, opacity: '1', properties: [] }, { offset: 1, opacity: '0', properties: [] },
   ] });
   // Sample the browser's actual rendered effect, independently of the timer's
   // virtual clock. No animation frame or sleep is needed to read each sample.
   const samples = await notice.evaluate(el => {
     const animation = window.firstNoticeAnimation; animation.pause();
-    return [0, 300, 600, 1500, 2400, 2700, 3000].map(time => {
+    return [0, 300, 600, 2500, 4400, 4700, 5000].map(time => {
       animation.currentTime = time;
       return { opacity: Number(getComputedStyle(el).opacity), box: el.getBoundingClientRect().toJSON() };
     });
@@ -139,17 +139,17 @@ test('opacity alone fades at 0/600/2400/3000ms; queued and later awards each sta
     fixture.achievementNotice.notify([award, award]);
   });
   await expect(notice.locator('strong')).toHaveText('始まり');
-  await page.clock.fastForward(1499); await expect(notice.locator('strong')).toHaveText('始まり');
+  await page.clock.fastForward(3499); await expect(notice.locator('strong')).toHaveText('始まり');
   await page.clock.fastForward(1); await expect(notice.locator('strong')).toHaveText('特異個体');
   expect(await notice.evaluate(el => {
     const animation = el.getAnimations()[0];
     window.secondNoticeAnimation = animation;
     return animation !== window.firstNoticeAnimation && animation.currentTime < 600;
   })).toBe(true);
-  await page.clock.fastForward(2999); await expect(notice.locator('strong')).toHaveText('特異個体');
+  await page.clock.fastForward(4999); await expect(notice.locator('strong')).toHaveText('特異個体');
   await page.clock.fastForward(1); await expect(notice.locator('strong')).toHaveText('通知キュー検証');
   expect(await notice.evaluate(el => el.getAnimations()[0] !== window.secondNoticeAnimation)).toBe(true);
-  await page.clock.fastForward(2999); await expect(notice).toBeVisible();
+  await page.clock.fastForward(4999); await expect(notice).toBeVisible();
   await page.clock.fastForward(1); await expect(notice).toBeHidden();
   expect(await notice.evaluate(el => el.getAnimations().length)).toBe(0);
 });
@@ -208,7 +208,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'PC'}: modal moves 
   expect(await notice.evaluate(el => el === window.noticeNode && el.lastChild === window.noticeName
     && el.getAnimations()[0] === window.noticeEffect)).toBe(true);
   expect(await page.evaluate(() => window.noticeTextMutations)).toEqual([]);
-  await page.clock.fastForward(1999); await expect(notice).toBeVisible();
+  await page.clock.fastForward(3999); await expect(notice).toBeVisible();
   await page.clock.fastForward(1); await expect(notice).toBeHidden();
   expect(await geometry('collection-dialog')).toEqual(before);
   await click(page.locator('#collection-close'));
@@ -217,7 +217,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'PC'}: modal moves 
   expect(await geometry('catch-dialog')).toEqual(catchWithNotice);
 });
 
-test('reduced motion stays readable for 3 seconds; all names and long text fit safe portrait/landscape viewports', async ({ createContext }, info) => {
+test('reduced motion stays readable for 5 seconds; all names and long text fit safe portrait/landscape viewports', async ({ createContext }, info) => {
   const context = await createContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true,
     reducedMotion: 'reduce' });
   const page = await context.newPage(); await installPausedClock(page); await openUIFixture(page);
@@ -248,7 +248,7 @@ test('reduced motion stays readable for 3 seconds; all names and long text fit s
       expect(box.y + box.height / 2).toBeCloseTo(profile.height * 0.35, 1);
       expect(await notice.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
       if (name === names.at(-1)) await page.screenshot({ path: info.outputPath(`long-notice-${profile.width}x${profile.height}.png`) });
-      await page.clock.fastForward(2999); await expect(notice).toHaveCSS('opacity', '1');
+      await page.clock.fastForward(4999); await expect(notice).toHaveCSS('opacity', '1');
       await page.clock.fastForward(1);
     }
     await expect(notice).toBeHidden();
@@ -271,7 +271,7 @@ test('awards unlocked while hidden wait for a full visible turn; a short backgro
   await page.clock.fastForward(1000); await visibility(true);
   await page.clock.fastForward(500); await visibility(false);
   await expect(notice.locator('strong')).toHaveText('始まり');
-  await page.clock.fastForward(1499); await expect(notice).toBeVisible();
+  await page.clock.fastForward(3499); await expect(notice).toBeVisible();
   await page.clock.fastForward(1); await expect(notice).toBeHidden();
 });
 

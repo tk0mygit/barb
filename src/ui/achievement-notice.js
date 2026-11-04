@@ -7,7 +7,7 @@ export function createAchievementNotice() {
   const collectionDialog = document.querySelector('#collection-dialog');
   const catchDialog = document.querySelector('#catch-dialog');
   const queue = [], seen = new Set();
-  const duration = 3000;
+  const duration = 5000;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let expiresAt = 0, timeout = null, animation = null;
   function syncHost(event) {
@@ -49,8 +49,8 @@ export function createAchievementNotice() {
       // Only opacity changes. Each award gets a fresh effect; dialog moves and
       // visibility restoration resume at its original real-time age.
       animation = notice.animate([
-        { opacity: 0, offset: 0 }, { opacity: 1, offset: 0.2 },
-        { opacity: 1, offset: 0.8 }, { opacity: 0, offset: 1 },
+        { opacity: 0, offset: 0 }, { opacity: 1, offset: 0.12 },
+        { opacity: 1, offset: 0.88 }, { opacity: 0, offset: 1 },
       ], { duration, easing: 'linear', fill: 'both' });
       animation.currentTime = duration - (expiresAt - now);
     } else if (moved) animation.currentTime = duration - (expiresAt - now);
