@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PHASE, getLurePosition } from '../game/fishing.js';
 import { nearRingExpansion } from './fishing-visuals.js';
 import { createLureModel } from './lure-models.js';
+import { createFishingEffects } from './fishing-effects.js';
 
 export function createFishingView(scene, camera) {
   const group = new THREE.Group();
@@ -24,7 +25,8 @@ export function createFishingView(scene, camera) {
   line.name = 'fishing-line';
   line.frustumCulled = false;
   group.add(ring, lure, shadow, line);
-  scene.add(group);
+  const effects = createFishingEffects();
+  scene.add(group, effects.group);
   const point = new THREE.Vector3();
   return {
     getScreenBounds(camera, { width, height }) {
@@ -52,6 +54,8 @@ export function createFishingView(scene, camera) {
       lure.visible = group.visible && [PHASE.CAST, PHASE.LURE].includes(s.phase);
       shadow.visible = group.visible && s.phase === PHASE.FIGHT;
       line.visible = group.visible && s.phase !== PHASE.AIM && rodTipWorld != null;
+      const contact = getLurePosition(s);
+      effects.update(s, active, elapsed, contact.x, contact.z);
       if (!group.visible) return;
       let { x, z } = getLurePosition(s);
       let y = 0.15 + Math.sin(elapsed * 7) * 0.035;
@@ -88,5 +92,6 @@ export function createFishingView(scene, camera) {
       } else lure.position.toArray(positions, 3);
       geometry.attributes.position.needsUpdate = true;
     },
+    dispose() { effects.dispose(); },
   };
 }

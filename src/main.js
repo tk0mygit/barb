@@ -46,7 +46,7 @@ function showError(message) {
   document.querySelector('#fish-button').disabled = true;
   document.querySelector('#menu-button').disabled = true;
 }
-let autosave, environmentAudio, audioSession, qteDelivery, qteHUD, rodReelView;
+let autosave, environmentAudio, audioSession, qteDelivery, qteHUD, rodReelView, fishingView;
 try {
   // Choose one complete domain before anything subscribes or renders. Storage
   // remains read-only until the scene, controls and every HUD are ready.
@@ -93,7 +93,7 @@ try {
     onPreparationCancel: () => cancelPreparation(),
   });
   controls.setEnabled(false);
-  const fishingView = createFishingView(scene, camera);
+  fishingView = createFishingView(scene, camera);
   rodReelView = createRodReelView(scene, camera, collection);
   const rodTipWorld = new THREE.Vector3();
   const castNotices = createCastNotices();
@@ -411,6 +411,7 @@ try {
     ambientAudio.dispose(); audioSession.dispose();
     qteHUD?.dispose(); qteDelivery?.retire();
     rodReelView.dispose();
+    fishingView.dispose();
     autosave.dispose();
     showError('描画が中断されました。ページを再読み込みしてください。');
   });
@@ -423,6 +424,7 @@ try {
   environmentAudio?.dispose(); audioSession?.dispose();
   autosave?.dispose(); qteHUD?.dispose(); qteDelivery?.retire();
   rodReelView?.dispose();
+  fishingView?.dispose();
   console.error(error);
   showError('3D表示を開始できませんでした。WebGL 2対応のブラウザで、ハードウェアアクセラレーションを有効にしてください。');
 }
