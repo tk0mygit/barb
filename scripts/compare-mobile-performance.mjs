@@ -6,7 +6,8 @@ import { isDeepStrictEqual } from 'node:util';
 import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata, replayMobileCamera,
   mobileGit, expectedMobileResourceCamera } from './lib/mobile-comparison-source.js';
 import { verifyMobileFightCapture } from './lib/mobile-fight-replay.js';
-import { readMobileRodReelTransition, readMobileCastDisplayTransition, expectedRodReelResources, verifyRodReelCapture } from './lib/mobile-rod-reel-replay.js';
+import { readMobileRodReelTransition, readMobileCastDisplayTransition, expectedRodReelResources, verifyRodReelCapture,
+  readMobileFishingPhaseTransition, verifyFishingPhaseCapture, expectedFishingPhaseResources, FISHING_PHASE_IDS } from './lib/mobile-rod-reel-replay.js';
 
 export const MOBILE_COMPARISON_MODES = ['regression', 'historical-improvement'];
 // One reviewed product-source transition, not a per-PR resource allowance.
@@ -158,18 +159,21 @@ async function readComparisonSources(metadata) {
     implementations[target] = await readMobileImplementation(sha);
     assert.deepEqual(metadata.implementations[target], mobileSourceMetadata(implementations[target]), `${target}: implementation provenance differs`);
   }
-  const [rodReelTransition, castDisplayTransition, fishingHintRemoval] = await Promise.all([
+  const [rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition] = await Promise.all([
     readMobileRodReelTransition(implementations.main, implementations.pr),
     readMobileCastDisplayTransition(implementations.main, implementations.pr),
     readFishingHintRemoval(implementations.main, implementations.pr),
+    readMobileFishingPhaseTransition(implementations.main, implementations.pr),
   ]);
-  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval };
+  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition };
 }
 
 async function verifyEntries(sources, target, entries) {
   for (const entry of entries) {
     if (sources.rodReelTransition || sources.castDisplayTransition) verifyRodReelCapture(entry);
-    sources.verified.set(entry, await verifyMobileSourceCapture(sources.implementations[target], entry));
+    const verified = await verifyMobileSourceCapture(sources.implementations[target], entry);
+    if (sources.fishingPhaseTransition) verified.fishingPhase = await verifyFishingPhaseCapture(sources.implementations[target], entry);
+    sources.verified.set(entry, verified);
   }
 }
 
@@ -191,8 +195,9 @@ function compareRotatedFightCamera(before, after, metadata, sources) {
     assert.equal(metadata.implementations.main[key], metadata.implementations.pr[key], `rotated-fight: ${key} differs`);
   }
   if (metadata.implementations.main.fishingViewBlob !== metadata.implementations.pr.fishingViewBlob) {
-    assert(sources.castDisplayTransition, 'rotated-fight: fishingViewBlob differs without a source-verified origin-only transition');
-    checkCastDisplayProof(sources.castDisplayTransition, metadata);
+    assert(sources.castDisplayTransition || sources.fishingPhaseTransition, 'rotated-fight: fishingViewBlob differs without a source-verified display transition');
+    if (sources.fishingPhaseTransition) checkFishingPhaseProof(sources.fishingPhaseTransition, metadata);
+    else checkCastDisplayProof(sources.castDisplayTransition, metadata);
   }
   const b = sources.verified.get(before), a = sources.verified.get(after);
   assert(b?.fight && a?.fight, 'rotated-fight: missing source FIGHT verification');
@@ -223,12 +228,24 @@ function checkCastDisplayProof(proof, metadata) {
   }
 }
 
+function checkFishingPhaseProof(proof, metadata) {
+  assert.equal(metadata.mode, 'regression', '5F-1A: requires regression mode');
+  assert.equal(proof.kind, 'fishing-phase-5F1A', '5F-1A: unknown proof');
+  assert.equal(proof.baseSha, metadata.baseSha, '5F-1A: proof base differs');
+  assert.equal(proof.validationSha, metadata.validationSha, '5F-1A: proof validation differs');
+  for (const [target, side] of [['main', 'before'], ['pr', 'after']]) {
+    assert.equal(proof[side].fishingViewBlob, metadata.implementations[target].fishingViewBlob, '5F-1A: proof source differs');
+  }
+}
+
 // Local selection can verify its real pairs with the same rules without
 // presenting them as the complete 34-pair report required by PR CI.
 export function compareMobileCapturePair(b, a, metadata, sources) {
     checkMetadata(metadata);
     const castDisplay = sources?.castDisplayTransition;
     if (castDisplay) checkCastDisplayProof(castDisplay, metadata);
+    const phaseDisplay = sources?.fishingPhaseTransition;
+    if (phaseDisplay) checkFishingPhaseProof(phaseDisplay, metadata);
     const hintRemoval = sources?.fishingHintRemoval;
     if (hintRemoval) {
       assert.equal(hintRemoval.kind, 'fishing-hint-removal-5E2B');
@@ -266,9 +283,21 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
     } else assert.deepEqual(a.metrics.camera, b.metrics.camera, `${b.id}: camera differs`);
     const gearTransition = sources?.rodReelTransition;
     const gearResources = expectedRodReelResources(b.metrics.resources, b.id, gearTransition);
-    const expected = gearResources ? { resources: gearResources,
+    let expected = gearResources ? { resources: gearResources,
       transition: 'rod-reel-5D1: exact-source Lv1 mesh counts; all other resources exact' }
       : expectedMobileResources(b.metrics.resources, metadata);
+    let fishingPhaseComparison;
+    if (phaseDisplay) {
+      assert(!gearTransition && !castDisplay, '5F-1A: cannot combine historical display transitions');
+      assert(b.metrics.actualResources && a.metrics.actualResources, `${b.id}: missing production-view resources`);
+      if (FISHING_PHASE_IDS.includes(b.id)) {
+        const beforeReplay = sources.verified.get(b)?.fishingPhase, afterReplay = sources.verified.get(a)?.fishingPhase;
+        expected = { resources: expectedFishingPhaseResources(b.metrics.resources, a.metrics.resources, 'fixed', beforeReplay, afterReplay),
+          transition: 'fishing-phase-5F1A: source-replayed hidden submissions only' };
+        expectedFishingPhaseResources(b.metrics.actualResources, a.metrics.actualResources, 'actual', beforeReplay, afterReplay);
+        fishingPhaseComparison = { proof: phaseDisplay, beforeDraws: beforeReplay.draws, afterDraws: afterReplay.draws };
+      } else assert.deepEqual(a.metrics.actualResources, b.metrics.actualResources, `${b.id}: production-view resource regression`);
+    }
     assert.deepEqual(a.metrics.resources, expected.resources, `${b.id}: resource regression`);
     if (gearTransition) {
       assert(MOBILE_CAPTURE_IDS.includes(b.id), `${b.id}: unrecognized rod/reel comparison ID`);
@@ -330,6 +359,7 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       ...(expected.transition ? { resourceTransition: expected.transition } : {}),
       ...(gearTransition ? { rodReelComparison: gearTransition } : {}),
       ...(castDisplay ? { castDisplayComparison: castDisplay } : {}),
+      ...(fishingPhaseComparison ? { fishingPhaseComparison } : {}),
       ...(hintRemoval && ['portrait-bite', 'landscape-bite', 'small-bite', 'pc-bite', 'portrait-fight', 'small-fight'].includes(b.id)
         ? { fishingHintRemoval: hintRemoval } : {}),
       pixelReduction,
@@ -348,8 +378,8 @@ export async function writeMobileComparison(before, after, output, metadata = be
   }));
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output.replace(/\.html$/, '.json'), JSON.stringify({ metadata, rows }, null, 2));
-  const figures = rows.map((r, index) => `<article id="${r.id}"><h2>${r.id}</h2><p>buffer ${r.before.buffer.width}×${r.before.buffer.height} → ${r.after.buffer.width}×${r.after.buffer.height}; pixel reduction ${r.pixelReduction.toFixed(2)}%${r.beforeLayout ? `; HUD ${r.beforeLayout.occupancy.toFixed(2)}% → ${r.afterLayout.occupancy.toFixed(2)}%` : ''}</p><div>${images[index].map((image, i) => `<figure><figcaption>${i ? 'PR' : 'main'}</figcaption><img src="data:image/png;base64,${image.toString('base64')}"></figure>`).join('')}</div><details><summary>Metrics / layout</summary><pre>${JSON.stringify({ before: r.before, after: r.after, beforeLayout: r.beforeLayout, afterLayout: r.afterLayout, cameraComparison: r.cameraComparison, resourceTransition: r.resourceTransition, rodReelComparison: r.rodReelComparison, castDisplayComparison: r.castDisplayComparison }, null, 2)}</pre></details></article>`).join('');
-  await writeFile(output, `<!doctype html><html lang="ja"><meta charset="utf-8"><title>BARB mobile comparison</title><style>body{background:#142329;color:#eee;font:15px system-ui;margin:24px}article{border-top:1px solid #789;padding:20px 0}article>div{display:flex;align-items:start;gap:12px}figure{margin:0;max-width:49%}img{max-width:100%;height:auto}pre{white-space:pre-wrap}</style><h1>BARB mobile comparison: ${metadata.mode}</h1><pre>${JSON.stringify(metadata, null, 2)}</pre><p>Production builds, boat (10,20), heading 0, saved clock, viewport / DPR and native fishing input fixed. Software Chromium / SwiftShader, single sample: setup→ready and 6 ordinary frames (96ms virtual time), Node monotonic wall clock and CDP TaskDuration. Includes automation overhead, paired diagnostic renders and waits; these are not device FPS or GPU timings. Screenshots and actualResources retain the production camera. Resources are compared strictly using the same fixed diagnostic camera; production camera poses are replayed from each recorded source SHA. Only rotated-fight can have a different quaternion with unchanged camera code: its tracking and HUD tension must independently match each source FIGHT engine, and both camera rigs must agree under each common tracking/time history. BITE's intentional upper HUD is checked against explicit geometry. Phase 5E-2B's exact-source hint removal permits only the BITE return button moving up 38px and portrait/small FIGHT panel and meter moving down 26px; sizes, other controls, other coordinates and all other captures retain exact comparison. Raw JSON accompanies this report. The approved rod/reel introduction independently loads both exact Git sources and reverses its additive main connection, then permits only two warmed geometries and the exact Lv1 draws/triangles in the 14 fishing captures; textures, shader programs, all other resources and the production-view counters remain exact. Phase 5D-2 grants no resource allowance: its approved-base origin/update-order changes must reverse exactly, both model sources are inspected, and all fixed-camera and production-view resources remain identical. Only that proof can establish that a changed fishing-view source still preserves the existing independently replayed rotated-FIGHT camera contract. Regression mode otherwise expects unchanged resolution/resources and unchanged layouts outside the explicit cast HUD; historical-improvement requires the explicit pre-4C-2A SHA and the original ≥20% mobile pixel reduction and smaller fight HUD.</p>${figures}</html>`);
+  const figures = rows.map((r, index) => `<article id="${r.id}"><h2>${r.id}</h2><p>buffer ${r.before.buffer.width}×${r.before.buffer.height} → ${r.after.buffer.width}×${r.after.buffer.height}; pixel reduction ${r.pixelReduction.toFixed(2)}%${r.beforeLayout ? `; HUD ${r.beforeLayout.occupancy.toFixed(2)}% → ${r.afterLayout.occupancy.toFixed(2)}%` : ''}</p><div>${images[index].map((image, i) => `<figure><figcaption>${i ? 'PR' : 'main'}</figcaption><img src="data:image/png;base64,${image.toString('base64')}"></figure>`).join('')}</div><details><summary>Metrics / layout</summary><pre>${JSON.stringify({ before: r.before, after: r.after, beforeLayout: r.beforeLayout, afterLayout: r.afterLayout, cameraComparison: r.cameraComparison, resourceTransition: r.resourceTransition, rodReelComparison: r.rodReelComparison, castDisplayComparison: r.castDisplayComparison, fishingPhaseComparison: r.fishingPhaseComparison }, null, 2)}</pre></details></article>`).join('');
+  await writeFile(output, `<!doctype html><html lang="ja"><meta charset="utf-8"><title>BARB mobile comparison</title><style>body{background:#142329;color:#eee;font:15px system-ui;margin:24px}article{border-top:1px solid #789;padding:20px 0}article>div{display:flex;align-items:start;gap:12px}figure{margin:0;max-width:49%}img{max-width:100%;height:auto}pre{white-space:pre-wrap}</style><h1>BARB mobile comparison: ${metadata.mode}</h1><pre>${JSON.stringify(metadata, null, 2)}</pre><p>Production builds, boat (10,20), heading 0, saved clock, viewport / DPR and native fishing input fixed. Software Chromium / SwiftShader, single sample: setup→ready and 6 ordinary frames (96ms virtual time), Node monotonic wall clock and CDP TaskDuration. Includes automation overhead, paired diagnostic renders and waits; these are not device FPS or GPU timings. Screenshots and actualResources retain the production camera. Resources are compared strictly using the same fixed diagnostic camera; production camera poses are replayed from each recorded source SHA. Only rotated-fight can have a different quaternion with unchanged camera code: its tracking and HUD tension must independently match each source FIGHT engine, and both camera rigs must agree under each common tracking/time history. BITE's intentional upper HUD is checked against explicit geometry. Phase 5E-2B's exact-source hint removal permits only the BITE return button moving up 38px and portrait/small FIGHT panel and meter moving down 26px; sizes, other controls, other coordinates and all other captures retain exact comparison. Raw JSON accompanies this report. The approved rod/reel introduction independently loads both exact Git sources and reverses its additive main connection, then permits only two warmed geometries and the exact Lv1 draws/triangles in the 14 fishing captures; textures, shader programs, all other resources and the production-view counters remain exact. Phase 5D-2 grants no resource allowance: its approved-base origin/update-order changes must reverse exactly, both model sources are inspected, and all fixed-camera and production-view resources remain identical. Phase 5F-1A separately reverses its exact display patch against its approved base, replays each native game history and both source view factories, and checks the recorded per-mesh submissions against geometry, transparency and frustum culling for each camera. Only the four BITE, four FIGHT and rotated-fight captures can subtract the verified hidden meshes; all other counters and captures remain exact. Its independent source proof also preserves both-history rotated-FIGHT camera replay. Regression mode otherwise expects unchanged resolution/resources and unchanged layouts outside the explicit cast HUD; historical-improvement requires the explicit pre-4C-2A SHA and the original ≥20% mobile pixel reduction and smaller fight HUD.</p>${figures}</html>`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [beforeFile, afterFile, output, mode, baseSha, headSha] = process.argv.slice(2);

@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
-import { PerspectiveCamera, Scene, Vector3, MeshBasicMaterial, Object3D, DoubleSide } from 'three';
-import { mobileGit } from './mobile-comparison-source.js';
+import { PerspectiveCamera, Scene, Vector3, MeshBasicMaterial, Object3D, DoubleSide, Frustum, Matrix4 } from 'three';
+import { mobileGit, replayMobileCamera, expectedMobileResourceCamera } from './mobile-comparison-source.js';
+import { readMobileFightSource } from './mobile-fight-replay.js';
 
 const BASE = '936210d2d118e4e66e2e4426a198d626f84742e8';
 const CAST_BASE = 'f2e87f9fd5262b99bb42af1fe835d7bd13307ade';
+export const FISHING_PHASE_BASE = '6463b6e8a21ddad7b6cbb2c7c456d2054bc791fe';
+export const FISHING_PHASE_IDS = Object.freeze(['portrait', 'landscape', 'small', 'pc']
+  .flatMap(profile => [`${profile}-bite`, `${profile}-fight`]).concat('rotated-fight'));
 const MODEL = 'src/rendering/rod-reel-model.js', VIEW = 'src/rendering/rod-reel-view.js';
 const FISHING = 'src/rendering/fishing.js';
 const allowedPaths = ['src/main.js', MODEL, VIEW].sort();
@@ -345,6 +349,214 @@ export async function readMobileCastDisplayTransition(main, pr) {
     before: { mainBlob: main.mainBlob, fishingViewBlob: main.fishingViewBlob, viewBlob: before.viewBlob },
     after: { mainBlob: pr.mainBlob, fishingViewBlob: pr.fishingViewBlob, viewBlob: after.viewBlob },
     modelBlob: before.modelBlob, resources: 'exact' };
+}
+
+// Reverse only the reviewed display edits. The complete old view must return
+// byte for byte; the approved base/path alone never grants an exception.
+export function verifyFishingPhaseConnection(before, after) {
+  const edits = [
+    ["      group.visible = active && [PHASE.AIM, PHASE.CAST, PHASE.LURE, PHASE.BITE, PHASE.FIGHT].includes(s.phase);\n"
+      + "      ring.visible = group.visible && [PHASE.AIM, PHASE.CAST, PHASE.LURE, PHASE.BITE].includes(s.phase);\n"
+      + "      lure.visible = group.visible && [PHASE.CAST, PHASE.LURE].includes(s.phase);\n"
+      + "      shadow.visible = group.visible && s.phase === PHASE.FIGHT;\n"
+      + "      line.visible = group.visible && s.phase !== PHASE.AIM && rodTipWorld != null;",
+    "      group.visible = active && ![PHASE.READY, PHASE.RESULT, PHASE.FAILED].includes(s.phase);"],
+    ["      lure.rotation.y = -s.heading + Math.PI / 3;\n      // The water marker",
+    "      lure.rotation.y = -s.heading + Math.PI / 3;\n      lure.visible = s.phase !== PHASE.AIM && s.phase !== PHASE.LANDING;\n      // The water marker"],
+    ["      shadow.position.set(x, 0.11, z);\n"
+      + "      // Only the radial axis is known; the symmetric ellipse has no head/tail.\n"
+      + "      // Keep its existing bounded size, fog and boat-occluding depth contract.\n"
+      + "      shadow.rotation.z = -s.heading;",
+    "      shadow.visible = s.phase === PHASE.FIGHT;\n      shadow.position.set(x, 0.11, z);\n"
+      + "      line.visible = s.phase !== PHASE.AIM && rodTipWorld != null;"],
+    ["      if (s.phase === PHASE.BITE || s.phase === PHASE.FIGHT) {\n"
+      + "        // The hidden lure's bob/action must not leave an airborne line end.\n"
+      + "        // This water contact shares the shadow/marker's world x/z coordinate.\n"
+      + "        positions[3] = x; positions[4] = 0.12; positions[5] = z;\n"
+      + "      } else lure.position.toArray(positions, 3);",
+    "      lure.position.toArray(positions, 3);"],
+  ];
+  let restored = after;
+  for (const [replacement, original] of edits) {
+    assert.equal(restored.split(replacement).length, 2, '5F-1A: missing or duplicated display edit');
+    restored = restored.replace(replacement, original);
+  }
+  assert.equal(restored, before, '5F-1A: unrelated fishing view source change');
+}
+
+export async function readMobileFishingPhaseTransition(main, pr) {
+  if (main.sha !== FISHING_PHASE_BASE || main.fishingViewBlob === pr.fishingViewBlob) return null;
+  for (const key of ['lockBlob', 'indexBlob', 'viteBlob', 'mainBlob', 'cameraBlob', 'hudBlob', 'hudLogicBlob', 'resolutionBlob']) {
+    assert.equal(pr[key], main[key], `5F-1A: changed invariant source ${key}`);
+  }
+  const paths = (await mobileGit('diff', '--name-only', main.sha, pr.sha, '--', 'src')).split('\n').filter(Boolean).sort();
+  assert.deepEqual(paths, [FISHING], '5F-1A: unrelated product source');
+  for (const file of ['package.json', 'tests/fixtures/saves/lighting-save-v1.json']) {
+    assert.equal(await fullSource(main.sha, file), await fullSource(pr.sha, file), `5F-1A: changed fixture/build input ${file}`);
+  }
+  verifyFishingPhaseConnection(await fullSource(main.sha, FISHING), await fullSource(pr.sha, FISHING));
+  return { kind: 'fishing-phase-5F1A', baseSha: main.sha, validationSha: pr.sha,
+    before: { fishingViewBlob: main.fishingViewBlob }, after: { fishingViewBlob: pr.fishingViewBlob } };
+}
+
+const fishingSources = new Map();
+async function loadFishingDisplaySource(sha) {
+  const source = await readMobileFightSource(sha);
+  const game = `data:text/javascript;base64,${Buffer.from(`export const PHASE = ${JSON.stringify(source.PHASE)};\nexport const getLurePosition = ${source.getLurePosition.toString()};`).toString('base64')}`;
+  const lures = compileSource(await fullSource(sha, 'src/game/lures.js'), {}, 'lures');
+  const models = compileSource(await fullSource(sha, 'src/rendering/lure-models.js'), {
+    three: import.meta.resolve('three'), 'three/addons/utils/BufferGeometryUtils.js': import.meta.resolve('three/addons/utils/BufferGeometryUtils.js'),
+    '../game/lures.js': lures }, 'lure models');
+  const visuals = compileSource(await fullSource(sha, 'src/rendering/fishing-visuals.js'), {}, 'fishing visuals');
+  const view = compileSource(await fullSource(sha, FISHING), { three: import.meta.resolve('three'),
+    '../game/fishing.js': game, './fishing-visuals.js': visuals, './lure-models.js': models }, FISHING);
+  const equipment = await compileRodReelSources(await fullSource(sha, MODEL), await fullSource(sha, VIEW));
+  return { ...source, ...equipment, ...await import(view) };
+}
+
+// Replay the native 150px cast and hold/release fixture from each exact game
+// source. No measured lure position, tension or attached expected state drives
+// this simulation. It also checks the pre-FIGHT phase/time history.
+async function nativeFishingState(implementation, frames) {
+  assert(Array.isArray(frames) && frames.length, '5F-1A: missing frame history');
+  for (const frame of frames) {
+    assert(Number.isFinite(frame.dt) && frame.dt >= 0 && frame.dt <= .25, '5F-1A: invalid frame duration');
+    if (!frame.update) assert.equal(frame.dt, 0, '5F-1A: resize advances time');
+  }
+  if (!fishingSources.has(implementation.sha)) fishingSources.set(implementation.sha,
+    loadFishingDisplaySource(implementation.sha).catch(error => { fishingSources.delete(implementation.sha); throw error; }));
+  const source = await fishingSources.get(implementation.sha);
+  const first = frames.findIndex(frame => frame.phase === 'cast');
+  assert(first >= 0, '5F-1A: missing native cast history');
+  const boat = { x: 10, z: 20, heading: 0 }, clock = source.createGameClock(undefined, { elapsedSeconds: 90 });
+  const fishing = source.createFishing({ random: () => .5, getBoatPosition: () => boat,
+    getEnvironment: position => ({ depthM: source.estimateWaterDepth(position), ...clock.state }) });
+  let elapsed = 0, stage = 'initial';
+  const input = source.createFishingInput(fishing);
+  for (const frame of frames.slice(0, first)) if (frame.update) { elapsed += frame.dt; clock.step(frame.dt); }
+  assert.equal(fishing.prepare(boat, 0), true); fishing.aim(0, 150); fishing.cast();
+  for (const frame of frames.slice(first)) {
+    assert.equal(frame.mode, 'fishing'); assert.equal(frame.preparing, false);
+    assert(Number.isFinite(frame.dt) && frame.dt >= 0 && frame.dt <= .25, '5F-1A: invalid frame duration');
+    if (frame.phase === 'fight' && fishing.state.phase === 'bite') assert.equal(fishing.hook(), true);
+    if (frame.update) {
+      elapsed += frame.dt; input.step(frame.dt, elapsed * 1000); fishing.step(frame.dt); clock.step(frame.dt);
+    } else assert.equal(frame.dt, 0);
+    assert.equal(fishing.state.phase, frame.phase, '5F-1A: phase differs from native source replay');
+    if (frame.phase === 'fight') {
+      if (stage === 'initial') { input.down(0, 0, elapsed * 1000); stage = 'holding'; }
+      else if (stage === 'holding' && fishing.state.tension > .78) { input.up(elapsed * 1000); stage = 'relaxing'; }
+    }
+  }
+  return { source, fishing, elapsed };
+}
+
+const nearDisplay = (actual, expected, label) => assert(Number.isFinite(actual) && Math.abs(actual - expected) <= 1e-9,
+  `5F-1A: ${label} differs from source display replay`);
+const effectiveVisible = object => Boolean(object.visible && (!object.parent || effectiveVisible(object.parent)));
+
+// Expected submissions use each source's real geometry, draw range, two-pass
+// transparency and bounding-sphere frustum culling, independently per camera.
+export function fishingDisplayDraws(objects, camera) {
+  camera.updateMatrixWorld();
+  const frustum = new Frustum().setFromProjectionMatrix(new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+  return Object.fromEntries(Object.entries(objects).map(([key, mesh]) => {
+    mesh.updateWorldMatrix(true, false);
+    const drawn = effectiveVisible(mesh) && mesh.material.visible && camera.layers.test(mesh.layers)
+      && (!mesh.frustumCulled || frustum.intersectsObject(mesh));
+    const calls = drawn ? (mesh.material.transparent && mesh.material.side === DoubleSide && !mesh.material.forceSinglePass ? 2 : 1) : 0;
+    assert.equal(mesh.geometry.groups.length, 0, '5F-1A: unexpected material groups');
+    const available = mesh.geometry.index?.count ?? mesh.geometry.attributes.position.count;
+    const count = Math.max(0, Math.min(available - mesh.geometry.drawRange.start, mesh.geometry.drawRange.count));
+    return [key, { calls, triangles: mesh.isMesh ? calls * count / 3 : 0 }];
+  }));
+}
+
+function replayCamera(pose) {
+  const camera = new PerspectiveCamera(55, pose.aspect, .1, 2400);
+  camera.position.fromArray(pose.position); camera.quaternion.fromArray(pose.quaternion); camera.updateMatrixWorld();
+  return camera;
+}
+
+export async function replayFishingPhaseDisplay(implementation, entry) {
+  assert(FISHING_PHASE_IDS.includes(entry.id), '5F-1A: unsupported capture ID');
+  const { source, fishing, elapsed } = await nativeFishingState(implementation, entry.metrics.cameraFrames);
+  const camera = replayCamera(replayMobileCamera(implementation, entry.metrics.cameraFrames));
+  const scene = new Scene(), view = source.createFishingView(scene, camera);
+  const equipment = source.createRodReelView(scene, camera, { equipment: { rodLevel: 1, reelLevel: 1 }, subscribe: () => () => {} });
+  try {
+    equipment.update(true, fishing.state, elapsed);
+    const tip = equipment.copyTipWorld(new Vector3());
+    view.update(fishing, true, elapsed, tip); scene.updateMatrixWorld(true);
+    const group = scene.children[0], [ring, lure, shadow, line] = group.children;
+    const objects = { ring, lure, shadow, line };
+    const meshes = Object.fromEntries(Object.entries(objects).map(([key, object]) => [key, {
+      visible: effectiveVisible(object), position: object.position.toArray(), quaternion: object.quaternion.toArray(), scale: object.scale.toArray(),
+      vertices: object.geometry.attributes.position.count, indices: object.geometry.index?.count ?? 0,
+    }]));
+    const phase = entry.id.endsWith('bite') ? 'bite' : 'fight';
+    assert.equal(fishing.state.phase, phase, '5F-1A: final native phase differs');
+    const result = { version: 1, phase, elapsed, meshes, line: Array.from(line.geometry.attributes.position.array),
+      draws: { fixed: fishingDisplayDraws(objects, replayCamera(expectedMobileResourceCamera(camera.aspect))),
+        actual: fishingDisplayDraws(objects, camera) },
+      state: { phase, origin: { ...fishing.state.origin }, heading: fishing.state.heading, distance: fishing.state.distance,
+        lureId: fishing.state.lureId, time: fishing.state.time } };
+    // Check the new contact independently of the view's endpoint assignment.
+    if (implementation.sha !== FISHING_PHASE_BASE) {
+      const position = source.getLurePosition(fishing.state);
+      assert.deepEqual(result.line, [...tip.toArray(), position.x, .12, position.z].map(Math.fround), '5F-1A: independent water contact differs');
+    }
+    return result;
+  } finally {
+    equipment.dispose();
+    scene.traverse(object => { object.geometry?.dispose(); if (!Array.isArray(object.material)) object.material?.dispose(); });
+  }
+}
+
+export async function verifyFishingPhaseCapture(implementation, entry) {
+  if (!FISHING_PHASE_IDS.includes(entry.id)) return null;
+  const observed = entry.metrics.fishingDisplay;
+  assert(observed?.version === 1 && observed.passes?.fixed && observed.passes?.actual, '5F-1A: missing fishing display JSON');
+  const expected = await replayFishingPhaseDisplay(implementation, entry);
+  assert.equal(observed.phase, expected.phase, '5F-1A: display phase differs');
+  nearDisplay(observed.elapsed, expected.elapsed, 'elapsed');
+  for (const [key, mesh] of Object.entries(expected.meshes)) {
+    const actual = observed.meshes?.[key]; assert(actual, `5F-1A: missing ${key} mesh`);
+    for (const field of ['visible', 'vertices', 'indices']) assert.equal(actual[field], mesh[field], `5F-1A: ${key} ${field} differs`);
+    for (const field of ['position', 'quaternion', 'scale']) {
+      assert.equal(actual[field]?.length, mesh[field].length, `5F-1A: missing ${key} ${field}`);
+      mesh[field].forEach((value, i) => nearDisplay(actual[field][i], value, `${key} ${field}[${i}]`));
+    }
+  }
+  assert.deepEqual(observed.line, expected.line, '5F-1A: actual line differs from source/water contact');
+  for (const [pass, metric] of [['fixed', 'resources'], ['actual', 'actualResources']]) {
+    const camera = pass === 'fixed' ? expectedMobileResourceCamera(entry.metrics.camera.aspect) : { ...entry.metrics.camera, fov: 55 };
+    assert.deepEqual(observed.passes[pass].camera, camera, `5F-1A: substituted ${pass} camera`);
+    assert.deepEqual(observed.passes[pass].resources, entry.metrics[metric], `5F-1A: substituted ${pass} renderer counters`);
+    assert.deepEqual(observed.passes[pass].draws, expected.draws[pass], `5F-1A: ${pass} submissions differ from source culling`);
+  }
+  return expected;
+}
+
+export function expectedFishingPhaseResources(before, after, pass, beforeReplay, afterReplay) {
+  assert(before && after && beforeReplay && afterReplay, '5F-1A: missing verified resource evidence');
+  for (const counters of [before, after]) for (const key of ['calls', 'triangles', 'geometries', 'textures', 'programs']) {
+    assert(Number.isSafeInteger(counters[key]) && counters[key] >= 0, `5F-1A: invalid renderer counter ${key}`);
+  }
+  assert.equal(beforeReplay.phase, afterReplay.phase, '5F-1A: capture phases differ');
+  for (const key of ['origin', 'heading', 'lureId']) assert.deepEqual(afterReplay.state[key], beforeReplay.state[key], `5F-1A: native ${key} differs`);
+  const removed = beforeReplay.phase === 'bite' ? ['lure'] : ['ring', 'lure'];
+  let calls = 0, triangles = 0;
+  for (const key of ['ring', 'lure', 'shadow', 'line']) {
+    const b = beforeReplay.draws[pass][key], a = afterReplay.draws[pass][key];
+    if (removed.includes(key)) {
+      assert.deepEqual(a, { calls: 0, triangles: 0 }, '5F-1A: removed mesh still submits');
+      calls += b.calls; triangles += b.triangles;
+    } else assert.deepEqual(a, b, `5F-1A: non-hidden ${key} submissions changed`);
+  }
+  const expected = { ...before, calls: before.calls - calls, triangles: before.triangles - triangles };
+  assert.deepEqual(after, expected, `5F-1A: ${pass} resource regression`);
+  return expected;
 }
 
 export function expectedRodReelResources(before, id, transition) {

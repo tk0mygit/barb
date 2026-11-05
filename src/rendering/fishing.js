@@ -47,7 +47,11 @@ export function createFishingView(scene, camera) {
     update(fishing, active, elapsed, rodTipWorld) {
       const s = fishing.state;
       lureModel.select(s.lureId);
-      group.visible = active && ![PHASE.READY, PHASE.RESULT, PHASE.FAILED].includes(s.phase);
+      group.visible = active && [PHASE.AIM, PHASE.CAST, PHASE.LURE, PHASE.BITE, PHASE.FIGHT].includes(s.phase);
+      ring.visible = group.visible && [PHASE.AIM, PHASE.CAST, PHASE.LURE, PHASE.BITE].includes(s.phase);
+      lure.visible = group.visible && [PHASE.CAST, PHASE.LURE].includes(s.phase);
+      shadow.visible = group.visible && s.phase === PHASE.FIGHT;
+      line.visible = group.visible && s.phase !== PHASE.AIM && rodTipWorld != null;
       if (!group.visible) return;
       let { x, z } = getLurePosition(s);
       let y = 0.15 + Math.sin(elapsed * 7) * 0.035;
@@ -62,7 +66,6 @@ export function createFishingView(scene, camera) {
       lure.position.set(x, y + (s.action > 0 ? Math.abs(Math.sin(elapsed * 18)) * 0.35 : 0), z);
       // Show a readable three-quarter profile, following the cast/retrieval ray.
       lure.rotation.y = -s.heading + Math.PI / 3;
-      lure.visible = s.phase !== PHASE.AIM && s.phase !== PHASE.LANDING;
       // The water marker remains at the predicted landing point throughout
       // flight; it must not travel through the near-boat area with the lure.
       ring.position.set(s.phase === PHASE.CAST ? s.target.x : x, 0.12, s.phase === PHASE.CAST ? s.target.z : z);
@@ -71,13 +74,18 @@ export function createFishingView(scene, camera) {
       ring.scale.setScalar(splash ? 1 + s.time * 2 * (s.phase === PHASE.LANDING ? 1 : expansion) : s.phase === PHASE.BITE ? 1 + (0.5 + Math.sin(elapsed * 22) * 0.4) * expansion : 1);
       ring.material.opacity = splash ? Math.max(0, 1 - s.time / 1.2) : 0.8;
       ring.material.color.set(s.phase === PHASE.BITE ? '#ffb86c' : s.validCast ? '#ffe5a1' : '#ff6655');
-      shadow.visible = s.phase === PHASE.FIGHT;
       shadow.position.set(x, 0.11, z);
-      line.visible = s.phase !== PHASE.AIM && rodTipWorld != null;
+      // Only the radial axis is known; the symmetric ellipse has no head/tail.
+      // Keep its existing bounded size, fog and boat-occluding depth contract.
+      shadow.rotation.z = -s.heading;
       // The scene-owned equipment has already followed the camera and applied
       // this frame's pose. Reuse its actual local-tip world coordinate.
       if (rodTipWorld) rodTipWorld.toArray(positions, 0);
-      lure.position.toArray(positions, 3);
+      if (s.phase === PHASE.BITE || s.phase === PHASE.FIGHT) {
+        // The hidden lure's bob/action must not leave an airborne line end.
+        // This water contact shares the shadow/marker's world x/z coordinate.
+        positions[3] = x; positions[4] = 0.12; positions[5] = z;
+      } else lure.position.toArray(positions, 3);
       geometry.attributes.position.needsUpdate = true;
     },
   };

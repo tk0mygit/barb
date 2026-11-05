@@ -24,6 +24,10 @@ const read = page => page.evaluate(() => window.castProbe);
 const separated = (a, b) => a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
 
 function assertLine(snapshot) {
+  if (snapshot.phase === 'landing') {
+    for (const key of ['line', 'ring', 'lure', 'shadow']) expect(snapshot[key].visible).toBe(false);
+    return;
+  }
   expect(snapshot.line.visible).toBe(true);
   if (snapshot.phase !== 'cast') {
     expect(snapshot.line.points[0].normalized[0]).toBeCloseTo(0.58, 5);
@@ -31,7 +35,13 @@ function assertLine(snapshot) {
   }
   expect(snapshot.line.points[0].world).toEqual(snapshot.rodTip.quantizedWorld);
   expect(snapshot.line.points[0].normalized).toEqual(snapshot.rodTip.quantizedNormalized);
-  for (let i = 0; i < 3; i++) expect(snapshot.line.points[1].world[i]).toBeCloseTo(snapshot.lure.world[i], 5);
+  const waterContact = ['bite', 'fight'].includes(snapshot.phase);
+  const contact = snapshot.phase === 'fight' ? snapshot.shadow : snapshot.ring;
+  const expected = waterContact ? [contact.world[0], 0.12, contact.world[2]] : snapshot.lure.world;
+  for (let i = 0; i < 3; i++) expect(snapshot.line.points[1].world[i]).toBe(Math.fround(expected[i]));
+  expect(snapshot.lure.visible).toBe(!waterContact);
+  expect(snapshot.ring.visible).toBe(snapshot.phase !== 'fight');
+  expect(snapshot.shadow.visible).toBe(snapshot.phase === 'fight');
 }
 
 function savedSession(rodLevel, boatPosition = { x: 0, z: 30, heading: 0 }) {
@@ -104,6 +114,7 @@ async function setup(createContext, profile, rodLevel = 1, boatPosition, randomV
           camera: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(),
             pitch: Math.asin(direction.y), heading: Math.atan2(direction.x, -direction.z), aspect: camera.aspect, fov: camera.fov },
           ring: mesh(ring), lure: mesh(lure), obstacles,
+          shadow: mesh(ring?.parent.children.find(object => object.geometry?.type === 'CircleGeometry')),
           rodTip: rodTip && { world: rodTip.toArray(), ...project(rodTip),
             quantizedWorld: roundedTip.toArray(),
             quantizedNormalized: [projectedRoundedTip.x / innerWidth, projectedRoundedTip.y / innerHeight] },
@@ -228,7 +239,7 @@ async function castAndReturn(page, input, prediction, info, id) {
   for (let i = 0; i < 24 && await panel(page).getAttribute('data-phase') !== 'ready'; i++) {
     await tick(page);
     const snapshot = await read(page);
-    if (['lure', 'bite'].includes(snapshot.phase)) { assertSafe(snapshot, { lure: true }); assertLine(snapshot); samples.push(snapshot); }
+    if (['lure', 'bite'].includes(snapshot.phase)) { assertSafe(snapshot, { lure: snapshot.phase === 'lure' }); assertLine(snapshot); samples.push(snapshot); }
   }
   await expect(panel(page)).toHaveAttribute('data-phase', 'ready');
   expect(samples.some(s => s.phase === 'bite')).toBe(true);
@@ -476,7 +487,7 @@ test('cast visibility: a safe central cast continues through rotation with FOV55
   for (let i = 0; i < 20 && await panel(page).getAttribute('data-phase') === 'lure'; i++) await tick(page);
   await expect(panel(page)).toHaveAttribute('data-phase', 'bite');
   const bite = await read(page);
-  assertSafe(bite, { lure: true });
+  assertSafe(bite); assertLine(bite);
   expect(bite.camera.fov).toBe(55);
   expect(bite.camera.quaternion).toEqual(prediction.camera.quaternion);
   expect(bite.ring.world).toEqual(prediction.ring.world);
@@ -523,11 +534,11 @@ test('cast visibility: near retrieval and BITE keep readable world markers above
   for (let i = 0; i < 40 && await panel(page).getAttribute('data-phase') !== 'bite'; i++) {
     await tick(page);
     const snapshot = await read(page);
-    assertSafe(snapshot, { lure: true });
+    assertSafe(snapshot, { lure: snapshot.phase === 'lure' }); assertLine(snapshot);
   }
   await expect(panel(page)).toHaveAttribute('data-phase', 'bite');
   const bite = await read(page);
-  assertSafe(bite, { lure: true });
+  assertSafe(bite); assertLine(bite);
   expect(bite.camera.quaternion).toEqual(prediction.camera.quaternion);
   await save(page, info, 'near-bite', bite);
 });

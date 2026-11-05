@@ -59,8 +59,37 @@ async function startCapture(page, seconds = 90) {
           const render = renderer.render;
           const resources = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
             geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs.length });
+          // Observe actual submissions, separately for the diagnostic and
+          // production camera. Never change a mesh to manufacture a delta.
+          const direct = renderer.renderBufferDirect;
+          let submissions = null, fishingObjects;
+          renderer.renderBufferDirect = function(...args) {
+            const object = args[4], key = fishingObjects && Object.keys(fishingObjects).find(key => fishingObjects[key] === object);
+            const calls = this.info.render.calls, triangles = this.info.render.triangles;
+            const result = direct.apply(this, args);
+            if (submissions && key) {
+              submissions[key].calls += this.info.render.calls - calls;
+              submissions[key].triangles += this.info.render.triangles - triangles;
+            }
+            return result;
+          };
           renderer.render = function(scene, camera) {
             const panel = document.querySelector('#fishing-panel'), phase = panel.dataset.phase;
+            const fishing = scene.children.find(o => o.isGroup && o.children.some(c => c.isLine)
+              && o.children.some(c => c.geometry?.type === 'RingGeometry'));
+            const ring = fishing?.children.find(o => o.geometry?.type === 'RingGeometry');
+            fishingObjects = { ring, lure: fishing?.getObjectByName('fishing-lure')
+                ?? fishing?.children.find(o => o.geometry?.type === 'SphereGeometry' && o.geometry.parameters.radius === .13),
+              shadow: fishing?.children.find(o => o.geometry?.type === 'CircleGeometry'),
+              line: fishing?.getObjectByName('fishing-line') ?? fishing?.children.find(o => o.isLine) };
+            const pass = view => {
+              submissions = Object.fromEntries(Object.keys(fishingObjects).map(key => [key, { calls: 0, triangles: 0 }]));
+              try {
+                const result = render.call(this, scene, view);
+                return { result, resources: resources(), draws: submissions,
+                  camera: { position: view.position.toArray(), quaternion: view.quaternion.toArray(), aspect: view.aspect, fov: view.fov } };
+              } finally { submissions = null; }
+            };
             diagnosticCamera ??= camera.clone();
             diagnosticCamera.aspect = camera.aspect;
             diagnosticCamera.fov = 55;
@@ -86,13 +115,14 @@ async function startCapture(page, seconds = 90) {
               }
               initializedPhases.add(phase);
             }
-            render.call(this, scene, diagnosticCamera);
-            const fixedResources = resources();
-            const result = render.call(this, scene, camera), actualResources = resources();
+            const fixed = pass(diagnosticCamera), actual = pass(camera);
+            const fixedResources = fixed.resources, actualResources = actual.resources;
             const gl = this.getContext();
-            const ring = scene.children.find(o => o.isGroup && o.children.some(c => c.isLine)
-              && o.children.some(c => c.geometry?.type === 'RingGeometry'))
-              ?.children.find(o => o.geometry?.type === 'RingGeometry');
+            const visible = object => Boolean(object?.visible && (!object.parent || visible(object.parent)));
+            const meshes = Object.fromEntries(Object.entries(fishingObjects).map(([key, object]) => [key, object ? {
+              visible: visible(object), position: object.position.toArray(), quaternion: object.quaternion.toArray(), scale: object.scale.toArray(),
+              vertices: object.geometry.attributes.position.count, indices: object.geometry.index?.count ?? 0,
+            } : null]));
             window.mobileCameraFrames.push({ update: Boolean(frame), dt: frame?.dt ?? 0, aspect: camera.aspect,
               mode: document.body.classList.contains('fishing') ? 'fishing' : 'sailing',
               phase, preparing: document.querySelector('#app').dataset.castPreparing === 'true',
@@ -101,10 +131,14 @@ async function startCapture(page, seconds = 90) {
               pixelRatio: this.getPixelRatio(), buffer: { width: gl.drawingBufferWidth, height: gl.drawingBufferHeight },
               pixels: gl.drawingBufferWidth * gl.drawingBufferHeight,
               resources: fixedResources, actualResources,
+              fishingDisplay: { version: 1, phase, elapsed: scene.getObjectByName('lake-water').material.uniforms.time.value,
+                meshes, line: Array.from(fishingObjects.line.geometry.attributes.position.array),
+                passes: { fixed: { resources: fixedResources, draws: fixed.draws, camera: fixed.camera },
+                  actual: { resources: actualResources, draws: actual.draws, camera: actual.camera } } },
               resourceCamera: { position: diagnosticCamera.position.toArray(), quaternion: diagnosticCamera.quaternion.toArray(),
                 aspect: diagnosticCamera.aspect, fov: diagnosticCamera.fov },
               camera: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(), aspect: camera.aspect } };
-            return result;
+            return actual.result;
           };
         });
       },
