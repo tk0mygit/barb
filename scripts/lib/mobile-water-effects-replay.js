@@ -232,7 +232,13 @@ export async function verifyWaterEffectsCapture(implementation, entry) {
   assert.equal(observed.phase, expected.phase, '5F-1B: observed phase differs');
   assert(Math.abs(observed.elapsed - expected.elapsed) <= 1e-9, '5F-1B: display timer differs');
   assert.deepEqual(observed.meshes.waterEffects ?? null, expected.mesh, '5F-1B: effect mesh/timer/buffer differs from source replay');
-  for (const [key, mesh] of Object.entries(expected.meshes)) assert.deepEqual(observed.meshes[key], mesh, `5F-1B: existing ${key} display differs`);
+  for (const [key, mesh] of Object.entries(expected.meshes)) {
+    const actual = observed.meshes[key];
+    // Playwright's live protocol preserves -0; the saved raw JSON encodes it
+    // as 0. Canonicalize only zero signs, preserving every nonzero component.
+    const canonical = actual && { ...actual, quaternion: actual.quaternion.map(n => n === 0 ? 0 : n) };
+    assert.deepEqual(canonical, mesh, `5F-1B: existing ${key} display differs`);
+  }
   if (expected.line) assert.deepEqual(observed.line, expected.line, '5F-1B: original tip/water contact differs');
   for (const [pass, field] of [['fixed', 'resources'], ['actual', 'actualResources']]) {
     const camera = pass === 'fixed' ? expectedMobileResourceCamera(entry.metrics.camera.aspect) : { ...entry.metrics.camera, fov: 55 };

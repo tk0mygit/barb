@@ -98,6 +98,19 @@ test('all 34 pairs permit only the exact warmed resource delta and replayed visi
   }
 });
 
+test('live negative-zero quaternions and serialized JSON agree without changing raw values or accepting nonzero differences', async () => {
+  const p = await waterGateFixture();
+  const before = p.before.find(e => e.id === 'pc-bite'), after = p.after.find(e => e.id === 'pc-bite');
+  before.metrics.fishingDisplay.meshes.shadow.quaternion[2] = -0;
+  after.metrics.fishingDisplay.meshes.shadow.quaternion[2] = -0;
+  await compareMobileCapturePairWithSources(before, after, p.metadata);
+  assert(Object.is(before.metrics.fishingDisplay.meshes.shadow.quaternion[2], -0));
+  assert(Object.is(after.metrics.fishingDisplay.meshes.shadow.quaternion[2], -0));
+  await compareMobileCapturePairWithSources(JSON.parse(JSON.stringify(before)), JSON.parse(JSON.stringify(after)), p.metadata);
+  after.metrics.fishingDisplay.meshes.shadow.quaternion[2] = 1e-16;
+  await assert.rejects(compareMobileCapturePairWithSources(before, after, p.metadata), /existing shadow display differs/);
+});
+
 test('raw validation rejects missing phase JSON, false timers, camera substitutions, pool/buffer changes and draw forgeries', async () => {
   const p = await waterGateFixture();
   for (const [label, mutate, error] of [
