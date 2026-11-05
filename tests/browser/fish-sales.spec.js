@@ -11,7 +11,11 @@ for (const touch of [false, true]) {
     const context = await createContext({ viewport: touch ? { width: 390, height: 844 } : { width: 800, height: 600 }, isMobile: touch, hasTouch: touch, deviceScaleFactor: 0.5 });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.addInitScript(() => { window.fishingRandomCalls = 0; Math.random = () => { window.fishingRandomCalls++; return 0.1; }; });
+    await page.addInitScript(() => {
+      window.fishingRandomCalls = 0; Math.random = () => { window.fishingRandomCalls++; return 0.1; };
+      window.buyerRandomCalls = 0;
+      crypto.getRandomValues = array => { window.buyerRandomCalls++; array[0] = 0; return array; };
+    });
     await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
     await expect(page.locator('#wallet-balance')).toHaveText(money(0));
     const click = locator => activateButton(locator, touch);
@@ -75,12 +79,15 @@ for (const touch of [false, true]) {
     expect(await page.evaluate(() => window.fishingRandomCalls)).toBe(draws);
     const notice = await page.locator('#sale-notice').textContent();
     expect(notice).toContain(`+${money(first.price)}`); expect(BUYER_LINES.some(line => notice.includes(line))).toBe(true);
+    expect(notice).toBe(`1匹を売却 · +${money(first.price)}\n買取人「${BUYER_LINES[0]}」`);
+    expect(await page.evaluate(() => window.buyerRandomCalls)).toBe(2);
     // Late close, store and duplicate sale events cannot settle the sold fish again.
     await page.evaluate(() => {
       document.querySelector('#catch-dialog').dispatchEvent(new Event('close'));
       document.querySelector('#close-catch').click(); document.querySelector('#sell-catch').click();
     });
     await tick(); await assertMoney(first.price);
+    expect(await page.evaluate(() => window.buyerRandomCalls)).toBe(2);
     await openStorage(); await expect(page.locator('.stored-fish')).toHaveCount(0);
     await expect(page.locator('#sell-all')).toBeDisabled();
     await click(page.locator('#collection-close'));
@@ -96,7 +103,10 @@ for (const touch of [false, true]) {
     let balance = first.price + second.price;
     await assertMoney(balance); await expect(page.locator('.stored-fish')).toHaveCount(0);
     await expect(page.locator('#collection-sale-notice')).toContainText(`+${money(second.price)}`);
+    await expect(page.locator('#collection-sale-notice')).toHaveText(`1匹を売却 · +${money(second.price)}\n買取人「${BUYER_LINES[1]}」`);
+    expect(await page.evaluate(() => window.buyerRandomCalls)).toBe(4);
     await staleButton.evaluate(button => button.click()); await assertMoney(balance);
+    expect(await page.evaluate(() => window.buyerRandomCalls)).toBe(4);
     await page.clock.fastForward(60000);
     await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-cycle-progress', progress);
     await click(page.locator('#collection-close')); await tick();
@@ -124,6 +134,8 @@ for (const touch of [false, true]) {
     await expect(page.locator('#sell-all')).toBeDisabled();
     await confirm.evaluate(button => button.click()); await assertMoney(balance);
     await expect(page.locator('#collection-sale-notice')).toContainText(`2匹を売却 · +${money(third.price + fourth.price)}`);
+    await expect(page.locator('#collection-sale-notice')).toHaveText(`2匹を売却 · +${money(third.price + fourth.price)}\n買取人「${BUYER_LINES[0]}」`);
+    expect(await page.evaluate(() => window.buyerRandomCalls)).toBe(6);
     await page.screenshot({ path: `test-results/sold-${touch ? 'touch-landscape' : 'mouse'}.png`, animations: 'disabled' });
     if (touch) await page.setViewportSize({ width: 390, height: 844 });
     await click(page.locator('#collection-back')); await click(page.locator('[data-view="encyclopedia"]'));

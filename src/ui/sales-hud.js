@@ -1,12 +1,14 @@
-import { pickBuyerLine } from '../game/buyer-lines.js';
+import { createBuyerLinePicker } from '../game/buyer-lines.js';
 
 export function formatMoney(amount) { return `${amount.toLocaleString('ja-JP')} Value`; }
 
-export function createSalesHUD(collection) {
+export function createSalesHUD(collection, { random } = {}) {
   const balance = document.querySelector('#wallet-balance');
   const menuBalance = document.querySelector('#collection-wallet');
   const notice = document.querySelector('#sale-notice');
   const menuNotice = document.querySelector('#collection-sale-notice');
+  const pickBuyerLine = createBuyerLinePicker({ random });
+  const notifiedReceipts = new WeakSet();
   let timeout = null, expiresAt = 0, generation = 0;
   function hideNotice() {
     clearTimeout(timeout); timeout = null; expiresAt = 0; generation++;
@@ -30,7 +32,9 @@ export function createSalesHUD(collection) {
     update,
     hideNotice,
     notify(receipt) {
-      if (!receipt) return;
+      if (!receipt || notifiedReceipts.has(receipt)) return;
+      const message = `${receipt.count}匹を売却 · +${formatMoney(receipt.total)}\n買取人「${pickBuyerLine()}」`;
+      notifiedReceipts.add(receipt);
       hideNotice();
       expiresAt = Date.now() + 5000;
       const currentGeneration = generation;
@@ -40,7 +44,6 @@ export function createSalesHUD(collection) {
         if (expiresAt) timeout = setTimeout(expire, Math.max(0, expiresAt - Date.now()));
       }
       timeout = setTimeout(expire, 5000);
-      const message = `${receipt.count}匹を売却 · +${formatMoney(receipt.total)}\n買取人「${pickBuyerLine()}」`;
       for (const target of [notice, menuNotice]) { target.textContent = message; target.hidden = false; }
       update(); // Menu pauses the frame loop; update balances synchronously.
     },
