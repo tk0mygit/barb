@@ -10,6 +10,7 @@ import { executionPlan, MOBILE_SPEC, splitSpecs } from '../scripts/ci-e2e.js';
 import { classifyChanges, L1_GROUPS, listBrowserSpecs, SMOKE_SPECS } from '../scripts/ci-risk.js';
 import { artifactName, fileManifest, LANES, readRecord, recordJob, validationContext } from '../scripts/lib/ci-artifacts.js';
 import { mobileGateFixture } from './helpers/mobile-gate-fixture.js';
+import { fishingPhaseGateFixture } from './helpers/fishing-phase-fixture.js';
 import { readMobileImplementation, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
 
 const SHA = 'a'.repeat(40);
@@ -100,6 +101,18 @@ test('the final aggregate awaits real-SHA replay for the valid rotated FIGHT dif
   const pending = validateAggregate(input); assert.equal(typeof pending.then, 'function');
   const result = await pending;
   assert.equal(result.mobilePairs, 34); assert.equal(result.passedTests, inventory.length);
+});
+
+test('5F-1A passes through the existing aggregate and raw captures/report are reverified there', async () => {
+  const mobile = await fishingPhaseGateFixture(), input = fixture({ eventName: 'pull_request', mobile });
+  const result = await validateAggregate(input);
+  assert.equal(result.mobilePairs, 34); assert.equal(result.passedTests, inventory.length);
+  const report = clone(input);
+  report.lanes.mobile.mobile.comparison.rows.find(row => row.id === 'pc-fight').after.resources.calls++;
+  await assert.rejects(validateAggregate(report), /report differs from captures/);
+  const capture = clone(input);
+  capture.lanes.mobile.mobile.after.find(entry => entry.id === 'pc-bite').metrics.fishingDisplay.passes.actual.draws.lure.calls = 1;
+  await assert.rejects(validateAggregate(capture), /submissions differ from source culling/);
 });
 
 test('source-backed final gate rejects forged states, reports, provenance and incomplete lanes', async () => {

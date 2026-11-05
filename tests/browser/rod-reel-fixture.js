@@ -109,6 +109,7 @@ export async function openGear(createContext, profile, options = {}) {
             grip: root && project(root.localToWorld(root.position.clone().set(0, 0.12, 0))),
             rod: describe('fishing-rod'), reel: describe('fishing-reel'),
             lure: describeMesh(scene.getObjectByName('fishing-lure')), ring: describeMesh(ring),
+            shadow: describeMesh(ring?.parent.children.find(object => object.geometry?.type === 'CircleGeometry')),
             line: { visible: visible(line), start: lineStart, end: lineEnd, quantizedTip,
               geometryId: line?.geometry.id, materialId: line?.material.id,
               worldDelta: tipWorld && lineStart?.world.map((value, index) => value - tipWorld.getComponent(index)),
@@ -185,7 +186,14 @@ export function assertGear(snapshot, level, { line = false } = {}) {
     expect(snapshot.line.visible).toBe(true);
     expect(snapshot.line.start.world).toEqual(snapshot.line.quantizedTip.world);
     expect(snapshot.line.start.normalized).toEqual(snapshot.line.quantizedTip.normalized);
-    for (let i = 0; i < 3; i++) expect(snapshot.line.end.world[i]).toBe(Math.fround(snapshot.lure.center.world[i]));
+    const waterContact = ['bite', 'fight'].includes(snapshot.phase);
+    const contact = snapshot.phase === 'fight' ? snapshot.shadow : snapshot.ring;
+    const expected = waterContact ? [contact.center.world[0], 0.12, contact.center.world[2]] : snapshot.lure.center.world;
+    for (let i = 0; i < 3; i++) expect(snapshot.line.end.world[i]).toBe(Math.fround(expected[i]));
+    expect(snapshot.lure.visible).toBe(!waterContact);
+    expect(snapshot.ring.visible).toBe(snapshot.phase !== 'fight');
+    expect(snapshot.shadow.visible).toBe(snapshot.phase === 'fight');
+    if (snapshot.phase === 'fight') expect(snapshot.shadow.center.world[1]).toBe(0.11);
   }
 }
 

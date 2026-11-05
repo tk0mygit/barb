@@ -21,7 +21,8 @@ function setup(distance = 8, heading = 0, lureId = 'minnow', camera = new THREE.
   const group = scene.children[0];
   return { scene, view, state, fishing,
     ring: group.children.find(mesh => mesh.geometry.type === 'RingGeometry'),
-    lure: group.getObjectByName('fishing-lure'), line: group.getObjectByName('fishing-line') };
+    lure: group.getObjectByName('fishing-lure'), line: group.getObjectByName('fishing-line'),
+    shadow: group.children.find(mesh => mesh.geometry.type === 'CircleGeometry') };
 }
 
 function assertInFrame(mesh, camera, { width, height }, sample = '') {
@@ -121,7 +122,7 @@ test('world-position guides remain readable when the nearby boat obstructs their
   const boat = createBoatModel();
   boat.position.set(10, 0, 20); boat.updateMatrixWorld();
   const { view, ring, lure, fishing, state } = setup(4.5);
-  state.phase = PHASE.BITE;
+  state.phase = PHASE.LURE;
   view.update(fishing, true, 0);
   const eye = new THREE.Vector3(10, 2.15, 21.25);
   const ray = new THREE.Raycaster();
@@ -139,6 +140,8 @@ test('world-position guides remain readable when the nearby boat obstructs their
   assert.equal(ring.position.z, state.target.z);
   assert.equal(lure.position.x, state.target.x);
   assert.equal(lure.position.z, state.target.z);
+  state.phase = PHASE.BITE; view.update(fishing, true, 0);
+  assert.equal(ring.visible, true); assert.equal(lure.visible, false);
 });
 
 test('line uses the actual animated tip through fishing phases, yaw wrapping and rotation; neutral projection and action stay connected', () => {
@@ -168,8 +171,13 @@ test('line uses the actual animated tip through fishing phases, yaw wrapping and
             assert.ok(Math.abs((1 - start.y) / 2 - 0.57) < 2e-6);
           }
           assert.ok(start.z > -1 && start.z < 1);
-          assert.equal(line.visible, true);
-          assert.ok(new THREE.Vector3().fromBufferAttribute(vertices, 1).distanceTo(lure.position) < 3e-6);
+          assert.equal(line.visible, phase !== PHASE.LANDING);
+          if (phase !== PHASE.LANDING) {
+            const expected = [PHASE.BITE, PHASE.FIGHT].includes(phase)
+              ? [state.origin.x + Math.sin(heading) * state.distance, 0.12, state.origin.z - Math.cos(heading) * state.distance]
+              : lure.position.toArray();
+            assert.deepEqual(Array.from(buffer.slice(3)), expected.map(Math.fround));
+          }
           assert.deepEqual(state, before, 'rendering cannot change fishing state');
           assert.equal(line.geometry, geometry); assert.equal(vertices.array, buffer); assert.equal(line.material, material);
         }
@@ -203,7 +211,10 @@ test('line attachment survives skipped animation samples, camera parents and syn
         equipment.group.localToWorld(actual);
         assert.ok(actual.distanceTo(out) < 1e-12);
         assert.deepEqual(Array.from(buffer.slice(0, 3)), actual.toArray().map(Math.fround));
-        assert.deepEqual(Array.from(buffer.slice(3)), lure.position.toArray().map(Math.fround));
+        const expectedEnd = phase === PHASE.FIGHT
+          ? [state.origin.x + Math.sin(state.heading) * state.distance, 0.12, state.origin.z - Math.cos(state.heading) * state.distance]
+          : lure.position.toArray();
+        assert.deepEqual(Array.from(buffer.slice(3)), expectedEnd.map(Math.fround));
         assert.equal(line.visible, phase !== PHASE.AIM);
         assert.deepEqual([line.geometry.id, line.material.id], ids);
         assert.equal(line.geometry.attributes.position.array, buffer);
@@ -244,5 +255,77 @@ test('full model vertices stay inside the actual notice bounds and conservative 
         }
       }
     }
+  }
+});
+
+test('every phase and inactive view obeys the visibility table, including QTE and terminal/recast cleanup', () => {
+  const { view, state, fishing, ring, lure, shadow, line } = setup();
+  const tip = new THREE.Vector3(10, 2, 20), camera = new THREE.PerspectiveCamera();
+  const expected = {
+    ready: [false, false, false, false], aim: [true, false, false, false],
+    cast: [true, true, false, true], lure: [true, true, false, true],
+    bite: [true, false, false, true], fight: [false, false, true, true],
+    landing: [false, false, false, false], result: [false, false, false, false], failed: [false, false, false, false],
+  };
+  for (let cycle = 0; cycle < 2; cycle++) for (const active of [true, false]) for (const phase of Object.values(PHASE)) {
+    state.phase = phase; state.fight = { owner: cycle ? 'qte' : 'normal' };
+    const before = structuredClone(state);
+    view.update(fishing, active, cycle * 10, tip);
+    assert.deepEqual([ring, lure, shadow, line].map(mesh => mesh.visible), active ? expected[phase] : [false, false, false, false], `${phase}/${active}`);
+    if (!active || ['ready', 'fight', 'landing', 'result', 'failed'].includes(phase)) {
+      assert.equal(view.getScreenBounds(camera, { width: 390, height: 844 }), null);
+    }
+    assert.deepEqual(state, before);
+  }
+});
+
+test('the symmetric shadow follows only the radial axis at all distances, headings and sample intervals', () => {
+  const { scene, view, state, fishing, shadow, line } = setup();
+  const tip = new THREE.Vector3(9, 2, 20);
+  const meshes = [...scene.children[0].children];
+  const identities = meshes.map(mesh => [mesh.geometry, mesh.material, mesh.geometry.attributes.position, mesh.geometry.attributes.position.array]);
+  const lengths = [undefined, null, 0, -1, NaN, Infinity, 1e300, 20, 180];
+  for (const distance of [0, 4.5, 5, 8, 32, 40]) for (const heading of [-2 * Math.PI, -.7, 0, Math.PI - 1e-8, Math.PI + 1e-8, 2 * Math.PI + .7]) {
+    Object.assign(state, { phase: PHASE.FIGHT, distance, heading, action: 1 });
+    for (const lengthCm of lengths) for (const elapsed of [0, .016, .25, 1, 20]) {
+      state.encounter = lengthCm === undefined ? undefined : { lengthCm };
+      state.fight = { owner: elapsed > 1 ? 'qte' : 'normal' };
+      const before = structuredClone(state);
+      view.update(fishing, true, elapsed, tip); scene.updateMatrixWorld(true);
+      const axis = new THREE.Vector3(0, 1, 0).transformDirection(shadow.matrixWorld);
+      const radial = new THREE.Vector3(Math.sin(heading), 0, -Math.cos(heading));
+      assert.ok(Math.abs(axis.dot(radial) - 1) < 1e-12);
+      assert.deepEqual(shadow.scale.toArray(), [.6, 1.5, 1], 'missing/extreme lengths retain the original bounded ellipse');
+      const position = [state.origin.x + Math.sin(heading) * distance, .12, state.origin.z - Math.cos(heading) * distance];
+      assert.deepEqual(Array.from(line.geometry.attributes.position.array), [...tip.toArray(), ...position].map(Math.fround));
+      assert.equal(shadow.position.x, position[0]); assert.equal(shadow.position.z, position[2]);
+      assert.equal(shadow.position.y, .11);
+      assert.equal(shadow.material.depthTest, true); assert.equal(shadow.material.depthWrite, true);
+      assert.equal(shadow.material.fog, true); assert.equal(shadow.material.opacity, .65); assert.equal(shadow.renderOrder, 0);
+      assert.deepEqual(state, before);
+      meshes.forEach((mesh, i) => {
+        assert.equal(mesh.geometry, identities[i][0]); assert.equal(mesh.material, identities[i][1]);
+        assert.equal(mesh.geometry.attributes.position, identities[i][2]); assert.equal(mesh.geometry.attributes.position.array, identities[i][3]);
+      });
+    }
+  }
+});
+
+test('BITE notice exclusion is exactly the pulse ring; a frozen domain remains read only', () => {
+  const { view, state, fishing, ring, lure } = setup(8, .2);
+  state.phase = PHASE.BITE; state.action = 1;
+  Object.freeze(state.origin); Object.freeze(state.target); Object.freeze(state);
+  const viewport = { width: 390, height: 844 }, camera = new THREE.PerspectiveCamera(55, 390 / 844, .1, 2400);
+  camera.position.set(10, 2.15, 21.25); camera.lookAt(10, 2.15, 0);
+  for (const elapsed of [0, Math.PI / 44, 1]) {
+    view.update(fishing, true, elapsed, new THREE.Vector3(10, 2, 20));
+    const actual = view.getScreenBounds(camera, viewport), points = [];
+    assert.equal(lure.visible, false); assert.equal(ring.visible, true);
+    for (let i = 0; i < ring.geometry.attributes.position.count; i++) {
+      const p = new THREE.Vector3().fromBufferAttribute(ring.geometry.attributes.position, i).applyMatrix4(ring.matrixWorld).project(camera);
+      points.push([(p.x + 1) * viewport.width / 2, (1 - p.y) * viewport.height / 2]);
+    }
+    assert.deepEqual(actual, { left: Math.min(...points.map(p => p[0])), right: Math.max(...points.map(p => p[0])),
+      top: Math.min(...points.map(p => p[1])), bottom: Math.max(...points.map(p => p[1])) });
   }
 });
