@@ -103,7 +103,7 @@ export function createCastVisibility(camera, getViewport) {
       }
       cachedKey = key;
       cachedLimits = { minAngle: valid ? limit(-1) : 0, maxAngle: valid ? limit(1) : 0, valid,
-        reason: valid ? '' : '着水先を画面内に確保できません。湖側へ向くか画面の向きを変えてください' };
+        reason: valid ? '' : '認識範囲外への投擲を検知。方向調整がいる。' };
       return cachedLimits;
     },
   };

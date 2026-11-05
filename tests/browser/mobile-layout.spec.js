@@ -2,6 +2,8 @@ import { test, expect } from './diagnostics-fixture.js';
 import { startCapture, enterFishing, fishingInput, phase, tick, layout, assertLayout } from './mobile-capture.js';
 import { expirePublicQte } from './input-fixture.js';
 
+const fightText = { fight: '抵抗を検知', safeTension: '張力が安定している' };
+
 // Layout / gesture checks keep the existing low-DPR test optimization. The
 // separate comparison spec covers actual requested DPRs without this reduction.
 test('mobile safe insets, short landscape, font enlargement, menu/fight/result rotation', async ({ createContext }, info) => {
@@ -51,14 +53,14 @@ test('mobile safe insets, short landscape, font enlargement, menu/fight/result r
   assertLayout(await layout(page), { fight: false, inset: portraitInsets });
   const input = await fishingInput(page, true); await input.bite();
   assertLayout(await layout(page), { fight: false, inset: portraitInsets });
-  await input.hook(); assertLayout(await layout(page), { inset: portraitInsets });
+  await input.hook(); assertLayout(await layout(page), { inset: portraitInsets, text: fightText });
   const initial = await page.evaluate(() => window.mobileProbe.resources);
   for (const viewport of [{ width: 640, height: 320 }, { width: 844, height: 390 }, { width: 360, height: 740 }]) {
     await page.setViewportSize(viewport);
     await insets(viewport.width > viewport.height ? { top: 0, bottom: 21, left: 44, right: 44 } : portraitInsets);
     await expect.poll(() => page.evaluate(() => window.mobileProbe.viewport)).toEqual(viewport);
     expect(await phase(page)).toBe('fight');
-    assertLayout(await layout(page), { inset: viewport.width > viewport.height ? { top: 0, bottom: 21, left: 44, right: 44 } : portraitInsets });
+    assertLayout(await layout(page), { inset: viewport.width > viewport.height ? { top: 0, bottom: 21, left: 44, right: 44 } : portraitInsets, text: fightText });
     const r = await page.evaluate(() => window.mobileProbe);
     expect(r.pixelRatio).toBe(0.5); expect(r.camera.aspect).toBeCloseTo(viewport.width / viewport.height, 8);
     // Aspect changes alter frustum culling, so calls / triangles can change.

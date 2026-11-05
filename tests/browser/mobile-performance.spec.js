@@ -7,7 +7,7 @@ import { enterFishing, fishingInput, layout, assertLayout, tick } from './mobile
 import { assertEnvironment, setup } from './day-night-fixture.js';
 import { MOBILE_COMPARISON_MODES, MOBILE_CAPTURE_IDS, compareMobileCapturePairWithSources,
   verifyMobileSourceCapture, writeMobileComparison } from '../../scripts/compare-mobile-performance.mjs';
-import { mobileGit, readMobileImplementation, mobileSourceMetadata, assertMobileWorkingSource,
+import { mobileGit, readMobileImplementation, mobileSourceMetadata, assertMobileWorkingSource, readMobileFishingText,
   expectedMobileResolution, replayMobileCamera, HISTORICAL_MOBILE_BASE } from '../../scripts/lib/mobile-comparison-source.js';
 
 const profiles = [
@@ -28,6 +28,7 @@ const captures = [];
 let reference;
 let comparison;
 const implementations = {};
+const fishingTexts = {};
 const mode = process.env.BARB_MOBILE_COMPARISON_MODE ?? 'regression';
 const destination = resolve(process.env.BARB_MOBILE_OUTPUT ?? 'test-results/mobile-comparison');
 const metric = (s, name) => s.metrics.find(m => m.name === name).value;
@@ -121,6 +122,7 @@ test.beforeAll(async ({}, info) => {
   implementations.pr = await readMobileImplementation(validationSha);
   await assertMobileWorkingSource(implementations.pr);
   if (baseSha) implementations.main = await readMobileImplementation(baseSha);
+  for (const target of targets) fishingTexts[target] = await readMobileFishingText(implementations[target].sha);
   if (mode === 'historical-improvement') expect(baseSha).toBe(HISTORICAL_MOBILE_BASE);
   comparison = { mode, baseSha, headSha: event?.pull_request?.head?.sha ?? validationSha, validationSha,
     implementations: Object.fromEntries(Object.entries(implementations).map(([target, source]) => [target, mobileSourceMetadata(source)])),
@@ -245,15 +247,18 @@ for (const target of targets) {
       test.setTimeout(240000);
       const { context, page, errors } = await contextFor(createContext, target, profile);
       const currentHUD = implementations[target].resolutionModel === 'mobile-budget';
+      const text = fishingTexts[target];
       await startCapture(page); await enterFishing(page, profile.touch);
-      if (currentHUD) assertLayout(await layout(page), { fight: false });
+      if (currentHUD) assertLayout(await layout(page), { fight: false, text });
       const input = await fishingInput(page, profile.touch);
       await input.bite();
       await saveCapture(target, `${profile.id}-bite`, page, await page.evaluate(() => window.mobileProbe), info, true);
       if (currentHUD) {
-        assertLayout(await layout(page), { fight: false });
-        await expect(page.locator('#hint')).toContainText('1秒以内');
-        await expect(page.locator('#fishing-state')).toContainText('今すぐタップ');
+        assertLayout(await layout(page), { fight: false, text });
+        await expect(page.locator('#hint')).toHaveText(text.biteHint);
+        if (text.biteHint) await expect(page.locator('#hint')).toBeVisible();
+        else await expect(page.locator('#hint')).toBeHidden();
+        await expect(page.locator('#fishing-state')).toHaveText(text.bite);
       }
       await input.hook();
       const fightResources = await page.evaluate(() => window.mobileProbe.resources);
@@ -262,15 +267,15 @@ for (const target of targets) {
       await expect(page.locator('#line-tension')).toHaveAttribute('high', '0.78');
       await saveCapture(target, `${profile.id}-fight`, page, await page.evaluate(() => window.mobileProbe), info, true);
       {
-        if (currentHUD) assertLayout(await layout(page));
+        if (currentHUD) assertLayout(await layout(page), { text });
         // Native down within HUD bounds must reach the canvas and change tension.
         const s = await layout(page), value = s.tension;
         await input.down({ x: s.panel.x + s.panel.width / 2, y: s.panel.y + s.panel.height / 2 });
         for (let i = 0; i < 12 && (await layout(page)).tension <= 0.78; i++) await tick(page);
         const high = await layout(page); expect(high.tension).toBeGreaterThan(value); expect(high.tension).toBeGreaterThan(0.78);
-        if (currentHUD) assertLayout(high); await input.up();
+        if (currentHUD) assertLayout(high, { text }); await input.up();
         for (let i = 0; i < 16 && (await layout(page)).tension >= 0.18; i++) await tick(page);
-        const low = await layout(page); expect(low.tension).toBeLessThan(0.18); if (currentHUD) assertLayout(low);
+        const low = await layout(page); expect(low.tension).toBeLessThan(0.18); if (currentHUD) assertLayout(low, { text });
         await expect(page.locator('#tension-value')).toHaveText(`${Math.round(low.tension * 100)}%`);
       }
       if (profile.id === 'portrait') {
@@ -289,7 +294,7 @@ for (const target of targets) {
         // exact-SHA resource comparison still verifies the complete delta.
         expect(metrics.resources.calls).toBeLessThanOrEqual(41);
         await saveCapture(target, 'rotated-fight', page, metrics, info, true);
-        if (currentHUD) assertLayout(await layout(page));
+        if (currentHUD) assertLayout(await layout(page), { text });
       }
       expect(errors).toEqual([]); await context.close();
     });

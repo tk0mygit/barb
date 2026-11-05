@@ -127,20 +127,18 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
       : !snapshot.displayReady || snapshot.active === null ? 'warning'
       : snapshot.remainingMs === 0 ? 'awaiting-result' : 'active';
     panel.dataset.state = mode; panel.dataset.geometryRevision = String(snapshot.geometryRevision);
-    state.textContent = { warning: '予告 · まだ触れないで', active: 'いま操作！', 'awaiting-display': '↻ 再開表示を準備中', 'awaiting-result': '入力の確定待ち',
-      success: '✓ 成功', failure: '× 時間切れ', interrupted: 'Ⅱ 入力の混雑で一時停止', suspended: 'Ⅱ 一時停止 · 復帰待ち' }[mode];
-    if (layout.compact && mode === 'warning') state.textContent = '予告 · 触れずに待つ';
-    if (layout.compact && mode === 'interrupted') state.textContent = 'Ⅱ 入力混雑 · 待機';
+    state.textContent = { warning: '待機', active: '入力受付中', 'awaiting-display': '↻ 再開表示を準備中', 'awaiting-result': '判定中',
+      success: '成功', failure: '応答なし', interrupted: '処理中断', suspended: '復帰待機' }[mode];
     instruction.textContent = snapshot.interrupted ? '画面をタップして残り時間から再開'
-      : operation === 'target' ? '円内タップ · 半径 マウス32／タッチ40px' : `${descriptor.direction ? directionNames[descriptor.direction] + 'へ ' : ''}${labels[operation]}`;
+      : operation === 'target' ? 'ターゲットを選択' : `${descriptor.direction ? directionNames[descriptor.direction] + 'へ ' : ''}${labels[operation]}`;
     gesture.hidden = false; arrow.hidden = !['flick', 'swipe'].includes(operation);
     // SVGElement has no HTMLElement.hidden property; set its presentation
     // directly so the second real SVG is absent from flick's visible shape.
     secondArrow.style.display = operation === 'swipe' ? '' : 'none';
     target.hidden = operation !== 'target'; taps.hidden = operation !== 'tap';
     arrow.dataset.direction = descriptor.direction ?? '';
-    // The circle follows the primary pointer's visual diameter; the guide
-    // states both unchanged scoring radii for hybrid mouse/touch devices.
+    // The circle follows the primary pointer's visual diameter; mouse/touch
+    // scoring radii remain owned by the evaluator.
     taps.textContent = `${preview.completedOperations}/3 ${'●'.repeat(preview.completedOperations)}${'○'.repeat(3 - preview.completedOperations)}`;
     const duration = snapshot.deadline - snapshot.active;
     panel.dataset.urgent = String(snapshot.active !== null && snapshot.remainingMs <= Math.min(300, duration * .3));

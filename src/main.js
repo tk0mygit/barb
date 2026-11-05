@@ -178,7 +178,7 @@ try {
     const targetVisible = castNotices.update(activeTarget ? fishingView.getScreenBounds(camera, {
       width: window.innerWidth, height: window.innerHeight,
     }) : null, activeTarget);
-    if (!targetVisible && fishing.cancelForViewChange('表示を確保できないためルアーを回収しました。向きを調整して再キャストしてください')) {
+    if (!targetVisible && fishing.cancelForViewChange('外界の変更を検知したためルアーを回収した。')) {
       controls.reset();
       fishingHUD.update(fishing, true, clockState);
       rodReelView.update(true, fishing.state, elapsed);

@@ -30,6 +30,7 @@ test('cast direction/distance, shoreline clipping and cancelled preparation', ()
   shore.prepare({ x: 0, z: 0 }, 0); shore.aim(0, 180);
   assert.equal(shore.state.validCast, false); shore.cast();
   assert.equal(shore.state.phase, PHASE.READY);
+  assert.equal(shore.state.message, '帰るにはまだ早い。');
 });
 
 test('bite sampling averages 10–20s and is independent of simulation frame size', () => {
@@ -59,6 +60,7 @@ test('reel, wait and short flick have separate effects; retrieval allows another
   input.down(0, 0); input.step(0.3); f.step(1); assert.ok(f.state.distance < initial);
   input.cancel(); assert.equal(f.state.reeling, false);
   f.reel(true); f.step(50); assert.equal(f.state.phase, PHASE.READY);
+  assert.equal(f.state.message, 'ルアーを回収した。');
   assert.equal(f.prepare({ x: 0, z: 30 }, 0), true);
 });
 
@@ -75,11 +77,12 @@ test('fresh tap hooks within the window; a carried hold/release or drag never ho
 test('missed hook, excess tension and prolonged slack fail, then allow retry', () => {
   const missed = createFishing({ random: () => 0.5 }); cast(missed); bite(missed);
   missed.step(1.01); assert.equal(missed.state.phase, PHASE.FAILED); assert.equal(missed.hook(), false);
+  assert.equal(missed.state.message, '応答が遅れ、個体を見失った。');
   const broken = hooked(); broken.reel(true);
   while (broken.state.phase === PHASE.FIGHT) broken.step(0.05);
-  assert.equal(broken.state.phase, PHASE.FAILED); assert.match(broken.state.message, /ライン/);
+  assert.equal(broken.state.phase, PHASE.FAILED); assert.equal(broken.state.message, 'ラインが断裂した。');
   const slack = hooked({ random: () => 0 }); slack.step(3);
-  assert.equal(slack.state.phase, PHASE.FAILED); assert.match(slack.state.message, /緩み/);
+  assert.equal(slack.state.phase, PHASE.FAILED); assert.equal(slack.state.message, '針が外れ、個体を見失った。');
   for (const f of [missed, broken, slack]) {
     assert.equal(f.state.catches.length, 0); f.step(2);
     assert.equal(f.state.phase, PHASE.READY); cast(f);

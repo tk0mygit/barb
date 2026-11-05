@@ -75,7 +75,7 @@ for (const touch of [false, true]) for (const operation of ['flick', 'swipe', 't
       expect(circle.left + circle.width / 2).toBe(g.target.x); expect(circle.top + circle.height / 2).toBe(g.target.y);
       expect(circle.width).toBe(touch ? 80 : 64); expect(circle.height).toBe(touch ? 80 : 64);
     }
-    if (operation === 'target') { expect(g.circles).toHaveLength(1); expect(measured.instruction).toMatch(/半径.*マウス32.*タッチ40px/); }
+    if (operation === 'target') { expect(g.circles).toHaveLength(1); expect(measured.instruction).toBe('ターゲットを選択'); }
     expect(measured.arrowVisible).toBe(['flick', 'swipe'].includes(operation));
     expect(measured.tapsVisible).toBe(operation === 'tap'); expect(measured.targetVisible).toBe(operation === 'target');
     const v = vectors[g.d.direction] ?? [0, 0], distance = operation === 'swipe' ? 80 : operation === 'flick' ? 50 : 0;
@@ -99,6 +99,7 @@ for (const touch of [false, true]) for (const operation of ['flick', 'swipe', 't
     expect(await page.evaluate(() => window.qteFixture.fishing.state.fight.qte.successes)).toBe(0);
     if (operation === 'tap') await expect(page.locator('.qte-taps')).toContainText('3/3');
     await expect(page.locator('.qte-hud')).toHaveAttribute('data-state', 'success');
+    await expect(page.locator('.qte-state')).toHaveText('成功');
     const result = await page.evaluate(() => ({ snapshot: window.qteFixture.delivery.snapshot, fight: window.qteFixture.fishing.state.fight,
       commits: window.qteFixture.events.filter(e => e === 'qte-resolved').length,
       pointers: window.e2eDiagnostics.events.filter(e => e.type === 'pointerdown' && e.target === 'scene').map(e => ({ trusted: e.trusted, type: e.pointerType })) }));
@@ -247,14 +248,18 @@ test('transparent warning, active, suspended, urgent, receipt wait and failure r
   const page = await context.newPage(); await installPausedClock(page); await openQteFixture(page, 'swipe', { direction: 'up' });
   await page.clock.fastForward(16);
   const states = [await observeQteUI(page)]; expect(states[0].state).toBe('warning'); assertTransparent(states[0]);
+  expect(states[0].stateText).toBe('待機');
   await activatePausedFixture(page);
   const active = await observeQteUI(page); states.push(active); expect(active.state).toBe('active'); assertTransparent(active);
+  expect(active.stateText).toBe('入力受付中');
   await page.locator('#menu-button').tap(); await page.clock.fastForward(16);
   const suspended = await observeQteUI(page); states.push(suspended); expect(suspended.state).toBe('suspended'); assertTransparent(suspended);
+  expect(suspended.stateText).toBe('復帰待機');
   await page.clock.fastForward(1000);
   expect(await page.evaluate(() => window.qteFixture.delivery.snapshot.remainingMs)).toBe(suspended.snapshot.remainingMs);
   await page.locator('#collection-close').tap(); await page.clock.fastForward(16);
   const awaiting = await observeQteUI(page); states.push(awaiting); expect(awaiting.state).toBe('awaiting-display'); assertTransparent(awaiting);
+  expect(awaiting.stateText).toBe('↻ 再開表示を準備中');
   await page.clock.fastForward(16);
   const resumed = await observeQteUI(page); states.push(resumed); expect(resumed.state).toBe('active'); assertTransparent(resumed);
   expect(resumed.snapshot.deadline).toBe(active.snapshot.deadline);
@@ -263,8 +268,9 @@ test('transparent warning, active, suspended, urgent, receipt wait and failure r
   const urgent = await observeQteUI(page); states.push(urgent); expect(urgent.urgent).toBe('true'); assertTransparent(urgent);
   await page.clock.fastForward(urgent.snapshot.remainingMs + 1);
   const waiting = await observeQteUI(page); states.push(waiting); expect(waiting.state).toBe('awaiting-result'); assertTransparent(waiting);
+  expect(waiting.stateText).toBe('判定中');
   await page.clock.fastForward(100);
   const failed = await observeQteUI(page); states.push(failed); expect(failed.state).toBe('failure'); assertTransparent(failed);
-  expect(failed.stateText).toContain('×');
+  expect(failed.stateText).toBe('応答なし');
   await captureQteUI(page, info, 'transparent-state-timeline', { states });
 });

@@ -103,6 +103,48 @@ function withHUDDOM(run) {
   }
 }
 
+test('approved QTE states and recovery instruction are identical in full and compact layouts', () => withHUDDOM(() => {
+  for (const [width, height, compact] of [[1000, 700, false], [568, 320, true]]) {
+    globalThis.document.createElement = () => {
+      const element = node();
+      element.getBoundingClientRect = () => ({ left: 0, top: 0, right: width, bottom: height });
+      return element;
+    };
+    const handle = { index: 0 };
+    let snapshot;
+    const delivery = { get snapshot() { return snapshot; }, clock: { now: () => 0 },
+      preview: () => ({ completedOperations: 1 }), prepareDisplay() {}, presentDisplay() {}, invalidateGeometry() {} };
+    const hud = createQteHUD({ fishing: { state: { phase: 'fight', fight: { qte: { finiteDelivery: true } } } }, delivery,
+      provider: { getDescriptor: () => ({ operation: 'target' }) }, canvas: node(), root: node(), manageGeometry: false });
+    let geometry;
+    for (const [mode, expected, overrides] of [
+      ['warning', '待機', { active: null, displayReady: false }],
+      ['active', '入力受付中', {}],
+      ['awaiting-result', '判定中', { remainingMs: 0 }],
+      ['success', '成功', { status: 'applied', success: true, remainingMs: 0 }],
+      ['failure', '応答なし', { status: 'applied', success: false, remainingMs: 0 }],
+      ['interrupted', '処理中断', { interrupted: true }],
+      ['suspended', '復帰待機', { reasons: ['menu'] }],
+      ['awaiting-display', '↻ 再開表示を準備中', { displayReady: false }],
+    ]) {
+      snapshot = { handle, geometryRevision: 0, lifecycle: 0, active: 0, deadline: 2000, remainingMs: 1200,
+        reasons: [], interrupted: false, displayReady: true, status: 'open', ...overrides };
+      hud.update(1, 0);
+      const panel = hud.element;
+      assert.equal(panel.hidden, false); assert.equal(panel.dataset.compact, String(compact));
+      assert.equal(panel.dataset.state, mode); assert.equal(panel.querySelector('.qte-state').textContent, expected);
+      assert.equal(panel.querySelector('.qte-instruction').textContent,
+        mode === 'interrupted' ? '画面をタップして残り時間から再開' : 'ターゲットを選択');
+      assert.equal(panel.querySelector('.qte-target').hidden, false);
+      assert.equal(panel.querySelector('.qte-timer span').textContent,
+        snapshot.active === null ? '準備中' : `${(snapshot.remainingMs / 1000).toFixed(1)}秒`);
+      assert.equal(panel.querySelector('progress').value, snapshot.active === null ? 1 : snapshot.remainingMs / 2000);
+      geometry ??= hud.geometry; assert.deepEqual(hud.geometry, geometry);
+    }
+    hud.dispose();
+  }
+}));
+
 test('descriptor selects one or two uniform SVG arrows in all four directions; tap and target keep their own cues', () => withHUDDOM(() => {
   for (const operation of ['flick', 'swipe', 'tap', 'target']) for (const direction of ['up', 'down', 'left', 'right']) {
     const s = operationSetup({ operation, direction });
@@ -120,7 +162,7 @@ test('descriptor selects one or two uniform SVG arrows in all four directions; t
     assert.doesNotMatch(panel.innerHTML, /qte-endpoint|◎|[↑↓←→]/);
     assert.match(panel.innerHTML, /qte-gesture" aria-hidden="true"/);
     assert.doesNotMatch(panel.innerHTML, /qte-target"><span/);
-    if (operation === 'target') assert.match(panel.querySelector('.qte-instruction').textContent, /半径 マウス32／タッチ40px/);
+    if (operation === 'target') assert.equal(panel.querySelector('.qte-instruction').textContent, 'ターゲットを選択');
     if (operation === 'tap') assert.equal(panel.querySelector('.qte-taps').textContent, '0/3 ○○○');
     hud.dispose();
   }

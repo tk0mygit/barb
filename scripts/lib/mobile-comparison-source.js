@@ -10,6 +10,29 @@ export async function mobileGit(...args) {
   return (await exec('git', args)).stdout.trim();
 }
 
+// Capture and final-gate checks must use the exact text from each recorded
+// source. Keep the two approved vocabularies explicit; a typo is not a variant.
+export function parseMobileFishingText(source) {
+  const labels = source.match(/const labels = \{([^\n]+)\};/)?.[1] ?? '';
+  const hints = source.match(/const hints = \{([\s\S]*?)\n\};/)?.[1] ?? '';
+  const value = (text, key) => text.match(new RegExp(`\\b${key}: '([^']*)'`))?.[1];
+  const warning = source.match(/querySelector\('#tension-warning'\)\.textContent = s\.tension > 0\.78 \? '([^']+)' : s\.tension < 0\.18 \? '([^']+)' : '([^']+)';/);
+  assert(warning, 'Unrecognized source tension warning expression');
+  assert.equal(warning[1], '離して緩める！'); assert.equal(warning[2], '長押しで巻く！');
+  const text = { bite: value(labels, 'bite'), fight: value(labels, 'fight'), biteHint: value(hints, 'bite'), safeTension: warning[3] };
+  const approved = [
+    { bite: 'アタリ！ 今すぐタップ', fight: 'ファイト', biteHint: 'いったん離して、1秒以内に画面をタップ！', safeTension: 'テンションを保つ' },
+    { bite: 'シグナルを検知した', fight: '抵抗を検知', biteHint: '', safeTension: '張力が安定している' },
+  ];
+  assert(approved.some(expected => Object.keys(expected).every(key => text[key] === expected[key])), 'Unrecognized source fishing text');
+  return Object.freeze(text);
+}
+
+export async function readMobileFishingText(sha) {
+  assert.match(sha ?? '', /^[a-f0-9]{40}$/, 'Expected a full fishing HUD source SHA');
+  return parseMobileFishingText(await mobileGit('show', `${sha}:src/ui/fishing-hud.js`));
+}
+
 // Read the exact commit that was archived for the reference build. Never infer
 // an old renderer from the label "main", or use the PR calculator for its base.
 export async function readMobileImplementation(sha) {

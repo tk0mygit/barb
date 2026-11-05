@@ -11,6 +11,7 @@ import { mobileGateFixture } from './helpers/mobile-gate-fixture.js';
 
 const BASE = '936210d2d118e4e66e2e4426a198d626f84742e8';
 const CAST_BASE = 'f2e87f9fd5262b99bb42af1fe835d7bd13307ade';
+const CAST_HEAD = '11d7f85e0f61d176f196bc8df89a3c7bf7c0bc03';
 const modelSource = await readFile(new URL('../src/rendering/rod-reel-model.js', import.meta.url), 'utf8');
 const viewSource = await readFile(new URL('../src/rendering/rod-reel-view.js', import.meta.url), 'utf8');
 const modules = await compileRodReelSources(modelSource, viewSource);
@@ -135,14 +136,17 @@ test('the gear allowance verifies the existing native capture modes and phases',
   }
 });
 
-test('cast display wiring recovers the approved main and fishing source exactly', async () => {
+test('historical cast display wiring recovers its exact approved Git sources', async () => {
   const [beforeMain, beforeFishing, main, fishing] = await Promise.all([
     mobileGit('show', `${CAST_BASE}:src/main.js`), mobileGit('show', `${CAST_BASE}:src/rendering/fishing.js`),
-    readFile(new URL('../src/main.js', import.meta.url), 'utf8'),
-    readFile(new URL('../src/rendering/fishing.js', import.meta.url), 'utf8'),
+    mobileGit('show', `${CAST_HEAD}:src/main.js`),
+    mobileGit('show', `${CAST_HEAD}:src/rendering/fishing.js`),
   ]);
   const afterMain = main.trim(), afterFishing = fishing.trim();
   verifyCastDisplayConnection(beforeMain, afterMain, beforeFishing, afterFishing);
+  // Later UI copy in main must not expand the historical display exception.
+  const currentMain = (await readFile(new URL('../src/main.js', import.meta.url), 'utf8')).trim();
+  assert.throws(() => verifyCastDisplayConnection(beforeMain, currentMain, beforeFishing, afterFishing), /unrelated production main source/);
   for (const changed of [
     afterMain.replace('renderer.toneMappingExposure = 0.9', 'renderer.toneMappingExposure = 0.8'),
     afterMain.replace('rodReelView.copyTipWorld(rodTipWorld)', 'null'),

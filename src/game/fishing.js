@@ -78,8 +78,8 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
     const visible = !castVisibility || (limits.valid && castVisibility.isVisible({ origin: state.origin,
       heading: state.heading, distance, landingDistance: settings.landingDistance }));
     state.validCast = waterValid && visible;
-    state.message = !waterValid ? '岸が近すぎます。湖側へ向きを変えてください' : !visible
-      ? limits.reason || '着水先を画面内に確保できません。湖側へ向くか画面の向きを変えてください' : '';
+    state.message = !waterValid ? '帰るにはまだ早い。' : !visible
+      ? limits.reason || '認識範囲外への投擲を検知。方向調整がいる。' : '';
     state.target = { x: state.origin.x + Math.sin(state.heading) * distance, z: state.origin.z - Math.cos(state.heading) * distance };
   }
   function advance(dt) {
@@ -93,7 +93,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       const activeTime = Math.max(0, lureTime + dt - settings.biteDelay) - Math.max(0, lureTime - settings.biteDelay);
       lureTime += dt;
       if (state.reeling) state.distance = Math.max(settings.landingDistance, state.distance - settings.lureSpeed * reelPerformance.reelSpeedMultiplier * dt);
-      if (state.distance <= settings.landingDistance) { ready('ルアーを回収しました'); return; }
+      if (state.distance <= settings.landingDistance) { ready('ルアーを回収した。'); return; }
       // The boat stays still while fishing today; the callback also supports
       // live position changes without ever consulting the lure's target.
       const spotMultiplier = getFishingSpotStatus(getBoatPosition?.() ?? state.origin).hitMultiplier;
@@ -108,7 +108,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       }
     } else if (state.phase === PHASE.BITE) {
       state.biteRemaining = Math.max(0, settings.hookWindow - state.time);
-      if (state.time >= settings.hookWindow) fail('アワセが遅れて魚が逃げました');
+      if (state.time >= settings.hookWindow) fail('応答が遅れ、個体を見失った。');
     } else if (state.phase === PHASE.LANDING && state.time >= settings.landingSeconds) {
       const capturedAt = now();
       let sequence = state.catches.length + 1;
@@ -153,18 +153,18 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
       for (let d = 0.25; d <= state.distance; d += 0.25) {
         if (!isWater(state.origin.x + Math.sin(state.heading) * d, state.origin.z - Math.cos(state.heading) * d)) {
           state.validCast = false;
-          ready('岸が近すぎます。湖側へ向きを変えてください'); return;
+          ready('帰るにはまだ早い。'); return;
         }
       }
       if (castVisibility && !castVisibility.isVisible({ origin: state.origin, heading: state.heading,
         distance: state.distance, landingDistance: settings.landingDistance })) {
         state.validCast = false;
-        ready('着水先を画面内に確保できません。湖側へ向くか画面の向きを変えてください'); return;
+        ready('認識範囲外への投擲を検知。方向調整がいる。'); return;
       }
       transition(PHASE.CAST);
     },
     cancelInput() { state.reeling = false; if (state.phase === PHASE.FIGHT) fight.release(); if (state.phase === PHASE.AIM) ready('キャスト準備を解除しました'); },
-    cancelForViewChange(message = '画面サイズが変わったためルアーを回収しました。向きを調整して再キャストしてください') {
+    cancelForViewChange(message = '外界の変更を検知したためルアーを回収した。') {
       if (![PHASE.CAST, PHASE.LURE, PHASE.BITE].includes(state.phase)) return false;
       // A narrower viewport can hide an already committed target. Recall it
       // explicitly instead of changing its direction, distance or camera FOV.
@@ -214,7 +214,7 @@ export function createFishing({ config = {}, random = Math.random, isWater = () 
           syncFight();
           if (outcome === 'landed') transition(PHASE.LANDING);
           else if (outcome === 'aborted') ready();
-          else fail(outcome === 'line-break' ? 'テンションが高すぎてラインが切れました' : 'ラインが緩み、魚が逃げました');
+          else fail(outcome === 'line-break' ? 'ラインが断裂した。' : '針が外れ、個体を見失った。');
         } });
       transition(PHASE.FIGHT); return true;
     },

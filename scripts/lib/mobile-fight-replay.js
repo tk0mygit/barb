@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname, posix } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { readMobileFishingText } from './mobile-comparison-source.js';
 
 const exec = promisify(execFile), sources = new Map();
 const compact = source => source.replace(/\s+/g, '');
@@ -42,7 +43,7 @@ async function loadSource(sha) {
     const entries = ['src/game/fishing.js', 'src/input/fishing.js', 'src/world/depth.js', 'src/game/game-clock.js'];
     for (const file of entries) await materialize(file);
     const [game, input, depth, clock] = await Promise.all(entries.map(file => import(pathToFileURL(join(root, file)).href)));
-    return { ...game, ...input, ...depth, ...clock };
+    return { ...game, ...input, ...depth, ...clock, hudText: await readMobileFishingText(sha) };
   } finally { await rm(root, { recursive: true, force: true }); }
 }
 
@@ -93,10 +94,10 @@ export async function verifyMobileFightCapture(implementation, entry) {
     else if (stage === 'relaxing' && fishing.state.tension < .18) stage = 'settled';
   }
   assert.equal(entry.layout?.phase, 'fight', `${entry.id}: missing FIGHT HUD`);
-  assert.equal(entry.layout.state, 'ファイト');
+  assert.equal(entry.layout.state, source.hudText.fight, `${entry.id}: HUD state differs from source`);
   near(entry.layout.tension, fishing.state.tension, `${entry.id}: HUD tension`);
   assert.equal(entry.layout.warning, fishing.state.tension > .78 ? '離して緩める！'
-    : fishing.state.tension < .18 ? '長押しで巻く！' : 'テンションを保つ');
+    : fishing.state.tension < .18 ? '長押しで巻く！' : source.hudText.safeTension, `${entry.id}: HUD warning differs from source`);
   if (entry.id === 'rotated-fight') {
     assert.equal(stage, 'settled', 'rotated-fight: missing native hold/release cycle');
     assert.equal(frames.at(-1).update, false, 'rotated-fight: resize advanced physics');
