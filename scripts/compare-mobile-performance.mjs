@@ -8,6 +8,8 @@ import { HISTORICAL_MOBILE_BASE, readMobileImplementation, mobileSourceMetadata,
 import { verifyMobileFightCapture } from './lib/mobile-fight-replay.js';
 import { readMobileRodReelTransition, readMobileCastDisplayTransition, expectedRodReelResources, verifyRodReelCapture,
   readMobileFishingPhaseTransition, verifyFishingPhaseCapture, expectedFishingPhaseResources, FISHING_PHASE_IDS } from './lib/mobile-rod-reel-replay.js';
+import { readMobileWaterEffectsTransition, verifyWaterEffectsCapture, expectedWaterEffectsResources,
+  WATER_EFFECTS_BASE, WATER_EFFECTS_BLOB } from './lib/mobile-water-effects-replay.js';
 
 export const MOBILE_COMPARISON_MODES = ['regression', 'historical-improvement'];
 // One reviewed product-source transition, not a per-PR resource allowance.
@@ -159,13 +161,14 @@ async function readComparisonSources(metadata) {
     implementations[target] = await readMobileImplementation(sha);
     assert.deepEqual(metadata.implementations[target], mobileSourceMetadata(implementations[target]), `${target}: implementation provenance differs`);
   }
-  const [rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition] = await Promise.all([
+  const [rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition, waterEffectsTransition] = await Promise.all([
     readMobileRodReelTransition(implementations.main, implementations.pr),
     readMobileCastDisplayTransition(implementations.main, implementations.pr),
     readFishingHintRemoval(implementations.main, implementations.pr),
     readMobileFishingPhaseTransition(implementations.main, implementations.pr),
+    readMobileWaterEffectsTransition(implementations.main, implementations.pr),
   ]);
-  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition };
+  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition, waterEffectsTransition };
 }
 
 async function verifyEntries(sources, target, entries) {
@@ -173,6 +176,7 @@ async function verifyEntries(sources, target, entries) {
     if (sources.rodReelTransition || sources.castDisplayTransition) verifyRodReelCapture(entry);
     const verified = await verifyMobileSourceCapture(sources.implementations[target], entry);
     if (sources.fishingPhaseTransition) verified.fishingPhase = await verifyFishingPhaseCapture(sources.implementations[target], entry);
+    if (sources.waterEffectsTransition) verified.waterEffects = await verifyWaterEffectsCapture(sources.implementations[target], entry);
     sources.verified.set(entry, verified);
   }
 }
@@ -195,8 +199,9 @@ function compareRotatedFightCamera(before, after, metadata, sources) {
     assert.equal(metadata.implementations.main[key], metadata.implementations.pr[key], `rotated-fight: ${key} differs`);
   }
   if (metadata.implementations.main.fishingViewBlob !== metadata.implementations.pr.fishingViewBlob) {
-    assert(sources.castDisplayTransition || sources.fishingPhaseTransition, 'rotated-fight: fishingViewBlob differs without a source-verified display transition');
-    if (sources.fishingPhaseTransition) checkFishingPhaseProof(sources.fishingPhaseTransition, metadata);
+    assert(sources.castDisplayTransition || sources.fishingPhaseTransition || sources.waterEffectsTransition, 'rotated-fight: fishingViewBlob differs without a source-verified display transition');
+    if (sources.waterEffectsTransition) checkWaterEffectsProof(sources.waterEffectsTransition, metadata);
+    else if (sources.fishingPhaseTransition) checkFishingPhaseProof(sources.fishingPhaseTransition, metadata);
     else checkCastDisplayProof(sources.castDisplayTransition, metadata);
   }
   const b = sources.verified.get(before), a = sources.verified.get(after);
@@ -238,6 +243,18 @@ function checkFishingPhaseProof(proof, metadata) {
   }
 }
 
+function checkWaterEffectsProof(proof, metadata) {
+  assert.equal(metadata.mode, 'regression', '5F-1B: requires regression mode');
+  assert.equal(proof.kind, 'water-effects-5F1B');
+  assert.equal(proof.baseSha, WATER_EFFECTS_BASE); assert.equal(proof.baseSha, metadata.baseSha);
+  assert.equal(proof.validationSha, metadata.validationSha);
+  assert.equal(proof.after.fishingEffectsBlob, WATER_EFFECTS_BLOB);
+  assert.deepEqual(proof.resources, { geometries: 1, materials: 1, textures: 0, programs: 1, maximumCalls: 1, maximumTriangles: 1152 });
+  for (const [target, side] of [['main', 'before'], ['pr', 'after']]) {
+    for (const key of ['mainBlob', 'fishingViewBlob', 'fishingEffectsBlob']) assert.equal(proof[side][key], metadata.implementations[target][key], `5F-1B: ${key} proof differs`);
+  }
+}
+
 // Local selection can verify its real pairs with the same rules without
 // presenting them as the complete 34-pair report required by PR CI.
 export function compareMobileCapturePair(b, a, metadata, sources) {
@@ -246,6 +263,8 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
     if (castDisplay) checkCastDisplayProof(castDisplay, metadata);
     const phaseDisplay = sources?.fishingPhaseTransition;
     if (phaseDisplay) checkFishingPhaseProof(phaseDisplay, metadata);
+    const waterEffects = sources?.waterEffectsTransition;
+    if (waterEffects) checkWaterEffectsProof(waterEffects, metadata);
     const hintRemoval = sources?.fishingHintRemoval;
     if (hintRemoval) {
       assert.equal(hintRemoval.kind, 'fishing-hint-removal-5E2B');
@@ -287,6 +306,7 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       transition: 'rod-reel-5D1: exact-source Lv1 mesh counts; all other resources exact' }
       : expectedMobileResources(b.metrics.resources, metadata);
     let fishingPhaseComparison;
+    let waterEffectsComparison;
     if (phaseDisplay) {
       assert(!gearTransition && !castDisplay, '5F-1A: cannot combine historical display transitions');
       assert(b.metrics.actualResources && a.metrics.actualResources, `${b.id}: missing production-view resources`);
@@ -297,6 +317,16 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
         expectedFishingPhaseResources(b.metrics.actualResources, a.metrics.actualResources, 'actual', beforeReplay, afterReplay);
         fishingPhaseComparison = { proof: phaseDisplay, beforeDraws: beforeReplay.draws, afterDraws: afterReplay.draws };
       } else assert.deepEqual(a.metrics.actualResources, b.metrics.actualResources, `${b.id}: production-view resource regression`);
+    }
+    if (waterEffects) {
+      assert(!gearTransition && !castDisplay && !phaseDisplay && !hintRemoval, '5F-1B: cannot combine historical allowances');
+      assert(MOBILE_CAPTURE_IDS.includes(b.id), '5F-1B: unsupported capture ID');
+      const beforeReplay = sources.verified.get(b)?.waterEffects, afterReplay = sources.verified.get(a)?.waterEffects;
+      expected = { resources: expectedWaterEffectsResources(b.metrics.resources, a.metrics.resources, b.id, 'fixed', beforeReplay, afterReplay, waterEffects),
+        transition: 'water-effects-5F1B: exact source-replayed batch draws; warmed geometry +1 / program +1' };
+      expectedWaterEffectsResources(b.metrics.actualResources, a.metrics.actualResources, b.id, 'actual', beforeReplay, afterReplay, waterEffects);
+      waterEffectsComparison = { proof: waterEffects, beforeState: beforeReplay.state, afterState: afterReplay.state,
+        beforeDraws: beforeReplay.draws, afterDraws: afterReplay.draws };
     }
     assert.deepEqual(a.metrics.resources, expected.resources, `${b.id}: resource regression`);
     if (gearTransition) {
@@ -360,6 +390,7 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       ...(gearTransition ? { rodReelComparison: gearTransition } : {}),
       ...(castDisplay ? { castDisplayComparison: castDisplay } : {}),
       ...(fishingPhaseComparison ? { fishingPhaseComparison } : {}),
+      ...(waterEffectsComparison ? { waterEffectsComparison } : {}),
       ...(hintRemoval && ['portrait-bite', 'landscape-bite', 'small-bite', 'pc-bite', 'portrait-fight', 'small-fight'].includes(b.id)
         ? { fishingHintRemoval: hintRemoval } : {}),
       pixelReduction,

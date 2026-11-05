@@ -9,6 +9,8 @@ const styles = Object.freeze({
   bite: { life: .86, height: 1.08, radius: 1.02, width: .059 },
   reel: { life: .64, height: .48, radius: .49, width: .037 },
 });
+let uuidConstructionActive = false;
+let uuidFactoryActive = false;
 
 // Same displacement as the existing rotated lake PlaneGeometry. A small
 // clearance keeps thin arcs above its tessellated wave, with real boat depth.
@@ -89,27 +91,77 @@ export function createSurfaceTimeline({ seed = SURFACE_SEED } = {}) {
 }
 
 export function createFishingEffects({ seed = SURFACE_SEED } = {}) {
-  const group = new THREE.Group();
+  function allocateResources() {
+    if (uuidFactoryActive || uuidConstructionActive) throw new Error('STOP: reentrant surface UUID construction');
+    uuidFactoryActive = true;
+    let group, material, geometry, batch;
+    try {
+      const crypto = globalThis.crypto, fill = crypto?.getRandomValues;
+      if (typeof fill !== 'function') throw new Error('STOP: surface UUID construction requires crypto.getRandomValues');
+      const uuidWords = new Uint32Array(16);
+      // Initial entropy is obtained before replacing Math.random. Refill uses only
+      // the same native synchronous crypto operation, never the saved domain RNG.
+      function refillUuidWords() {
+        if (fill.call(crypto, uuidWords) !== uuidWords) throw new Error('STOP: asynchronous/invalid UUID entropy source');
+      }
+      refillUuidWords();
+      let uuidCursor = 0;
+      function visualUuidRandom() {
+        if (uuidCursor === uuidWords.length) { refillUuidWords(); uuidCursor = 0; }
+        return uuidWords[uuidCursor++] / 4294967296;
+      }
+      // PM's narrow exception: only these four synchronous Three.js constructors.
+      // No callback argument, scene connection, buffer update, render or async work
+      // can enter this private helper. Each constructor restores the exact caller
+      // function before returning, checking its result, or running any cleanup.
+      function construct(kind) {
+        if (uuidConstructionActive) throw new Error('STOP: nested surface UUID construction');
+        const originalRandom = Math.random;
+        let object;
+        uuidConstructionActive = true;
+        try {
+          Math.random = visualUuidRandom;
+          switch (kind) {
+            case 'group': object = new THREE.Group(); break;
+            case 'material': object = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true,
+              side: THREE.DoubleSide, forceSinglePass: true, depthTest: true, depthWrite: false }); break;
+            case 'geometry': object = new THREE.BufferGeometry(); break;
+            case 'mesh': object = new THREE.Mesh(geometry, material); break;
+            default: throw new Error('STOP: unknown surface constructor');
+          }
+        } finally {
+          Math.random = originalRandom;
+          uuidConstructionActive = false;
+        }
+        if (object && typeof object.then === 'function') throw new Error('STOP: asynchronous surface constructor');
+        return object;
+      }
+      group = construct('group');
+      material = construct('material');
+      geometry = construct('geometry');
+      batch = construct('mesh');
+      return { group, material, geometry, batch };
+    } catch (error) {
+      geometry?.dispose(); material?.dispose();
+      throw error;
+    } finally {
+      uuidFactoryActive = false;
+    }
+  }
+  const { group, material, geometry, batch } = allocateResources();
   group.name = 'fishing-surface-effects'; group.visible = false;
   const timeline = createSurfaceTimeline({ seed });
   // RGBA vertex colors share one built-in fog-aware program and one batch.
   // forceSinglePass prevents DoubleSide transparency adding a second draw.
-  const material = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true,
-    side: THREE.DoubleSide, forceSinglePass: true, depthTest: true, depthWrite: false });
-  const makeBatch = (name, triangles) => {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(triangles * 9), 3).setUsage(THREE.DynamicDrawUsage));
-    geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(triangles * 12), 4).setUsage(THREE.DynamicDrawUsage));
-    geometry.setDrawRange(0, triangles * 3);
-    geometry.computeBoundingSphere();
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = name; mesh.visible = false; mesh.renderOrder = .75;
-    group.add(mesh);
-    return mesh;
-  };
   // 6 * (2 rings * 24 segments * 2 triangles + 12 drops * 8 faces)
   // = 1152 triangles at the fixed maximum, independent of live pool count.
-  const batch = makeBatch('fishing-water-effects', SURFACE_POOL_SIZE * (2 * SEGMENTS * 2 + DROPS * 8));
+  const triangles = SURFACE_POOL_SIZE * (2 * SEGMENTS * 2 + DROPS * 8);
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(triangles * 9), 3).setUsage(THREE.DynamicDrawUsage));
+  geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(triangles * 12), 4).setUsage(THREE.DynamicDrawUsage));
+  geometry.setDrawRange(0, triangles * 3);
+  geometry.computeBoundingSphere();
+  batch.name = 'fishing-water-effects'; batch.visible = false; batch.renderOrder = .75;
+  group.add(batch);
   const rippleVertices = SURFACE_POOL_SIZE * 2 * SEGMENTS * 6;
   const pale = new THREE.Color('#adcfd1'), dark = new THREE.Color('#4e8b97');
   const rippleColor = new THREE.Color('#80b4b9');

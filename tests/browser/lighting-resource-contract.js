@@ -16,6 +16,14 @@ export function assertResourceCatalog({ counts, catalog }) {
   assert.equal(counts.programs, catalog.programKeys.length, 'GPU program count differs from the actual cache keys');
   assert.equal(new Set(catalog.programKeys).size, catalog.programKeys.length, 'Duplicate GPU program cache key');
   for (const row of catalog.fishing) assert.equal(row.initialized, catalog.initializedGeometryIds.includes(row.id), 'Fishing geometry initialization flag differs');
+  if (catalog.surfaceEffects) {
+    const e = catalog.surfaceEffects;
+    assert.equal(e.name, 'fishing-water-effects'); assert.equal(e.vertices, 3456); assert.equal(e.colorItemSize, 4);
+    assert.deepEqual(e.drawRange, { start: 0, count: 3456 }); assert.equal(e.forceSinglePass, true);
+    assert(catalog.cpuGeometryIds.includes(e.id), 'Surface geometry lost its scene owner');
+    assert.equal(e.initialized, catalog.initializedGeometryIds.includes(e.id), 'Surface geometry initialization differs');
+    assert.equal(e.programKeys.length, e.initialized ? 1 : 0, 'Surface must use exactly one built-in RGBA shader');
+  }
 }
 
 export function assertColdFishingResources(snapshot) {
@@ -23,6 +31,7 @@ export function assertColdFishingResources(snapshot) {
   assert.equal(snapshot.counts.textures, 4, 'Cold scene requires three existing textures and one shared B crown map');
   assert.equal(snapshot.catalog.fishingVisible, false, 'Cold fishing group is visible');
   assert(snapshot.catalog.fishing.every(row => !row.initialized && row.programKeys.length === 0), 'Hidden fishing resources were uploaded before preparation');
+  if (snapshot.catalog.surfaceEffects) assert.equal(snapshot.catalog.surfaceEffects.initialized, false, 'Cold surface uploaded early');
 }
 
 // The historical matched-night counters included four unused marker geometries
@@ -41,6 +50,12 @@ export function assertLureInitialization(before, after) {
   assertResourceCatalog(before); assertResourceCatalog(after);
   assert.deepEqual(after.catalog.cpuGeometryIds, before.catalog.cpuGeometryIds, 'Cast recreated scene geometry');
   const expectedIds = after.catalog.fishing.filter(row => LURE_GEOMETRY_TYPES.includes(row.type)).map(row => row.id);
+  const surface = after.catalog.surfaceEffects;
+  if (surface) {
+    assert.equal(before.catalog.surfaceEffects?.id, surface.id, 'Cast recreated surface geometry');
+    assert.equal(surface.initialized, true, 'Landing did not initialize surface geometry');
+    expectedIds.push(surface.id);
+  }
   const expectedNewIds = difference(expectedIds, before.catalog.initializedGeometryIds);
   assert.deepEqual(sorted(difference(after.catalog.initializedGeometryIds, before.catalog.initializedGeometryIds)), sorted(expectedNewIds), 'Cast uploaded geometry outside the existing lure/ring/line');
   assert.equal(after.counts.geometries, before.counts.geometries + expectedNewIds.length, 'Cast GPU allocation delta differs');
@@ -62,6 +77,11 @@ export function assertLureInitialization(before, after) {
   // established by its actual cache identity, not an allocation-count ceiling.
   // The historical scene still initializes both the lure and line variants.
   const expectedNewKeys = [lineKey, ...(before.catalog.programKeys.includes(lureKey) ? [] : [lureKey])];
+  if (surface) {
+    const [surfaceKey] = surface.programKeys;
+    assert(![...ringKeys, lureKey, lineKey].includes(surfaceKey), 'Surface lost its RGBA shader identity');
+    if (!before.catalog.programKeys.includes(surfaceKey)) expectedNewKeys.push(surfaceKey);
+  }
   assert.deepEqual(sorted(difference(after.catalog.programKeys, before.catalog.programKeys)), sorted(expectedNewKeys), 'Cast uploaded a shader outside the existing marker materials');
   assert.equal(after.counts.programs, before.counts.programs + expectedNewKeys.length, 'Cast GPU shader delta differs');
   assert.equal(after.counts.textures, before.counts.textures, 'Cast created a texture');
