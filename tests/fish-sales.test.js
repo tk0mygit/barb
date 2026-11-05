@@ -4,7 +4,7 @@ import { FISH_SPECIES } from '../src/game/fish-species.js';
 import { calculateSalePrice, addMoney } from '../src/game/fish-sales.js';
 import { createCatchCollection } from '../src/game/catch-collection.js';
 import { createFishing, PHASE } from '../src/game/fishing.js';
-import { BUYER_LINES, pickBuyerLine } from '../src/game/buyer-lines.js';
+import { BUYER_LINES, NORMAL_BUYER_DIALOGUE, createBuyerLinePicker } from '../src/game/buyer-lines.js';
 
 const captured = (id, weightKg = 1.15, speciesId = 'catfish') => Object.freeze({
   schemaVersion: 1, id, speciesId, lengthCm: 50, weightKg, qteSuccessCount: 0, caughtAt: '2026-01-01T00:00:00.000Z', disposition: 'unassigned',
@@ -100,11 +100,17 @@ test('unsafe individual prices, batch sums, wallet totals and timestamps never p
 });
 
 test('buyer lines use an independent random source and never consume fishing Math.random', () => {
-  for (let index = 0; index < BUYER_LINES.length; index++) assert.equal(pickBuyerLine(() => index / BUYER_LINES.length), BUYER_LINES[index]);
+  for (const [categoryIndex, category] of NORMAL_BUYER_DIALOGUE.entries()) {
+    for (let index = 0; index < category.lines.length; index++) {
+      const rolls = [categoryIndex === 0 ? 0 : 0.85, index / category.lines.length];
+      assert.equal(createBuyerLinePicker({ random: () => rolls.shift() })(), category.lines[index].text);
+    }
+  }
   assert.ok(new Set(BUYER_LINES).size >= 3);
   const previous = Math.random;
   try {
     Math.random = () => { throw new Error('Fishing RNG consumed'); };
+    const pickBuyerLine = createBuyerLinePicker();
     for (let i = 0; i < 20; i++) assert.ok(BUYER_LINES.includes(pickBuyerLine()));
   } finally { Math.random = previous; }
 });
