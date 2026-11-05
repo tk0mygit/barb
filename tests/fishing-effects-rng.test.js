@@ -186,7 +186,8 @@ function play(createDomain, createView, seed, aspect) {
       trips.push({ bite, catch: structuredClone(fishing.state.catch) });
       assert.equal(fishing.closeResult(), true); record();
     }
-    return { factoryDraws, values, frames, trips };
+    return { factoryDraws, values, frames, trips, collectionBytes: JSON.stringify({
+      catches: fishing.collection.catches, wallet: fishing.collection.wallet, equipment: fishing.collection.equipment }) };
   } finally { view?.dispose?.(); Math.random = original; }
 }
 
@@ -199,6 +200,7 @@ test('exact base replay: shared factory draws, RNG value stream, every state, QT
     assert.deepEqual(after.values, before.values, 'domain random value stream changed');
     assert.deepEqual(after.frames, before.frames, 'phase/state/QTE history changed');
     assert.deepEqual(after.trips, before.trips, 'BITE time or species/length/weight/catch changed');
+    assert.equal(after.collectionBytes, before.collectionBytes, 'persisted collection bytes changed');
     summary.push({ seed, aspect, factoryCalls: after.factoryDraws, bites: after.trips.map(t => t.bite.seconds), trips: after.trips.length });
   }
   t.diagnostic(JSON.stringify({ sourceBase: BASE, matched: summary }));

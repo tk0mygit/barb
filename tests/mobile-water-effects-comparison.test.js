@@ -8,11 +8,38 @@ import { join } from 'node:path';
 import { mobileGit, readMobileImplementation, mobileSourceMetadata, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
 import { WATER_EFFECTS_BASE, WATER_EFFECTS_BLOB, readMobileWaterEffectsTransition, verifyWaterEffectsConnection,
   inspectWaterEffectsFactory, readWaterEffectsSource } from '../scripts/lib/mobile-water-effects-replay.js';
+import { verifyGameplayTestConnection } from '../scripts/lib/mobile-water-effects-replay.js';
 import { compareMobileCapturesWithSources, compareMobileCapturePairWithSources } from '../scripts/compare-mobile-performance.mjs';
 import { validateMobileEvidence } from '../scripts/ci-summary.js';
 import { waterFixtureCommit, waterGateFixture, waterCapture } from './helpers/water-effects-fixture.js';
 
 const exec = promisify(execFile);
+test('only the approved separate deterministic restore test reverses exactly; default restore, limits, assertions and QTE defaults remain protected', async () => {
+  const base = await readMobileImplementation(WATER_EFFECTS_BASE);
+  const before = (await exec('git', ['show', `${base.sha}:tests/gameplay.test.js`])).stdout;
+  const original = '  bite(restored.fishing); restored.fishing.hook(); assert.equal(restored.fishing.state.fight.qte.enabled, false);';
+  const replacement = '  const controlled = restoreSaveData(original, {\n'
+    + '    gameplayFactory: options => createGameplay({ ...options, random: () => 0.5 }),\n'
+    + '  });\n'
+    + '  bite(controlled.fishing); controlled.fishing.hook(); assert.equal(controlled.fishing.state.fight.qte.enabled, false);';
+  const after = before.replace(original, replacement);
+  assert.notEqual(after, before); verifyGameplayTestConnection(before, after);
+  const proof = await readMobileWaterEffectsTransition(base, await readMobileImplementation(waterFixtureCommit({ 'tests/gameplay.test.js': after })));
+  assert.match(proof.gameplayTest.beforeBlob, /^[a-f0-9]{40}$/); assert.match(proof.gameplayTest.afterBlob, /^[a-f0-9]{40}$/);
+  assert.throws(() => verifyGameplayTestConnection(before, after + '\n'), /5F-1B/);
+  await assert.rejects(readMobileWaterEffectsTransition(base,
+    await readMobileImplementation(waterFixtureCommit({ 'tests/gameplay.test.js': after + '\n' }))), /5F-1B/);
+  for (const [from, to] of [['n < 500', 'n < 600'], ['assert.equal(calls, 0);', ''],
+    ['const restored = restoreSaveData(original);', 'const restored = restoreSaveData(original, { gameplayFactory: createGameplay });'],
+    ['random: () => 0.5', 'random: () => 0.6'], ['random: () => 0.5', 'random: () => 0.5, qteEnabled: false'],
+    ['assert.deepEqual(createSaveData(restored, { savedAt }), original);', ''],
+    ['invalid and future saves never reach injected gameplay', 'renamed restore test']]) {
+    const invalid = after.replace(from, to); assert.notEqual(invalid, after);
+    assert.throws(() => verifyGameplayTestConnection(before, invalid), /5F-1B/);
+    await assert.rejects(readMobileWaterEffectsTransition(base,
+      await readMobileImplementation(waterFixtureCommit({ 'tests/gameplay.test.js': invalid }))), /5F-1B/);
+  }
+});
 test('5F-1B proves its exact base, reversible complete wiring and one pinned new module, retaining 5F-1A', async () => {
   const base = await readMobileImplementation(WATER_EFFECTS_BASE), head = await readMobileImplementation(waterFixtureCommit());
   const proof = await readMobileWaterEffectsTransition(base, head);

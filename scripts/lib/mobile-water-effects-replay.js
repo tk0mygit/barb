@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { Scene, PerspectiveCamera, Vector3, MeshBasicMaterial, DoubleSide } from 'three';
 import { mobileGit, replayMobileCamera, expectedMobileResourceCamera } from './mobile-comparison-source.js';
 import { nativeFishingState, fishingDisplayDraws, FISHING_PHASE_IDS } from './mobile-rod-reel-replay.js';
@@ -8,6 +10,9 @@ export const WATER_EFFECTS_BASE = 'b562b3f4d9d39ed38b05049e2981923bac175cfc';
 export const WATER_EFFECTS_BLOB = '8fd4a573948271c9c673fe841f0c071c5a8e900a';
 export const WATER_CAPTURE_BLOB = '14d2dff5ad346f80693c91306f0a1c6f37e5bc0e';
 const EFFECTS = 'src/rendering/fishing-effects.js', FISHING = 'src/rendering/fishing.js';
+const GAMEPLAY_TEST = 'tests/gameplay.test.js';
+const rawGit = promisify(execFile);
+const gameplayTestText = async sha => (await rawGit('git', ['show', `${sha}:${GAMEPLAY_TEST}`])).stdout;
 const sourceText = (sha, path) => mobileGit('show', `${sha}:${path}`);
 const allowedFiles = new Set([
   'src/main.js', FISHING, EFFECTS,
@@ -26,6 +31,19 @@ function reverse(source, edits, label) {
     source = source.replace(after, before);
   }
   return source;
+}
+
+// One separately approved test-only repair. Default restoration/history and
+// every existing assertion must recover the complete base file byte for byte.
+// This is not a filename allowance for arbitrary gameplay or save fixtures.
+export function verifyGameplayTestConnection(before, after) {
+  const original = '  bite(restored.fishing); restored.fishing.hook(); assert.equal(restored.fishing.state.fight.qte.enabled, false);';
+  const repaired = '  const controlled = restoreSaveData(original, {\n'
+    + '    gameplayFactory: options => createGameplay({ ...options, random: () => 0.5 }),\n'
+    + '  });\n'
+    + '  bite(controlled.fishing); controlled.fishing.hook(); assert.equal(controlled.fishing.state.fight.qte.enabled, false);';
+  assert.equal(reverse(after, [[repaired, original]], 'gameplay test RNG'), before,
+    '5F-1B: unrelated gameplay test change');
 }
 
 // These are ALL production edits, not a path-only allowance. Reverse both
@@ -109,7 +127,15 @@ export async function readMobileWaterEffectsTransition(main, pr) {
     assert.equal(pr[key], main[key], `5F-1B: changed invariant source ${key}`);
   }
   const files = (await mobileGit('diff', '--name-only', main.sha, pr.sha)).split('\n').filter(Boolean);
-  assert(files.every(file => allowedFiles.has(file)), '5F-1B: unapproved file change');
+  let gameplayTest;
+  if (files.includes(GAMEPLAY_TEST)) {
+    for (const sha of [main.sha, pr.sha]) assert.match(await mobileGit('ls-tree', sha, '--', GAMEPLAY_TEST), /^100644 blob /,
+      '5F-1B: gameplay test file mode/type changed');
+    verifyGameplayTestConnection(await gameplayTestText(main.sha), await gameplayTestText(pr.sha));
+    gameplayTest = { beforeBlob: await mobileGit('rev-parse', `${main.sha}:${GAMEPLAY_TEST}`),
+      afterBlob: await mobileGit('rev-parse', `${pr.sha}:${GAMEPLAY_TEST}`) };
+  }
+  assert(files.every(file => allowedFiles.has(file) || file === GAMEPLAY_TEST && gameplayTest), '5F-1B: unapproved file change');
   assert.deepEqual(files.filter(file => file.startsWith('src/')).sort(), ['src/main.js', FISHING, EFFECTS].sort(), '5F-1B: unrelated runtime source');
   verifyWaterEffectsConnection(await sourceText(main.sha, 'src/main.js'), await sourceText(pr.sha, 'src/main.js'),
     await sourceText(main.sha, FISHING), await sourceText(pr.sha, FISHING));
@@ -118,6 +144,7 @@ export async function readMobileWaterEffectsTransition(main, pr) {
   return { kind: 'water-effects-5F1B', baseSha: main.sha, validationSha: pr.sha,
     before: { mainBlob: main.mainBlob, fishingViewBlob: main.fishingViewBlob, fishingEffectsBlob: null },
     after: { mainBlob: pr.mainBlob, fishingViewBlob: pr.fishingViewBlob, fishingEffectsBlob: source.blob },
+    ...(gameplayTest ? { gameplayTest } : {}),
     resources: inspectWaterEffectsFactory(source.createFishingEffects) };
 }
 
