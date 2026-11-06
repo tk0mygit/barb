@@ -115,5 +115,8 @@ test('invalid and future saves never reach injected gameplay; defaults restore O
   const original = createSaveData(createGameplay(), { savedAt });
   const restored = restoreSaveData(original);
   assert.deepEqual(createSaveData(restored, { savedAt }), original);
-  bite(restored.fishing); restored.fishing.hook(); assert.equal(restored.fishing.state.fight.qte.enabled, false);
+  const controlled = restoreSaveData(original, {
+    gameplayFactory: options => createGameplay({ ...options, random: () => 0.5 }),
+  });
+  bite(controlled.fishing); controlled.fishing.hook(); assert.equal(controlled.fishing.state.fight.qte.enabled, false);
 });

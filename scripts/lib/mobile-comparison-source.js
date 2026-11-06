@@ -63,6 +63,7 @@ export async function readMobileImplementation(sha) {
     hudLogicBlob: await mobileGit('rev-parse', `${sha}:src/ui/fishing-hud.js`),
     cameraBlob: await mobileGit('rev-parse', `${sha}:src/rendering/camera.js`),
     fishingViewBlob: await mobileGit('rev-parse', `${sha}:src/rendering/fishing.js`),
+    fishingEffectsBlob: (await mobileGit('ls-tree', sha, '--', 'src/rendering/fishing-effects.js')).split(/\s+/)[2] ?? null,
     cameraModel: castCamera ? 'prepared-horizontal-aft-1.25' : 'legacy-transition',
     hudModel: hudSource.includes('[data-cast-view="true"]') ? 'cast-upper-controls' : 'original',
     createCameraRig: cameraModule.createCameraRig };
@@ -94,6 +95,7 @@ export async function assertMobileWorkingSource(implementation) {
     ['src/ui/fishing-hud.js', implementation.hudLogicBlob],
     ['src/rendering/camera.js', implementation.cameraBlob],
     ['src/rendering/fishing.js', implementation.fishingViewBlob],
+    ...(implementation.fishingEffectsBlob ? [['src/rendering/fishing-effects.js', implementation.fishingEffectsBlob]] : []),
     ...(implementation.resolutionBlob ? [['src/rendering/resolution.js', implementation.resolutionBlob]] : [])]) {
     assert.equal(await mobileGit('hash-object', file), expected, `${file}: working source differs from recorded SHA`);
   }

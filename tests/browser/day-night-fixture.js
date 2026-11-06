@@ -127,7 +127,14 @@ export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
           fishingVisible: fishing.visible,
           fishing: fishing.children.filter(child => child.geometry).map(child => ({ id: child.geometry.id, type: child.geometry.type,
             initialized: initializedGeometries.has(child.geometry.id),
-            programKeys: [...(renderer.properties.get(child.material).programs?.values() ?? [])].map(program => program.cacheKey).sort() })) };
+            programKeys: [...(renderer.properties.get(child.material).programs?.values() ?? [])].map(program => program.cacheKey).sort() })),
+          surfaceEffects: (() => {
+            const object = scene.getObjectByName('fishing-water-effects');
+            return object ? { id: object.geometry.id, name: object.name, vertices: object.geometry.attributes.position.count,
+              colorItemSize: object.geometry.attributes.color.itemSize, drawRange: { ...object.geometry.drawRange },
+              initialized: initializedGeometries.has(object.geometry.id), forceSinglePass: object.material.forceSinglePass,
+              programKeys: [...(renderer.properties.get(object.material).programs?.values() ?? [])].map(program => program.cacheKey).sort() } : null;
+          })() };
         // Test-only paired render proves that low wisps contribute pixels;
         // production code exposes no scene controls or capture endpoint.
         probe.captureMistPair = () => {

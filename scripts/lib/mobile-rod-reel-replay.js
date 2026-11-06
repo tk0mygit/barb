@@ -408,8 +408,12 @@ async function loadFishingDisplaySource(sha) {
     three: import.meta.resolve('three'), 'three/addons/utils/BufferGeometryUtils.js': import.meta.resolve('three/addons/utils/BufferGeometryUtils.js'),
     '../game/lures.js': lures }, 'lure models');
   const visuals = compileSource(await fullSource(sha, 'src/rendering/fishing-visuals.js'), {}, 'fishing visuals');
+  const effectsBlob = await optionalBlob(sha, 'src/rendering/fishing-effects.js');
+  const effects = effectsBlob ? compileSource(await fullSource(sha, 'src/rendering/fishing-effects.js'), {
+    three: import.meta.resolve('three') }, 'fishing effects') : null;
   const view = compileSource(await fullSource(sha, FISHING), { three: import.meta.resolve('three'),
-    '../game/fishing.js': game, './fishing-visuals.js': visuals, './lure-models.js': models }, FISHING);
+    '../game/fishing.js': game, './fishing-visuals.js': visuals, './lure-models.js': models,
+    ...(effects ? { './fishing-effects.js': effects } : {}) }, FISHING);
   const equipment = await compileRodReelSources(await fullSource(sha, MODEL), await fullSource(sha, VIEW));
   return { ...source, ...equipment, ...await import(view) };
 }
@@ -417,7 +421,7 @@ async function loadFishingDisplaySource(sha) {
 // Replay the native 150px cast and hold/release fixture from each exact game
 // source. No measured lure position, tension or attached expected state drives
 // this simulation. It also checks the pre-FIGHT phase/time history.
-async function nativeFishingState(implementation, frames) {
+export async function nativeFishingState(implementation, frames, onFrame) {
   assert(Array.isArray(frames) && frames.length, '5F-1A: missing frame history');
   for (const frame of frames) {
     assert(Number.isFinite(frame.dt) && frame.dt >= 0 && frame.dt <= .25, '5F-1A: invalid frame duration');
@@ -443,6 +447,7 @@ async function nativeFishingState(implementation, frames) {
       elapsed += frame.dt; input.step(frame.dt, elapsed * 1000); fishing.step(frame.dt); clock.step(frame.dt);
     } else assert.equal(frame.dt, 0);
     assert.equal(fishing.state.phase, frame.phase, '5F-1A: phase differs from native source replay');
+    onFrame?.({ source, fishing, elapsed, frame });
     if (frame.phase === 'fight') {
       if (stage === 'initial') { input.down(0, 0, elapsed * 1000); stage = 'holding'; }
       else if (stage === 'holding' && fishing.state.tension > .78) { input.up(elapsed * 1000); stage = 'relaxing'; }

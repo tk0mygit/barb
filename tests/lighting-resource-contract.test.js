@@ -99,3 +99,25 @@ test('repeated casts reject geometry identity churn, program churn and extra tex
     assert.throws(() => assertStableResourceIdentities(lure, after));
   }
 });
+
+test('5F-1B surface upload is exactly one owned geometry and one distinct RGBA single-pass program', () => {
+  const make = () => {
+    const { cold, lure } = snapshots();
+    cold.catalog.cpuGeometryIds.push(7); lure.catalog.cpuGeometryIds.push(7);
+    cold.catalog.surfaceEffects = { id: 7, name: 'fishing-water-effects', vertices: 3456, colorItemSize: 4,
+      drawRange: { start: 0, count: 3456 }, forceSinglePass: true, initialized: false, programKeys: [] };
+    lure.catalog.surfaceEffects = { ...structuredClone(cold.catalog.surfaceEffects), initialized: true, programKeys: ['water-rgba'] };
+    lure.catalog.initializedGeometryIds.push(7); lure.catalog.programKeys.push('water-rgba');
+    lure.counts.geometries++; lure.counts.programs++;
+    return { cold, lure };
+  };
+  const p = make(); assertColdFishingResources(p.cold); assertLureInitialization(p.cold, p.lure);
+  assertStableResourceIdentities(p.lure, structuredClone(p.lure));
+  for (const mutate of [q => { q.lure.catalog.surfaceEffects.forceSinglePass = false; },
+    q => { q.lure.catalog.surfaceEffects.vertices++; }, q => { q.lure.catalog.surfaceEffects.colorItemSize = 3; },
+    q => { q.lure.catalog.surfaceEffects.programKeys.push('extra'); }, q => { q.lure.counts.geometries++; },
+    q => { q.lure.counts.programs--; }, q => { q.lure.catalog.surfaceEffects.id = 99; },
+    q => { delete q.lure.catalog.surfaceEffects; }]) {
+    const q = make(); mutate(q); assert.throws(() => assertLureInitialization(q.cold, q.lure));
+  }
+});

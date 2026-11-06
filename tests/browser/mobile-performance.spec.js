@@ -9,6 +9,7 @@ import { MOBILE_COMPARISON_MODES, MOBILE_CAPTURE_IDS, compareMobileCapturePairWi
   verifyMobileSourceCapture, writeMobileComparison } from '../../scripts/compare-mobile-performance.mjs';
 import { mobileGit, readMobileImplementation, mobileSourceMetadata, assertMobileWorkingSource, readMobileFishingText,
   expectedMobileResolution, replayMobileCamera, HISTORICAL_MOBILE_BASE } from '../../scripts/lib/mobile-comparison-source.js';
+import { verifyWaterEffectsCapture, WATER_EFFECTS_BASE } from '../../scripts/lib/mobile-water-effects-replay.js';
 
 const profiles = [
   { id: 'portrait', width: 390, height: 844, dpr: 2, touch: true },
@@ -82,6 +83,8 @@ async function startCapture(page, seconds = 90) {
                 ?? fishing?.children.find(o => o.geometry?.type === 'SphereGeometry' && o.geometry.parameters.radius === .13),
               shadow: fishing?.children.find(o => o.geometry?.type === 'CircleGeometry'),
               line: fishing?.getObjectByName('fishing-line') ?? fishing?.children.find(o => o.isLine) };
+            const waterEffects = scene.getObjectByName('fishing-water-effects');
+            if (waterEffects) fishingObjects.waterEffects = waterEffects;
             const pass = view => {
               submissions = Object.fromEntries(Object.keys(fishingObjects).map(key => [key, { calls: 0, triangles: 0 }]));
               try {
@@ -122,6 +125,13 @@ async function startCapture(page, seconds = 90) {
             const meshes = Object.fromEntries(Object.entries(fishingObjects).map(([key, object]) => [key, object ? {
               visible: visible(object), position: object.position.toArray(), quaternion: object.quaternion.toArray(), scale: object.scale.toArray(),
               vertices: object.geometry.attributes.position.count, indices: object.geometry.index?.count ?? 0,
+              ...(key === 'waterEffects' ? { drawRange: { ...object.geometry.drawRange },
+                positions: Array.from(object.geometry.attributes.position.array), colors: Array.from(object.geometry.attributes.color.array),
+                boundingSphere: { center: object.geometry.boundingSphere.center.toArray(), radius: object.geometry.boundingSphere.radius },
+                material: { type: object.material.type, vertexColors: object.material.vertexColors, side: object.material.side,
+                  forceSinglePass: object.material.forceSinglePass, transparent: object.material.transparent,
+                  depthTest: object.material.depthTest, depthWrite: object.material.depthWrite, fog: object.material.fog },
+              } : {}),
             } : null]));
             window.mobileCameraFrames.push({ update: Boolean(frame), dt: frame?.dt ?? 0, aspect: camera.aspect,
               mode: document.body.classList.contains('fishing') ? 'fishing' : 'sailing',
@@ -220,6 +230,9 @@ async function saveCapture(target, id, page, metrics, info, withLayout = false) 
   const entry = { target, id, comparison, metrics: { ...metrics, cameraExpected, cameraFrames }, image,
     ...(withLayout ? { layout: await layout(page) } : {}) };
   await verifyMobileSourceCapture(implementations[target], entry);
+  if (implementations[target].sha === WATER_EFFECTS_BASE || implementations[target].fishingEffectsBlob) {
+    await verifyWaterEffectsCapture(implementations[target], entry);
+  }
   captures.push(entry);
   await writeFile(resolve(destination, `${target}-${id}.json`), JSON.stringify(entry, null, 2));
   return entry;
