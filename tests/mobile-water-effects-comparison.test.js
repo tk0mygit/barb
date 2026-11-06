@@ -1,19 +1,100 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { mobileGit, readMobileImplementation, mobileSourceMetadata, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
 import { WATER_EFFECTS_BASE, WATER_EFFECTS_BLOB, readMobileWaterEffectsTransition, verifyWaterEffectsConnection,
   inspectWaterEffectsFactory, readWaterEffectsSource } from '../scripts/lib/mobile-water-effects-replay.js';
-import { verifyGameplayTestConnection } from '../scripts/lib/mobile-water-effects-replay.js';
+import { verifyGameplayTestConnection, verifyBuyerRandomTestConnection } from '../scripts/lib/mobile-water-effects-replay.js';
 import { compareMobileCapturesWithSources, compareMobileCapturePairWithSources } from '../scripts/compare-mobile-performance.mjs';
 import { validateMobileEvidence } from '../scripts/ci-summary.js';
 import { waterFixtureCommit, waterGateFixture, waterCapture } from './helpers/water-effects-fixture.js';
 
 const exec = promisify(execFile);
+test('only the buyer crypto spy repair reverses completely; sales assertions, RNG, inputs, file bytes and modes stay protected through the final gate', async () => {
+  const path = 'tests/browser/fish-sales.spec.js', base = await readMobileImplementation(WATER_EFFECTS_BASE);
+  const before = (await exec('git', ['show', `${base.sha}:${path}`])).stdout;
+  const after = await readFile(new URL('browser/fish-sales.spec.js', import.meta.url), 'utf8');
+  verifyBuyerRandomTestConnection(before, after);
+  const head = await readMobileImplementation(waterFixtureCommit({ [path]: after }));
+  const proof = await readMobileWaterEffectsTransition(base, head);
+  assert.deepEqual(proof.buyerRandomTest, { beforeBlob: await mobileGit('rev-parse', `${base.sha}:${path}`),
+    afterBlob: await mobileGit('rev-parse', `${head.sha}:${path}`) });
+  for (const invalid of [after + '\n', after + after, ...[
+    ['array instanceof Uint32Array', 'ArrayBuffer.isView(array)'], ['array.length === 1', 'array.length <= 16'],
+    ['crypto.getRandomValues.bind(crypto)', 'crypto.getRandomValues'],
+    ['return originalGetRandomValues(array);', 'array.fill(0); return array;'],
+    ['return 0.1;', 'return 0.2;'], ['window.buyerRandomCalls)).toBe(2)', 'window.buyerRandomCalls)).toBe(3)'],
+    ['window.buyerRandomCalls)).toBe(4)', 'window.buyerRandomCalls)).toBe(5)'],
+    ['window.buyerRandomCalls)).toBe(6)', 'window.buyerRandomCalls)).toBe(7)'],
+    ['await assertMoney(first.price);', ''], ['expect(notice).toBe(', 'expect(notice).not.toBe('],
+    ['expect(errors).toEqual([]);', ''], ['await page.reload();', ''],
+    ['180000', '240000'], ['i < 100', 'i < 200'], ['page.clock.fastForward(250)', 'page.clock.fastForward(500)'],
+    ['individual and confirmed bulk sales', 'renamed sales test'],
+  ].map(([from, to]) => { const invalid = after.replace(from, to); assert.notEqual(invalid, after); return invalid; })]) {
+    assert.throws(() => verifyBuyerRandomTestConnection(before, invalid), /5F-1B/);
+    await assert.rejects(readMobileWaterEffectsTransition(base,
+      await readMobileImplementation(waterFixtureCommit({ [path]: invalid }))), /5F-1B/);
+  }
+  // Mutate only synthetic Git trees, never the checkout or its index.
+  for (const mode of ['100755', '120000']) {
+    let object = await mobileGit('rev-parse', `${head.sha}:${path}`);
+    for (const [tree, name, descriptor] of [['tests/browser', 'fish-sales.spec.js', `${mode} blob`],
+      ['tests', 'browser', '040000 tree'], ['', 'tests', '040000 tree']]) {
+      const rows = execFileSync('git', ['ls-tree', '-z', `${head.sha}${tree ? `:${tree}` : '^{tree}'}`], { encoding: 'utf8' }).split('\0').filter(Boolean);
+      const index = rows.findIndex(row => row.split('\t')[1] === name); assert(index >= 0);
+      rows[index] = `${descriptor} ${object}\t${name}`;
+      object = execFileSync('git', ['mktree', '-z'], { input: rows.join('\0') + '\0', encoding: 'utf8' }).trim();
+    }
+    const sha = execFileSync('git', ['-c', 'user.name=Surface unit fixture', '-c', 'user.email=unit@example.invalid',
+      'commit-tree', object, '-p', head.sha], { input: 'Synthetic invalid sales-test mode\n', encoding: 'utf8' }).trim();
+    await assert.rejects(readMobileWaterEffectsTransition(base, await readMobileImplementation(sha)), /buyer random test file mode\/type/);
+  }
+  const p = await waterGateFixture(), metadata = { ...p.metadata, headSha: head.sha, validationSha: head.sha,
+    implementations: { ...p.metadata.implementations, pr: mobileSourceMetadata(head) } };
+  const rows = await compareMobileCapturesWithSources(p.before, p.after, metadata);
+  assert.equal(rows.length, 34);
+  for (const row of rows) assert.deepEqual(row.waterEffectsComparison.proof.buyerRandomTest, proof.buyerRandomTest);
+  const payload = { record: { files: p.files }, mobile: { metadata, before: p.before, after: p.after, comparison: { metadata, rows } } };
+  assert.equal(await validateMobileEvidence(payload, metadata), 34);
+  const forged = structuredClone(payload);
+  forged.mobile.comparison.rows[0].waterEffectsComparison.proof.buyerRandomTest.afterBlob = '0'.repeat(40);
+  await assert.rejects(validateMobileEvidence(forged, metadata), /report differs from captures/);
+});
+
+test('the actual sales init script counts only buyer words and delegates other types to native crypto with its receiver', async () => {
+  const before = (await exec('git', ['show', `${WATER_EFFECTS_BASE}:tests/browser/fish-sales.spec.js`])).stdout;
+  const after = await readFile(new URL('browser/fish-sales.spec.js', import.meta.url), 'utf8');
+  function install(text) {
+    const nativeCalls = [], crypto = { getRandomValues(array) {
+      assert.equal(this, crypto); nativeCalls.push([array.constructor.name, array.length]);
+      return globalThis.crypto.getRandomValues(array);
+    } };
+    const scope = { window: {}, Math: { random: Math.random }, Uint32Array, crypto };
+    const body = text.match(/await page.addInitScript\(\(\) => \{([\s\S]*?)\n    \}\);/)[1];
+    runInNewContext(body, scope); return { scope, nativeCalls };
+  }
+  const legacy = install(before);
+  for (const length of [16, 1, 1]) legacy.scope.crypto.getRandomValues(new Uint32Array(length));
+  assert.equal(legacy.scope.window.buyerRandomCalls, 3);
+  const { scope, nativeCalls } = install(after), words = new Uint32Array(16);
+  assert.equal(scope.crypto.getRandomValues(words), words);
+  assert.equal(scope.window.buyerRandomCalls, 0);
+  for (let sale = 1; sale <= 3; sale++) {
+    for (let draw = 0; draw < 2; draw++) assert.equal(scope.crypto.getRandomValues(new Uint32Array([123]))[0], 0);
+    assert.equal(scope.window.buyerRandomCalls, sale * 2);
+  }
+  for (const array of [new Uint32Array(2), new Uint8Array(8)]) assert.equal(scope.crypto.getRandomValues(array), array);
+  assert.throws(() => scope.crypto.getRandomValues(new Float32Array(1)), { name: 'TypeMismatchError' });
+  assert.deepEqual(nativeCalls, [['Uint32Array', 16], ['Uint32Array', 2], ['Uint8Array', 8], ['Float32Array', 1]]);
+  assert.equal(scope.window.buyerRandomCalls, 6); assert.equal(scope.window.fishingRandomCalls, 0);
+  assert.equal(scope.Math.random(), .1); assert.equal(scope.window.fishingRandomCalls, 1); assert.equal(scope.window.buyerRandomCalls, 6);
+});
+
 test('only the approved separate deterministic restore test reverses exactly; default restore, limits, assertions and QTE defaults remain protected', async () => {
   const base = await readMobileImplementation(WATER_EFFECTS_BASE);
   const before = (await exec('git', ['show', `${base.sha}:tests/gameplay.test.js`])).stdout;

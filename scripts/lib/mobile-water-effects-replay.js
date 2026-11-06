@@ -11,8 +11,10 @@ export const WATER_EFFECTS_BLOB = '8fd4a573948271c9c673fe841f0c071c5a8e900a';
 export const WATER_CAPTURE_BLOB = '14d2dff5ad346f80693c91306f0a1c6f37e5bc0e';
 const EFFECTS = 'src/rendering/fishing-effects.js', FISHING = 'src/rendering/fishing.js';
 const GAMEPLAY_TEST = 'tests/gameplay.test.js';
+const BUYER_RANDOM_TEST = 'tests/browser/fish-sales.spec.js';
 const rawGit = promisify(execFile);
 const gameplayTestText = async sha => (await rawGit('git', ['show', `${sha}:${GAMEPLAY_TEST}`])).stdout;
+const buyerRandomTestText = async sha => (await rawGit('git', ['show', `${sha}:${BUYER_RANDOM_TEST}`])).stdout;
 const sourceText = (sha, path) => mobileGit('show', `${sha}:${path}`);
 const allowedFiles = new Set([
   'src/main.js', FISHING, EFFECTS,
@@ -44,6 +46,26 @@ export function verifyGameplayTestConnection(before, after) {
     + '  bite(controlled.fishing); controlled.fishing.hook(); assert.equal(controlled.fishing.state.fight.qte.enabled, false);';
   assert.equal(reverse(after, [[repaired, original]], 'gameplay test RNG'), before,
     '5F-1B: unrelated gameplay test change');
+}
+
+// Authenticate only the approved crypto spy repair, preserving the complete
+// sales test (including fishing RNG, prices, dialogue and all 2/4/6 assertions).
+export function verifyBuyerRandomTestConnection(before, after) {
+  const original = '      window.buyerRandomCalls = 0;\n'
+    + '      crypto.getRandomValues = array => { window.buyerRandomCalls++; array[0] = 0; return array; };';
+  const repaired = '      const originalGetRandomValues = crypto.getRandomValues.bind(crypto);\n'
+    + '      window.buyerRandomCalls = 0;\n'
+    + '      // Visual UUID: 16 words / buyer picker: 1 word. Keep other entropy native.\n'
+    + '      crypto.getRandomValues = array => {\n'
+    + '        if (array instanceof Uint32Array && array.length === 1) {\n'
+    + '          window.buyerRandomCalls++;\n'
+    + '          array[0] = 0;\n'
+    + '          return array;\n'
+    + '        }\n'
+    + '        return originalGetRandomValues(array);\n'
+    + '      };';
+  assert.equal(reverse(after, [[repaired, original]], 'buyer crypto spy'), before,
+    '5F-1B: unrelated buyer random test change');
 }
 
 // These are ALL production edits, not a path-only allowance. Reverse both
@@ -135,7 +157,16 @@ export async function readMobileWaterEffectsTransition(main, pr) {
     gameplayTest = { beforeBlob: await mobileGit('rev-parse', `${main.sha}:${GAMEPLAY_TEST}`),
       afterBlob: await mobileGit('rev-parse', `${pr.sha}:${GAMEPLAY_TEST}`) };
   }
-  assert(files.every(file => allowedFiles.has(file) || file === GAMEPLAY_TEST && gameplayTest), '5F-1B: unapproved file change');
+  let buyerRandomTest;
+  if (files.includes(BUYER_RANDOM_TEST)) {
+    for (const sha of [main.sha, pr.sha]) assert.match(await mobileGit('ls-tree', sha, '--', BUYER_RANDOM_TEST), /^100644 blob /,
+      '5F-1B: buyer random test file mode/type changed');
+    verifyBuyerRandomTestConnection(await buyerRandomTestText(main.sha), await buyerRandomTestText(pr.sha));
+    buyerRandomTest = { beforeBlob: await mobileGit('rev-parse', `${main.sha}:${BUYER_RANDOM_TEST}`),
+      afterBlob: await mobileGit('rev-parse', `${pr.sha}:${BUYER_RANDOM_TEST}`) };
+  }
+  assert(files.every(file => allowedFiles.has(file) || file === GAMEPLAY_TEST && gameplayTest
+    || file === BUYER_RANDOM_TEST && buyerRandomTest), '5F-1B: unapproved file change');
   assert.deepEqual(files.filter(file => file.startsWith('src/')).sort(), ['src/main.js', FISHING, EFFECTS].sort(), '5F-1B: unrelated runtime source');
   verifyWaterEffectsConnection(await sourceText(main.sha, 'src/main.js'), await sourceText(pr.sha, 'src/main.js'),
     await sourceText(main.sha, FISHING), await sourceText(pr.sha, FISHING));
@@ -145,6 +176,7 @@ export async function readMobileWaterEffectsTransition(main, pr) {
     before: { mainBlob: main.mainBlob, fishingViewBlob: main.fishingViewBlob, fishingEffectsBlob: null },
     after: { mainBlob: pr.mainBlob, fishingViewBlob: pr.fishingViewBlob, fishingEffectsBlob: source.blob },
     ...(gameplayTest ? { gameplayTest } : {}),
+    ...(buyerRandomTest ? { buyerRandomTest } : {}),
     resources: inspectWaterEffectsFactory(source.createFishingEffects) };
 }
 

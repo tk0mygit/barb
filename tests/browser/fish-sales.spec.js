@@ -13,8 +13,17 @@ for (const touch of [false, true]) {
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
       window.fishingRandomCalls = 0; Math.random = () => { window.fishingRandomCalls++; return 0.1; };
+      const originalGetRandomValues = crypto.getRandomValues.bind(crypto);
       window.buyerRandomCalls = 0;
-      crypto.getRandomValues = array => { window.buyerRandomCalls++; array[0] = 0; return array; };
+      // Visual UUID: 16 words / buyer picker: 1 word. Keep other entropy native.
+      crypto.getRandomValues = array => {
+        if (array instanceof Uint32Array && array.length === 1) {
+          window.buyerRandomCalls++;
+          array[0] = 0;
+          return array;
+        }
+        return originalGetRandomValues(array);
+      };
     });
     await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
     await expect(page.locator('#wallet-balance')).toHaveText(money(0));
