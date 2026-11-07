@@ -14,6 +14,9 @@ export const APPEARANCE_WEIGHTS = Object.freeze({
   'rock-bass': 7, 'freshwater-drum': 5, 'white-bass': 5, 'brook-trout': 3.5,
   'striped-bass': 3.5, burbot: 3, grayling: 3, 'lake-trout': 3,
   'arctic-char': 3, bowfin: 3.5, 'murray-cod': 2.5, 'golden-dorado': 3,
+  'red-bellied-piranha': 3.5, barramundi: 3,
+  muskellunge: 1.5, 'peacock-bass': 1.4, 'northern-snakehead': 1.5,
+  'lake-sturgeon': 1, arapaima: 0.8, payara: 1.2,
 });
 
 export function normalizeEncounterConditions(conditions) {

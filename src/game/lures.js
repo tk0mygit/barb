@@ -13,6 +13,8 @@ export const LURES = Object.freeze([
     'rock-bass': 0.85, 'freshwater-drum': 0.85, 'white-bass': 1.60, 'brook-trout': 1.60,
     'striped-bass': 1.60, burbot: 0.85, grayling: 1.60, 'lake-trout': 0.85,
     'arctic-char': 1.60, bowfin: 0.85, 'murray-cod': 0.85, 'golden-dorado': 0.85,
+    'red-bellied-piranha': 0.85, barramundi: 1.60, muskellunge: 0.85, 'peacock-bass': 1.60,
+    'northern-snakehead': 0.85, 'lake-sturgeon': 0.85, arapaima: 1.60, payara: 1.60,
   }),
   lure('crankbait', 'クランクベイト', 1, {
     'black-bass': 1.5, 'smallmouth-bass': 1.5, bluegill: 0.8,
@@ -23,6 +25,8 @@ export const LURES = Object.freeze([
     'rock-bass': 1.60, 'freshwater-drum': 0.85, 'white-bass': 0.85, 'brook-trout': 0.85,
     'striped-bass': 0.85, burbot: 0.85, grayling: 0.85, 'lake-trout': 1.60,
     'arctic-char': 0.85, bowfin: 0.85, 'murray-cod': 1.60, 'golden-dorado': 0.85,
+    'red-bellied-piranha': 0.85, barramundi: 0.85, muskellunge: 0.85, 'peacock-bass': 0.85,
+    'northern-snakehead': 0.85, 'lake-sturgeon': 0.85, arapaima: 0.85, payara: 0.85,
   }),
   lure('worm', 'ワーム', 0.9, {
     'black-bass': 1.5, 'smallmouth-bass': 1.1, bluegill: 1.8,
@@ -33,6 +37,8 @@ export const LURES = Object.freeze([
     'rock-bass': 0.85, 'freshwater-drum': 1.60, 'white-bass': 0.85, 'brook-trout': 0.85,
     'striped-bass': 0.85, burbot: 1.60, grayling: 0.85, 'lake-trout': 0.85,
     'arctic-char': 0.85, bowfin: 0.85, 'murray-cod': 0.85, 'golden-dorado': 0.85,
+    'red-bellied-piranha': 1.60, barramundi: 0.85, muskellunge: 0.85, 'peacock-bass': 0.85,
+    'northern-snakehead': 0.85, 'lake-sturgeon': 1.60, arapaima: 0.85, payara: 0.85,
   }),
   lure('spinnerbait', 'スピナーベイト', 1.1, {
     'black-bass': 1.5, 'smallmouth-bass': 1.3, bluegill: 0.5,
@@ -43,6 +49,8 @@ export const LURES = Object.freeze([
     'rock-bass': 0.85, 'freshwater-drum': 0.85, 'white-bass': 0.85, 'brook-trout': 0.85,
     'striped-bass': 0.85, burbot: 0.85, grayling: 0.85, 'lake-trout': 0.85,
     'arctic-char': 0.85, bowfin: 1.60, 'murray-cod': 0.85, 'golden-dorado': 1.60,
+    'red-bellied-piranha': 0.85, barramundi: 0.85, muskellunge: 1.60, 'peacock-bass': 0.85,
+    'northern-snakehead': 1.60, 'lake-sturgeon': 0.85, arapaima: 0.85, payara: 0.85,
   }),
 ]);
 export const DEFAULT_LURE_ID = 'minnow';

@@ -32,6 +32,14 @@ export const FISH_ENVIRONMENT_AFFINITIES = Object.freeze({
   bowfin: profile(1.40, 0.90, 0.90, 0.90, 1.25),
   'murray-cod': profile(0.90, 1.40, 0.90, 0.90, 1.25),
   'golden-dorado': profile(0.90, 1.40, 0.90, 1.25, 0.90),
+  'red-bellied-piranha': profile(1.40, 0.90, 0.90, 0.90, 1.25),
+  barramundi: profile(1.40, 0.90, 0.90, 0.90, 1.25),
+  muskellunge: profile(0.90, 1.40, 0.90, 1.25, 0.90),
+  'peacock-bass': profile(1.40, 0.90, 0.90, 1.25, 0.90),
+  'northern-snakehead': profile(1.40, 0.90, 0.90, 0.90, 1.25),
+  'lake-sturgeon': profile(0.90, 0.90, 1.40, 0.90, 1.25),
+  arapaima: profile(1.40, 0.90, 0.90, 0.90, 1.25),
+  payara: profile(0.90, 1.40, 0.90, 0.90, 1.25),
 });
 export const LURE_DEPTH_AFFINITIES = Object.freeze({
   minnow: Object.freeze({ shallow: 1.15, mid: 1, deep: 0.85 }),

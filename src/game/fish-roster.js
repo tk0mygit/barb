@@ -12,3 +12,10 @@ export const PHASE6A_FISH_SPECIES_IDS = Object.freeze([
   'common-carp', 'tench', 'pumpkinseed', 'black-crappie',
   'rock-bass', 'freshwater-drum', 'white-bass', 'brook-trout',
 ]);
+
+// Exact historical V3 revision2 roster; later fish never enter this source set.
+export const PHASE6B_FISH_SPECIES_IDS = Object.freeze([
+  ...PHASE6A_FISH_SPECIES_IDS,
+  'striped-bass', 'burbot', 'grayling', 'lake-trout',
+  'arctic-char', 'bowfin', 'murray-cod', 'golden-dorado',
+]);
