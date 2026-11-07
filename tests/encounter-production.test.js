@@ -53,11 +53,11 @@ function bite(f, dt = 1 / 60, flick = false) {
   return frames;
 }
 
-test('production model and all ten immutable species modifier tables use exactly the approved 12 fish', () => {
-  assert.equal(encounterModel.definitions.species.length, 12);
+test('production model and all ten immutable species modifier tables use exactly the approved 20 fish', () => {
+  assert.equal(encounterModel.definitions.species.length, 20);
   assert.deepEqual(encounterModel.definitions.species, FISH_SPECIES);
   assert.deepEqual(encounterModel.definitions.tiers, FISH_RARITY);
-  assert.deepEqual(FISH_TIERS.map(tier => Object.values(FISH_RARITY).filter(value => value === tier).length), [5, 4, 3]);
+  assert.deepEqual(FISH_TIERS.map(tier => Object.values(FISH_RARITY).filter(value => value === tier).length), [12, 5, 3]);
   for (let level = 1; level <= 10; level++) {
     const modifiers = getRodEncounterModifiers(level), row = getEquipmentLevel('rod', level);
     assert.equal(getRodEncounterModifiers(level), modifiers);
@@ -77,7 +77,7 @@ test('production model and all ten immutable species modifier tables use exactly
   }
 });
 
-test('Lv.1–5 each exactly retain all 288 legacy weights, totals and probabilities; Lv.6–10 match reference normalization', t => {
+test('Lv.1–5 match all 480 twenty-species cells; Lv.6–10 match reference normalization', t => {
   const uncommonDecreases = [];
   for (const lure of LURES) for (const conditions of environments) {
     let previous;
@@ -105,9 +105,12 @@ test('Lv.1–5 each exactly retain all 288 legacy weights, totals and probabilit
       previous = tier;
     }
   }
-  assert.deepEqual(uncommonDecreases, ['spinnerbait/1/day', 'spinnerbait/1/night', 'spinnerbait/5/night']);
-  t.diagnostic('Lv.1–5: 1440/1440 exact legacy cells (max difference 0); Lv.6–10: 1440/1440 reference cells');
-  t.diagnostic('Uncommon/Common and Rare/Common odds rise in all 24 conditions; normalized Uncommon falls in the 3 documented spinnerbait conditions');
+  // Seven extra Common fish change the denominator: the old three absolute
+  // Uncommon decreases no longer occur. Pairwise old-fish odds are separately
+  // pinned against the pre-6A data in phase6a.test.js.
+  assert.deepEqual(uncommonDecreases, []);
+  t.diagnostic('Lv.1–5: 2400/2400 cells match legacy API; Lv.6–10: 2400/2400 reference cells');
+  t.diagnostic('Uncommon/Common and Rare/Common odds rise in all 24 conditions; no absolute Uncommon decrease in the twenty-species roster');
 });
 
 test('neutral and malformed conditions, legacy mutable returns and species RNG boundaries remain compatible', () => {
@@ -135,7 +138,7 @@ test('neutral and malformed conditions, legacy mutable returns and species RNG b
     }
   }
   const mutable = getSpeciesProbabilities('minnow'); mutable[0].weight = 0; mutable.pop();
-  assert.equal(getSpeciesProbabilities('minnow').length, 12);
+  assert.equal(getSpeciesProbabilities('minnow').length, 20);
   assert.equal(getSpeciesProbabilities('minnow')[0].weight, 26.400000000000002);
 });
 
@@ -225,10 +228,16 @@ test('production methods retain fail-closed modifier, lure and random checks wit
 test('active rod purchases cannot change the prepared Tier distribution, including a roll that changes species at Lv.10', () => {
   for (const level of [1, 6]) for (const stage of ['aim', 'cast', 'lure', 'bite', 'fight']) {
     const collection = collectionAt(level);
-    const oldSpecies = pick(reference('spinnerbait', undefined, level), 0.5);
-    const newSpecies = pick(reference('spinnerbait', undefined, 10), 0.5);
+    const before = reference('spinnerbait', undefined, level), after = reference('spinnerbait', undefined, 10);
+    const cuts = entries => { let sum = 0; return [0, ...entries.map(entry => sum += entry.probability), 1]; };
+    const boundaries = [...new Set([...cuts(before), ...cuts(after)])].sort((a,b) => a-b);
+    const roll = boundaries.slice(1).map((value,i) => (value+boundaries[i])/2).sort((a,b) => Math.abs(a-.5)-Math.abs(b-.5))
+      .find(value => pick(before,value).id !== pick(after,value).id && pick(before,value).fight.baseResistance > .75);
+    assert.ok(Number.isFinite(roll));
+    const oldSpecies = pick(before, roll);
+    const newSpecies = pick(after, roll);
     assert.notEqual(oldSpecies.id, newSpecies.id);
-    const f = createFishing({ collection, random: () => 0.5 }); f.selectLure('spinnerbait');
+    const f = createFishing({ collection, random: () => roll }); f.selectLure('spinnerbait');
     assert.equal(f.prepare({ x: 0, z: 30 }, 0), true); f.aim(0, 180);
     if (stage !== 'aim') f.cast();
     if (['lure', 'bite', 'fight'].includes(stage)) f.step(0.801);

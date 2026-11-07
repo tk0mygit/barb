@@ -45,16 +45,16 @@ export async function activateControl(page, id, touch) {
   }, before.eventSequence)).toEqual({ clicks: [{ target: id, trusted: true }], pointerTargets: [id] });
 }
 
-export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
+export async function setup(page, elapsedSeconds, { freeze = true, randomValue = .5 } = {}) {
   const data = createLightingSave(elapsedSeconds);
   // Observe the actual production renderer via Three.js's existing devtools
   // event. No production debug API, source rewrite or forced game state.
-  await page.addInitScript(data => {
+  await page.addInitScript(({ data, randomValue }) => {
     if (!sessionStorage.getItem('lighting-seeded')) {
       localStorage.setItem('barb.save.v1.slotA', JSON.stringify({ storageVersion: 1, generation: 1, data }));
       sessionStorage.setItem('lighting-seeded', 'yes');
     }
-    Math.random = () => 0.5;
+    Math.random = () => randomValue;
     window.lightingProbe = { first: null, last: null, renders: 0 };
     window.__THREE_DEVTOOLS__ = new EventTarget();
     window.__THREE_DEVTOOLS__.addEventListener('observe', ({ detail: renderer }) => {
@@ -157,7 +157,7 @@ export async function setup(page, elapsedSeconds, { freeze = true } = {}) {
         return result;
       };
     });
-  }, data);
+  }, { data, randomValue });
   if (freeze) {
     await installPausedClock(page, now);
   }

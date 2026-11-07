@@ -3,6 +3,7 @@ import { getEquipmentLevel } from './equipment.js';
 import { calculateSalePrice, addMoney } from './fish-sales.js';
 import { getLure } from './lures.js';
 import { getDepthBand } from '../world/depth.js';
+import { ORIGINAL_FISH_SPECIES_IDS } from './fish-roster.js';
 
 // Transport limits, not gameplay/storage capacity. Keep traversal shallow and
 // bounded even for direct object input; never recursively copy unknown fields.
@@ -90,7 +91,7 @@ function conditionsData(value, path) {
   return Object.freeze(result);
 }
 
-function collectionData(value, legacy) {
+function collectionData(value, legacy, originalRoster = false) {
   objectFields(value, ['catches', 'wallet', 'equipment'], [], 'collection');
   arrayData(value.catches, SAVE_LIMITS.catches, 'collection.catches');
   const ids = new Set();
@@ -106,6 +107,7 @@ function collectionData(value, legacy) {
     requireValid(record.id.length <= SAVE_LIMITS.idCharacters, `${path}.id`, 'input-too-large');
     requireValid(!ids.has(record.id), `${path}.id`); ids.add(record.id);
     requireValid(typeof record.speciesId === 'string' && !!getFishSpecies(record.speciesId), `${path}.speciesId`);
+    if (originalRoster) requireValid(ORIGINAL_FISH_SPECIES_IDS.includes(record.speciesId), `${path}.speciesId`);
     finite(record.lengthCm, `${path}.lengthCm`); finite(record.weightKg, `${path}.weightKg`);
     requireValid(record.lengthCm > 0 && record.weightKg > 0, path);
     // Keep positive legacy sizes, but ensure each fish can still be quoted.
@@ -137,5 +139,5 @@ function collectionData(value, legacy) {
 // Direct domain restoration accepts canonical V2 records only. Legacy data
 // must be selected explicitly by the outer saveVersion, never inferred from
 // missing fields. V1's exact old field list rejects even an explicit count 0.
-export function validateCollectionData(value) { return collectionData(value, false); }
-export function validateLegacyCollectionData(value) { return collectionData(value, true); }
+export function validateCollectionData(value, { originalRoster = false } = {}) { return collectionData(value, false, originalRoster); }
+export function validateLegacyCollectionData(value) { return collectionData(value, true, true); }

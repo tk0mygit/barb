@@ -30,5 +30,8 @@ export function gearSave({ level = 1, version = 2, seconds = 90, balance = 0 } =
     boat: createBoatState({ x: 10, z: 20, heading: 0 }), clock: createGameClock(undefined, { elapsedSeconds: seconds }) },
   { savedAt: '2026-11-02T00:00:00.000Z' });
   // Empty-history V1 is its real wire schema: no V2 catch fields to remove.
-  return validateSaveData({ ...data, saveVersion: version });
+  const { rosterRevision, ...legacy } = data;
+  const legacyCatches = data.collection.catches.map(({ qteSuccessCount, ...record }) => version === 1 ? record : { ...record, qteSuccessCount });
+  return validateSaveData({ ...legacy, saveVersion: version,
+    collection: { ...data.collection, catches: legacyCatches }, achievements: { ...data.achievements, contractVersion: 2 } });
 }

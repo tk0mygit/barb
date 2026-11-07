@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
+import { ORIGINAL_FISH_SPECIES_IDS } from '../src/game/fish-roster.js';
+import { measureArtworkAlpha, assertArtworkAlpha } from '../scripts/lib/fish-artwork-alpha.js';
 import { FISH_SPECIES } from '../src/game/fish-species.js';
 import { validateFishImage } from '../scripts/lib/fish-image-validation.js';
 
@@ -40,10 +42,10 @@ function artworkPixels(bytes, width, height) {
   return rgba;
 }
 
-test('all 12 finished fish PNGs meet dimensions, size, sRGB and clear-border requirements', async t => {
+test('all 20 finished fish PNGs meet dimensions, size, sRGB and clear-border requirements', async t => {
   const directory = new URL('../src/assets/fish/', import.meta.url);
   assert.deepEqual(readdirSync(directory).filter(name => name.endsWith('.png')).sort(),
-    FISH_SPECIES.map(fish => `${fish.id}.png`).sort(), 'production contains exactly the 12 species PNGs and no test PNG');
+    FISH_SPECIES.map(fish => `${fish.id}.png`).sort(), 'production contains exactly the 20 species PNGs and no test PNG');
   assert.equal(validateFishImage('unknown.svg', readFileSync(new URL('unknown.svg', directory))).format, 'svg');
   const hashes = new Set();
   const fixtureHash = createHash('sha256').update(readFileSync(new URL('./fixtures/fish-assets/transparent-test.png', import.meta.url))).digest('hex');
@@ -75,10 +77,13 @@ test('all 12 finished fish PNGs meet dimensions, size, sRGB and clear-border req
         assert.equal(alpha, 0, `nontransparent background at perimeter (${x}, ${y})`);
       }
     }
-    assert.ok(clear > 0 && opaque > 0 && visible > 0, 'actual transparent background and visible fish pixels');
+    assert.ok(clear > 0 && visible > 0, 'actual transparent background and visible fish pixels');
+    if (ORIGINAL_FISH_SPECIES_IDS.includes(fish.id)) assert.ok(opaque > 0, 'original opaque fish pixels');
+    assertArtworkAlpha(measureArtworkAlpha(pixels, image.width, image.height), { legacy: ORIGINAL_FISH_SPECIES_IDS.includes(fish.id), id: fish.id });
     assert.ok(minX >= 8 && minY >= 8 && maxX < image.width - 8 && maxY < image.height - 8,
       'fish and fin tips retain at least eight clear pixels on every side');
   });
-  assert.equal(hashes.size, 12);
-  assert.ok(totalBytes <= 8 * 1024 * 1024, `${totalBytes} total bytes exceeds the complete artwork budget`);
+  assert.equal(hashes.size, 20);
+  assert.equal(totalBytes, 11012560, 'exact approved 20-image total');
+  assert.ok(totalBytes <= 20 * 1024 * 1024, 'Phase 6 review threshold');
 });

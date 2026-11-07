@@ -63,7 +63,7 @@ for (const touch of [false, true]) for (const operation of ['flick', 'swipe', 't
     }
     await page.clock.fastForward(1250);
     const sold = (await latest(page)).data;
-    expect(sold.saveVersion).toBe(2);
+    expect(sold.saveVersion).toBe(3);
     expect(sold.collection.catches.at(-1)).toMatchObject({ qteSuccessCount: successes, salePrice: price, disposition: 'sold' });
     expect(sold.collection.wallet).toEqual({ balance: (save ? 777 : 0) + price, lifetimeSales: (save ? 777 : 0) + price });
     if (save) {
@@ -100,7 +100,7 @@ for (const touch of [false, true]) for (const variant of ['new', 'v1', 'v2']) te
   await expect(page.locator('#catch-qte-bonus')).toHaveText('QTE成功0回／ボーナス+0 Value');
   await input.click(page.locator('#sell-catch')); await page.clock.fastForward(1250);
   const saved = (await latest(page)).data;
-  expect(saved.saveVersion).toBe(2); expect(saved.collection.catches.at(-1).salePrice).toBe(price);
+  expect(saved.saveVersion).toBe(3); expect(saved.collection.catches.at(-1).salePrice).toBe(price);
   expect(saved.collection.catches.at(-1).qteSuccessCount).toBe(0);
   await page.goto('./'); await page.clock.fastForward(32);
   await expect(page.locator('#status')).toBeHidden();

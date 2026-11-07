@@ -16,6 +16,14 @@ export const FISH_ENVIRONMENT_AFFINITIES = Object.freeze({
   catfish: profile(1.1, 1.05, 1.2, 0.85, 1.25),
   'alligator-gar': profile(1.2, 1.1, 0.85, 1.05, 1.1),
   arowana: profile(1.3, 1, 0.75, 1.1, 1),
+  'common-carp': profile(1.40, 0.90, 0.90, 1.25, 0.90),
+  tench: profile(1.40, 0.90, 0.90, 0.90, 1.25),
+  pumpkinseed: profile(1.40, 0.90, 0.90, 1.25, 0.90),
+  'black-crappie': profile(0.90, 1.40, 0.90, 0.90, 1.25),
+  'rock-bass': profile(0.90, 1.40, 0.90, 1.25, 0.90),
+  'freshwater-drum': profile(0.90, 0.90, 1.40, 0.90, 1.25),
+  'white-bass': profile(0.90, 1.40, 0.90, 1.25, 0.90),
+  'brook-trout': profile(0.90, 1.40, 0.90, 1.25, 0.90),
 });
 export const LURE_DEPTH_AFFINITIES = Object.freeze({
   minnow: Object.freeze({ shallow: 1.15, mid: 1, deep: 0.85 }),

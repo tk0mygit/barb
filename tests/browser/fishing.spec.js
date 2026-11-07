@@ -520,12 +520,12 @@ test('all 12 species: production cast, hook, fight, matching result image and re
   await page.locator('#menu-button').click({ force: true });
   await page.locator('[data-view="encyclopedia"]').click({ force: true });
   expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
-  await expect(page.locator('button.fish-card')).toHaveCount(12);
+  await expect(page.locator('button.fish-card')).toHaveCount(20);
   await page.screenshot({ path: 'test-results/encyclopedia-discovered.png', animations: 'disabled' });
   await page.locator('#collection-back').click({ force: true });
   await page.locator('[data-view="storage"]').click({ force: true });
-  await expect(page.locator('.stored-fish')).toHaveCount(12);
-  expect(new Set(await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId))).size).toBe(12);
+  await expect(page.locator('.stored-fish')).toHaveCount(20);
+  expect(new Set(await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId))).size).toBe(20);
   const scroll = await page.locator('#collection-content').evaluate(el => { el.scrollTop = el.scrollHeight; return { top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight }; });
   expect(scroll.height).toBeGreaterThan(scroll.client); expect(scroll.top).toBeGreaterThan(0);
   await page.locator('#collection-close').click({ force: true });
@@ -534,7 +534,7 @@ test('all 12 species: production cast, hook, fight, matching result image and re
     .filter(Boolean).map(JSON.parse).sort((a, b) => b.generation - a.generation)[0].data.collection.catches.map(record => record.qteSuccessCount));
   expect(counts).toEqual(confirmedCounts);
   await page.locator('#menu-button').click(); await page.locator('[data-view="storage"]').click();
-  await expect(page.locator('.stored-fish')).toHaveCount(12);
+  await expect(page.locator('.stored-fish')).toHaveCount(20);
   await page.locator('#collection-back').click(); await page.locator('[data-view="encyclopedia"]').click();
   expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
 });

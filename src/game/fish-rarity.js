@@ -16,6 +16,14 @@ export const FISH_RARITY = Object.freeze({
   catfish: 'Uncommon',
   'alligator-gar': 'Rare',
   arowana: 'Rare',
+  'common-carp': 'Common',
+  tench: 'Common',
+  pumpkinseed: 'Common',
+  'black-crappie': 'Common',
+  'rock-bass': 'Common',
+  'freshwater-drum': 'Common',
+  'white-bass': 'Common',
+  'brook-trout': 'Uncommon',
 });
 
 export function getFishTier(speciesId) {

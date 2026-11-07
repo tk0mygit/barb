@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { ORIGINAL_FISH_SPECIES_IDS } from '../src/game/fish-roster.js';
 import { createHash } from 'node:crypto';
 import { FISH_SPECIES, BLACK_BASS } from '../src/game/fish-species.js';
 import { defineFishSpecies, createFishSpeciesRegistry } from '../src/game/fish-species-registry.js';
@@ -14,8 +15,12 @@ import { createSaveData, serializeSaveData, parseSaveData } from '../src/game/sa
 import { fishSpeciesSandbox } from './helpers/fish-species-sandbox.js';
 
 test('gameplay definitions retain main 51ab225 values with the approved Phase 5E-2A achievement labels', () => {
-  const data = { fish: FISH_SPECIES.map(({ image, ...data }) => data), LURES, APPEARANCE_WEIGHTS,
-    FISH_ENVIRONMENT_AFFINITIES, LURE_DEPTH_AFFINITIES, NORMAL_ACHIEVEMENTS: NORMAL_ACHIEVEMENTS.slice(0, 10) };
+  const original = value => Object.fromEntries(ORIGINAL_FISH_SPECIES_IDS.map(id => [id, value[id]]));
+  const data = { fish: FISH_SPECIES.slice(0, 12).map(({ image, ...data }) => data),
+    LURES: LURES.map(lure => ({ ...lure, affinities: original(lure.affinities) })), APPEARANCE_WEIGHTS: original(APPEARANCE_WEIGHTS),
+    FISH_ENVIRONMENT_AFFINITIES: original(FISH_ENVIRONMENT_AFFINITIES), LURE_DEPTH_AFFINITIES,
+    NORMAL_ACHIEVEMENTS: NORMAL_ACHIEVEMENTS.slice(0, 10).map(entry => entry.id === 'normal-species-12'
+      ? { ...entry, metric: 'species', description: '通常魚12種すべてを捕獲する。' } : entry) };
   // Preserve the original gameplay guard by reversing only approved UI labels.
   const legacyNames = ['初めての一匹', '累計10匹', '累計50匹', '累計100匹', '5種発見', '全12種発見',
     '大物ハンター', '累計売却10,000', '初強化', '最大強化'];
@@ -27,7 +32,7 @@ test('gameplay definitions retain main 51ab225 values with the approved Phase 5E
   assert.equal(createHash('sha256').update(JSON.stringify(data)).digest('hex'),
     'a81a36ce9a8ef295eaab608f5aca6d08076902920085ceacc10a2e94c908660d');
   assert.equal(NORMAL_ACHIEVEMENTS.length, 15);
-  assert.deepEqual(NORMAL_ACHIEVEMENTS.filter(item => item.metric === 'species').map(item => item.target), [5, 12]);
+  assert.deepEqual(NORMAL_ACHIEVEMENTS.filter(item => ['species', 'original-species'].includes(item.metric)).map(item => item.target), [5, 12]);
 });
 
 test('registration rejects duplicates and missing/invalid metadata, and detaches mutable inputs', () => {
@@ -54,7 +59,7 @@ test('registration rejects duplicates and missing/invalid metadata, and detaches
   assert.equal(registry.get('black-bass'), BLACK_BASS);
   for (const id of ['missing', 'constructor', '__proto__', null, undefined]) assert.equal(registry.get(id), undefined);
   assert.ok(Object.isFrozen(registry.species) && Object.isFrozen(registry.get('fixture-species')));
-  assert.equal(FISH_SPECIES.length, 12);
+  assert.equal(FISH_SPECIES.length, 20);
 });
 
 test('hypothetical species uses actual neutral encounter/lure/environment defaults and its own price', async t => {
@@ -62,7 +67,7 @@ test('hypothetical species uses actual neutral encounter/lure/environment defaul
   const { FISH_SPECIES: definitions, getFishSpecies } = await sandbox.load('fish-species');
   const { getSpeciesProbabilities: probabilities } = await sandbox.load('fish-encounters');
   const { calculateSalePrice } = await sandbox.load('fish-sales');
-  assert.equal(definitions.length, 13); assert.equal(FISH_SPECIES.length, 12);
+  assert.equal(definitions.length, 21); assert.equal(FISH_SPECIES.length, 20);
   for (const lure of LURES) for (const depthM of [1, 7, 12]) for (const timeOfDay of ['day', 'night']) {
     const entries = probabilities(lure.id, { depthM, timeOfDay });
     assert.equal(entries.find(entry => entry.speciesId === 'fixture-species').weight, 1);
@@ -97,7 +102,7 @@ test('an image-only PNG substitution preserves canonical saves, catches, sales, 
   const { getSpeciesProbabilities: probabilities } = await sandbox.load('fish-encounters');
   for (const lure of LURES) assert.deepEqual(probabilities(lure.id, { depthM: 12, timeOfDay: 'night' }), getSpeciesProbabilities(lure.id, { depthM: 12, timeOfDay: 'night' }));
   assert.deepEqual(restored.collection.sellStored(['legacy-0']), collection.sellStored(['legacy-0']));
-  assert.equal(old.saveVersion, 2);
+  assert.equal(old.saveVersion, 3);
   for (const field of ['image', 'imageFormat']) {
     const corrupt = JSON.parse(JSON.stringify(old)); corrupt.collection.catches[0][field] = 'fixture.png';
     assert.throws(() => parseSaveData(JSON.stringify(corrupt)));

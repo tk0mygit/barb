@@ -66,7 +66,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch immediate' : 'mouse st
   await expect(page.locator('#catch-dialog')).toBeHidden();
   await expect.poll(async () => (await latest(page))?.collection.catches[0]?.disposition).toBe(touch ? 'sold' : 'stored');
   const checkpoint = await latest(page);
-  expect(checkpoint.saveVersion).toBe(2); expect(checkpoint.collection.catches[0].qteSuccessCount).toBe(3);
+  expect(checkpoint.saveVersion).toBe(3); expect(checkpoint.collection.catches[0].qteSuccessCount).toBe(3);
   expect(checkpoint.collection.wallet).toEqual({ balance: touch ? price : 0, lifetimeSales: touch ? price : 0 });
   if (touch) expect(checkpoint.collection.catches[0].salePrice).toBe(price);
   // Revisit the built production application, using only its ordinary restore.
@@ -127,7 +127,7 @@ for (const touch of [false, true]) test(`restored V2 half-up bonus: individual s
   await expect(page.locator('#wallet-balance')).toHaveText(money(805));
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   const sold = await latest(page);
-  expect(sold.saveVersion).toBe(2);
+  expect(sold.saveVersion).toBe(3);
   expect(sold.collection.wallet).toEqual({ balance: 805, lifetimeSales: 805 });
   expect(sold.collection.catches[0]).toEqual(historical);
   expect(sold.collection.catches[1]).toMatchObject({ qteSuccessCount: 1, disposition: 'sold', salePrice: 28 });
@@ -137,7 +137,7 @@ for (const touch of [false, true]) test(`restored V2 half-up bonus: individual s
   await click(page.locator('#menu-button')); await click(page.locator('[data-view="storage"]'));
   await expect(page.locator('.stored-fish')).toHaveCount(0);
   const reloaded = await latest(page);
-  expect(reloaded.saveVersion).toBe(2);
+  expect(reloaded.saveVersion).toBe(3);
   expect(reloaded.collection.catches[0]).toEqual(historical);
   expect(reloaded.collection.catches[1]).toEqual(sold.collection.catches[1]);
 });

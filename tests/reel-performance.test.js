@@ -227,7 +227,7 @@ test('all rod/reel endpoint combinations land every species/size with real hold 
   }
 });
 
-test('legacy continuous reeling balance: Lv.5 upgrades allow only small/mid bluegill without relief', t => {
+test('legacy continuous reeling balance: Lv.5 upgrades allow only small/mid bluegill and pumpkinseed without relief', t => {
   for (const level of [1, 5]) for (const hz of [30, 60, 144]) {
     const landed = [];
     for (const species of FISH_SPECIES) for (const [sizeName, size] of [['min', 0], ['mid', 0.5], ['max', 1 - Number.EPSILON]]) {
@@ -239,7 +239,7 @@ test('legacy continuous reeling balance: Lv.5 upgrades allow only small/mid blue
         assert.equal(f.state.message, 'ラインが断裂した。');
       }
     }
-    assert.deepEqual(landed, level === 1 ? [] : ['bluegill:min', 'bluegill:mid']);
+    assert.deepEqual(landed, level === 1 ? [] : ['bluegill:min', 'bluegill:mid', 'pumpkinseed:min', 'pumpkinseed:mid']);
   }
   t.diagnostic('Continuous reel: Lv.1 both 0/36 catches; Lv.5 both 2/36 (min/mid bluegill), identical at 30/60/144fps');
 });

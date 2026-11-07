@@ -75,7 +75,7 @@ test('clock is equivalent at 30, 60 and 144fps, independent of frame caps and pa
 });
 
 test('all fish and lure environment profiles are immutable, positive and moderate', () => {
-  assert.equal(Object.keys(FISH_ENVIRONMENT_AFFINITIES).length, 12);
+  assert.equal(Object.keys(FISH_ENVIRONMENT_AFFINITIES).length, 20);
   assert.equal(Object.keys(LURE_DEPTH_AFFINITIES).length, 4);
   for (const fish of FISH_SPECIES) {
     const profile = FISH_ENVIRONMENT_AFFINITIES[fish.id];

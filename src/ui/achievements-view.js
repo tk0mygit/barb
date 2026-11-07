@@ -3,7 +3,7 @@ import { formatMoney } from './sales-hud.js';
 const dates = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeStyle: 'medium' });
 export function formatAchievementProgress({ metric, progress: p }) {
   if (metric === 'catches') return `累計捕獲：${p.value} / ${p.target}匹`;
-  if (metric === 'species') return `魚種発見：${p.value} / ${p.target}種`;
+  if (metric === 'species' || metric === 'original-species') return `魚種発見：${p.value} / ${p.target}種`;
   if (metric === 'length') return `最大体長：${p.value.toFixed(1)} / ${p.target}cm`;
   if (metric === 'sales') return `累計売却額：${p.value.toLocaleString('ja-JP')} / ${formatMoney(p.target)}`;
   if (metric === 'rod-level') return `ロッドLv.${p.value} / Lv.${p.target}`;

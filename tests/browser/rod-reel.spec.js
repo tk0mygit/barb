@@ -129,7 +129,7 @@ for (const profile of GEAR_PROFILES.filter(p => ['pc', 'portrait'].includes(p.id
       .filter(Boolean).map(JSON.parse).sort((a, b) => b.generation - a.generation)[0]);
     expect(saved.data.collection.equipment).toEqual({ rodLevel: 2, reelLevel: 2 });
     expect(saved.data.collection.wallet).toEqual({ balance: balance - 600, lifetimeSales: balance });
-    expect(saved.data.saveVersion).toBe(2);
+    expect(saved.data.saveVersion).toBe(3);
     await click('#collection-close'); await gearTick(page);
     assertGear(await gearRead(page), 2);
     await page.reload(); await gearTick(page);

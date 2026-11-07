@@ -3,13 +3,15 @@ import { getLure } from './lures.js';
 import { getDepthBand } from '../world/depth.js';
 import { getEnvironmentWeight } from './encounter-affinities.js';
 
-// Relative weights, not percentages. New species default to weight 1 and
-// neutral affinity until explicitly balanced. Spot bonuses never enter this mix.
+// Relative weights, not percentages. Production requires complete explicit
+// tables through encounter-production.js. Spot bonuses never enter this mix.
 export const APPEARANCE_WEIGHTS = Object.freeze({
   'black-bass': 24, 'smallmouth-bass': 14, bluegill: 18,
   'rainbow-trout': 12, 'brown-trout': 9, iwana: 8,
   'northern-pike': 6, 'european-perch': 12, walleye: 8,
   catfish: 10, 'alligator-gar': 3, arowana: 4,
+  'common-carp': 7, tench: 6, pumpkinseed: 8, 'black-crappie': 7,
+  'rock-bass': 7, 'freshwater-drum': 5, 'white-bass': 5, 'brook-trout': 3.5,
 });
 
 export function normalizeEncounterConditions(conditions) {
