@@ -34,10 +34,10 @@ for (const touch of [false, true]) {
       await expect(menuNote).toBeVisible();
     }
     await click(page.locator('[data-view="encyclopedia"]'));
-    await expect(page.locator('.collection-summary')).toHaveText('発見 0 / 20 種');
+    await expect(page.locator('.collection-summary')).toHaveText('発見 0 / 28 種');
     const cards = page.locator('.fish-card');
-    await expect(cards).toHaveCount(20);
-    expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(Array(20).fill('？？？'));
+    await expect(cards).toHaveCount(28);
+    expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(Array(28).fill('？？？'));
     expect(await cards.evaluateAll(nodes => nodes.map(node => Number(node.dataset.slot)))).toEqual(FISH_SPECIES.map((_, index) => index));
     await expect(page.locator('.fish-card button, button.fish-card')).toHaveCount(0);
     const content = await page.locator('#collection-content').innerHTML();

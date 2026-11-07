@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "phase": "6-B",
+  "totalBytes": 4775452,
+  "images": [
+    {
+      "order": 21,
+      "speciesId": "striped-bass",
+      "bytes": 649431,
+      "sha256": "ab71dceed3113c717d5098486eca38809e519c96a5a56663836072ee920676b2",
+      "scientificName": "Morone saxatilis"
+    },
+    {
+      "order": 22,
+      "speciesId": "burbot",
+      "bytes": 480219,
+      "sha256": "d562c2feb1088517c43f307443eea2833d6246d4a44c59a82a8c2b171239f94b",
+      "scientificName": "Lota lota"
+    },
+    {
+      "order": 23,
+      "speciesId": "grayling",
+      "bytes": 678303,
+      "sha256": "e92833f468c790f271d66f131c8f61342afe43855abee2fecb12427e68953e2f",
+      "scientificName": "Thymallus arcticus"
+    },
+    {
+      "order": 24,
+      "speciesId": "lake-trout",
+      "bytes": 657384,
+      "sha256": "5044e98fa3d0e95a80fe26e8a9eed4ebe855404af9d11ea5ca3ff1cdbbc6bcb9",
+      "scientificName": "Salvelinus namaycush"
+    },
+    {
+      "order": 25,
+      "speciesId": "arctic-char",
+      "bytes": 487908,
+      "sha256": "e351a31a7d85eec757d69cc7cca5cd67b5b9a7a6db7a2c250d9a5636aa287117",
+      "scientificName": "Salvelinus alpinus"
+    },
+    {
+      "order": 26,
+      "speciesId": "bowfin",
+      "bytes": 505126,
+      "sha256": "fb5d185425637780fef806f79a82c29df631df49f675537a761ce37efbf67cad",
+      "scientificName": "Amia calva"
+    },
+    {
+      "order": 27,
+      "speciesId": "murray-cod",
+      "bytes": 701412,
+      "sha256": "8c6e4a39f35574636cf4cb39689ea1c8f79a7500a19b629f8735702f4a4745f4",
+      "scientificName": "Maccullochella peelii"
+    },
+    {
+      "order": 28,
+      "speciesId": "golden-dorado",
+      "bytes": 615669,
+      "sha256": "79bd45ffadfcb3d756a9e22c1329ec6ebe77d90cea9787d864b4108f0ff1ecd0",
+      "scientificName": "Salminus brasiliensis"
+    }
+  ]
+}

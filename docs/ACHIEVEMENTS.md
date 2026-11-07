@@ -17,7 +17,7 @@
 | `normal-first-upgrade` | 初強化 | ロッドまたはリールLv.2 |
 | `normal-equipment-max` | 最大強化 | ロッド・リールそれぞれLv.5 |
 
-Phase 6-Aでは実績契約3をSave V3へ保存します。`normal-species-5` は全20種のdistinct数、`normal-species-12` は `fish-roster.js` の元12IDすべてを条件とし、任意12種では解禁しません。24／36種目標は、それぞれ捕獲可能になる6-B／6-Cで契約4／5へ移行して公開します。6-Aの表示は現在の15実績を維持します。旧解除日時の厳格な保持と移行は [Save V3](SAVE_DATA.md) を参照してください。以下の初期10件の表は実装履歴です。
+Phase 6-BではSave V3 revision2に実績契約4を保存し、既存15件に `normal-species-24`（広がる記録：異なる通常魚24種を捕獲）を1件追加して計16件を表示します。保管・売却前の捕獲時点で発見を数え、同種の追加捕獲では増えません。`normal-species-5` は全28種のdistinct数、`normal-species-12` は `fish-roster.js` の元12IDすべてを条件とし、任意12種では解禁しません。36種目標は未導入です。旧V1/V2と6-A revision1・契約3の解除日時を完全検証して保持し、新実績だけ成立時点の日時を付けます。[Save V3](SAVE_DATA.md) を参照してください。上の初期10件の表は実装履歴です。
 
 ## 正規データと接続
 

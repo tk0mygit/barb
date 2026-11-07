@@ -468,14 +468,14 @@ test('mobile landscape: prepare/cancel and return controls remain reachable', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('all 20 species: production cast, hook, fight, matching result image and recast', async ({ page }) => {
-  // Twelve complete fights render hundreds of frames on software WebGL.
+test('all 28 species: production cast, hook, fight, matching result image and recast', async ({ page }) => {
+  // Twenty-eight complete fights render hundreds of frames on software WebGL.
   test.setTimeout(600000);
   await page.setViewportSize({ width: 800, height: 600 });
   await setup(page); await page.locator('#fish-button').click();
   await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
   // Advance one 250ms frame at a time (the production dt cap). This keeps the
-  // full state machine/render/UI live without 20 long wall-clock bite waits.
+  // full state machine/render/UI live without 28 long wall-clock bite waits.
   // Only clock and RNG are controlled; fish/state/catches are never injected.
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
   await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
@@ -492,9 +492,6 @@ test('all 20 species: production cast, hook, fight, matching result image and re
     await page.clock.fastForward(Math.ceil(((targetProgress - progress + 1) % 1) * 360000) + 250);
     await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-time-of-day', timeOfDay);
     const lureId = ['minnow', 'crankbait', 'worm', 'spinnerbait'][index % 4];
-    const entries = getSpeciesProbabilities(lureId, { depthM: 12, timeOfDay });
-    const selectedIndex = entries.findIndex(entry => entry.speciesId === species.id);
-    const roll = entries.slice(0, selectedIndex).reduce((sum, entry) => sum + entry.probability, 0) + entries[selectedIndex].probability / 2;
     await page.evaluate(() => { window.testRandomValue = 0.1; });
     await page.locator(`[data-lure-id="${lureId}"]`).click({ force: true });
     await page.locator('#cast-button').click({ force: true }); await tick();
@@ -502,9 +499,10 @@ test('all 20 species: production cast, hook, fight, matching result image and re
     for (let i = 0; i < 4; i++) await tick();
     expect((await snapshot()).phase).toBe('lure');
     await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-depth-m', '12');
-    await page.evaluate(value => { window.testRandomValue = value; }, roll);
+    const plan = await armEncounter(page, { speciesId: species.id, lengthRoll: .5, rodLevel: 1 });
     for (let i = 0; i < 24 && (await snapshot()).phase === 'lure'; i++) await tick();
     expect((await snapshot()).phase).toBe('bite');
+    await verifyEncounterBite(page, plan);
     await input.tap(); await tick();
     expect((await snapshot()).phase).toBe('fight');
     let held = false, successes = 0;
@@ -519,7 +517,7 @@ test('all 20 species: production cast, hook, fight, matching result image and re
     if (held) await input.up();
     expect((await snapshot()).phase).toBe('landing');
     for (let i = 0; i < 5; i++) await tick();
-    await assertCatch(page, species.id, roll);
+    await assertCatch(page, species.id, plan.lengthRoll);
     expect(successes).toBeGreaterThanOrEqual(1); expect(successes).toBeLessThanOrEqual(3);
     await expect(page.locator('#catch-qte-bonus')).toContainText(`QTE成功${successes}回／`);
     confirmedCounts.push(successes);
@@ -531,12 +529,12 @@ test('all 20 species: production cast, hook, fight, matching result image and re
   await page.locator('#menu-button').click({ force: true });
   await page.locator('[data-view="encyclopedia"]').click({ force: true });
   expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
-  await expect(page.locator('button.fish-card')).toHaveCount(20);
+  await expect(page.locator('button.fish-card')).toHaveCount(28);
   await page.screenshot({ path: 'test-results/encyclopedia-discovered.png', animations: 'disabled' });
   await page.locator('#collection-back').click({ force: true });
   await page.locator('[data-view="storage"]').click({ force: true });
-  await expect(page.locator('.stored-fish')).toHaveCount(20);
-  expect(new Set(await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId))).size).toBe(20);
+  await expect(page.locator('.stored-fish')).toHaveCount(28);
+  expect(new Set(await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId))).size).toBe(28);
   const scroll = await page.locator('#collection-content').evaluate(el => { el.scrollTop = el.scrollHeight; return { top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight }; });
   expect(scroll.height).toBeGreaterThan(scroll.client); expect(scroll.top).toBeGreaterThan(0);
   await page.locator('#collection-close').click({ force: true });
@@ -545,7 +543,7 @@ test('all 20 species: production cast, hook, fight, matching result image and re
     .filter(Boolean).map(JSON.parse).sort((a, b) => b.generation - a.generation)[0].data.collection.catches.map(record => record.qteSuccessCount));
   expect(counts).toEqual(confirmedCounts);
   await page.locator('#menu-button').click(); await page.locator('[data-view="storage"]').click();
-  await expect(page.locator('.stored-fish')).toHaveCount(20);
+  await expect(page.locator('.stored-fish')).toHaveCount(28);
   await page.locator('#collection-back').click(); await page.locator('[data-view="encyclopedia"]').click();
   expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
 });

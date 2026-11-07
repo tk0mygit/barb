@@ -12,6 +12,8 @@ export const APPEARANCE_WEIGHTS = Object.freeze({
   catfish: 10, 'alligator-gar': 3, arowana: 4,
   'common-carp': 7, tench: 6, pumpkinseed: 8, 'black-crappie': 7,
   'rock-bass': 7, 'freshwater-drum': 5, 'white-bass': 5, 'brook-trout': 3.5,
+  'striped-bass': 3.5, burbot: 3, grayling: 3, 'lake-trout': 3,
+  'arctic-char': 3, bowfin: 3.5, 'murray-cod': 2.5, 'golden-dorado': 3,
 });
 
 export function normalizeEncounterConditions(conditions) {
