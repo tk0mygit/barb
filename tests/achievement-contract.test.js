@@ -101,7 +101,7 @@ test('legacy achieved awards are mandatory and their old conditions cannot be re
   rejects(newId, `achievements.unlocked[${legacy[0].achievements.unlocked.length}].id`);
 });
 
-test('version 2 requires every earned old and new award; missing, duplicate, impossible and malformed awards fail closed', () => {
+test('current V3 contract requires every earned old and new award; missing, duplicate, impossible and malformed awards fail closed', () => {
   const baseline = save(restoreSaveData(legacy[1], { now: () => now }));
   assert.equal(baseline.achievements.unlocked.length, 12);
   for (const award of baseline.achievements.unlocked) {

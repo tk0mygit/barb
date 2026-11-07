@@ -9,7 +9,7 @@ import { mobileGateFixture } from './helpers/mobile-gate-fixture.js';
 test('only the two documented capture RNG inputs are accepted, including legacy evidence default',()=>{
   assert.equal(mobileFishingRandomValue({metrics:{}}),.5);
   assert.equal(mobileFishingRandomValue({metrics:{fishingRandomValue:.01}}),.01);
-  for(const value of [0,1,.1,'0.01',NaN,Infinity])assert.throws(()=>mobileFishingRandomValue({metrics:{fishingRandomValue:value}}));
+  for(const value of [undefined,null,0,1,.1,'0.01',NaN,Infinity])assert.throws(()=>mobileFishingRandomValue({metrics:{fishingRandomValue:value}}));
 });
 
 test('actual base and current fishing sources reproduce the same black-bass fight with the 6-A capture input',async()=>{

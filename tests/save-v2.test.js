@@ -238,7 +238,7 @@ test('20,000 legitimate V1 fish migrate without load writes or history truncatio
   assert.equal(manager.status.generation, 4); assert.equal(loaded.state.collection.catches.length, 20000);
 });
 
-test('autosave leaves V1 load untouched, then saves the bonus-inclusive sale as V2 without losing the active source', () => {
+test('autosave leaves V1 load untouched, then saves the bonus-inclusive sale as V3 without losing the active source', () => {
   const { manager, storage, loaded } = open([envelope(8, v1), envelope(9, v1)]), raw = storage.getItem(KEYS[1]);
   const autosave = createAutosave({ state: loaded.state, storage: manager, now: () => Date.parse(savedAt),
     schedule: () => 1, cancel: () => {}, repeat: () => 2, cancelRepeat: () => {} });
