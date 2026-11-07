@@ -91,7 +91,7 @@ function conditionsData(value, path) {
   return Object.freeze(result);
 }
 
-function collectionData(value, legacy, originalRoster = false) {
+function collectionData(value, legacy, speciesIds) {
   objectFields(value, ['catches', 'wallet', 'equipment'], [], 'collection');
   arrayData(value.catches, SAVE_LIMITS.catches, 'collection.catches');
   const ids = new Set();
@@ -107,7 +107,7 @@ function collectionData(value, legacy, originalRoster = false) {
     requireValid(record.id.length <= SAVE_LIMITS.idCharacters, `${path}.id`, 'input-too-large');
     requireValid(!ids.has(record.id), `${path}.id`); ids.add(record.id);
     requireValid(typeof record.speciesId === 'string' && !!getFishSpecies(record.speciesId), `${path}.speciesId`);
-    if (originalRoster) requireValid(ORIGINAL_FISH_SPECIES_IDS.includes(record.speciesId), `${path}.speciesId`);
+    if (speciesIds) requireValid(speciesIds.includes(record.speciesId), `${path}.speciesId`);
     finite(record.lengthCm, `${path}.lengthCm`); finite(record.weightKg, `${path}.weightKg`);
     requireValid(record.lengthCm > 0 && record.weightKg > 0, path);
     // Keep positive legacy sizes, but ensure each fish can still be quoted.
@@ -139,5 +139,5 @@ function collectionData(value, legacy, originalRoster = false) {
 // Direct domain restoration accepts canonical V2 records only. Legacy data
 // must be selected explicitly by the outer saveVersion, never inferred from
 // missing fields. V1's exact old field list rejects even an explicit count 0.
-export function validateCollectionData(value, { originalRoster = false } = {}) { return collectionData(value, false, originalRoster); }
-export function validateLegacyCollectionData(value) { return collectionData(value, true, true); }
+export function validateCollectionData(value, { speciesIds } = {}) { return collectionData(value, false, speciesIds); }
+export function validateLegacyCollectionData(value) { return collectionData(value, true, ORIGINAL_FISH_SPECIES_IDS); }

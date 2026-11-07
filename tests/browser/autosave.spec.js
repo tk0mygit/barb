@@ -67,7 +67,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fixed leg
   expect(await slots(page)).toEqual(legacySlots);
   await expect(page.locator('#achievement-notice')).toBeHidden();
   await click(page.locator('#menu-button')); await click(page.locator('[data-view="achievements"]'));
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 12 / 15');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 12 / 16');
   await expect(page.locator('#achievement-notice')).toBeHidden();
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="equipment"]'));
   for (let level = 6; level <= 10; level++) {
@@ -76,7 +76,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fixed leg
     await click(page.locator('#confirm-upgrade')); await page.clock.fastForward(1000);
     const checkpoint = await latest(page);
     expect(checkpoint.data.collection.equipment).toEqual({ rodLevel: level, reelLevel: 5 });
-    expect(checkpoint.data.achievements.contractVersion).toBe(3);
+    expect(checkpoint.data.achievements.contractVersion).toBe(4);
   }
   const before = await latest(page), original = JSON.parse(legacySlots[1]).data;
   expect(before.data.saveVersion).toBe(3); expect(before.storageVersion).toBe(1);
@@ -91,7 +91,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fixed leg
   await expect(page.locator('[data-upgrade="rod"]')).toBeDisabled();
   await expect(page.locator('[data-equipment="rod"] .equipment-current')).toHaveText(['現在 60m', '現在 41%']);
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 13 / 15');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 13 / 16');
   await expect(page.locator('#achievement-notice')).toBeHidden();
   expect((await latest(page)).data.achievements).toEqual(before.data.achievements);
 });

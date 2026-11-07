@@ -53,7 +53,7 @@ test('base-SHA original twelve definitions, PNG bytes and every encounter coeffi
 });
 
 test('exact 13–20 order, approved image SHA/bytes, numeric definitions and complete positive tables', () => {
-  assert.deepEqual(FISH_SPECIES.slice(12).map(fish => fish.id), additions.map(row => row[0]));
+  assert.deepEqual(FISH_SPECIES.slice(12,20).map(fish => fish.id), additions.map(row => row[0]));
   assert.deepEqual(approved.images.map(row => row.order), [13,14,15,16,17,18,19,20]);
   const ids = FISH_SPECIES.map(fish => fish.id);
   for (const table of [APPEARANCE_WEIGHTS, FISH_RARITY, FISH_ENVIRONMENT_AFFINITIES, ...LURES.map(lure => lure.affinities)]) assert.deepEqual(Object.keys(table), ids);
@@ -100,7 +100,7 @@ test('24 conditions × Lv.1/5/10 preserve original pairwise ratios and change on
   assert.equal(cases,72);
 });
 
-test('all twenty fish sample both length endpoints with only the existing three encounter RNG draws', () => {
+test('all twenty-eight fish sample both length endpoints with only the existing three encounter RNG draws', () => {
   for (const fish of FISH_SPECIES) for (const [size,length] of [[0,fish.minLengthCm],[1-Number.EPSILON,fish.maxLengthCm]]) {
     const {f,calls} = hookedFight({speciesId:fish.id,lengthCm:length,size});
     assert.equal(calls(),3);
@@ -130,7 +130,7 @@ test('every Uncommon minimum is 50 before QTE 0–3; Common and Rare retain thei
 
 test('arbitrary twelve including all eight additions cannot unlock original-twelve award, including strict save restore', () => {
   const game=createGameplay({now:()=>1000}),c=game.collection;
-  for(const fish of [...FISH_SPECIES.slice(12),...FISH_SPECIES.slice(0,4)]) c.register(capture(fish));
+  for(const fish of [...FISH_SPECIES.slice(12,20),...FISH_SPECIES.slice(0,4)]) c.register(capture(fish));
   const award=()=>game.achievements.entries.find(row=>row.id==='normal-species-12');
   assert.equal(award().unlocked,false);assert.equal(award().progress.value,4);
   assert.equal(game.achievements.entries.find(row=>row.id==='normal-species-5').unlocked,true);
@@ -140,7 +140,7 @@ test('arbitrary twelve including all eight additions cannot unlock original-twel
   assert.equal(restoreSaveData(data).achievements.entries.find(row=>row.id==='normal-species-12').unlocked,false);
   for(const fish of FISH_SPECIES.slice(4,12)) c.register(capture(fish));
   assert.equal(award().unlocked,true);assert.equal(award().unlockedAt,'1970-01-01T00:00:01.000Z');
-  assert.deepEqual(NORMAL_ACHIEVEMENTS.filter(row=>['species','original-species'].includes(row.metric)).map(row=>row.target),[5,12]);
+  assert.deepEqual(NORMAL_ACHIEVEMENTS.filter(row=>['species','original-species'].includes(row.metric)).map(row=>row.target),[5,12,24]);
 });
 
 test('new alpha contract rejects faded bodies, sparse cores, hard-only edges and any margin contamination', () => {
@@ -158,7 +158,7 @@ test('new alpha contract rejects faded bodies, sparse cores, hard-only edges and
 });
 
 test('all eight new max-size fish finish across their existing QTE counts; high-resistance drum/trout cover successes 0–3', () => {
-  for (const fish of FISH_SPECIES.slice(12)) for (let successes = 0; successes <= getQteDifficulty(fish, fish.maxLengthCm).count; successes++) {
+  for (const fish of FISH_SPECIES.slice(12,20)) for (let successes = 0; successes <= getQteDifficulty(fish, fish.maxLengthCm).count; successes++) {
     const speciesId = fish.id;
     let f,index=0;
     ({f}=hookedFight({speciesId,size:'max',rod:10,reel:10,startDistance:4.51},{

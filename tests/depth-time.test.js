@@ -76,21 +76,21 @@ test('clock is equivalent at 30, 60 and 144fps, independent of frame caps and pa
 });
 
 test('all fish and lure environment profiles are immutable, positive and moderate', () => {
-  assert.equal(Object.keys(FISH_ENVIRONMENT_AFFINITIES).length, 20);
+  assert.equal(Object.keys(FISH_ENVIRONMENT_AFFINITIES).length, 28);
   assert.equal(Object.keys(LURE_DEPTH_AFFINITIES).length, 4);
   for (const fish of FISH_SPECIES) {
     const profile = FISH_ENVIRONMENT_AFFINITIES[fish.id];
     assert.ok(Object.isFrozen(profile) && Object.isFrozen(profile.depth) && Object.isFrozen(profile.time));
     assert.deepEqual(Object.keys(profile.depth), ['shallow', 'mid', 'deep']);
-    // Keep the original twelve's envelope. Only the eight approved new depth
-    // affinities introduce 1.40 (their full matrices are pinned in phase6a).
+    // Keep the original twelve's envelope. Only the approved Phase 6-A/6-B depth
+    // affinities introduce 1.40 (their full matrices are pinned in phase6a/phase6b).
     const ceiling = ORIGINAL_FISH_SPECIES_IDS.includes(fish.id) ? 1.3 : 1.4;
     for (const value of [...Object.values(profile.depth), ...Object.values(profile.time)]) assert.ok(value >= 0.75 && value <= ceiling);
   }
   for (const lure of LURES) for (const value of Object.values(LURE_DEPTH_AFFINITIES[lure.id])) assert.ok(value >= 0.8 && value <= 1.2);
 });
 
-test('all 24 environment/lure combinations normalize to one and sample all 12 fish reproducibly', t => {
+test('all 24 environment/lure combinations normalize to one and sample all 28 fish reproducibly', t => {
   let min = 1, max = 0;
   for (const lure of LURES) for (const environment of conditions) {
     const entries = getSpeciesProbabilities(lure.id, environment);

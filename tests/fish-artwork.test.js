@@ -42,10 +42,10 @@ function artworkPixels(bytes, width, height) {
   return rgba;
 }
 
-test('all 20 finished fish PNGs meet dimensions, size, sRGB and clear-border requirements', async t => {
+test('all 28 finished fish PNGs meet dimensions, size, sRGB and clear-border requirements', async t => {
   const directory = new URL('../src/assets/fish/', import.meta.url);
   assert.deepEqual(readdirSync(directory).filter(name => name.endsWith('.png')).sort(),
-    FISH_SPECIES.map(fish => `${fish.id}.png`).sort(), 'production contains exactly the 20 species PNGs and no test PNG');
+    FISH_SPECIES.map(fish => `${fish.id}.png`).sort(), 'production contains exactly the 28 species PNGs and no test PNG');
   assert.equal(validateFishImage('unknown.svg', readFileSync(new URL('unknown.svg', directory))).format, 'svg');
   const hashes = new Set();
   const fixtureHash = createHash('sha256').update(readFileSync(new URL('./fixtures/fish-assets/transparent-test.png', import.meta.url))).digest('hex');
@@ -83,7 +83,7 @@ test('all 20 finished fish PNGs meet dimensions, size, sRGB and clear-border req
     assert.ok(minX >= 8 && minY >= 8 && maxX < image.width - 8 && maxY < image.height - 8,
       'fish and fin tips retain at least eight clear pixels on every side');
   });
-  assert.equal(hashes.size, 20);
-  assert.equal(totalBytes, 11012560, 'exact approved 20-image total');
+  assert.equal(hashes.size, 28);
+  assert.equal(totalBytes, 15788012, 'exact approved 28-image total');
   assert.ok(totalBytes <= 20 * 1024 * 1024, 'Phase 6 review threshold');
 });

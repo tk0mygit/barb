@@ -24,6 +24,14 @@ export const FISH_RARITY = Object.freeze({
   'freshwater-drum': 'Common',
   'white-bass': 'Common',
   'brook-trout': 'Uncommon',
+  'striped-bass': 'Uncommon',
+  burbot: 'Uncommon',
+  grayling: 'Uncommon',
+  'lake-trout': 'Uncommon',
+  'arctic-char': 'Uncommon',
+  bowfin: 'Uncommon',
+  'murray-cod': 'Uncommon',
+  'golden-dorado': 'Uncommon',
 });
 
 export function getFishTier(speciesId) {
