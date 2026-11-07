@@ -457,14 +457,14 @@ test('mobile landscape: prepare/cancel and return controls remain reachable', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('all 12 species: production cast, hook, fight, matching result image and recast', async ({ page }) => {
+test('all 20 species: production cast, hook, fight, matching result image and recast', async ({ page }) => {
   // Twelve complete fights render hundreds of frames on software WebGL.
   test.setTimeout(600000);
   await page.setViewportSize({ width: 800, height: 600 });
   await setup(page); await page.locator('#fish-button').click();
   await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
   // Advance one 250ms frame at a time (the production dt cap). This keeps the
-  // full state machine/render/UI live without 12 long wall-clock bite waits.
+  // full state machine/render/UI live without 20 long wall-clock bite waits.
   // Only clock and RNG are controlled; fish/state/catches are never injected.
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
   await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));

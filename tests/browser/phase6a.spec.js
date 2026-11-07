@@ -37,6 +37,7 @@ for(const touch of [false,true])test(`${touch?'touch':'desktop'}: Phase 6-A buil
   for(const [index,fish] of FISH_SPECIES.slice(12).entries()){
     const image=page.locator('button.fish-card img').nth(index);
     await image.scrollIntoViewIfNeeded();await expect(image).toBeVisible();
+    await expect(image).toHaveAttribute('src',/.+/);
     const decoded=await image.evaluate(async image=>{
       await image.decode();const response=await fetch(image.currentSrc),bytes=await response.arrayBuffer();
       const hash=await crypto.subtle.digest('SHA-256',bytes);
