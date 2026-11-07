@@ -1,0 +1,1220 @@
+{
+  "baseSha": "e221d695045bdf318bc7729faea442e66a34f3a8",
+  "species": [
+    {
+      "id": "black-bass",
+      "name": "ブラックバス",
+      "alternateName": "ラージマウスバス",
+      "minLengthCm": 25,
+      "maxLengthCm": 55,
+      "weight": {
+        "referenceLengthCm": 40,
+        "referenceWeightKg": 1.1,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.85,
+        "lengthScaleCm": 100,
+        "surgeAmplitude": 0.15,
+        "surgeFrequency": 2.4,
+        "style": "周期的な引きと短い突進"
+      },
+      "basePricePerKg": 100,
+      "description": "大きな口と体側の黒い帯が特徴の淡水魚。水草や障害物の周辺に潜み、小魚などを捕らえる。",
+      "imageSha256": "7dd49f7396c476db8d596ada7a8e979ea5ad59949d4391cf25b602f145cc6fc1"
+    },
+    {
+      "id": "smallmouth-bass",
+      "name": "スモールマウスバス",
+      "minLengthCm": 20,
+      "maxLengthCm": 50,
+      "weight": {
+        "referenceLengthCm": 35,
+        "referenceWeightKg": 0.7,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.95,
+        "lengthScaleCm": 100,
+        "surgeAmplitude": 0.2,
+        "surgeFrequency": 3,
+        "style": "素早い突進を繰り返す"
+      },
+      "basePricePerKg": 120,
+      "description": "褐色がかった体と縦の模様を持つバスの仲間。岩の多い場所や流れのある水域を好み、小魚や甲殻類を食べる。",
+      "imageSha256": "1760f566c8051218ec8b8c35605807a633eca874316451e2503c821a0a7e8f4f"
+    },
+    {
+      "id": "bluegill",
+      "name": "ブルーギル",
+      "minLengthCm": 10,
+      "maxLengthCm": 28,
+      "weight": {
+        "referenceLengthCm": 20,
+        "referenceWeightKg": 0.18,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.55,
+        "lengthScaleCm": 120,
+        "surgeAmplitude": 0.1,
+        "surgeFrequency": 3.8,
+        "style": "小刻みに引く"
+      },
+      "basePricePerKg": 70,
+      "description": "平たく丸みのある体と、えらぶた後方の暗い斑点が目印。岸近くの水草周辺に見られ、昆虫や小さな水生動物などを食べる。",
+      "imageSha256": "8c271a9332bbb30b225df395dd06a5c28981314b0edf2a857f0d7fdc5e8ed43e"
+    },
+    {
+      "id": "rainbow-trout",
+      "name": "ニジマス",
+      "minLengthCm": 20,
+      "maxLengthCm": 65,
+      "weight": {
+        "referenceLengthCm": 40,
+        "referenceWeightKg": 0.8,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.9,
+        "lengthScaleCm": 130,
+        "surgeAmplitude": 0.22,
+        "surgeFrequency": 3.2,
+        "style": "速い走りと強弱のある引き"
+      },
+      "basePricePerKg": 130,
+      "description": "銀色の体に小さな黒点が散り、体側に桃色の帯が現れるサケの仲間。冷たく酸素の豊富な水を好む。",
+      "imageSha256": "4ad33206e60cd28ca57ef2909a54d84b9f6f2719e562f856cd60047df8eaddc2"
+    },
+    {
+      "id": "brown-trout",
+      "name": "ブラウントラウト",
+      "minLengthCm": 20,
+      "maxLengthCm": 70,
+      "weight": {
+        "referenceLengthCm": 40,
+        "referenceWeightKg": 0.85,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1,
+        "lengthScaleCm": 140,
+        "surgeAmplitude": 0.2,
+        "surgeFrequency": 2.1,
+        "style": "粘り強く引き、時折突進する"
+      },
+      "basePricePerKg": 140,
+      "description": "黄褐色の体に黒や赤の斑点が見られるサケの仲間。川や湖の冷たい水域にすみ、成長すると小魚も多く食べる。",
+      "imageSha256": "cae33d63434ec41de5eb65c64a0b62f2f987a0555cad5a5eb61ccf6c77d32535"
+    },
+    {
+      "id": "iwana",
+      "name": "イワナ",
+      "minLengthCm": 15,
+      "maxLengthCm": 45,
+      "weight": {
+        "referenceLengthCm": 30,
+        "referenceWeightKg": 0.3,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.7,
+        "lengthScaleCm": 120,
+        "surgeAmplitude": 0.14,
+        "surgeFrequency": 2.8,
+        "style": "短い引きを繰り返す"
+      },
+      "basePricePerKg": 160,
+      "description": "暗い体色に淡い斑点を持つ冷水性の魚。山地の渓流などにすみ、水生昆虫や水面に落ちた虫を食べる。",
+      "imageSha256": "adb767d5d9a2da58ace916c7b0434a251df00d79f3eeee5fda18eb84da0cce27"
+    },
+    {
+      "id": "northern-pike",
+      "name": "ノーザンパイク",
+      "minLengthCm": 40,
+      "maxLengthCm": 110,
+      "weight": {
+        "referenceLengthCm": 70,
+        "referenceWeightKg": 2.3,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1.15,
+        "lengthScaleCm": 180,
+        "surgeAmplitude": 0.28,
+        "surgeFrequency": 2.5,
+        "style": "鋭い突進と休止を繰り返す"
+      },
+      "basePricePerKg": 110,
+      "description": "細長い体と平たく伸びた口先を持つ捕食魚。背びれは尾に近く、水草の陰から小魚へ素早く飛びかかる。",
+      "imageSha256": "42e54eca293d4b770c46e1616532c9b979c7db04760d97735c9eedf7cb726330"
+    },
+    {
+      "id": "european-perch",
+      "name": "ヨーロピアンパーチ",
+      "minLengthCm": 15,
+      "maxLengthCm": 45,
+      "weight": {
+        "referenceLengthCm": 30,
+        "referenceWeightKg": 0.4,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.75,
+        "lengthScaleCm": 120,
+        "surgeAmplitude": 0.16,
+        "surgeFrequency": 3.1,
+        "style": "細かな抵抗と短い突進"
+      },
+      "basePricePerKg": 110,
+      "description": "体側の暗い縦帯と赤みを帯びた腹びれ・尻びれが特徴。湖や流れの緩やかな川にすみ、昆虫や小魚を食べる。",
+      "imageSha256": "02728493810f2e70f9a930a949f4af20d92a3a39d14f96f9a0e6e8e591480daf"
+    },
+    {
+      "id": "walleye",
+      "name": "ウォールアイ",
+      "minLengthCm": 30,
+      "maxLengthCm": 80,
+      "weight": {
+        "referenceLengthCm": 50,
+        "referenceWeightKg": 1.2,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.95,
+        "lengthScaleCm": 150,
+        "surgeAmplitude": 0.12,
+        "surgeFrequency": 1.8,
+        "style": "低い周期で重く引く"
+      },
+      "basePricePerKg": 150,
+      "description": "光を反射する大きな目を持つ北米の淡水魚。薄暗い環境でも餌を探し、主に小魚を捕らえる。",
+      "imageSha256": "28c1b4e16243b67461dcfaf06383788d4e33514ad50828709882695e8dd67e24"
+    },
+    {
+      "id": "catfish",
+      "name": "ナマズ",
+      "minLengthCm": 30,
+      "maxLengthCm": 80,
+      "weight": {
+        "referenceLengthCm": 50,
+        "referenceWeightKg": 1,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1.05,
+        "lengthScaleCm": 160,
+        "surgeAmplitude": 0.1,
+        "surgeFrequency": 1.4,
+        "style": "ゆっくりと持続的に引く"
+      },
+      "basePricePerKg": 90,
+      "description": "うろこのない滑らかな体と口の周りのひげが特徴。川や湖の底付近にすみ、夜間を中心に小魚などを探す。",
+      "imageSha256": "ab28a9209938961af690db2e79a4ff2b4a2955a02415b4efdb2ca80509bfd7b4"
+    },
+    {
+      "id": "alligator-gar",
+      "name": "アリゲーターガー",
+      "minLengthCm": 60,
+      "maxLengthCm": 180,
+      "weight": {
+        "referenceLengthCm": 100,
+        "referenceWeightKg": 7,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1.35,
+        "lengthScaleCm": 250,
+        "surgeAmplitude": 0.25,
+        "surgeFrequency": 1.5,
+        "style": "重い引きと大きな突進"
+      },
+      "basePricePerKg": 80,
+      "description": "幅広く長い口先と硬いうろこを持つ大型の淡水魚。北米の流れの緩やかな川や湖などにすみ、魚を捕食する。",
+      "imageSha256": "6663aa24511ccbe77a59bc363ad5aa0cce71620d3c742d43d1eb143f97686ee6"
+    },
+    {
+      "id": "arowana",
+      "name": "アロワナ",
+      "minLengthCm": 35,
+      "maxLengthCm": 90,
+      "weight": {
+        "referenceLengthCm": 60,
+        "referenceWeightKg": 1.5,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1.1,
+        "lengthScaleCm": 170,
+        "surgeAmplitude": 0.24,
+        "surgeFrequency": 2.8,
+        "style": "水面近くで素早く走る"
+      },
+      "basePricePerKg": 180,
+      "description": "大きなうろこと上向きの口、下あごのひげが特徴。水面近くを泳ぎ、昆虫や小魚を捕らえる。",
+      "imageSha256": "ea2f9766f0f6cc558b181fc2c42130597d286a8dfccde61e14a34b2385b61fd7"
+    },
+    {
+      "id": "common-carp",
+      "name": "コイ",
+      "minLengthCm": 25,
+      "maxLengthCm": 90,
+      "weight": {
+        "referenceLengthCm": 50,
+        "referenceWeightKg": 3,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.87,
+        "lengthScaleCm": 150,
+        "surgeAmplitude": 0.14,
+        "surgeFrequency": 1.5,
+        "style": "ゆったりした周期で粘り強く引く"
+      },
+      "basePricePerKg": 25,
+      "description": "大きなうろこと口元のひげを持つコイ科の魚。湖や流れの緩い川で、底の小動物や植物質などを食べる。",
+      "imageSha256": "905b051c0e418c982d942f9bf69936c8a1dbc584495530795e997137c05931b3"
+    },
+    {
+      "id": "tench",
+      "name": "テンチ",
+      "minLengthCm": 20,
+      "maxLengthCm": 55,
+      "weight": {
+        "referenceLengthCm": 35,
+        "referenceWeightKg": 0.8,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.68,
+        "lengthScaleCm": 130,
+        "surgeAmplitude": 0.1,
+        "surgeFrequency": 1.8,
+        "style": "緩やかな強弱をつけて引き続ける"
+      },
+      "basePricePerKg": 50,
+      "description": "細かなうろこと丸みのあるひれを持つコイ科の魚。水草の多い穏やかな水域で、底の小動物などを探す。",
+      "imageSha256": "e8e9fb23e6baf1e60e7244eb92f455a3aea1583f6860cbe188eafe722f59018c"
+    },
+    {
+      "id": "pumpkinseed",
+      "name": "パンプキンシード",
+      "minLengthCm": 10,
+      "maxLengthCm": 30,
+      "weight": {
+        "referenceLengthCm": 20,
+        "referenceWeightKg": 0.18,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.55,
+        "lengthScaleCm": 120,
+        "surgeAmplitude": 0.12,
+        "surgeFrequency": 3.9,
+        "style": "速い周期で小さく抵抗する"
+      },
+      "basePricePerKg": 50,
+      "description": "丸く平たい体と、えらぶた後端の赤い縁取りが目印。北米原産で、浅い水域の昆虫や貝などを食べる。",
+      "imageSha256": "33d1f2325790b9e6345f96deea777d07efea8066870e8abe30d7bd8d03f6daee"
+    },
+    {
+      "id": "black-crappie",
+      "name": "ブラッククラッピー",
+      "minLengthCm": 15,
+      "maxLengthCm": 45,
+      "weight": {
+        "referenceLengthCm": 30,
+        "referenceWeightKg": 0.55,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.72,
+        "lengthScaleCm": 130,
+        "surgeAmplitude": 0.15,
+        "surgeFrequency": 3.4,
+        "style": "細かな引きに短い突進を交える"
+      },
+      "basePricePerKg": 60,
+      "description": "銀色の平たい体に不規則な黒い斑点が散る北米の淡水魚。湖や池の水草や障害物の周辺で、小魚などを捕らえる。",
+      "imageSha256": "6d70959a026b1dde1d8c882272d4c153c32a2657d02c22df8e6834b4be00d277"
+    },
+    {
+      "id": "rock-bass",
+      "name": "ロックバス",
+      "minLengthCm": 12,
+      "maxLengthCm": 35,
+      "weight": {
+        "referenceLengthCm": 25,
+        "referenceWeightKg": 0.3,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.79,
+        "lengthScaleCm": 120,
+        "surgeAmplitude": 0.17,
+        "surgeFrequency": 3.2,
+        "style": "小刻みに力を込めて引く"
+      },
+      "basePricePerKg": 65,
+      "description": "赤い目と体側に並ぶ暗い斑点が特徴のサンフィッシュ科の魚。北米の岩や石の多い水域で、甲殻類や小魚を食べる。",
+      "imageSha256": "77361426647187c30876eac33f6fd01d906dc2ce77f00e735ce2937f0a53a91d"
+    },
+    {
+      "id": "freshwater-drum",
+      "name": "フレッシュウォータードラム",
+      "minLengthCm": 25,
+      "maxLengthCm": 95,
+      "weight": {
+        "referenceLengthCm": 50,
+        "referenceWeightKg": 1.6,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.96,
+        "lengthScaleCm": 170,
+        "surgeAmplitude": 0.14,
+        "surgeFrequency": 2.3,
+        "style": "持続する引きに中周期のうねりを重ねる"
+      },
+      "basePricePerKg": 35,
+      "description": "盛り上がった背と下向きの口を持つ北米のニベ科の魚。淡水にすみ、底にいる貝や水生昆虫などを食べる。",
+      "imageSha256": "ceaf6d5028061ef6950a2c3b37f9e77597111e67354f72a006dd1485e9a13ce8"
+    },
+    {
+      "id": "white-bass",
+      "name": "ホワイトバス",
+      "minLengthCm": 18,
+      "maxLengthCm": 45,
+      "weight": {
+        "referenceLengthCm": 30,
+        "referenceWeightKg": 0.45,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.82,
+        "lengthScaleCm": 120,
+        "surgeAmplitude": 0.21,
+        "surgeFrequency": 3.3,
+        "style": "素早く強弱を切り替えて走る"
+      },
+      "basePricePerKg": 60,
+      "description": "銀白色の体に細い暗色の横じまが走る北米の淡水魚。湖や川で群れを作り、小魚などを追って捕食する。",
+      "imageSha256": "e106cce3aebc9ce0f7c7f8b1c5d55c027fa75481f79cdf69079b6e475bc4e5ea"
+    },
+    {
+      "id": "brook-trout",
+      "name": "ブルックトラウト",
+      "minLengthCm": 20,
+      "maxLengthCm": 65,
+      "weight": {
+        "referenceLengthCm": 40,
+        "referenceWeightKg": 0.75,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.95,
+        "lengthScaleCm": 140,
+        "surgeAmplitude": 0.22,
+        "surgeFrequency": 3.4,
+        "style": "速い周期の強い引きと走りを繰り返す"
+      },
+      "basePricePerKg": 95,
+      "description": "背の虫食い状の模様と、腹側のひれの白い前縁が目印のイワナの仲間。北米原産で、冷たい渓流や湖にすむ。",
+      "imageSha256": "9744b1b4bc3c0faa170f9b0fbc4d147603c6528ad0cf839de4c98a9f83123df9"
+    },
+    {
+      "id": "striped-bass",
+      "name": "ストライプドバス",
+      "minLengthCm": 35,
+      "maxLengthCm": 130,
+      "weight": {
+        "referenceLengthCm": 70,
+        "referenceWeightKg": 3.5,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1.17,
+        "lengthScaleCm": 180,
+        "surgeAmplitude": 0.24,
+        "surgeFrequency": 2.4,
+        "style": "力強い走りに周期的な突進を交える"
+      },
+      "basePricePerKg": 45,
+      "description": "銀色の体に明瞭な暗い横じまを持つ北米原産の魚。沿岸や河川にすみ、淡水の湖にも定着して小魚を追う。",
+      "imageSha256": "ab71dceed3113c717d5098486eca38809e519c96a5a56663836072ee920676b2"
+    },
+    {
+      "id": "burbot",
+      "name": "バーボット",
+      "minLengthCm": 30,
+      "maxLengthCm": 110,
+      "weight": {
+        "referenceLengthCm": 65,
+        "referenceWeightKg": 2.5,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1.12,
+        "lengthScaleCm": 190,
+        "surgeAmplitude": 0.11,
+        "surgeFrequency": 1.3,
+        "style": "低い周期で粘り強く引き続ける"
+      },
+      "basePricePerKg": 55,
+      "description": "下あごの1本のひげと、まだら模様の細長い体が特徴の淡水性のタラの仲間。北半球の冷たい水域の底にすみ、夜に小魚などを探す。",
+      "imageSha256": "d562c2feb1088517c43f307443eea2833d6246d4a44c59a82a8c2b171239f94b"
+    },
+    {
+      "id": "grayling",
+      "name": "グレイリング",
+      "minLengthCm": 20,
+      "maxLengthCm": 65,
+      "weight": {
+        "referenceLengthCm": 40,
+        "referenceWeightKg": 0.65,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 0.92,
+        "lengthScaleCm": 140,
+        "surgeAmplitude": 0.23,
+        "surgeFrequency": 3.4,
+        "style": "速い周期の引きと軽快な走り"
+      },
+      "basePricePerKg": 105,
+      "description": "帆のように大きな背びれを持つサケ科の魚（Thymallus arcticus）。北極圏を含む冷たい川や湖にすみ、主に水生昆虫などを食べる。",
+      "imageSha256": "e92833f468c790f271d66f131c8f61342afe43855abee2fecb12427e68953e2f"
+    },
+    {
+      "id": "lake-trout",
+      "name": "レイクトラウト",
+      "minLengthCm": 30,
+      "maxLengthCm": 125,
+      "weight": {
+        "referenceLengthCm": 70,
+        "referenceWeightKg": 3.8,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1.15,
+        "lengthScaleCm": 190,
+        "surgeAmplitude": 0.2,
+        "surgeFrequency": 2,
+        "style": "持続する重い引きに突進を重ねる"
+      },
+      "basePricePerKg": 45,
+      "description": "暗い体に淡い斑点が散り、尾びれが深く二つに分かれたイワナの仲間。北米原産で、冷たい湖の深場などにすみ、小魚を捕らえる。",
+      "imageSha256": "5044e98fa3d0e95a80fe26e8a9eed4ebe855404af9d11ea5ca3ff1cdbbc6bcb9"
+    },
+    {
+      "id": "arctic-char",
+      "name": "アークティックチャー",
+      "minLengthCm": 25,
+      "maxLengthCm": 90,
+      "weight": {
+        "referenceLengthCm": 50,
+        "referenceWeightKg": 1.1,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1.05,
+        "lengthScaleCm": 160,
+        "surgeAmplitude": 0.21,
+        "surgeFrequency": 3,
+        "style": "強弱のある引きと素早い突進"
+      },
+      "basePricePerKg": 85,
+      "description": "暗い体に淡い斑点を持ち、繁殖期には腹が鮮やかに色づくイワナの仲間。北極圏を中心とする冷たい湖や川にすみ、海へ下るものもいる。",
+      "imageSha256": "e351a31a7d85eec757d69cc7cca5cd67b5b9a7a6db7a2c250d9a5636aa287117"
+    },
+    {
+      "id": "bowfin",
+      "name": "ボウフィン",
+      "minLengthCm": 30,
+      "maxLengthCm": 95,
+      "weight": {
+        "referenceLengthCm": 55,
+        "referenceWeightKg": 1.7,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1.14,
+        "lengthScaleCm": 160,
+        "surgeAmplitude": 0.19,
+        "surgeFrequency": 2.4,
+        "style": "粘る引きに短い走りを交える"
+      },
+      "basePricePerKg": 70,
+      "description": "背に沿って伸びる長い背びれと丸い尾びれを持つ北米の淡水魚。水草の多い緩やかな水域で、小魚や甲殻類を捕らえる。",
+      "imageSha256": "fb5d185425637780fef806f79a82c29df631df49f675537a761ce37efbf67cad"
+    },
+    {
+      "id": "murray-cod",
+      "name": "マーレーコッド",
+      "minLengthCm": 40,
+      "maxLengthCm": 150,
+      "weight": {
+        "referenceLengthCm": 80,
+        "referenceWeightKg": 9,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1.26,
+        "lengthScaleCm": 210,
+        "surgeAmplitude": 0.22,
+        "surgeFrequency": 1.7,
+        "style": "ゆっくりした周期で力強く引く"
+      },
+      "basePricePerKg": 30,
+      "description": "大きな口と緑褐色のまだら模様を持つオーストラリアの淡水魚。マレー・ダーリング水系にすみ、沈木などの陰から魚や甲殻類を狙う。",
+      "imageSha256": "8c6e4a39f35574636cf4cb39689ea1c8f79a7500a19b629f8735702f4a4745f4"
+    },
+    {
+      "id": "golden-dorado",
+      "name": "ゴールデンドラード",
+      "minLengthCm": 30,
+      "maxLengthCm": 115,
+      "weight": {
+        "referenceLengthCm": 65,
+        "referenceWeightKg": 4,
+        "exponent": 3
+      },
+      "fight": {
+        "baseResistance": 1.2,
+        "lengthScaleCm": 150,
+        "surgeAmplitude": 0.29,
+        "surgeFrequency": 3.5,
+        "style": "速い周期の強い突進を繰り返す"
+      },
+      "basePricePerKg": 40,
+      "description": "金色に輝く体と強いあごを持つ南米の淡水魚。パラナ川などの流域にすみ、流れの中で素早く泳いで小魚を追う。",
+      "imageSha256": "79bd45ffadfcb3d756a9e22c1329ec6ebe77d90cea9787d864b4108f0ff1ecd0"
+    }
+  ],
+  "baseWeights": {
+    "black-bass": 24,
+    "smallmouth-bass": 14,
+    "bluegill": 18,
+    "rainbow-trout": 12,
+    "brown-trout": 9,
+    "iwana": 8,
+    "northern-pike": 6,
+    "european-perch": 12,
+    "walleye": 8,
+    "catfish": 10,
+    "alligator-gar": 3,
+    "arowana": 4,
+    "common-carp": 7,
+    "tench": 6,
+    "pumpkinseed": 8,
+    "black-crappie": 7,
+    "rock-bass": 7,
+    "freshwater-drum": 5,
+    "white-bass": 5,
+    "brook-trout": 3.5,
+    "striped-bass": 3.5,
+    "burbot": 3,
+    "grayling": 3,
+    "lake-trout": 3,
+    "arctic-char": 3,
+    "bowfin": 3.5,
+    "murray-cod": 2.5,
+    "golden-dorado": 3
+  },
+  "tiers": {
+    "black-bass": "Common",
+    "smallmouth-bass": "Common",
+    "bluegill": "Common",
+    "rainbow-trout": "Common",
+    "brown-trout": "Uncommon",
+    "iwana": "Uncommon",
+    "northern-pike": "Rare",
+    "european-perch": "Common",
+    "walleye": "Uncommon",
+    "catfish": "Uncommon",
+    "alligator-gar": "Rare",
+    "arowana": "Rare",
+    "common-carp": "Common",
+    "tench": "Common",
+    "pumpkinseed": "Common",
+    "black-crappie": "Common",
+    "rock-bass": "Common",
+    "freshwater-drum": "Common",
+    "white-bass": "Common",
+    "brook-trout": "Uncommon",
+    "striped-bass": "Uncommon",
+    "burbot": "Uncommon",
+    "grayling": "Uncommon",
+    "lake-trout": "Uncommon",
+    "arctic-char": "Uncommon",
+    "bowfin": "Uncommon",
+    "murray-cod": "Uncommon",
+    "golden-dorado": "Uncommon"
+  },
+  "lures": [
+    {
+      "id": "minnow",
+      "name": "ミノー",
+      "hitMultiplier": 1.05,
+      "affinities": {
+        "black-bass": 1.1,
+        "smallmouth-bass": 1.2,
+        "bluegill": 0.6,
+        "rainbow-trout": 1.6,
+        "brown-trout": 1.5,
+        "iwana": 1.5,
+        "northern-pike": 1.3,
+        "european-perch": 1.2,
+        "walleye": 1.5,
+        "catfish": 0.6,
+        "alligator-gar": 1.1,
+        "arowana": 1.4,
+        "common-carp": 0.85,
+        "tench": 0.85,
+        "pumpkinseed": 0.85,
+        "black-crappie": 1.6,
+        "rock-bass": 0.85,
+        "freshwater-drum": 0.85,
+        "white-bass": 1.6,
+        "brook-trout": 1.6,
+        "striped-bass": 1.6,
+        "burbot": 0.85,
+        "grayling": 1.6,
+        "lake-trout": 0.85,
+        "arctic-char": 1.6,
+        "bowfin": 0.85,
+        "murray-cod": 0.85,
+        "golden-dorado": 0.85
+      }
+    },
+    {
+      "id": "crankbait",
+      "name": "クランクベイト",
+      "hitMultiplier": 1,
+      "affinities": {
+        "black-bass": 1.5,
+        "smallmouth-bass": 1.5,
+        "bluegill": 0.8,
+        "rainbow-trout": 1,
+        "brown-trout": 1.2,
+        "iwana": 0.7,
+        "northern-pike": 1.2,
+        "european-perch": 1.5,
+        "walleye": 1.5,
+        "catfish": 0.8,
+        "alligator-gar": 0.9,
+        "arowana": 0.8,
+        "common-carp": 0.85,
+        "tench": 0.85,
+        "pumpkinseed": 0.85,
+        "black-crappie": 0.85,
+        "rock-bass": 1.6,
+        "freshwater-drum": 0.85,
+        "white-bass": 0.85,
+        "brook-trout": 0.85,
+        "striped-bass": 0.85,
+        "burbot": 0.85,
+        "grayling": 0.85,
+        "lake-trout": 1.6,
+        "arctic-char": 0.85,
+        "bowfin": 0.85,
+        "murray-cod": 1.6,
+        "golden-dorado": 0.85
+      }
+    },
+    {
+      "id": "worm",
+      "name": "ワーム",
+      "hitMultiplier": 0.9,
+      "affinities": {
+        "black-bass": 1.5,
+        "smallmouth-bass": 1.1,
+        "bluegill": 1.8,
+        "rainbow-trout": 0.9,
+        "brown-trout": 0.8,
+        "iwana": 1.1,
+        "northern-pike": 0.5,
+        "european-perch": 1.2,
+        "walleye": 0.9,
+        "catfish": 1.8,
+        "alligator-gar": 0.6,
+        "arowana": 0.7,
+        "common-carp": 1.6,
+        "tench": 1.6,
+        "pumpkinseed": 1.6,
+        "black-crappie": 0.85,
+        "rock-bass": 0.85,
+        "freshwater-drum": 1.6,
+        "white-bass": 0.85,
+        "brook-trout": 0.85,
+        "striped-bass": 0.85,
+        "burbot": 1.6,
+        "grayling": 0.85,
+        "lake-trout": 0.85,
+        "arctic-char": 0.85,
+        "bowfin": 0.85,
+        "murray-cod": 0.85,
+        "golden-dorado": 0.85
+      }
+    },
+    {
+      "id": "spinnerbait",
+      "name": "スピナーベイト",
+      "hitMultiplier": 1.1,
+      "affinities": {
+        "black-bass": 1.5,
+        "smallmouth-bass": 1.3,
+        "bluegill": 0.5,
+        "rainbow-trout": 0.7,
+        "brown-trout": 0.8,
+        "iwana": 0.5,
+        "northern-pike": 1.8,
+        "european-perch": 1.1,
+        "walleye": 0.8,
+        "catfish": 1,
+        "alligator-gar": 1.5,
+        "arowana": 1.4,
+        "common-carp": 0.85,
+        "tench": 0.85,
+        "pumpkinseed": 0.85,
+        "black-crappie": 0.85,
+        "rock-bass": 0.85,
+        "freshwater-drum": 0.85,
+        "white-bass": 0.85,
+        "brook-trout": 0.85,
+        "striped-bass": 0.85,
+        "burbot": 0.85,
+        "grayling": 0.85,
+        "lake-trout": 0.85,
+        "arctic-char": 0.85,
+        "bowfin": 1.6,
+        "murray-cod": 0.85,
+        "golden-dorado": 1.6
+      }
+    }
+  ],
+  "environmentAffinities": {
+    "black-bass": {
+      "depth": {
+        "shallow": 1.2,
+        "mid": 1.1,
+        "deep": 0.85
+      },
+      "time": {
+        "day": 1.1,
+        "night": 0.95
+      }
+    },
+    "smallmouth-bass": {
+      "depth": {
+        "shallow": 0.95,
+        "mid": 1.2,
+        "deep": 1.1
+      },
+      "time": {
+        "day": 1.1,
+        "night": 0.95
+      }
+    },
+    "bluegill": {
+      "depth": {
+        "shallow": 1.3,
+        "mid": 1,
+        "deep": 0.8
+      },
+      "time": {
+        "day": 1.2,
+        "night": 0.8
+      }
+    },
+    "rainbow-trout": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 1.15,
+        "deep": 1.25
+      },
+      "time": {
+        "day": 1.15,
+        "night": 0.95
+      }
+    },
+    "brown-trout": {
+      "depth": {
+        "shallow": 0.95,
+        "mid": 1.1,
+        "deep": 1.2
+      },
+      "time": {
+        "day": 0.95,
+        "night": 1.2
+      }
+    },
+    "iwana": {
+      "depth": {
+        "shallow": 1.05,
+        "mid": 1.2,
+        "deep": 1.1
+      },
+      "time": {
+        "day": 1.1,
+        "night": 1
+      }
+    },
+    "northern-pike": {
+      "depth": {
+        "shallow": 1.2,
+        "mid": 1.15,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 1.15,
+        "night": 0.95
+      }
+    },
+    "european-perch": {
+      "depth": {
+        "shallow": 1.15,
+        "mid": 1.2,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 1.2,
+        "night": 0.85
+      }
+    },
+    "walleye": {
+      "depth": {
+        "shallow": 0.85,
+        "mid": 1.1,
+        "deep": 1.25
+      },
+      "time": {
+        "day": 0.85,
+        "night": 1.25
+      }
+    },
+    "catfish": {
+      "depth": {
+        "shallow": 1.1,
+        "mid": 1.05,
+        "deep": 1.2
+      },
+      "time": {
+        "day": 0.85,
+        "night": 1.25
+      }
+    },
+    "alligator-gar": {
+      "depth": {
+        "shallow": 1.2,
+        "mid": 1.1,
+        "deep": 0.85
+      },
+      "time": {
+        "day": 1.05,
+        "night": 1.1
+      }
+    },
+    "arowana": {
+      "depth": {
+        "shallow": 1.3,
+        "mid": 1,
+        "deep": 0.75
+      },
+      "time": {
+        "day": 1.1,
+        "night": 1
+      }
+    },
+    "common-carp": {
+      "depth": {
+        "shallow": 1.4,
+        "mid": 0.9,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 1.25,
+        "night": 0.9
+      }
+    },
+    "tench": {
+      "depth": {
+        "shallow": 1.4,
+        "mid": 0.9,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 0.9,
+        "night": 1.25
+      }
+    },
+    "pumpkinseed": {
+      "depth": {
+        "shallow": 1.4,
+        "mid": 0.9,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 1.25,
+        "night": 0.9
+      }
+    },
+    "black-crappie": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 1.4,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 0.9,
+        "night": 1.25
+      }
+    },
+    "rock-bass": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 1.4,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 1.25,
+        "night": 0.9
+      }
+    },
+    "freshwater-drum": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 0.9,
+        "deep": 1.4
+      },
+      "time": {
+        "day": 0.9,
+        "night": 1.25
+      }
+    },
+    "white-bass": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 1.4,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 1.25,
+        "night": 0.9
+      }
+    },
+    "brook-trout": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 1.4,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 1.25,
+        "night": 0.9
+      }
+    },
+    "striped-bass": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 0.9,
+        "deep": 1.4
+      },
+      "time": {
+        "day": 1.25,
+        "night": 0.9
+      }
+    },
+    "burbot": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 0.9,
+        "deep": 1.4
+      },
+      "time": {
+        "day": 0.9,
+        "night": 1.25
+      }
+    },
+    "grayling": {
+      "depth": {
+        "shallow": 1.4,
+        "mid": 0.9,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 1.25,
+        "night": 0.9
+      }
+    },
+    "lake-trout": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 0.9,
+        "deep": 1.4
+      },
+      "time": {
+        "day": 1.25,
+        "night": 0.9
+      }
+    },
+    "arctic-char": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 0.9,
+        "deep": 1.4
+      },
+      "time": {
+        "day": 0.9,
+        "night": 1.25
+      }
+    },
+    "bowfin": {
+      "depth": {
+        "shallow": 1.4,
+        "mid": 0.9,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 0.9,
+        "night": 1.25
+      }
+    },
+    "murray-cod": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 1.4,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 0.9,
+        "night": 1.25
+      }
+    },
+    "golden-dorado": {
+      "depth": {
+        "shallow": 0.9,
+        "mid": 1.4,
+        "deep": 0.9
+      },
+      "time": {
+        "day": 1.25,
+        "night": 0.9
+      }
+    }
+  },
+  "lureDepthExponents": {
+    "minnow": {
+      "shallow": 1.15,
+      "mid": 1,
+      "deep": 0.85
+    },
+    "crankbait": {
+      "shallow": 0.9,
+      "mid": 1.15,
+      "deep": 1.2
+    },
+    "worm": {
+      "shallow": 1.05,
+      "mid": 1.1,
+      "deep": 1.15
+    },
+    "spinnerbait": {
+      "shallow": 1.2,
+      "mid": 1.1,
+      "deep": 0.8
+    }
+  },
+  "rodModifiers": {
+    "1": {
+      "black-bass": 1,
+      "smallmouth-bass": 1,
+      "bluegill": 1,
+      "rainbow-trout": 1,
+      "brown-trout": 1,
+      "iwana": 1,
+      "northern-pike": 1,
+      "european-perch": 1,
+      "walleye": 1,
+      "catfish": 1,
+      "alligator-gar": 1,
+      "arowana": 1,
+      "common-carp": 1,
+      "tench": 1,
+      "pumpkinseed": 1,
+      "black-crappie": 1,
+      "rock-bass": 1,
+      "freshwater-drum": 1,
+      "white-bass": 1,
+      "brook-trout": 1,
+      "striped-bass": 1,
+      "burbot": 1,
+      "grayling": 1,
+      "lake-trout": 1,
+      "arctic-char": 1,
+      "bowfin": 1,
+      "murray-cod": 1,
+      "golden-dorado": 1
+    },
+    "5": {
+      "black-bass": 1,
+      "smallmouth-bass": 1,
+      "bluegill": 1,
+      "rainbow-trout": 1,
+      "brown-trout": 1,
+      "iwana": 1,
+      "northern-pike": 1,
+      "european-perch": 1,
+      "walleye": 1,
+      "catfish": 1,
+      "alligator-gar": 1,
+      "arowana": 1,
+      "common-carp": 1,
+      "tench": 1,
+      "pumpkinseed": 1,
+      "black-crappie": 1,
+      "rock-bass": 1,
+      "freshwater-drum": 1,
+      "white-bass": 1,
+      "brook-trout": 1,
+      "striped-bass": 1,
+      "burbot": 1,
+      "grayling": 1,
+      "lake-trout": 1,
+      "arctic-char": 1,
+      "bowfin": 1,
+      "murray-cod": 1,
+      "golden-dorado": 1
+    },
+    "10": {
+      "black-bass": 1,
+      "smallmouth-bass": 1,
+      "bluegill": 1,
+      "rainbow-trout": 1,
+      "brown-trout": 1.1,
+      "iwana": 1.1,
+      "northern-pike": 1.5,
+      "european-perch": 1,
+      "walleye": 1.1,
+      "catfish": 1.1,
+      "alligator-gar": 1.5,
+      "arowana": 1.5,
+      "common-carp": 1,
+      "tench": 1,
+      "pumpkinseed": 1,
+      "black-crappie": 1,
+      "rock-bass": 1,
+      "freshwater-drum": 1,
+      "white-bass": 1,
+      "brook-trout": 1.1,
+      "striped-bass": 1.1,
+      "burbot": 1.1,
+      "grayling": 1.1,
+      "lake-trout": 1.1,
+      "arctic-char": 1.1,
+      "bowfin": 1.1,
+      "murray-cod": 1.1,
+      "golden-dorado": 1.1
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "phase": "6-C",
+  "totalBytes": 3764997,
+  "cumulativeImageBytesAt36": 19553009,
+  "images": [
+    {
+      "order": 29,
+      "speciesId": "red-bellied-piranha",
+      "bytes": 395976,
+      "sha256": "2d2454f70b38447774da4886311a548033d9864d59474b0dfd75376c7a076b77",
+      "approvedNearlyOpaquePixelsAlpha250OrMore": 140782
+    },
+    {
+      "order": 30,
+      "speciesId": "barramundi",
+      "bytes": 665028,
+      "sha256": "cc6b91996404515742eb6d58537c726de0ad76f33de9ced56d5e2a4b8704a2a9",
+      "approvedNearlyOpaquePixelsAlpha250OrMore": 234892,
+      "sourceMeasuredVisiblePixels": 260562,
+      "sourceMeasuredSoftEdgePixels": 25670
+    },
+    {
+      "order": 31,
+      "speciesId": "muskellunge",
+      "bytes": 362618,
+      "sha256": "23002d00d304afff4a35ce970df07d7ddd3cf719428cb83eba357ac886983bf6",
+      "approvedNearlyOpaquePixelsAlpha250OrMore": 124608
+    },
+    {
+      "order": 32,
+      "speciesId": "peacock-bass",
+      "bytes": 676275,
+      "sha256": "566da99ef2b14bb3e7c40c2b9584f40bb3c354cc5974228b037ad42a608aa88a",
+      "approvedNearlyOpaquePixelsAlpha250OrMore": 245902
+    },
+    {
+      "order": 33,
+      "speciesId": "northern-snakehead",
+      "bytes": 473584,
+      "sha256": "24ff2acec0ccee15140a955e267f3f34e24065c5c4234b76dfd31178fc240cbd",
+      "approvedNearlyOpaquePixelsAlpha250OrMore": 164987
+    },
+    {
+      "order": 34,
+      "speciesId": "lake-sturgeon",
+      "bytes": 307745,
+      "sha256": "b161d8e69b9a2d306c52fb79907f75a2af7ee155aa35dbd5c30e4d3a9fa0441c",
+      "approvedNearlyOpaquePixelsAlpha250OrMore": 119415
+    },
+    {
+      "order": 35,
+      "speciesId": "arapaima",
+      "bytes": 410048,
+      "sha256": "f06b2704be6854781524aac61839fcb956d6f4faf1f28871a33bd8402930c3e3",
+      "approvedNearlyOpaquePixelsAlpha250OrMore": 160440
+    },
+    {
+      "order": 36,
+      "speciesId": "payara",
+      "bytes": 473723,
+      "sha256": "eb9eef4b9a6a4ac8867cd0c540af69e7cf40d8e89d0ffa4477bd96215044db2c",
+      "approvedNearlyOpaquePixelsAlpha250OrMore": 160211
+    }
+  ]
+}

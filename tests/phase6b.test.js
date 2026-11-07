@@ -51,7 +51,7 @@ test('base main twenty species, PNGs, all encounter coefficients and rod modifie
 });
 
 test('exact 21–28 order, single grayling identity, approved PNG SHA/bytes and immutable numeric tables',()=>{
-  assert.equal(FISH_SPECIES.length,28);assert.deepEqual(FISH_SPECIES.slice(20).map(fish=>fish.id),rows.map(row=>row[0]));
+  assert.equal(FISH_SPECIES.length,36);assert.deepEqual(FISH_SPECIES.slice(20,28).map(fish=>fish.id),rows.map(row=>row[0]));
   assert.deepEqual(approved.images.map(row=>row.order),[21,22,23,24,25,26,27,28]);
   assert.equal(approved.images.reduce((n,row)=>n+row.bytes,0),4775452);
   const ids=FISH_SPECIES.map(fish=>fish.id);
@@ -68,7 +68,7 @@ test('exact 21–28 order, single grayling identity, approved PNG SHA/bytes and 
     for(const period of ['day','night'])assert.equal(FISH_ENVIRONMENT_AFFINITIES[id].time[period],period===time?1.25:.90);
   }
   assert.match(getFishSpecies('grayling').description,/帆.*Thymallus arcticus/);
-  assert.equal(new Set(FISH_SPECIES.map(fish=>fish.image)).size,28);
+  assert.equal(new Set(FISH_SPECIES.map(fish=>fish.image)).size,36);
 });
 
 test('strict production rejects every new key omission, including each of the four lures and environment subkeys',()=>{
@@ -103,7 +103,7 @@ test('72 conditions preserve positive normalized probabilities and every origina
 });
 
 test('new fish length draws are uniform with 0.1cm rounding; weight, resistance and RNG order follow the existing formulas',()=>{
-  for(const fish of FISH_SPECIES.slice(20))for(const roll of [0,.12345,.5,1-Number.EPSILON]){
+  for(const fish of FISH_SPECIES.slice(20,28))for(const roll of [0,.12345,.5,1-Number.EPSILON]){
     const length=Math.round((fish.minLengthCm+roll*(fish.maxLengthCm-fish.minLengthCm))*10)/10;
     const entries=encounterModel.getProbabilities('minnow',undefined,getRodEncounterModifiers(1));
     const i=entries.findIndex(row=>row.speciesId===fish.id),start=entries.slice(0,i).reduce((n,row)=>n+row.probability,0);
@@ -120,7 +120,7 @@ test('new fish length draws are uniform with 0.1cm rounding; weight, resistance 
 });
 
 test('eight Uncommon price endpoints, half-up boundaries, minimum and noncompound QTE 0–3 agree across sale routes',()=>{
-  for(const fish of FISH_SPECIES.slice(20))for(const length of [fish.minLengthCm,fish.weight.referenceLengthCm,fish.maxLengthCm])for(let count=0;count<=3;count++){
+  for(const fish of FISH_SPECIES.slice(20,28))for(const length of [fish.minLengthCm,fish.weight.referenceLengthCm,fish.maxLengthCm])for(let count=0;count<=3;count++){
     const record=capture(fish,fish.id,count,length),base=Math.max(50,Math.floor(record.weightKg*fish.basePricePerKg+.5));
     assert.equal(calculateSalePrice(record),base+Math.floor((base*count+5)/10));
   }
@@ -130,7 +130,7 @@ test('eight Uncommon price endpoints, half-up boundaries, minimum and noncompoun
   const balances=[];
   for(const route of ['bulk','individual']){
     const c=createCatchCollection({now:()=>1000});
-    for(const fish of FISH_SPECIES.slice(20))for(let count=0;count<=3;count++){
+    for(const fish of FISH_SPECIES.slice(20,28))for(let count=0;count<=3;count++){
       const record=capture(fish,`${fish.id}-${count}`,count,fish.maxLengthCm);c.register(record);c.store(record.id);
     }
     const expected=c.catches.reduce((n,row)=>n+calculateSalePrice(row),0);
@@ -162,11 +162,11 @@ test('24 distinct captures unlock once at capture time; duplicate/storage/sale n
   const incomplete=createGameplay();for(const fish of FISH_SPECIES.slice(0,23))incomplete.collection.register(capture(fish));
   const bad=structuredClone(createSaveData(incomplete,{savedAt:at}));bad.achievements.unlocked.push({id:'normal-species-24',unlockedAt:at});
   assert.throws(()=>validateSaveData(bad),e=>e.path==='achievements.normal-species-24');
-  assert.equal(game.achievements.entries.length,16);assert.ok(!game.achievements.entries.some(row=>row.id==='normal-species-36'));
+  assert.equal(game.achievements.entries.length,17);assert.equal(game.achievements.entries.find(row=>row.id==='normal-species-36').unlocked,false);
 });
 
 test('all eight new maximum-size fish land with every available QTE success count',()=>{
-  for(const fish of FISH_SPECIES.slice(20))for(let successes=0;successes<=getQteDifficulty(fish,fish.maxLengthCm).count;successes++){
+  for(const fish of FISH_SPECIES.slice(20,28))for(let successes=0;successes<=getQteDifficulty(fish,fish.maxLengthCm).count;successes++){
     let f,index=0;
     ({f}=hookedFight({speciesId:fish.id,size:'max',rod:10,reel:10,startDistance:4.51},{qte:{enabled:true,selectOperation:()=>'tap'},onFightEvent(event){
       if(event.type==='qte-warning')assert.equal(f.submitQteResult(event.fight.qte.token,index++<successes,event.fight.qte.deadlineSeconds),true);

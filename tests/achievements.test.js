@@ -21,22 +21,22 @@ function income(collection, amount) {
   return collection.sellUnassigned(id);
 }
 
-test('new session is 0 / 16 with stable immutable definitions and canonical zero progress', () => {
+test('new session is 0 / 17 with stable immutable definitions and canonical zero progress', () => {
   const { collection, achievements } = setup();
-  assert.equal(NORMAL_ACHIEVEMENTS.length, 16);
-  assert.equal(new Set(NORMAL_ACHIEVEMENTS.map(item => item.id)).size, 16);
+  assert.equal(NORMAL_ACHIEVEMENTS.length, 17);
+  assert.equal(new Set(NORMAL_ACHIEVEMENTS.map(item => item.id)).size, 17);
   assert.deepEqual(Object.fromEntries(NORMAL_ACHIEVEMENTS.map(({ id, name }) => [id, name])), {
     'normal-first-catch': '始まり', 'normal-catch-10': '収集せよ', 'normal-catch-50': '積み重なる記録',
     'normal-catch-100': 'ノスタルジア', 'normal-species-5': '記録、収集', 'normal-species-12': '多様性',
     'normal-length-100': '特異個体', 'normal-sales-10000': '等価交換', 'normal-first-upgrade': '更新',
     'normal-rod-level-5': '手に馴染む', 'normal-reel-level-5': '反復動作', 'normal-equipment-max': '適合',
-    'normal-rod-level-10': '手が覚えている', 'normal-reel-level-10': '円環', 'normal-equipment-level-10': '日が暮れる', 'normal-species-24': '広がる記録',
+    'normal-rod-level-10': '手が覚えている', 'normal-reel-level-10': '円環', 'normal-equipment-level-10': '日が暮れる', 'normal-species-24': '広がる記録', 'normal-species-36': '湖の記録',
   });
   assert.equal(achievements.unlockedCount, 0);
   assert.ok(achievements.entries.every(item => !item.unlocked && item.unlockedAt === null));
   assert.equal(entry(achievements, 'catch-10').progress.value, 0);
   assert.equal(entry(achievements, 'length-100').progress.value, 0);
-  assert.deepEqual(achievements.snapshot, { contractVersion: 4, unlocked: [] });
+  assert.deepEqual(achievements.snapshot, { contractVersion: 5, unlocked: [] });
   assert.equal(collection.snapshot.schemaVersion, 1);
   assert.equal('achievements' in collection.snapshot, false);
 });
@@ -66,7 +66,7 @@ for (const target of [10, 50, 100]) test(`capture threshold ${target - 1} → ${
   assert.equal(entry(achievements, `catch-${target}`).progress.value, target + 1);
 });
 
-for (const target of [5, 12, 24]) test(`encyclopedia discovery threshold ${target - 1} → ${target}`, () => {
+for (const target of [5, 12, 24, 36]) test(`encyclopedia discovery threshold ${target - 1} → ${target}`, () => {
   const { collection, achievements } = setup();
   for (let i = 0; i < target - 1; i++) collection.register(record(String(i), { speciesId: FISH_SPECIES[i].id }));
   collection.register(record('same-species'));
@@ -175,7 +175,7 @@ test('reevaluation and duplicate registration preserve ISO unlock time; immutabl
   collection.register(record('b', { lengthCm: 100 }));
   assert.equal(entry(achievements, 'first-catch').unlockedAt, '1970-01-01T00:00:01.000Z');
   assert.equal(entry(achievements, 'length-100').unlockedAt, '1970-01-01T00:01:39.999Z');
-  assert.deepEqual(empty, { contractVersion: 4, unlocked: [] }); assert.equal(snapshot.unlocked.length, 1);
+  assert.deepEqual(empty, { contractVersion: 5, unlocked: [] }); assert.equal(snapshot.unlocked.length, 1);
   for (const object of [NORMAL_ACHIEVEMENTS, ...NORMAL_ACHIEVEMENTS, snapshot, snapshot.unlocked, snapshot.unlocked[0], entries, entries[0], entries[0].progress]) assert.ok(Object.isFrozen(object));
   assert.throws(() => { snapshot.unlocked[0].unlockedAt = 'bad'; }, TypeError);
   assert.throws(() => { entries[0].progress.value = 1234; }, TypeError);
@@ -206,7 +206,7 @@ test('subscriptions can be removed, manager disposed, and a new session starts e
   achievements.dispose(); collection.register(record('big', { lengthCm: 100 }));
   assert.deepEqual(batches, [['normal-first-catch']]);
   const next = setup(); assert.equal(next.achievements.unlockedCount, 0);
-  assert.equal(next.collection.catches.length, 0); assert.deepEqual(next.achievements.snapshot, { contractVersion: 4, unlocked: [] });
+  assert.equal(next.collection.catches.length, 0); assert.deepEqual(next.achievements.snapshot, { contractVersion: 5, unlocked: [] });
 });
 
 test('fishing.step landing registers and unlocks without an animation/UI loop', () => {

@@ -115,7 +115,7 @@ test('all ten reel levels retain assist/LURE/tension and apply approved stopped-
   }
 });
 
-test('all 28 species × 3 sizes × 3 frame rates × 5 reels × 3 rods match the approved FIGHT equation exactly', t => {
+test('all 36 species × 3 sizes × 3 frame rates × 5 reels × 3 rods match the approved FIGHT equation exactly', t => {
   let cases = 0;
   for (const rod of [1, 5, 10]) for (const reel of [1, 5, 6, 8, 10]) for (const species of FISH_SPECIES) {
     for (const size of [0, 0.5, 1]) for (const hz of [30, 60, 144]) {
@@ -141,7 +141,7 @@ test('all 28 species × 3 sizes × 3 frame rates × 5 reels × 3 rods match the 
       cases++;
     }
   }
-  assert.equal(cases, 3780); t.diagnostic('3780 FIGHT integrations: absolute tolerance 1e-11, unchanged tension/resistance/clamp');
+  assert.equal(cases, 4860); t.diagnostic('4860 FIGHT integrations: absolute tolerance 1e-11, unchanged tension/resistance/clamp');
 });
 
 test('Tier and large-fish assist freeze through AIM/CAST/LURE/BITE/FIGHT purchases; next successful prepare refreshes both', () => {
@@ -207,7 +207,7 @@ test('actual 5B-1A retains exact pre-FIGHT state/RNG and rows; FIGHT matches its
       assert.equal(a.calls(), b.calls()); comparisons++;
     }
   }
-  assert.equal(comparisons, 6300); t.diagnostic('6300 actual legacy comparisons: pre-FIGHT state/RNG exact; FIGHT forced retrieval at canonical60Hz, original1e-11 tolerance; old rows/prices exact');
+  assert.equal(comparisons, 8100); t.diagnostic('8100 actual legacy comparisons: pre-FIGHT state/RNG exact; FIGHT forced retrieval at canonical60Hz, original1e-11 tolerance; old rows/prices exact');
 
   for (const level of [1, 5, 6, 8, 10]) for (const hz of [30, 60, 144]) {
     const outcome = [];
@@ -224,7 +224,7 @@ test('actual 5B-1A retains exact pre-FIGHT state/RNG and rows; FIGHT matches its
         if (species.id === 'alligator-gar' && size === 1) assert.equal(f.state.phase, PHASE.FAILED);
       }
       outcome.push(landed);
-      t.diagnostic(`${label} continuous rod/reel ${level}, ${hz}fps: ${landed.length}/84 catches, ${times.length ? `${Math.min(...times).toFixed(3)}–${Math.max(...times).toFixed(3)}s` : 'all line breaks'}`);
+      t.diagnostic(`${label} continuous rod/reel ${level}, ${hz}fps: ${landed.length}/108 catches, ${times.length ? `${Math.min(...times).toFixed(3)}–${Math.max(...times).toFixed(3)}s` : 'all line breaks'}`);
     }
     if (level <= 5) assert.deepEqual(outcome[0], outcome[1]);
     const slack = scenario(level, level, getFishSpecies('alligator-gar'), 180).f; prepare(slack); hook(slack);

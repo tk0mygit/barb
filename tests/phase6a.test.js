@@ -140,7 +140,7 @@ test('arbitrary twelve including all eight additions cannot unlock original-twel
   assert.equal(restoreSaveData(data).achievements.entries.find(row=>row.id==='normal-species-12').unlocked,false);
   for(const fish of FISH_SPECIES.slice(4,12)) c.register(capture(fish));
   assert.equal(award().unlocked,true);assert.equal(award().unlockedAt,'1970-01-01T00:00:01.000Z');
-  assert.deepEqual(NORMAL_ACHIEVEMENTS.filter(row=>['species','original-species'].includes(row.metric)).map(row=>row.target),[5,12,24]);
+  assert.deepEqual(NORMAL_ACHIEVEMENTS.filter(row=>['species','original-species'].includes(row.metric)).map(row=>row.target),[5,12,24,36]);
 });
 
 test('new alpha contract rejects faded bodies, sparse cores, hard-only edges and any margin contamination', () => {

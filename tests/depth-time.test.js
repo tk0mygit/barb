@@ -76,7 +76,7 @@ test('clock is equivalent at 30, 60 and 144fps, independent of frame caps and pa
 });
 
 test('all fish and lure environment profiles are immutable, positive and moderate', () => {
-  assert.equal(Object.keys(FISH_ENVIRONMENT_AFFINITIES).length, 28);
+  assert.equal(Object.keys(FISH_ENVIRONMENT_AFFINITIES).length, 36);
   assert.equal(Object.keys(LURE_DEPTH_AFFINITIES).length, 4);
   for (const fish of FISH_SPECIES) {
     const profile = FISH_ENVIRONMENT_AFFINITIES[fish.id];
@@ -90,7 +90,7 @@ test('all fish and lure environment profiles are immutable, positive and moderat
   for (const lure of LURES) for (const value of Object.values(LURE_DEPTH_AFFINITIES[lure.id])) assert.ok(value >= 0.8 && value <= 1.2);
 });
 
-test('all 24 environment/lure combinations normalize to one and sample all 28 fish reproducibly', t => {
+test('all 24 environment/lure combinations normalize to one and sample all 36 fish reproducibly', t => {
   let min = 1, max = 0;
   for (const lure of LURES) for (const environment of conditions) {
     const entries = getSpeciesProbabilities(lure.id, environment);
@@ -106,7 +106,9 @@ test('all 24 environment/lure combinations normalize to one and sample all 28 fi
     assert.deepEqual(Array.from({ length: 100 }, () => sampleFishSpecies(lure.id, a, environment).id), Array.from({ length: 100 }, () => sampleFishSpecies(lure.id, b, environment).id));
     assert.deepEqual(entries, getSpeciesProbabilities(lure.id, { ...environment, spotMultiplier: 1.5 }));
   }
-  assert.ok(min > 0.005 && max < 0.4);
+  // Exact current-roster extrema: arapaima/worm/mid/day and black-bass/spinnerbait/shallow/day.
+  assert.ok(Math.abs(min - 0.0018038689782801163) < 1e-15);
+  assert.ok(Math.abs(max - 0.18545644969178798) < 1e-15);
   t.diagnostic(`probability range ${(min * 100).toFixed(2)}–${(max * 100).toFixed(2)}%`);
 });
 

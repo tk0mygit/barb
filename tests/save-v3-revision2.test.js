@@ -40,7 +40,7 @@ function memory(raw=[]){
   return {map,writes,getItem:key=>map.get(key)??null,setItem(key,value){writes.push(key);map.set(key,value);},
     removeItem(){throw Error('No deletion');},clear(){throw Error('No reset');}};
 }
-function revision2(){
+function currentSave(){
   const game=createGameplay({now:()=>migrationTime});
   for(const [i,fish] of FISH_SPECIES.entries()){
     game.collection.register({schemaVersion:1,id:fish.id,speciesId:fish.id,lengthCm:fish.minLengthCm,
@@ -49,11 +49,11 @@ function revision2(){
   return save(game);
 }
 
-test('actual revision1 source validates/parses as revision1, then explicitly migrates to revision2 without changing any player data',()=>{
+test('actual revision1 source validates/parses as revision1, then explicitly migrates to revision3 without changing any player data',()=>{
   assert.equal(oldSave.SAVE_ROSTER_REVISION,1);assert.equal(sourceRevision1.achievements.contractVersion,3);
   assert.deepEqual(validateSaveData(sourceRevision1),sourceRevision1);assert.deepEqual(parseSaveData(JSON.stringify(sourceRevision1)),sourceRevision1);
-  const sourceJSON=JSON.stringify(sourceRevision1),expected={...sourceRevision1,rosterRevision:2,
-    achievements:{...sourceRevision1.achievements,contractVersion:4}};
+  const sourceJSON=JSON.stringify(sourceRevision1),expected={...sourceRevision1,rosterRevision:3,
+    achievements:{...sourceRevision1.achievements,contractVersion:5}};
   const state=restoreSaveData(sourceRevision1,{now:()=>{throw Error('No invented timestamps');}});
   assert.deepEqual(save(state),expected);assert.equal(state.achievements.entries.find(row=>row.id==='normal-species-24').progress.value,20);
   assert.equal(state.achievements.entries.find(row=>row.id==='normal-species-24').unlocked,false);
@@ -75,7 +75,7 @@ test('new 24-species award uses the fourth new distinct capture time after migra
   for(const old of previous)assert.deepEqual(game.achievements.snapshot.unlocked.find(row=>row.id===old.id),old);
 });
 
-test('V1/V2 reject all later fish; revision1 rejects all eight revision2 IDs before any migration',()=>{
+test('V1/V2 reject all later fish; revision1 rejects every later species ID before any migration',()=>{
   for(const version of [1,2,3])for(const fish of FISH_SPECIES.slice(version===3?20:12)){
     const bad=structuredClone(sourceRevision1);bad.saveVersion=version;
     if(version!==3){delete bad.rosterRevision;bad.achievements.contractVersion=2;bad.collection.catches=bad.collection.catches.slice(0,1);}
@@ -86,13 +86,13 @@ test('V1/V2 reject all later fish; revision1 rejects all eight revision2 IDs bef
   }
   const bad=structuredClone(sourceRevision1);bad.achievements.unlocked.push({id:'normal-species-24',unlockedAt:at});
   assert.throws(()=>validateSaveData(bad),e=>e.code==='invalid-data');
-  for(const revision of [1,2]){
-    const bad=structuredClone(revision===1?sourceRevision1:revision2());bad.achievements.contractVersion=revision===1?4:3;
-    assert.throws(()=>validateSaveData(bad),e=>e.code==='unsupported-version'&&e.path==='achievements.contractVersion');
+  for(const revision of [1,3]){
+    const bad=structuredClone(revision===1?sourceRevision1:currentSave());bad.achievements.contractVersion=revision===1?4:3;
+    assert.throws(()=>validateSaveData(bad),e=>e.code==='invalid-data'&&e.path==='achievements.contractVersion');
   }
 });
 
-test('revision1 load writes zero; next revision2 commit changes only the inactive slot and quota/conflict preserve both raw originals',()=>{
+test('revision1 load writes zero; next revision3 commit changes only the inactive slot and quota/conflict preserve both raw originals',()=>{
   for(const active of [0,1])for(const other of [null,'{broken',envelope(8,sourceRevision1)]){
     const raw=[other,other];raw[active]=envelope(9,sourceRevision1);
     const storage=memory(raw),manager=createSaveStorage({getStorage:()=>storage}),loaded=manager.load();
@@ -103,14 +103,14 @@ test('revision1 load writes zero; next revision2 commit changes only the inactiv
     storage.setItem=write;assert.equal(manager.save(save(loaded.state)).ok,true);assert.deepEqual(storage.writes,[KEYS[1-active]]);
     assert.equal(storage.getItem(KEYS[active]),raw[active]);
     const committed=JSON.parse(storage.getItem(KEYS[1-active]));assert.equal(committed.storageVersion,1);assert.equal(committed.generation,10);
-    assert.deepEqual([committed.data.saveVersion,committed.data.rosterRevision,committed.data.achievements.contractVersion],[3,2,4]);
+    assert.deepEqual([committed.data.saveVersion,committed.data.rosterRevision,committed.data.achievements.contractVersion],[3,3,5]);
     const stale=createSaveStorage({getStorage:()=>storage});stale.load();storage.map.set(KEYS[active],raw[active]+' ');const before=[...storage.map];
     assert.equal(stale.checkForExternalChanges(),true);assert.equal(stale.save(save(loaded.state)).ok,false);assert.deepEqual([...storage.map],before);
   }
 });
 
 test('all supported source pairings choose by generation; duplicate generations and constructor failure retain data',()=>{
-  const current=revision2();
+  const current=currentSave();
   for(const sources of [[sourceRevision1,current],[current,sourceRevision1],[current,current],[sourceRevision1,sourceRevision1]]){
     const raw=sources.map((data,i)=>envelope(i+1,data)),storage=memory(raw),manager=createSaveStorage({getStorage:()=>storage}),loaded=manager.load();
     assert.ok(loaded.state);assert.equal(loaded.status.generation,2);assert.equal(loaded.status.canSave,true);assert.deepEqual(storage.writes,[]);
@@ -123,10 +123,10 @@ test('all supported source pairings choose by generation; duplicate generations 
   }
 });
 
-test('future revision3+, contract5+ and saveVersion4 protect all writers with valid, missing or corrupt companions',()=>{
-  const current=revision2();
-  for(const mutate of [d=>{d.rosterRevision=3;d.future={};},d=>{d.rosterRevision=99;d.future=[];},
-    d=>{d.achievements.contractVersion=5;d.achievements.future=[];d.collection.future={};},
+test('future revision4+, contract6+ and saveVersion4 protect all writers with valid, missing or corrupt companions',()=>{
+  const current=currentSave();
+  for(const mutate of [d=>{d.rosterRevision=4;d.future={};},d=>{d.rosterRevision=99;d.future=[];},
+    d=>{d.achievements.contractVersion=6;d.achievements.future=[];d.collection.future={};},
     d=>{d.achievements.contractVersion=99;d.future={};},d=>{d.saveVersion=4;d.future={};}])
     for(const active of [0,1])for(const other of [envelope(1,sourceRevision1),envelope(1,current),null,'{broken']){
       const future=structuredClone(current);mutate(future);const raw=[other,other];raw[active]=envelope(99,future);
@@ -136,7 +136,7 @@ test('future revision3+, contract5+ and saveVersion4 protect all writers with va
     }
 });
 
-test('actual revision1 client, stale tab, cache and rollback cannot overwrite revision2 with a readable revision1 backup',()=>{
+test('actual revision1 client, stale tab, cache and rollback cannot overwrite revision3 with a readable revision1 backup',()=>{
   const current=save(restoreSaveData(sourceRevision1));
   for(const active of [0,1]){
     const raw=[envelope(1,sourceRevision1),envelope(1,sourceRevision1)];raw[active]=envelope(2,current);

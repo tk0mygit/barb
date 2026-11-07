@@ -62,18 +62,18 @@ function frozenTree(value) {
   for (const child of Object.values(value)) frozenTree(child);
 }
 
-test('approved immutable Tier assignments cover exactly the 28 fish, with 12/13/3 members', () => {
+test('approved immutable Tier assignments cover exactly the 36 fish, with 12/15/9 members', () => {
   assert.deepEqual(FISH_TIERS, ['Common', 'Uncommon', 'Rare']);
   assert.deepEqual(Object.keys(FISH_RARITY), FISH_SPECIES.map(fish => fish.id));
   const expected = {
     Common: ['black-bass', 'smallmouth-bass', 'bluegill', 'rainbow-trout', 'european-perch', 'common-carp', 'tench', 'pumpkinseed', 'black-crappie', 'rock-bass', 'freshwater-drum', 'white-bass'],
-    Uncommon: ['brown-trout', 'iwana', 'walleye', 'catfish', 'brook-trout', 'striped-bass', 'burbot', 'grayling', 'lake-trout', 'arctic-char', 'bowfin', 'murray-cod', 'golden-dorado'],
-    Rare: ['northern-pike', 'alligator-gar', 'arowana'],
+    Uncommon: ['brown-trout', 'iwana', 'walleye', 'catfish', 'brook-trout', 'striped-bass', 'burbot', 'grayling', 'lake-trout', 'arctic-char', 'bowfin', 'murray-cod', 'golden-dorado', 'red-bellied-piranha', 'barramundi'],
+    Rare: ['northern-pike', 'alligator-gar', 'arowana', 'muskellunge', 'peacock-bass', 'northern-snakehead', 'lake-sturgeon', 'arapaima', 'payara'],
   };
   for (const tier of FISH_TIERS) {
     assert.deepEqual(FISH_SPECIES.filter(fish => getFishTier(fish.id) === tier).map(fish => fish.id), expected[tier]);
   }
-  assert.equal(Object.values(APPEARANCE_WEIGHTS).reduce((sum, weight) => sum + weight, 0), 201);
+  assert.equal(Object.values(APPEARANCE_WEIGHTS).reduce((sum, weight) => sum + weight, 0), 214.9);
   assert.deepEqual(defineFishRarity(FISH_SPECIES.map(fish => fish.id), FISH_RARITY), FISH_RARITY);
   frozenTree(FISH_RARITY); frozenTree(FISH_TIERS);
   assert.throws(() => { FISH_RARITY['black-bass'] = 'Rare'; }, TypeError);
@@ -87,7 +87,7 @@ test('approved immutable Tier assignments cover exactly the 28 fish, with 12/13/
   assert.throws(() => defineFishRarity(['fixture-1', 'fixture-1'], { 'fixture-1': 'Common' }), /duplicate/);
 });
 
-test('all 672 production cells exactly match legacy weights, totals, probabilities and audit factors', t => {
+test('all 864 production cells exactly match legacy weights, totals, probabilities and audit factors', t => {
   const model = createEncounterModel(productionConfig());
   let cells = 0;
   for (const lure of LURES) for (const conditions of environments) {
@@ -111,7 +111,7 @@ test('all 672 production cells exactly match legacy weights, totals, probabiliti
       cells++;
     }
   }
-  assert.equal(cells, 672); t.diagnostic('672/672 cells: exact equality (maximum difference 0)');
+  assert.equal(cells, 864); t.diagnostic('864/864 cells: exact equality (maximum difference 0)');
 });
 
 test('production sampling uses one RNG call, strict cumulative boundaries and injected fish references', () => {
@@ -195,8 +195,8 @@ test('36 fictional fish cover 864 positive cells and remain reachable across all
     assert.equal(model.sample(lure.id, () => 0, conditions), config.registry.species[0]);
     assert.deepEqual(model.getProbabilities(lure.id, conditions), before);
   }
-  assert.equal(cells, 864); assert.equal(FISH_SPECIES.length, 28);
-  t.diagnostic('864/864 fictional cells positive and reachable; production species count remains 28');
+  assert.equal(cells, 864); assert.equal(FISH_SPECIES.length, 36);
+  t.diagnostic('864/864 fictional cells positive and reachable; production species count remains 36');
 });
 
 test('mutable definitions are detached, immutable registry identities are retained, and every return is frozen', () => {
@@ -354,10 +354,10 @@ test('zero configuration totals and modifier overflow/underflow cannot produce s
   }
 });
 
-test('audit CLI traces exactly 672 ordered production cells from the shared calculation', () => {
+test('audit CLI traces exactly 864 ordered production cells from the shared calculation', () => {
   const output = JSON.parse(execFileSync(process.execPath, [new URL('../scripts/audit-encounters.mjs', import.meta.url).pathname], { encoding: 'utf8' }));
-  assert.equal(output.speciesCount, 28); assert.equal(output.conditionCount, 24); assert.equal(output.cellCount, 672);
-  assert.equal(output.rows.length, 672);
+  assert.equal(output.speciesCount, 36); assert.equal(output.conditionCount, 24); assert.equal(output.cellCount, 864);
+  assert.equal(output.rows.length, 864);
   const model = createEncounterModel(productionConfig());
   let index = 0;
   for (const lure of LURES) for (const conditions of environments) {
