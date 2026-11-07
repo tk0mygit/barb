@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SMOKE_SPECS, L0_DOCUMENTS, L1_GROUPS, classifyChanges, eventPlan, parseNameStatus, readChangedFiles, createPlan } from '../scripts/ci-risk.js';
 import { FISH_SPECIES } from '../src/game/fish-species.js';
+import { ORIGINAL_FISH_SPECIES_IDS } from '../src/game/fish-roster.js';
 
 const availableSpecs = [...new Set([...SMOKE_SPECS, ...Object.values(L1_GROUPS).flatMap(group => group.specs),
   'tests/browser/game.spec.js', 'tests/browser/save-data.spec.js'])].sort();
@@ -146,12 +147,13 @@ test('the P4-A2 classifier PR itself requires the full L2 inventory', () => {
   }
 });
 
-test('fish PNG allowlist matches exactly the twelve registered production files', () => {
+test('fish PNG L1 allowlist remains exactly the original twelve; all eight additions require L2', () => {
   const production = readdirSync(new URL('../src/assets/fish/', import.meta.url), { withFileTypes: true })
     .filter(entry => entry.isFile() && entry.name.endsWith('.png')).map(entry => `src/assets/fish/${entry.name}`).sort();
   assert.equal(fishPngSources.length, 12);
-  assert.deepEqual([...fishPngSources].sort(), production);
-  assert.deepEqual([...fishPngSources].sort(), FISH_SPECIES.map(fish => `src/assets/fish/${fish.id}.png`).sort());
+  assert.deepEqual(production, FISH_SPECIES.map(fish => `src/assets/fish/${fish.id}.png`).sort());
+  assert.deepEqual([...fishPngSources].sort(), ORIGINAL_FISH_SPECIES_IDS.map(id => `src/assets/fish/${id}.png`).sort());
+  for (const fish of FISH_SPECIES.slice(12)) assert.equal(classify([change(`src/assets/fish/${fish.id}.png`)]).level, 'L2');
 });
 
 test('each existing PNG and multiple existing PNG modifications select all six required specs', () => {

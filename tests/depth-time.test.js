@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { ORIGINAL_FISH_SPECIES_IDS } from '../src/game/fish-roster.js';
 import { createCatchCollection } from '../src/game/catch-collection.js';
 import assert from 'node:assert/strict';
 import { DEPTH_CONFIG, estimateWaterDepth, getDepthBand } from '../src/world/depth.js';
@@ -81,7 +82,10 @@ test('all fish and lure environment profiles are immutable, positive and moderat
     const profile = FISH_ENVIRONMENT_AFFINITIES[fish.id];
     assert.ok(Object.isFrozen(profile) && Object.isFrozen(profile.depth) && Object.isFrozen(profile.time));
     assert.deepEqual(Object.keys(profile.depth), ['shallow', 'mid', 'deep']);
-    for (const value of [...Object.values(profile.depth), ...Object.values(profile.time)]) assert.ok(value >= 0.75 && value <= 1.3);
+    // Keep the original twelve's envelope. Only the eight approved new depth
+    // affinities introduce 1.40 (their full matrices are pinned in phase6a).
+    const ceiling = ORIGINAL_FISH_SPECIES_IDS.includes(fish.id) ? 1.3 : 1.4;
+    for (const value of [...Object.values(profile.depth), ...Object.values(profile.time)]) assert.ok(value >= 0.75 && value <= ceiling);
   }
   for (const lure of LURES) for (const value of Object.values(LURE_DEPTH_AFFINITIES[lure.id])) assert.ok(value >= 0.8 && value <= 1.2);
 });
