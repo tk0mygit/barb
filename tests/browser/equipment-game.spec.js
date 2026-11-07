@@ -125,7 +125,7 @@ for (const touch of [false, true]) {
     await expect(page.locator('[data-equipment="rod"] h3')).toHaveText('ロッド · Lv.2');
     await expect(page.locator('#achievement-notice')).toContainText('更新');
     await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
-    await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 15');
+    await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 16');
     await expect(page.locator('[data-achievement-id="normal-first-catch"].achievement-card')).toHaveAttribute('data-unlocked', 'true');
     const pausedProgress = await page.locator('#fishing-conditions').getAttribute('data-cycle-progress');
     await page.clock.fastForward(60000);
@@ -155,7 +155,7 @@ for (const touch of [false, true]) {
     await expect(page.locator('[data-equipment="reel"] h3')).toHaveText('リール · Lv.2');
     await expect(page.locator('#wallet-balance')).toHaveText(money);
     await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
-    await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 15');
+    await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 16');
     expect(errors).toEqual([]);
   });
 }
