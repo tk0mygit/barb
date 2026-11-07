@@ -7,16 +7,17 @@ import { expirePublicQte, succeedMousePublicQte } from './input-fixture.js';
 import { validateFishImage } from '../../scripts/lib/fish-image-validation.js';
 import { calculateSalePrice } from '../../src/game/fish-sales.js';
 import { armEncounter, verifyEncounterBite, readFishingEvidence } from './encounter-fixture.js';
+import { createStorageCheckpointTest } from './storage-checkpoint-fixture.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
 test.use({ deviceScaleFactor: 0.5 });
 
 // Controlled RNG and the real production build. No state-forcing hooks.
-async function setup(page, { paused = false } = {}) {
+async function setup(page, { paused = false, time } = {}) {
   await page.addInitScript(() => {
     Math.random = () => window.testRandomDraws?.length ? window.testRandomDraws.shift() : window.testRandomValue ?? 0.5;
   });
-  if (paused) await installPausedClock(page);
+  if (paused) await installPausedClock(page, time);
   await page.goto('./');
   if (paused) await page.clock.fastForward(250);
   await expect(page.locator('#status')).toBeHidden();
@@ -468,82 +469,176 @@ test('mobile landscape: prepare/cancel and return controls remain reachable', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('all 28 species: production cast, hook, fight, matching result image and recast', async ({ page }) => {
-  // Twenty-eight complete fights render hundreds of frames on software WebGL.
-  test.setTimeout(600000);
-  await page.setViewportSize({ width: 800, height: 600 });
-  await setup(page); await page.locator('#fish-button').click();
-  await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
-  // Advance one 250ms frame at a time (the production dt cap). This keeps the
-  // full state machine/render/UI live without 28 long wall-clock bite waits.
-  // Only clock and RNG are controlled; fish/state/catches are never injected.
-  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
-  const input = await inputFor(page, false);
-  const tick = () => page.clock.fastForward(250);
-  const snapshot = () => page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
-  const confirmedCounts = [];
-  for (const [index, species] of FISH_SPECIES.entries()) {
-    // Start alternating day/night phases through elapsed time, so a rollover
-    // cannot change the probability interval in the middle of this cast.
-    const timeOfDay = index % 2 ? 'night' : 'day';
-    const progress = Number(await page.locator('#fishing-conditions').getAttribute('data-cycle-progress'));
-    const targetProgress = index % 2 ? 0.5 : 0;
-    await page.clock.fastForward(Math.ceil(((targetProgress - progress + 1) % 1) * 360000) + 250);
-    await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-time-of-day', timeOfDay);
-    const lureId = ['minnow', 'crankbait', 'worm', 'spinnerbait'][index % 4];
-    await page.evaluate(() => { window.testRandomValue = 0.1; });
-    await page.locator(`[data-lure-id="${lureId}"]`).click({ force: true });
-    await page.locator('#cast-button').click({ force: true }); await tick();
-    await input.down(450, 240); await input.move(450, 90); await input.up();
-    for (let i = 0; i < 4; i++) await tick();
-    expect((await snapshot()).phase).toBe('lure');
-    await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-depth-m', '12');
-    const plan = await armEncounter(page, { speciesId: species.id, lengthRoll: .5, rodLevel: 1 });
-    for (let i = 0; i < 24 && (await snapshot()).phase === 'lure'; i++) await tick();
-    expect((await snapshot()).phase).toBe('bite');
-    await verifyEncounterBite(page, plan);
-    await input.tap(); await tick();
-    expect((await snapshot()).phase).toBe('fight');
-    let held = false, successes = 0;
-    for (let i = 0; i < 100; i++) {
-      const s = await snapshot();
-      if (s.phase !== 'fight') break;
-      if (await succeedMousePublicQte(page)) { held = false; successes++; continue; }
-      if (!held && s.tension < 0.35) { await input.down(); held = true; }
-      else if (held && s.tension > 0.65) { await input.up(); held = false; }
-      await tick();
-    }
-    if (held) await input.up();
-    expect((await snapshot()).phase).toBe('landing');
-    for (let i = 0; i < 5; i++) await tick();
-    await assertCatch(page, species.id, plan.lengthRoll);
-    expect(successes).toBeGreaterThanOrEqual(1); expect(successes).toBeLessThanOrEqual(3);
-    await expect(page.locator('#catch-qte-bonus')).toContainText(`QTE成功${successes}回／`);
-    confirmedCounts.push(successes);
-    if (index === 0) await page.locator('#catch-dialog').evaluate(dialog => dialog.close());
-    else await page.locator('#close-catch').click({ force: true });
-    await tick();
-    expect((await snapshot()).phase).toBe('ready');
+const speciesTest = createStorageCheckpointTest(test);
+const speciesSaveKeys = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
+const speciesGroups = Array.from({ length: Math.ceil(FISH_SPECIES.length / 7) }, (_, index) => ({
+  start: index * 7, end: Math.min((index + 1) * 7, FISH_SPECIES.length),
+}));
+
+async function readSpeciesSave(page) {
+  return page.evaluate(keys => {
+    const raw = keys.map(key => localStorage.getItem(key));
+    const latest = raw.filter(Boolean).map(JSON.parse).sort((a, b) => b.generation - a.generation)[0];
+    return { raw, data: latest?.data ?? null };
+  }, speciesSaveKeys);
+}
+function assertSpeciesSave(data, count, qteCounts) {
+  expect(data).not.toBeNull();
+  expect([data.saveVersion, data.rosterRevision, data.achievements.contractVersion]).toEqual([3, 2, 4]);
+  const records = data.collection.catches;
+  expect(records.map(record => record.speciesId)).toEqual(FISH_SPECIES.slice(0, count).map(fish => fish.id));
+  expect(new Set(records.map(record => record.id)).size).toBe(count);
+  expect(records.every(record => record.disposition === 'stored')).toBe(true);
+  expect(records.map(record => record.qteSuccessCount)).toEqual(qteCounts);
+}
+async function assertRestoredCheckpoint(page, checkpoint, expectedCount, qteCounts) {
+  const saved = await readSpeciesSave(page);
+  const origin = new URL(page.url()).origin;
+  const entries = checkpoint?.origins.find(entry => entry.origin === origin)?.localStorage ?? [];
+  // Compare the exact two original strings, not reconstructed save objects.
+  expect(saved.raw).toEqual(speciesSaveKeys.map(key => entries.find(entry => entry.name === key)?.value ?? null));
+  if (expectedCount) assertSpeciesSave(saved.data, expectedCount, qteCounts);
+}
+
+speciesTest.describe('all 28 species: continuous production catches and saved collection', () => {
+  // Failures block dependent parts through Playwright's serial scheduling;
+  // ci-required still rejects every failed or unexecuted test. No shared page.
+  speciesTest.describe.configure({ mode: 'serial' });
+  let confirmedCounts = [];
+  let checkpointTime;
+
+  speciesTest.beforeAll(() => {
+    expect(FISH_SPECIES).toHaveLength(28);
+    expect(speciesGroups.map(({ start, end }) => end - start)).toEqual([7, 7, 7, 7]);
+  });
+
+  for (const { start, end } of speciesGroups) {
+    speciesTest(`No.${start + 1}–${end}: cast, hook, fight, QTE, result image and recast`, async ({ page, storageCheckpoint }, testInfo) => {
+      // Seven real fights get their own five-minute budget; the old 28-fight
+      // test's ten-minute timeout is not extended. Final UI work is separate.
+      speciesTest.setTimeout(300000);
+      const started = performance.now();
+      const progress = { planned: FISH_SPECIES.slice(start, end).map(fish => fish.id), stage: 'startup', completed: [], current: null };
+      const segmentCounts = [];
+      try {
+        expect(confirmedCounts).toHaveLength(start);
+        await page.setViewportSize({ width: 800, height: 600 });
+        await setup(page, { paused: true, time: checkpointTime });
+        await assertRestoredCheckpoint(page, storageCheckpoint.previous, start, confirmedCounts);
+        const tick = () => page.clock.fastForward(250);
+        await page.locator('#fish-button').click(); await tick();
+        await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
+        const input = await inputFor(page, false);
+        const snapshot = () => page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
+
+        progress.stage = 'fishing';
+        for (let index = start; index < end; index++) {
+          const species = FISH_SPECIES[index], fishStarted = performance.now();
+          progress.current = { speciesId: species.id, stage: 'cast' };
+          let successes = 0;
+          await speciesTest.step(`No.${index + 1} ${species.id}`, async () => {
+            // Retain the original global lure/day-night sequence across reloads.
+            const timeOfDay = index % 2 ? 'night' : 'day';
+            const cycle = Number(await page.locator('#fishing-conditions').getAttribute('data-cycle-progress'));
+            const targetProgress = index % 2 ? 0.5 : 0;
+            await page.clock.fastForward(Math.ceil(((targetProgress - cycle + 1) % 1) * 360000) + 250);
+            await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-time-of-day', timeOfDay);
+            const lureId = ['minnow', 'crankbait', 'worm', 'spinnerbait'][index % 4];
+            await page.evaluate(() => { window.testRandomValue = 0.1; });
+            await page.locator(`[data-lure-id="${lureId}"]`).click({ force: true });
+            await page.locator('#cast-button').click({ force: true }); await tick();
+            await input.down(450, 240); await input.move(450, 90); await input.up();
+            for (let i = 0; i < 4; i++) await tick();
+            expect((await snapshot()).phase).toBe('lure');
+            await expect(page.locator('#fishing-conditions')).toHaveAttribute('data-depth-m', '12');
+            const plan = await armEncounter(page, { speciesId: species.id, lengthRoll: .5, rodLevel: 1 });
+            progress.current.stage = 'bite';
+            for (let i = 0; i < 24 && (await snapshot()).phase === 'lure'; i++) await tick();
+            expect((await snapshot()).phase).toBe('bite');
+            await verifyEncounterBite(page, plan);
+            await input.tap(); await tick();
+            expect((await snapshot()).phase).toBe('fight');
+            progress.current.stage = 'fight/QTE';
+            let held = false;
+            for (let i = 0; i < 100; i++) {
+              const s = await snapshot();
+              if (s.phase !== 'fight') break;
+              if (await succeedMousePublicQte(page)) { held = false; successes++; continue; }
+              if (!held && s.tension < 0.35) { await input.down(); held = true; }
+              else if (held && s.tension > 0.65) { await input.up(); held = false; }
+              await tick();
+            }
+            if (held) await input.up();
+            expect((await snapshot()).phase).toBe('landing');
+            progress.current.stage = 'landing/result image';
+            for (let i = 0; i < 5; i++) await tick();
+            await assertCatch(page, species.id, plan.lengthRoll);
+            expect(successes).toBeGreaterThanOrEqual(1); expect(successes).toBeLessThanOrEqual(3);
+            await expect(page.locator('#catch-qte-bonus')).toContainText(`QTE成功${successes}回／`);
+            progress.current.stage = 'recast';
+            if (index === 0) await page.locator('#catch-dialog').evaluate(dialog => dialog.close());
+            else await page.locator('#close-catch').click({ force: true });
+            await tick();
+            expect((await snapshot()).phase).toBe('ready');
+            await expect(page.locator('#cast-button')).toBeEnabled();
+          });
+          segmentCounts.push(successes);
+          const completed = { speciesId: species.id, qteSuccessCount: successes, durationMs: Math.round(performance.now() - fishStarted) };
+          progress.completed.push(completed); progress.current = null;
+          console.log(JSON.stringify({ type: 'species-complete', range: [start + 1, end], completed: progress.completed.length, ...completed }));
+        }
+        // The next segment starts after a real save/reload. Also prove the last
+        // fish of this segment can prepare another cast before that boundary.
+        progress.stage = 'recast/save boundary';
+        await page.locator('#cast-button').click(); await tick();
+        await expect(phase(page)).toHaveAttribute('data-phase', 'aim');
+        await page.locator('#cancel-cast').click(); await tick();
+        await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
+        await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+        const saved = await readSpeciesSave(page);
+        const nextCounts = [...confirmedCounts, ...segmentCounts];
+        assertSpeciesSave(saved.data, end, nextCounts);
+        const nextTime = new Date(await page.evaluate(() => Date.now()));
+        await storageCheckpoint.capture();
+        checkpointTime = nextTime;
+        confirmedCounts = nextCounts;
+        progress.stage = 'checkpoint committed';
+      } finally {
+        const summary = { range: [start + 1, end], ...progress, completedCount: progress.completed.length,
+          totalCompleted: start + progress.completed.length, durationMs: Math.round(performance.now() - started) };
+        console.log(JSON.stringify({ type: 'species-segment', ...summary }));
+        await testInfo.attach('species-segment-progress', { body: JSON.stringify(summary), contentType: 'application/json' });
+      }
+    });
   }
-  await page.locator('#menu-button').click({ force: true });
-  await page.locator('[data-view="encyclopedia"]').click({ force: true });
-  expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
-  await expect(page.locator('button.fish-card')).toHaveCount(28);
-  await page.screenshot({ path: 'test-results/encyclopedia-discovered.png', animations: 'disabled' });
-  await page.locator('#collection-back').click({ force: true });
-  await page.locator('[data-view="storage"]').click({ force: true });
-  await expect(page.locator('.stored-fish')).toHaveCount(28);
-  expect(new Set(await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId))).size).toBe(28);
-  const scroll = await page.locator('#collection-content').evaluate(el => { el.scrollTop = el.scrollHeight; return { top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight }; });
-  expect(scroll.height).toBeGreaterThan(scroll.client); expect(scroll.top).toBeGreaterThan(0);
-  await page.locator('#collection-close').click({ force: true });
-  await page.clock.resume(); await page.reload(); await expect(page.locator('#status')).toBeHidden();
-  const counts = await page.evaluate(() => ['barb.save.v1.slotA', 'barb.save.v1.slotB'].map(key => localStorage.getItem(key))
-    .filter(Boolean).map(JSON.parse).sort((a, b) => b.generation - a.generation)[0].data.collection.catches.map(record => record.qteSuccessCount));
-  expect(counts).toEqual(confirmedCounts);
-  await page.locator('#menu-button').click(); await page.locator('[data-view="storage"]').click();
-  await expect(page.locator('.stored-fish')).toHaveCount(28);
-  await page.locator('#collection-back').click(); await page.locator('[data-view="encyclopedia"]').click();
-  expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
+
+  speciesTest('28 caught species: ordered discovered grid, unique storage and QTE save/reload', async ({ page, storageCheckpoint }, testInfo) => {
+    expect(confirmedCounts).toHaveLength(28);
+    await page.setViewportSize({ width: 800, height: 600 });
+    await setup(page, { paused: true, time: checkpointTime });
+    await assertRestoredCheckpoint(page, storageCheckpoint.previous, 28, confirmedCounts);
+    await page.locator('#menu-button').click({ force: true });
+    await page.locator('[data-view="encyclopedia"]').click({ force: true });
+    expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
+    await expect(page.locator('button.fish-card')).toHaveCount(28);
+    await expect(page.locator('div.fish-card')).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath('encyclopedia-discovered.png'), animations: 'disabled' });
+    await page.locator('#collection-back').click({ force: true });
+    await page.locator('[data-view="storage"]').click({ force: true });
+    await expect(page.locator('.stored-fish')).toHaveCount(28);
+    const ids = await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId));
+    expect(new Set(ids).size).toBe(28);
+    const scroll = await page.locator('#collection-content').evaluate(el => { el.scrollTop = el.scrollHeight; return { top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight }; });
+    expect(scroll.height).toBeGreaterThan(scroll.client); expect(scroll.top).toBeGreaterThan(0);
+    await page.locator('#collection-close').click({ force: true });
+    await page.clock.resume(); await page.reload(); await expect(page.locator('#status')).toBeHidden();
+    assertSpeciesSave((await readSpeciesSave(page)).data, 28, confirmedCounts);
+    await page.locator('#menu-button').click(); await page.locator('[data-view="storage"]').click();
+    await expect(page.locator('.stored-fish')).toHaveCount(28);
+    expect(await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId))).toEqual(ids);
+    await page.locator('#collection-back').click(); await page.locator('[data-view="encyclopedia"]').click();
+    expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
+    await expect(page.locator('button.fish-card')).toHaveCount(28);
+    await testInfo.attach('all-species-qte-counts', { body: JSON.stringify({ speciesIds: FISH_SPECIES.map(fish => fish.id), qteSuccessCounts: confirmedCounts }), contentType: 'application/json' });
+  });
 });
