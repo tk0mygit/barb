@@ -68,7 +68,7 @@ for (const touch of [false, true]) for (const pngImage of [false, true]) {
     await click(page.locator('#menu-button')); await click(page.locator('[data-view="encyclopedia"]'));
     await expect(page.locator('.fish-card')).toHaveCount(36);
     const unknown = page.locator('div.fish-card');
-    await expect(unknown).toHaveCount(27);
+    await expect(unknown).toHaveCount(FISH_SPECIES.length - 1);
     const masked = await unknown.evaluateAll(nodes => nodes.map(node => node.outerHTML).join(''));
     for (const fish of FISH_SPECIES.slice(1)) {
       expect(masked).not.toContain(fish.name); expect(masked).not.toContain(fish.description);
