@@ -17,7 +17,7 @@ const savedAt = '2026-10-31T00:00:00.000Z', clone = structuredClone;
 const save = state => createSaveData(state, { savedAt });
 const envelope = (generation, data, storageVersion = 1) => JSON.stringify({ storageVersion, generation, data });
 const withoutCounts = records => records.map(({ qteSuccessCount, ...record }) => record);
-let root, oldSave, oldStorage, v1;
+let root, oldSave, oldStorage, oldV2Save, v1;
 
 before(async () => {
   // Execute the actual pre-V2 sources, rather than emulating the old version
@@ -25,6 +25,11 @@ before(async () => {
   root = await mkdtemp(join(tmpdir(), 'barb-save-v1-'));
   const archive = execFileSync('git', ['archive', '--format=tar', BASE_SHA, 'src/game', 'src/world', 'package.json']);
   execFileSync('tar', ['-xf', '-', '-C', root], { input: archive });
+  const v2root = join(root, 'v2');
+  await import('node:fs/promises').then(fs => fs.mkdir(v2root));
+  const v2archive = execFileSync('git', ['archive', '--format=tar', '4a9255054565310f857e74dc52f77c0b885c762b', 'src/game', 'src/world', 'package.json']);
+  execFileSync('tar', ['-xf', '-', '-C', v2root], { input: v2archive });
+  oldV2Save = await import(pathToFileURL(join(v2root, 'src/game/save-data.js')).href);
   const load = name => import(pathToFileURL(join(root, `src/game/${name}.js`)).href);
   oldSave = await load('save-data'); oldStorage = await load('save-storage');
   const { createCatchCollection: collectionFactory } = await load('catch-collection');
@@ -59,23 +64,25 @@ function open(raw, factory = createSaveStorage) {
   const storage = memory(raw), manager = factory({ getStorage: () => storage });
   return { storage, manager, loaded: manager.load() };
 }
-const v2 = () => parseSaveData(serializeSaveData(v1));
+const v2 = () => oldV2Save.parseSaveData(oldV2Save.serializeSaveData(v1));
 const invalid = error => error.code === 'invalid-data';
 
-test('V1 wire APIs remain strictly V1; only complete validation permits canonical V2 migration', () => {
+test('V1 wire APIs remain strictly V1; only complete validation permits canonical V3 migration', () => {
   const before = clone(v1);
   assert.deepEqual(validateSaveData(v1), before);
   assert.deepEqual(parseSaveData(JSON.stringify(v1)), before);
-  const canonical = v2(); assert.equal(canonical.saveVersion, 2);
+  const canonical = parseSaveData(serializeSaveData(v1)); assert.equal(canonical.saveVersion, 3);
+  assert.equal(canonical.rosterRevision, 1);
   assert.deepEqual(withoutCounts(canonical.collection.catches), v1.collection.catches);
   assert.ok(canonical.collection.catches.every(record => record.qteSuccessCount === 0 && Object.isFrozen(record)));
   const restored = restoreSaveData(v1, { now: () => { throw new Error('No invented dates'); } });
   assert.deepEqual(withoutCounts(restored.collection.catches), v1.collection.catches.map(record =>
     record.disposition === 'unassigned' ? { ...record, disposition: 'stored' } : record));
   assert.deepEqual(restored.collection.wallet, v1.collection.wallet);
-  assert.deepEqual(restored.achievements.snapshot, v1.achievements);
+  assert.deepEqual(restored.achievements.snapshot.unlocked, v1.achievements.unlocked);
+  assert.equal(restored.achievements.snapshot.contractVersion, 3);
   const data = save(restored);
-  assert.equal(data.saveVersion, 2); assert.equal(restored.collection.snapshot.schemaVersion, 1);
+  assert.equal(data.saveVersion, 3); assert.equal(restored.collection.snapshot.schemaVersion, 1);
   assert.ok(data.collection.catches.every(record => record.schemaVersion === 1));
   assert.deepEqual(save(restoreSaveData(data)), data);
   assert.equal(serializeSaveData(parseSaveData(serializeSaveData(data))), serializeSaveData(data));
@@ -121,7 +128,7 @@ test('V2 count is mandatory on every disposition in direct object, JSON and slot
   assert.throws(() => validateSaveData(bad), invalid); assert.equal(getterCalls, 0);
 });
 
-test('first V2 save writes only the inactive slot for V1-only and all A/B mixed-version orders', () => {
+test('first V3 save writes only the inactive slot for V1-only and all A/B mixed-version orders', () => {
   for (const versions of [[1, null], [null, 1], [1, 1], [1, 2], [2, 1], [2, 2]]) {
     for (const active of [0, 1].filter(i => versions[i] !== null)) {
       const raw = versions.map((version, i) => version === null ? null : envelope(i === active ? 7 : 6, version === 1 ? v1 : v2()));
@@ -134,7 +141,7 @@ test('first V2 save writes only the inactive slot for V1-only and all A/B mixed-
       assert.deepEqual(storage.writes, [KEYS[1 - active]]);
       assert.equal(storage.getItem(KEYS[active]), raw[active]);
       const written = JSON.parse(storage.getItem(KEYS[1 - active]));
-      assert.equal(written.generation, 8); assert.equal(written.storageVersion, 1); assert.equal(written.data.saveVersion, 2);
+      assert.equal(written.generation, 8); assert.equal(written.storageVersion, 1); assert.equal(written.data.saveVersion, 3);
       assert.deepEqual(loaded.state.collection.snapshot, before); assert.deepEqual(loaded.state.achievements.snapshot, awards);
       const reloaded = createSaveStorage({ getStorage: () => storage }).load();
       assert.equal(reloaded.status.generation, 8); assert.deepEqual(save(reloaded.state), save(loaded.state));
@@ -155,7 +162,7 @@ test('actual old application treats V2 as unsupported and protects both raw gene
 
 test('unknown future versions protect a readable V1/V2 backup regardless of order or generation', () => {
   for (const version of [1, 2]) for (const active of [0, 1]) for (const future of [
-    envelope(1, { saveVersion: 3, future: [] }), envelope(99, v2(), 3),
+    envelope(1, { saveVersion: 4, future: [] }), envelope(99, v2(), 3),
   ]) {
     const raw = [future, future]; raw[active] = envelope(7, version === 1 ? v1 : v2());
     const { manager, storage, loaded } = open(raw), before = [...storage.map];
@@ -231,7 +238,7 @@ test('20,000 legitimate V1 fish migrate without load writes or history truncatio
   assert.equal(manager.status.generation, 4); assert.equal(loaded.state.collection.catches.length, 20000);
 });
 
-test('autosave leaves V1 load untouched, then saves the bonus-inclusive sale as V2 without losing the active source', () => {
+test('autosave leaves V1 load untouched, then saves the bonus-inclusive sale as V3 without losing the active source', () => {
   const { manager, storage, loaded } = open([envelope(8, v1), envelope(9, v1)]), raw = storage.getItem(KEYS[1]);
   const autosave = createAutosave({ state: loaded.state, storage: manager, now: () => Date.parse(savedAt),
     schedule: () => 1, cancel: () => {}, repeat: () => 2, cancelRepeat: () => {} });
@@ -242,7 +249,7 @@ test('autosave leaves V1 load untouched, then saves the bonus-inclusive sale as 
   assert.equal(autosave.flush().ok, true); assert.equal(autosave.status.dirty, false);
   assert.deepEqual(storage.writes, [KEYS[0]]); assert.equal(storage.getItem(KEYS[1]), raw);
   const data = JSON.parse(storage.getItem(KEYS[0])).data;
-  assert.equal(data.saveVersion, 2); assert.equal(data.collection.wallet.lifetimeSales, 805);
+  assert.equal(data.saveVersion, 3); assert.equal(data.collection.wallet.lifetimeSales, 805);
   assert.equal(data.collection.catches.at(-1).salePrice, 28);
   assert.deepEqual(data.achievements, loaded.state.achievements.snapshot);
   autosave.dispose();

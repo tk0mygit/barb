@@ -5,12 +5,12 @@ import { FISH_SPECIES, BLACK_BASS, getFishSpecies, calculateFishWeightKg } from 
 import { BLACK_BASS as legacyBass } from '../src/game/fishing-config.js';
 import { validateFishImage } from '../scripts/lib/fish-image-validation.js';
 
-const expectedIds = ['black-bass', 'smallmouth-bass', 'bluegill', 'rainbow-trout', 'brown-trout', 'iwana', 'northern-pike', 'european-perch', 'walleye', 'catfish', 'alligator-gar', 'arowana'];
+const expectedIds = ['black-bass', 'smallmouth-bass', 'bluegill', 'rainbow-trout', 'brown-trout', 'iwana', 'northern-pike', 'european-perch', 'walleye', 'catfish', 'alligator-gar', 'arowana', 'common-carp', 'tench', 'pumpkinseed', 'black-crappie', 'rock-bass', 'freshwater-drum', 'white-bass', 'brook-trout'];
 
-test('all 12 ordinary species have unique stable IDs, metadata and lookup', () => {
+test('all 20 ordinary species have unique stable IDs, metadata and lookup', () => {
   assert.deepEqual(FISH_SPECIES.map(fish => fish.id), expectedIds);
-  assert.equal(new Set(FISH_SPECIES.map(fish => fish.id)).size, 12);
-  assert.equal(new Set(FISH_SPECIES.map(fish => fish.name)).size, 12);
+  assert.equal(new Set(FISH_SPECIES.map(fish => fish.id)).size, 20);
+  assert.equal(new Set(FISH_SPECIES.map(fish => fish.name)).size, 20);
   for (const fish of FISH_SPECIES) {
     assert.equal(getFishSpecies(fish.id), fish);
     assert.ok(fish.name.length > 0 && fish.description.length >= 20 && fish.fight.style.length > 0);
@@ -47,7 +47,7 @@ test('length, mass, resistance and price data stay within the provisional game e
 });
 
 test('each species references its own validated local production PNG', () => {
-  assert.equal(new Set(FISH_SPECIES.map(fish => fish.image)).size, 12);
+  assert.equal(new Set(FISH_SPECIES.map(fish => fish.image)).size, 20);
   const contents = new Set();
   for (const fish of FISH_SPECIES) {
     const url = new URL(fish.image);
@@ -59,7 +59,7 @@ test('each species references its own validated local production PNG', () => {
     assert.ok(image.width > 0 && image.height > 0);
     contents.add(bytes.toString('base64'));
   }
-  assert.equal(contents.size, 12);
+  assert.equal(contents.size, 20);
 });
 
 test('black-bass imports and Phase 2 weight/resistance values remain compatible', () => {

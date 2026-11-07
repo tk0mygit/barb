@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, posix } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readMobileFishingText } from './mobile-comparison-source.js';
+import { mobileFishingRandomValue } from './mobile-capture-rng.js';
 
 const exec = promisify(execFile), sources = new Map();
 const compact = source => source.replace(/\s+/g, '');
@@ -66,7 +67,7 @@ export async function verifyMobileFightCapture(implementation, entry) {
   const frames = entry.metrics.cameraFrames, first = frames.findIndex(frame => frame.phase === 'fight');
   assert(first >= 0, `${entry.id}: missing FIGHT history`);
   const boat = { x: 10, z: 20, heading: 0 }, clock = source.createGameClock(undefined, { elapsedSeconds: 90 });
-  const fishing = source.createFishing({ random: () => .5, getBoatPosition: () => boat,
+  const fishing = source.createFishing({ random: () => mobileFishingRandomValue(entry), getBoatPosition: () => boat,
     getEnvironment: position => ({ depthM: source.estimateWaterDepth(position), ...clock.state }) });
   assert.equal(fishing.prepare(boat, 0), true); fishing.aim(0, 150); fishing.cast();
   for (let i = 0; i < 480 && fishing.state.phase !== 'bite'; i++) { fishing.step(.25); clock.step(.25); }

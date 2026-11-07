@@ -11,11 +11,13 @@
 | `normal-catch-50` | 累計50匹 | 捕獲数50匹 |
 | `normal-catch-100` | 累計100匹 | 捕獲数100匹 |
 | `normal-species-5` | 5種発見 | 発見済み通常魚5種 |
-| `normal-species-12` | 全12種発見 | 通常魚12種すべて発見 |
+| `normal-species-12` | 全12種発見 | 最初の元12魚種すべて発見 |
 | `normal-length-100` | 大物ハンター | 体長100.0cm |
 | `normal-sales-10000` | 累計売却10,000 | 累計売却額10,000通貨 |
 | `normal-first-upgrade` | 初強化 | ロッドまたはリールLv.2 |
 | `normal-equipment-max` | 最大強化 | ロッド・リールそれぞれLv.5 |
+
+Phase 6-Aでは実績契約3をSave V3へ保存します。`normal-species-5` は全20種のdistinct数、`normal-species-12` は `fish-roster.js` の元12IDすべてを条件とし、任意12種では解禁しません。24／36種目標は、それぞれ捕獲可能になる6-B／6-Cで契約4／5へ移行して公開します。6-Aの表示は現在の15実績を維持します。旧解除日時の厳格な保持と移行は [Save V3](SAVE_DATA.md) を参照してください。以下の初期10件の表は実装履歴です。
 
 ## 正規データと接続
 

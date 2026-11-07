@@ -6,13 +6,16 @@ import { installPausedClock } from './clock-fixture.js';
 import { expirePublicQte, succeedMousePublicQte } from './input-fixture.js';
 import { validateFishImage } from '../../scripts/lib/fish-image-validation.js';
 import { calculateSalePrice } from '../../src/game/fish-sales.js';
+import { armEncounter, verifyEncounterBite, readFishingEvidence } from './encounter-fixture.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
 test.use({ deviceScaleFactor: 0.5 });
 
 // Controlled RNG and the real production build. No state-forcing hooks.
 async function setup(page, { paused = false } = {}) {
-  await page.addInitScript(() => { Math.random = () => window.testRandomValue ?? 0.5; });
+  await page.addInitScript(() => {
+    Math.random = () => window.testRandomDraws?.length ? window.testRandomDraws.shift() : window.testRandomValue ?? 0.5;
+  });
   if (paused) await installPausedClock(page);
   await page.goto('./');
   if (paused) await page.clock.fastForward(250);
@@ -384,7 +387,11 @@ test('mouse: blur/lost capture reset aim, over-tension fails and retry works', a
     await expect(page.locator('#cast-button')).toBeEnabled();
   }
   await cast(page, input, tick);
+  // This cancellation/QTE/line-break regression previously selected this fish
+  // with .5 in the twelve-species roster. Keep its size/resistance stable.
+  const encounterPlan = await armEncounter(page, { speciesId: 'rainbow-trout', lengthRoll: 0.5, rodLevel: 1 });
   await advanceTo('bite');
+  await verifyEncounterBite(page, encounterPlan);
   await input.tap(); await tick();
   await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
   await input.down();
@@ -407,9 +414,13 @@ test('mouse: blur/lost capture reset aim, over-tension fails and retry works', a
   }).toBeLessThan(tension);
   await input.up(); await input.down();
   const hud = page.locator('.qte-hud'), handoffs = [];
+  const samples = [];
+  const observedPhase = async () => {
+    const sample = await readFishingEvidence(page); samples.push(sample); return sample.phase;
+  };
   // Warning invalidates the old normal hold. Keep the 64 ordinary-step
   // budget; only the existing finite QTE wait has its own bounded clock.
-  for (let frame = 0; frame < 64 && await phase(page).getAttribute('data-phase') !== 'failed'; frame++) {
+  for (let frame = 0; frame < 64 && await observedPhase() !== 'failed'; frame++) {
     if (await hud.isVisible()) {
       await expect(hud).toHaveAttribute('data-state', 'warning');
       expect(await expirePublicQte(page, input.up)).toBe(true);
@@ -426,7 +437,7 @@ test('mouse: blur/lost capture reset aim, over-tension fails and retry works', a
     await tick();
   }
   expect(handoffs.length).toBeGreaterThan(0);
-  await test.info().attach('over-tension-qte-handoff', { body: JSON.stringify({ handoffs,
+  await test.info().attach('over-tension-qte-handoff', { body: JSON.stringify({ encounterPlan, handoffs, samples,
     native: await page.evaluate(() => window.e2eDiagnostics.events.filter(e => e.target === 'scene')) }), contentType: 'application/json' });
   await expect(phase(page)).toHaveAttribute('data-phase', 'failed'); await input.up();
   await expect(phase(page)).toHaveAttribute('data-phase', 'failed');
@@ -457,14 +468,14 @@ test('mobile landscape: prepare/cancel and return controls remain reachable', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('all 12 species: production cast, hook, fight, matching result image and recast', async ({ page }) => {
+test('all 20 species: production cast, hook, fight, matching result image and recast', async ({ page }) => {
   // Twelve complete fights render hundreds of frames on software WebGL.
   test.setTimeout(600000);
   await page.setViewportSize({ width: 800, height: 600 });
   await setup(page); await page.locator('#fish-button').click();
   await expect(phase(page)).toHaveAttribute('data-phase', 'ready');
   // Advance one 250ms frame at a time (the production dt cap). This keeps the
-  // full state machine/render/UI live without 12 long wall-clock bite waits.
+  // full state machine/render/UI live without 20 long wall-clock bite waits.
   // Only clock and RNG are controlled; fish/state/catches are never injected.
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
   await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
@@ -520,12 +531,12 @@ test('all 12 species: production cast, hook, fight, matching result image and re
   await page.locator('#menu-button').click({ force: true });
   await page.locator('[data-view="encyclopedia"]').click({ force: true });
   expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
-  await expect(page.locator('button.fish-card')).toHaveCount(12);
+  await expect(page.locator('button.fish-card')).toHaveCount(20);
   await page.screenshot({ path: 'test-results/encyclopedia-discovered.png', animations: 'disabled' });
   await page.locator('#collection-back').click({ force: true });
   await page.locator('[data-view="storage"]').click({ force: true });
-  await expect(page.locator('.stored-fish')).toHaveCount(12);
-  expect(new Set(await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId))).size).toBe(12);
+  await expect(page.locator('.stored-fish')).toHaveCount(20);
+  expect(new Set(await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId))).size).toBe(20);
   const scroll = await page.locator('#collection-content').evaluate(el => { el.scrollTop = el.scrollHeight; return { top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight }; });
   expect(scroll.height).toBeGreaterThan(scroll.client); expect(scroll.top).toBeGreaterThan(0);
   await page.locator('#collection-close').click({ force: true });
@@ -534,7 +545,7 @@ test('all 12 species: production cast, hook, fight, matching result image and re
     .filter(Boolean).map(JSON.parse).sort((a, b) => b.generation - a.generation)[0].data.collection.catches.map(record => record.qteSuccessCount));
   expect(counts).toEqual(confirmedCounts);
   await page.locator('#menu-button').click(); await page.locator('[data-view="storage"]').click();
-  await expect(page.locator('.stored-fish')).toHaveCount(12);
+  await expect(page.locator('.stored-fish')).toHaveCount(20);
   await page.locator('#collection-back').click(); await page.locator('[data-view="encyclopedia"]').click();
   expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
 });

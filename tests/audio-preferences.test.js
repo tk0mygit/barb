@@ -64,7 +64,7 @@ test('canonical game saves stay byte-identical across audio changes, including s
   assert.deepEqual(sampleAudioMix(reread.state.clock.state), sampleAudioMix(state.clock.state));
   assert.equal(serializeSaveData(createSaveData(restoreSaveData(data), { savedAt: data.savedAt })), original);
   assert.equal(game.save(data).ok, true); assert.equal(game.status.generation, 3);
-  assert.deepEqual(data.settings, {}); assert.equal(data.saveVersion, 2);
+  assert.deepEqual(data.settings, {}); assert.equal(data.saveVersion, 3);
   storage.values.set(SAVE_STORAGE_KEYS[0], 'external change'); assert.equal(game.checkForExternalChanges(), true);
   preferences.save({ ...valid, enabled: false }); assert.equal(game.status.phase, 'conflict');
 });

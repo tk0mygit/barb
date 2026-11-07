@@ -44,9 +44,9 @@ function land(fishing) {
 
 test('initial versioned envelope, JSON and domain round trips preserve the existing snapshot schemas', () => {
   const state = session(), data = save(state);
-  assert.deepEqual(data, { saveVersion: 2, savedAt,
+  assert.deepEqual(data, { saveVersion: 3, rosterRevision: 1, savedAt,
     collection: { catches: [], wallet: { balance: 0, lifetimeSales: 0 }, equipment: { rodLevel: 1, reelLevel: 1 } },
-    achievements: { contractVersion: 2, unlocked: [] }, boat: { x: 0, z: 30, heading: 0 }, clock: { elapsedSeconds: 0 }, settings: {} });
+    achievements: { contractVersion: 3, unlocked: [] }, boat: { x: 0, z: 30, heading: 0 }, clock: { elapsedSeconds: 0 }, settings: {} });
   const parsed = parseSaveData(serializeSaveData(data));
   assert.deepEqual(parsed, data); assert.notEqual(parsed, data);
   const restored = restoreSaveData(parsed);
@@ -74,7 +74,7 @@ test('save and restored domains are detached, deeply immutable, and never alter 
   assert.throws(() => { data.collection.catches[0].weightKg = 0; }, TypeError);
 });
 
-test('all 12 species, repeats, statistics, index, sales and unassigned rescue rebuild from catches only', () => {
+test('all 20 species, repeats, statistics, index, sales and unassigned rescue rebuild from catches only', () => {
   const state = session(), c = state.collection;
   FISH_SPECIES.forEach((fish, i) => {
     c.register(record(`fish-${i}`, { speciesId: fish.id, lengthCm: fish.maxLengthCm }));
@@ -87,14 +87,14 @@ test('all 12 species, repeats, statistics, index, sales and unassigned rescue re
   assert.equal('storedIds' in data.collection, false); assert.equal('encyclopedia' in data.collection, false);
   assert.deepEqual(restored.encyclopedia, c.encyclopedia);
   assert.equal(restored.encyclopedia[0].count, 2); assert.equal(restored.encyclopedia[0].maxLengthCm, 55);
-  assert.equal(restored.stored.length, 9); assert.equal(restored.catches.length, 13);
+  assert.equal(restored.stored.length, 14); assert.equal(restored.catches.length, 21);
   assert.ok(restored.catches.every(item => item.disposition !== 'unassigned'));
   assert.deepEqual(restored.catches.filter(item => item.disposition === 'sold'), c.catches.filter(item => item.disposition === 'sold'));
   assert.deepEqual(restored.wallet, c.wallet); assert.deepEqual(achievements.entries, state.achievements.entries);
   assert.equal(restored.register(record('fish-0')).disposition, 'sold');
-  assert.equal(restored.catches.length, 13); assert.equal(restored.store('fish-0'), null);
+  assert.equal(restored.catches.length, 21); assert.equal(restored.store('fish-0'), null);
   assert.equal(restored.sellUnassigned('fish-2'), null); // rescued and accessible through storage
-  const quote = restored.quoteStored(); assert.equal(quote.count, 9);
+  const quote = restored.quoteStored(); assert.equal(quote.count, 14);
   assert.equal(restored.sellStored(['fish-2']).count, 1);
   const newCatch = restored.register(record('new'));
   assert.equal(newCatch.disposition, 'unassigned'); assert.ok(restored.store('new'));
@@ -165,7 +165,7 @@ test('reject both directions of achievement/history contradiction rather than in
 
 test('JSON errors and unsupported versions have distinct stable error contracts', () => {
   assert.deepEqual(tryRestoreSaveData('{broken'), { ok: false, error: { code: 'invalid-json', path: 'json' } });
-  for (const version of [0, 3, 999]) {
+  for (const version of [0, 4, 999]) {
     const data = { saveVersion: version, futureField: [] };
     const result = tryRestoreSaveData(JSON.stringify(data));
     assert.equal(result.error.code, 'unsupported-version');
@@ -183,7 +183,6 @@ test('every required envelope and domain field is mandatory', () => {
   for (const path of paths) {
     const object = path.reduce((value, key) => value[key], baseline);
     for (const key of Object.keys(object)) {
-      if (path.join('.') === 'achievements' && key === 'contractVersion') continue; // Legacy contract has no discriminator.
       if (path.join('.') === 'collection.catches.0' && ['salePrice', 'soldAt'].includes(key)) continue;
       const data = clone(baseline); const target = path.reduce((value, key) => value[key], data); delete target[key];
       rejects(data);

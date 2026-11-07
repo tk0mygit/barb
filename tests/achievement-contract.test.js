@@ -33,7 +33,7 @@ function memory(raw = rawSlots) {
 }
 
 test('fixed pre-change canonical A/B bytes retain their hashes and exact old contract', () => {
-  assert.equal(SAVE_VERSION, 2);
+  assert.equal(SAVE_VERSION, 3);
   assert.deepEqual(SAVE_STORAGE_KEYS, ['barb.save.v1.slotA', 'barb.save.v1.slotB']);
   assert.deepEqual(rawSlots.map(raw => createHash('sha256').update(raw).digest('hex')), [
     '99d6efd2be174cef0b7ad627e9f7d435706aad3540ab4fe759be7ef4b839a6de',
@@ -44,7 +44,8 @@ test('fixed pre-change canonical A/B bytes retain their hashes and exact old con
   for (const [i, data] of legacy.entries()) {
     assert.equal(Object.hasOwn(data.achievements, 'contractVersion'), false);
     assert.deepEqual(validateSaveData(data), data);
-    assert.deepEqual(parseSaveData(serializeSaveData(data)), { ...data, saveVersion: 2,
+    assert.deepEqual(parseSaveData(serializeSaveData(data, { now: () => now })), { ...data, saveVersion: 3, rosterRevision: 1,
+      achievements: save(restoreSaveData(data, { now: () => now })).achievements,
       collection: { ...data.collection, catches: data.collection.catches.map(record => ({ ...record, qteSuccessCount: 0 })) } });
     const restored = restoreSaveData(data, { now: () => now });
     assert.deepEqual(restored.collection.catches, data.collection.catches.map(record => ({ ...record, qteSuccessCount: 0 })));
@@ -58,7 +59,7 @@ test('fixed pre-change canonical A/B bytes retain their hashes and exact old con
     assert.deepEqual(notices, []);
     const added = restored.achievements.snapshot.unlocked.filter(record => !legacyIds.includes(record.id));
     assert.deepEqual(added, i === 0 ? [] : ['normal-rod-level-5', 'normal-reel-level-5'].map(id => ({ id, unlockedAt: savedAt })));
-    assert.equal(save(restored).achievements.contractVersion, 2);
+    assert.equal(save(restored).achievements.contractVersion, 3);
   }
 });
 
@@ -68,7 +69,7 @@ test('legacy load never rewrites either raw slot; a failed migration save retain
   assert.equal(status.phase, 'restored'); assert.equal(status.generation, 2);
   assert.equal(manager.load().state, state);
   assert.deepEqual([...storage.map.values()], rawSlots); assert.deepEqual(storage.writes, []);
-  const data = save(state); assert.equal(data.achievements.contractVersion, 2);
+  const data = save(state); assert.equal(data.achievements.contractVersion, 3);
   storage.fail = true;
   assert.equal(manager.save(data).ok, false); assert.equal(manager.status.code, 'quota-exceeded');
   assert.equal(manager.status.generation, 2);
@@ -77,8 +78,8 @@ test('legacy load never rewrites either raw slot; a failed migration save retain
   assert.equal(manager.status.generation, 3); assert.equal(storage.writes.length, 1);
   assert.equal(storage.map.get(SAVE_STORAGE_KEYS[1]), rawSlots[1]);
   const envelope = JSON.parse(storage.writes[0].value);
-  assert.equal(envelope.storageVersion, 1); assert.equal(envelope.data.saveVersion, 2);
-  assert.equal(envelope.data.achievements.contractVersion, 2);
+  assert.equal(envelope.storageVersion, 1); assert.equal(envelope.data.saveVersion, 3);
+  assert.equal(envelope.data.achievements.contractVersion, 3);
   const reloaded = createSaveStorage({ getStorage: () => storage }).load();
   assert.equal(reloaded.status.generation, 3);
   assert.deepEqual(save(reloaded.state), data);
@@ -100,7 +101,7 @@ test('legacy achieved awards are mandatory and their old conditions cannot be re
   rejects(newId, `achievements.unlocked[${legacy[0].achievements.unlocked.length}].id`);
 });
 
-test('version 2 requires every earned old and new award; missing, duplicate, impossible and malformed awards fail closed', () => {
+test('current V3 contract requires every earned old and new award; missing, duplicate, impossible and malformed awards fail closed', () => {
   const baseline = save(restoreSaveData(legacy[1], { now: () => now }));
   assert.equal(baseline.achievements.unlocked.length, 12);
   for (const award of baseline.achievements.unlocked) {
@@ -121,7 +122,7 @@ test('version 2 requires every earned old and new award; missing, duplicate, imp
   const missingDate = clone(baseline); delete missingDate.achievements.unlocked[10].unlockedAt;
   rejects(missingDate, 'achievements.unlocked[10].unlockedAt');
   const oldAndNew = clone(baseline); delete oldAndNew.achievements.contractVersion;
-  rejects(oldAndNew, 'achievements.unlocked', 'input-too-large');
+  rejects(oldAndNew, 'achievements.contractVersion');
 });
 
 test('achievement version type errors and unknown versions retain distinct codes and cause paths', () => {
@@ -178,8 +179,8 @@ test('old Lv.5 → each newly purchased Lv.6–10 saves and reloads the complete
   for (let level = 6; level <= 10; level++) {
     for (const kind of ['rod', 'reel']) {
       const receipt = state.collection.purchaseUpgrade(kind, level - 1); assert.ok(receipt); spent += receipt.cost;
-      const data = save(state), parsed = parseSaveData(serializeSaveData(data));
-      assert.equal(data.saveVersion, 2); assert.equal(data.achievements.contractVersion, 2);
+      const data = save(state), parsed = parseSaveData(serializeSaveData(data, { now: () => now }));
+      assert.equal(data.saveVersion, 3); assert.equal(data.achievements.contractVersion, 3);
       const next = restoreSaveData(parsed, { now: () => { throw new Error('No newly earned awards on reload'); } });
       assert.deepEqual(save(next), data);
       assert.deepEqual(oldAwards(next.achievements.snapshot), legacy[1].achievements.unlocked);
@@ -206,6 +207,6 @@ test('old Lv.5 → each newly purchased Lv.6–10 saves and reloads the complete
     const data = clone(save(state)); delete data.achievements.contractVersion;
     data.achievements.unlocked = oldAwards(data.achievements);
     data.collection.equipment = { rodLevel: 5, reelLevel: 5, [`${kind}Level`]: 6 };
-    rejects(data, `collection.equipment.${kind}Level`);
+    rejects(data, 'achievements.contractVersion');
   }
 });

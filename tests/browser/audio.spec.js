@@ -127,7 +127,7 @@ test('shared clock twilight/fog, long jumps, composed lifecycle stops and saved 
   }
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   const slots = await page.evaluate(() => ['barb.save.v1.slotA', 'barb.save.v1.slotB'].map(k => JSON.parse(localStorage.getItem(k))).filter(Boolean));
-  for (const slot of slots) { expect(slot.data.saveVersion).toBe(2); expect(slot.data.settings).toEqual({}); }
+  for (const slot of slots) { expect(slot.data.saveVersion).toBe(3); expect(slot.data.settings).toEqual({}); }
   const saved = slots.sort((a, b) => b.generation - a.generation)[0];
   await page.reload(); await tick(page); expect((await audioSnapshot(page)).contexts).toBe(0);
   await page.locator('#fish-button').click(); await tick(page); await assertMix(page);
@@ -263,7 +263,7 @@ for (const scenario of ['invalid', 'read-denied', 'write-denied', 'unsupported']
       if (slot.data.saveVersion === 1) expect(saved.raw[index]).toBe(loaded.raw[0]);
     }
     const [latest, backup] = slots.sort((a, b) => b.generation - a.generation);
-    expect(latest.data.saveVersion).toBe(2);
+    expect(latest.data.saveVersion).toBe(3);
     expect(latest.generation).toBeGreaterThan(original.generation);
     expect(backup.generation).toBe(latest.generation - 1);
     // Later legal saves may replace V1. At the first migration boundary only,

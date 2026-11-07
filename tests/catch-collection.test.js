@@ -10,7 +10,7 @@ const record = (id, lengthCm = 40, speciesId = 'black-bass') => ({
   conditions: { depthM: 5, timeOfDay: 'day', lureId: 'worm', lurePosition: { x: 2, z: 3 } },
 });
 
-test('empty collection exposes the 12 species in specification order and a serializable snapshot', () => {
+test('empty collection exposes the 20 species in specification order and a serializable snapshot', () => {
   const collection = createCatchCollection();
   assert.deepEqual(collection.encyclopedia.map(entry => entry.speciesId), FISH_SPECIES.map(fish => fish.id));
   assert.ok(collection.encyclopedia.every(entry => entry.count === 0 && entry.maxLengthCm === null));

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { PerspectiveCamera, Scene, Vector3, MeshBasicMaterial, Object3D, DoubleSide, Frustum, Matrix4 } from 'three';
 import { mobileGit, replayMobileCamera, expectedMobileResourceCamera } from './mobile-comparison-source.js';
 import { readMobileFightSource } from './mobile-fight-replay.js';
+import { mobileFishingRandomValue } from './mobile-capture-rng.js';
 
 const BASE = '936210d2d118e4e66e2e4426a198d626f84742e8';
 const CAST_BASE = 'f2e87f9fd5262b99bb42af1fe835d7bd13307ade';
@@ -421,7 +422,8 @@ async function loadFishingDisplaySource(sha) {
 // Replay the native 150px cast and hold/release fixture from each exact game
 // source. No measured lure position, tension or attached expected state drives
 // this simulation. It also checks the pre-FIGHT phase/time history.
-export async function nativeFishingState(implementation, frames, onFrame) {
+export async function nativeFishingState(implementation, frames, onFrame, randomValue = .5) {
+  mobileFishingRandomValue({ metrics: { fishingRandomValue: randomValue } });
   assert(Array.isArray(frames) && frames.length, '5F-1A: missing frame history');
   for (const frame of frames) {
     assert(Number.isFinite(frame.dt) && frame.dt >= 0 && frame.dt <= .25, '5F-1A: invalid frame duration');
@@ -433,7 +435,7 @@ export async function nativeFishingState(implementation, frames, onFrame) {
   const first = frames.findIndex(frame => frame.phase === 'cast');
   assert(first >= 0, '5F-1A: missing native cast history');
   const boat = { x: 10, z: 20, heading: 0 }, clock = source.createGameClock(undefined, { elapsedSeconds: 90 });
-  const fishing = source.createFishing({ random: () => .5, getBoatPosition: () => boat,
+  const fishing = source.createFishing({ random: () => randomValue, getBoatPosition: () => boat,
     getEnvironment: position => ({ depthM: source.estimateWaterDepth(position), ...clock.state }) });
   let elapsed = 0, stage = 'initial';
   const input = source.createFishingInput(fishing);
@@ -485,7 +487,7 @@ function replayCamera(pose) {
 
 export async function replayFishingPhaseDisplay(implementation, entry) {
   assert(FISHING_PHASE_IDS.includes(entry.id), '5F-1A: unsupported capture ID');
-  const { source, fishing, elapsed } = await nativeFishingState(implementation, entry.metrics.cameraFrames);
+  const { source, fishing, elapsed } = await nativeFishingState(implementation, entry.metrics.cameraFrames, undefined, mobileFishingRandomValue(entry));
   const camera = replayCamera(replayMobileCamera(implementation, entry.metrics.cameraFrames));
   const scene = new Scene(), view = source.createFishingView(scene, camera);
   const equipment = source.createRodReelView(scene, camera, { equipment: { rodLevel: 1, reelLevel: 1 }, subscribe: () => () => {} });

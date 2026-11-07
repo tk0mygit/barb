@@ -53,7 +53,7 @@ test('V1 and V2 restoration displays the canonical restored equipment before the
   for (let level = 1; level < 10; level++) assert.ok(original.collection.purchaseUpgrade('reel', level));
   const current = createSaveData(original, { savedAt });
   for (const saveVersion of [1, 2]) {
-    const data = JSON.parse(JSON.stringify(current)); data.saveVersion = saveVersion;
+    const data = JSON.parse(JSON.stringify(current)); data.saveVersion = saveVersion; delete data.rosterRevision; data.achievements.contractVersion = 2;
     if (saveVersion === 1) for (const record of data.collection.catches) delete record.qteSuccessCount;
     const restored = restoreSaveData(data), before = createSaveData(restored, { savedAt });
     const fixture = setup(restored.collection);

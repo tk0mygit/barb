@@ -154,7 +154,7 @@ async function startCapture(page, seconds = 90) {
       },
     });
   });
-  await setup(page, seconds);
+  await setup(page, seconds, { randomValue: .01 });
 }
 test.beforeAll(async ({}, info) => {
   expect(MOBILE_COMPARISON_MODES).toContain(mode);
@@ -227,7 +227,7 @@ async function saveCapture(target, id, page, metrics, info, withLayout = false) 
   const image = resolve(destination, `${target}-${id}.png`);
   await page.screenshot({ path: image });
   await info.attach(`${target}-${id}`, { path: image, contentType: 'image/png' });
-  const entry = { target, id, comparison, metrics: { ...metrics, cameraExpected, cameraFrames }, image,
+  const entry = { target, id, comparison, metrics: { ...metrics, fishingRandomValue: .01, cameraExpected, cameraFrames }, image,
     ...(withLayout ? { layout: await layout(page) } : {}) };
   await verifyMobileSourceCapture(implementations[target], entry);
   if (implementations[target].sha === WATER_EFFECTS_BASE || implementations[target].fishingEffectsBlob) {

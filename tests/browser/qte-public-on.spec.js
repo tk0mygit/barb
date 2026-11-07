@@ -170,7 +170,7 @@ for (const touch of [false, true]) for (const scenario of ['flick', 'swipe', 'ta
     }
     await page.clock.fastForward(1250);
     const saved = (await latest(page)).data;
-    expect(saved.saveVersion).toBe(2);
+    expect(saved.saveVersion).toBe(3);
     expect(saved.collection.catches.at(-1)).toMatchObject({ id: record.id, qteSuccessCount: successes, salePrice: price, disposition: 'sold' });
     expect(saved.collection.wallet).toEqual({ balance: (save ? 777 : 0) + price, lifetimeSales: (save ? 777 : 0) + price });
     if (save) {

@@ -194,14 +194,20 @@ function play(createDomain, createView, seed, aspect) {
 test('exact base replay: shared factory draws, RNG value stream, every state, QTE and three catches match for five seeds/two viewports', async t => {
   const base = await baseSource(), summary = [];
   for (const seed of [0x5f1b2026, 1, 17, 0x12345678, 0xffffffff]) for (const aspect of [1280 / 800, 390 / 844]) {
-    const before = play(base.createFishing, base.createFishingView, seed, aspect);
-    const after = play(createFishing, createFishingView, seed, aspect);
+    // Compare renderer factories against the same domain in each pair. Phase
+    // 6-A intentionally changes normalized species intervals; the twelve- and
+    // twenty-species domains are both independently exercised without masking
+    // state, QTE, camera, RNG or collection differences within either pair.
+    for (const createDomain of [base.createFishing, createFishing]) {
+    const before = play(createDomain, base.createFishingView, seed, aspect);
+    const after = play(createDomain, createFishingView, seed, aspect);
     assert.equal(after.factoryDraws, before.factoryDraws, 'additional shared UUID RNG consumption');
     assert.deepEqual(after.values, before.values, 'domain random value stream changed');
     assert.deepEqual(after.frames, before.frames, 'phase/state/QTE history changed');
     assert.deepEqual(after.trips, before.trips, 'BITE time or species/length/weight/catch changed');
     assert.equal(after.collectionBytes, before.collectionBytes, 'persisted collection bytes changed');
     summary.push({ seed, aspect, factoryCalls: after.factoryDraws, bites: after.trips.map(t => t.bite.seconds), trips: after.trips.length });
+    }
   }
   t.diagnostic(JSON.stringify({ sourceBase: BASE, matched: summary }));
 });

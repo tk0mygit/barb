@@ -1,4 +1,5 @@
 import { getFishSpecies } from './fish-species.js';
+import { FISH_RARITY } from './fish-rarity.js';
 
 // Round the decimal kg value half up. Decimal arithmetic avoids e.g.
 // 90 * 1.15 becoming 103.49999999999999 in binary floating point.
@@ -15,7 +16,8 @@ export function calculateSalePrice({ speciesId, weightKg, qteSuccessCount }) {
     const divisor = 10n ** BigInt(scale);
     amount = (amount + divisor / 2n) / divisor;
   } else amount *= 10n ** BigInt(-scale);
-  // Establish the original integer base first; round the additive bonus once
+  if (FISH_RARITY[speciesId] === 'Uncommon' && amount < 50n) amount = 50n;
+  // Establish the integer base (including the Uncommon floor) first; round the additive bonus once
   // per fish. Never compound or convert an unsafe intermediate to Number.
   const limit = BigInt(Number.MAX_SAFE_INTEGER);
   if (amount > limit) throw new RangeError('Sale price exceeds safe integer range');

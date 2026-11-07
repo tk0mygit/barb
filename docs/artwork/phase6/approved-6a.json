@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "phase": "6-A",
+  "totalBytes": 5148674,
+  "images": [
+    {
+      "order": 13,
+      "speciesId": "common-carp",
+      "bytes": 656416,
+      "sha256": "905b051c0e418c982d942f9bf69936c8a1dbc584495530795e997137c05931b3",
+      "scientificName": "Cyprinus carpio"
+    },
+    {
+      "order": 14,
+      "speciesId": "tench",
+      "bytes": 637780,
+      "sha256": "e8e9fb23e6baf1e60e7244eb92f455a3aea1583f6860cbe188eafe722f59018c",
+      "scientificName": "Tinca tinca"
+    },
+    {
+      "order": 15,
+      "speciesId": "pumpkinseed",
+      "bytes": 657559,
+      "sha256": "33d1f2325790b9e6345f96deea777d07efea8066870e8abe30d7bd8d03f6daee",
+      "scientificName": "Lepomis gibbosus"
+    },
+    {
+      "order": 16,
+      "speciesId": "black-crappie",
+      "bytes": 766732,
+      "sha256": "6d70959a026b1dde1d8c882272d4c153c32a2657d02c22df8e6834b4be00d277",
+      "scientificName": "Pomoxis nigromaculatus"
+    },
+    {
+      "order": 17,
+      "speciesId": "rock-bass",
+      "bytes": 487551,
+      "sha256": "77361426647187c30876eac33f6fd01d906dc2ce77f00e735ce2937f0a53a91d",
+      "scientificName": "Ambloplites rupestris"
+    },
+    {
+      "order": 18,
+      "speciesId": "freshwater-drum",
+      "bytes": 663381,
+      "sha256": "ceaf6d5028061ef6950a2c3b37f9e77597111e67354f72a006dd1485e9a13ce8",
+      "scientificName": "Aplodinotus grunniens"
+    },
+    {
+      "order": 19,
+      "speciesId": "white-bass",
+      "bytes": 636924,
+      "sha256": "e106cce3aebc9ce0f7c7f8b1c5d55c027fa75481f79cdf69079b6e475bc4e5ea",
+      "scientificName": "Morone chrysops"
+    },
+    {
+      "order": 20,
+      "speciesId": "brook-trout",
+      "bytes": 642331,
+      "sha256": "9744b1b4bc3c0faa170f9b0fbc4d147603c6528ad0cf839de4c98a9f83123df9",
+      "scientificName": "Salvelinus fontinalis"
+    }
+  ]
+}

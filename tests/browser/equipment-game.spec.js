@@ -1,6 +1,7 @@
 import { test, expect } from './diagnostics-fixture.js';
 import { installPausedClock } from './clock-fixture.js';
 import { activateButton, expirePublicQte } from './input-fixture.js';
+import { armEncounter, verifyEncounterBite, readFishingEvidence } from './encounter-fixture.js';
 
 for (const touch of [false, true]) {
   test(`${touch ? 'touch' : 'mouse'}: real sales fund READY/sailing purchases; active fishing remains read-only`, async ({ createContext }, info) => {
@@ -12,7 +13,7 @@ for (const touch of [false, true]) {
       // Bound the software WebGL backbuffer without changing CSS viewport,
       // touch coordinates, simulation steps or the UI screenshot resolution.
       Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 0.25 });
-      Math.random = () => window.testRandomValue ?? 0.1;
+      Math.random = () => window.testRandomDraws?.length ? window.testRandomDraws.shift() : window.testRandomValue ?? 0.1;
     });
     await installPausedClock(page);
     const tick = () => page.clock.fastForward(250);
@@ -26,6 +27,7 @@ for (const touch of [false, true]) {
     const down = async () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }) : (await page.mouse.move(x, y), page.mouse.down());
     const up = () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : page.mouse.up();
     let rodLevel = 1;
+    let encounterPlan;
     const openEquipment = async () => {
       await click(page.locator('#menu-button'));
       await expect(page.locator('#collection-dialog')).toBeVisible();
@@ -65,9 +67,12 @@ for (const touch of [false, true]) {
       for (let i = 0; i < 4 && await phase() === 'cast'; i++) await tick();
       expect(await phase()).toBe('lure');
       if (checkStates) await readOnly();
-      await page.evaluate(() => { window.testRandomValue = 0.99; });
+      // Restore the pre-6A funding fish/size through the current production
+      // interval, independently of the registry's last species or total weight.
+      encounterPlan = await armEncounter(page, { speciesId: 'arowana', lengthRoll: 0.99, rodLevel });
       for (let i = 0; i < 32 && await phase() !== 'bite'; i++) await tick();
       expect(await phase()).toBe('bite');
+      await verifyEncounterBite(page, encounterPlan);
       if (checkStates) await readOnly();
     }
     async function land(checkStates = false) {
@@ -86,6 +91,13 @@ for (const touch of [false, true]) {
       if (checkStates) await readOnly();
       for (let i = 0; i < 5; i++) await tick();
       await expect(page.locator('#catch-dialog')).toBeVisible();
+      await Promise.all([
+        expect(page.locator('#catch-species')).toHaveText(encounterPlan.name),
+        expect(page.locator('#catch-length')).toHaveText(`${encounterPlan.lengthCm.toFixed(1)} cm`),
+        expect(page.locator('#catch-weight')).toHaveText(`${encounterPlan.weightKg.toFixed(2)} kg`),
+        expect(page.locator('#catch-qte-bonus')).toHaveText('QTE成功0回／ボーナス+0 Value'),
+        expect(page.locator('#catch-sale-price')).toHaveText(`売却価格 ${encounterPlan.basePrice.toLocaleString('ja-JP')} Value`),
+      ]);
       if (checkStates) {
         await expect(page.locator('#menu-button')).toBeDisabled();
         await page.locator('#menu-button').dispatchEvent('click');
@@ -93,6 +105,9 @@ for (const touch of [false, true]) {
       }
     }
     await cast(); await land();
+    await info.attach('equipment-production-catch', {
+      body: JSON.stringify(await readFishingEvidence(page)), contentType: 'application/json',
+    });
     // Reach achievements through a real cast/hook/fight/landing on the shipped
     // build. Capture unlocks before the sale/storage decision.
     await expect(page.locator('#achievement-notice')).toContainText('始まり');

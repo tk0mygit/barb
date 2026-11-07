@@ -36,7 +36,7 @@ test('new session is 0 / 15 with stable immutable definitions and canonical zero
   assert.ok(achievements.entries.every(item => !item.unlocked && item.unlockedAt === null));
   assert.equal(entry(achievements, 'catch-10').progress.value, 0);
   assert.equal(entry(achievements, 'length-100').progress.value, 0);
-  assert.deepEqual(achievements.snapshot, { contractVersion: 2, unlocked: [] });
+  assert.deepEqual(achievements.snapshot, { contractVersion: 3, unlocked: [] });
   assert.equal(collection.snapshot.schemaVersion, 1);
   assert.equal('achievements' in collection.snapshot, false);
 });
@@ -175,7 +175,7 @@ test('reevaluation and duplicate registration preserve ISO unlock time; immutabl
   collection.register(record('b', { lengthCm: 100 }));
   assert.equal(entry(achievements, 'first-catch').unlockedAt, '1970-01-01T00:00:01.000Z');
   assert.equal(entry(achievements, 'length-100').unlockedAt, '1970-01-01T00:01:39.999Z');
-  assert.deepEqual(empty, { contractVersion: 2, unlocked: [] }); assert.equal(snapshot.unlocked.length, 1);
+  assert.deepEqual(empty, { contractVersion: 3, unlocked: [] }); assert.equal(snapshot.unlocked.length, 1);
   for (const object of [NORMAL_ACHIEVEMENTS, ...NORMAL_ACHIEVEMENTS, snapshot, snapshot.unlocked, snapshot.unlocked[0], entries, entries[0], entries[0].progress]) assert.ok(Object.isFrozen(object));
   assert.throws(() => { snapshot.unlocked[0].unlockedAt = 'bad'; }, TypeError);
   assert.throws(() => { entries[0].progress.value = 1234; }, TypeError);
@@ -206,7 +206,7 @@ test('subscriptions can be removed, manager disposed, and a new session starts e
   achievements.dispose(); collection.register(record('big', { lengthCm: 100 }));
   assert.deepEqual(batches, [['normal-first-catch']]);
   const next = setup(); assert.equal(next.achievements.unlockedCount, 0);
-  assert.equal(next.collection.catches.length, 0); assert.deepEqual(next.achievements.snapshot, { contractVersion: 2, unlocked: [] });
+  assert.equal(next.collection.catches.length, 0); assert.deepEqual(next.achievements.snapshot, { contractVersion: 3, unlocked: [] });
 });
 
 test('fishing.step landing registers and unlocks without an animation/UI loop', () => {

@@ -6,6 +6,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from '@playwright/test';
 import { FISH_SPECIES } from '../src/game/fish-species.js';
 import { validateFishImage } from './lib/fish-image-validation.js';
+import { measureArtworkAlpha, assertArtworkAlpha } from './lib/fish-artwork-alpha.js';
+import { ORIGINAL_FISH_SPECIES_IDS } from '../src/game/fish-roster.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -41,7 +43,7 @@ async function renderSheet(page, entries, destination, columns, title) {
     .grid{display:grid;grid-template-columns:repeat(${columns},640px);gap:12px 0}
     figure{margin:0;height:330px;padding:0 8px}img{display:block;width:624px;height:273px;object-fit:contain}
     figcaption{padding:3px 16px;font-size:19px}small{display:block;font-size:14px;color:#4a5c53;margin-top:3px}
-    </style><h1>${escapeHTML(title)}</h1><p>AI generated with OpenAI image_gen.imagegen · BARB project · human review required for final artwork approval</p>
+    </style><h1>${escapeHTML(title)}</h1><p>AI-generated artwork · original 12 and approved Phase 6-A 8 · human morphology review is separate from automatic validation</p>
     <div class="grid">${entries.map(entry => `<figure><img src="${entry.dataURI}"><figcaption>${escapeHTML(entry.name)}<small>${entry.id}</small></figcaption></figure>`).join('')}</div></html>`);
   await page.locator('img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
   await page.screenshot({ path: destination, fullPage: true });
@@ -52,6 +54,7 @@ async function renderSheet(page, entries, destination, columns, title) {
 export async function generateFishArtworkReport({ outputDirectory = join(root, 'test-results/fish-artwork-review'), browser, page: suppliedPage } = {}) {
   outputDirectory = resolve(outputDirectory);
   await mkdir(outputDirectory, { recursive: true });
+  const approved = JSON.parse(await readFile(join(root, 'docs/artwork/phase6/approved-6a.json'), 'utf8'));
   const entries = await Promise.all(FISH_SPECIES.map(async fish => {
     const path = `src/assets/fish/${fish.id}.png`, bytes = await readFile(join(root, path));
     const format = validateFishImage(path, bytes), png = metadata(bytes);
@@ -59,13 +62,21 @@ export async function generateFishArtworkReport({ outputDirectory = join(root, '
     assert.equal(png.interlace, 0, `${path}: non-interlaced`);
     assert.ok(bytes.length <= 800 * 1024, `${path}: exceeds 800 KiB`);
     return { id: fish.id, name: fish.name, path, bytes: bytes.length, sha256: sha256(bytes), ...format, ...png,
-      productionMethod: 'Original OpenAI image_gen.imagegen artwork; proportional resize, alpha>=250 made opaque with softer alpha preserved, transparent padding and PNG metadata normalization',
+      productionMethod: ORIGINAL_FISH_SPECIES_IDS.includes(fish.id)
+        ? 'Original twelve AI-generated illustrations; previously normalized/padded PNGs, unchanged in Phase 6-A'
+        : 'Phase 6-A approved AI-generated PNG; copied byte-for-byte, no alpha adjustment, resize or re-encoding',
       dataURI: `data:image/png;base64,${bytes.toString('base64')}` };
   }));
-  assert.equal(entries.length, 12);
-  assert.equal(new Set(entries.map(entry => entry.sha256)).size, 12, 'All artworks must differ');
+  assert.equal(entries.length, 20);
+  assert.deepEqual(entries.slice(12).map(entry => entry.id), approved.images.map(entry => entry.speciesId));
+  for (const row of approved.images) {
+    const entry = entries.find(entry => entry.id === row.speciesId);
+    assert.equal(entry.sha256, row.sha256, row.speciesId); assert.equal(entry.bytes, row.bytes, row.speciesId);
+  }
+  assert.equal(new Set(entries.map(entry => entry.sha256)).size, 20, 'All artworks must differ');
   const totalImageBytes = entries.reduce((total, entry) => total + entry.bytes, 0);
-  assert.ok(totalImageBytes <= 8 * 1024 * 1024, 'Artwork total exceeds 8 MiB');
+  assert.equal(totalImageBytes, 11012560, 'Exact approved twenty-image total');
+  assert.ok(totalImageBytes <= 20 * 1024 * 1024, 'Phase 6 artwork review threshold');
 
   let ownedBrowser;
   if (!browser && !suppliedPage) {
@@ -76,32 +87,20 @@ export async function generateFishArtworkReport({ outputDirectory = join(root, '
   const context = suppliedPage ? undefined : await browser.newContext({ deviceScaleFactor: 1 });
   try {
     const page = suppliedPage ?? await context.newPage();
+    await page.addScriptTag({ content: measureArtworkAlpha.toString() });
     for (const entry of entries) {
       const decoded = await page.evaluate(async dataURI => {
         const image = new Image(); image.src = dataURI; await image.decode();
         const canvas = document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
         const ctx = canvas.getContext('2d', { willReadFrequently: true }); ctx.drawImage(image, 0, 0);
         const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height), width = canvas.width, height = canvas.height;
-        let transparentPixels = 0, partialAlphaPixels = 0, opaquePixels = 0, nontransparentBorderPixels = 0;
-        let left = width, top = height, right = -1, bottom = -1;
-        for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-          const alpha = data[(y * width + x) * 4 + 3];
-          if (alpha === 0) transparentPixels++;
-          else {
-            if (alpha === 255) opaquePixels++; else partialAlphaPixels++;
-            left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y);
-            if (x === 0 || y === 0 || x === width - 1 || y === height - 1) nontransparentBorderPixels++;
-          }
-        }
-        return { decodedWidth: width, decodedHeight: height, transparentPixels, partialAlphaPixels, opaquePixels,
-          nontransparentBorderPixels, nontransparentBounds: { left, top, right, bottom } };
+        return window.measureArtworkAlpha(data, width, height);
       }, entry.dataURI);
-      assert.equal(decoded.nontransparentBorderPixels, 0, `${entry.id}: border must be transparent`);
-      assert.ok(decoded.transparentPixels > 0 && decoded.opaquePixels > 1000, `${entry.id}: real transparent artwork`);
+      assertArtworkAlpha(decoded, { legacy: ORIGINAL_FISH_SPECIES_IDS.includes(entry.id), id: entry.id });
       assert.equal(decoded.decodedWidth, entry.width); assert.equal(decoded.decodedHeight, entry.height);
       Object.assign(entry, decoded);
     }
-    await renderSheet(page, entries, join(outputDirectory, 'contact-sheet.png'), 3, 'BARB · Phase 4C-1B · 12 fish artworks');
+    await renderSheet(page, entries, join(outputDirectory, 'contact-sheet.png'), 3, 'BARB · Phase 6-A · 20 fish artworks');
     await renderSheet(page, entries.filter(entry => ['black-bass', 'bluegill'].includes(entry.id)),
       join(outputDirectory, 'prototype-comparison.png'), 2, 'BARB · Largemouth bass / Bluegill · Style comparison');
   } finally {
@@ -116,6 +115,10 @@ export async function generateFishArtworkReport({ outputDirectory = join(root, '
     assert.ok(built, `${entry.id}: exact production PNG missing from build`);
     entry.builtPath = built.path;
   }
+  const builtPNGs = assets.filter(file => file.path.endsWith('.png'));
+  assert.equal(builtPNGs.length, 20, 'Only the twenty production fish PNGs are emitted');
+  assert.ok(builtPNGs.every(file => entries.some(entry => entry.sha256 === sha256(file.bytes))), 'Unapproved PNG in production');
+  assert.ok(!builtFiles.some(file => /\.zip$/i.test(file.path)), 'Source ZIP in production');
   const fixture = await readFile(join(root, 'tests/fixtures/fish-assets/transparent-test.png'));
   assert.ok(!builtFiles.some(file => sha256(file.bytes) === sha256(fixture)
     || /(?:transparent-test|fish-assets-fixture)/.test(file.path)
@@ -125,17 +128,17 @@ export async function generateFishArtworkReport({ outputDirectory = join(root, '
     buildAssetBytes: assets.reduce((total, file) => total + file.bytes.length, 0),
     buildTotalBytes: builtFiles.reduce((total, file) => total + file.bytes.length, 0),
     buildAssetCount: assets.length, testFixtureInProduction: false,
-    validation: 'Structural PNG validation and Chromium decoding; all perimeter alpha=0. Visual approval is a separate human/PM review.',
+    validation: 'Structural PNG validation and Chromium decoding; eight-pixel clear margins, original opaque checks and Phase 6-A near-opaque body/soft-contour checks. Visual approval is a separate human/PM review.',
     images: entries.map(({ dataURI, ...entry }) => entry),
   };
   await writeFile(join(outputDirectory, 'artwork-quality.json'), JSON.stringify(report, null, 2) + '\n');
-  await writeFile(join(outputDirectory, 'artwork-quality.md'), `# BARB Phase 4C-1B artwork quality\n\n` +
-    `OpenAI image_gen.imagegen original illustrations. Proportional resize/padding; nearly opaque alpha>=250 normalized to255, softer edges preserved; lossless PNG encoding. Exact prompts, anatomy sources and usage terms are recorded with the artwork provenance.\n\n` +
-    `12 PNG total: ${totalImageBytes.toLocaleString('en-US')} bytes (${report.totalImageMiB.toFixed(3)} MiB). ` +
+  await writeFile(join(outputDirectory, 'artwork-quality.md'), `# BARB Phase 6-A artwork quality\n\n` +
+    `AI-generated illustrations: original twelve previously normalized PNGs retained unchanged; eight approved Phase 6-A PNGs copied without processing. Public SHA ledger: docs/artwork/phase6/approved-6a.json. Morphology approval and applicable service/license terms require separate review.\n\n` +
+    `20 PNG total: ${totalImageBytes.toLocaleString('en-US')} bytes (${report.totalImageMiB.toFixed(3)} MiB). ` +
     `Build assets: ${report.buildAssetBytes.toLocaleString('en-US')} bytes; all dist files: ${report.buildTotalBytes.toLocaleString('en-US')} bytes.\n\n` +
     `All images: 1280×560, PNG RGBA8, non-interlaced, sRGB; decoded successfully. All outer-border pixels have alpha=0. Test PNG absent from production.\n\n` +
-    `| Fish | ID | Bytes | Transparent pixels | Partial alpha | Opaque pixels | Border errors |\n| --- | --- | ---: | ---: | ---: | ---: | ---: |\n` +
-    report.images.map(entry => `| ${entry.name} | ${entry.id} | ${entry.bytes} | ${entry.transparentPixels} | ${entry.partialAlphaPixels} | ${entry.opaquePixels} | ${entry.nontransparentBorderPixels} |`).join('\n') +
+    `| Fish | ID | Bytes | Transparent | Partial alpha | Opaque | Near opaque ≥250 | Soft contour | Margin errors |\n| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n` +
+    report.images.map(entry => `| ${entry.name} | ${entry.id} | ${entry.bytes} | ${entry.transparentPixels} | ${entry.partialAlphaPixels} | ${entry.opaquePixels} | ${entry.nearOpaquePixels} | ${entry.softEdgePixels} | ${entry.nontransparentBorderPixels} |`).join('\n') +
     `\n\nContact sheet: [contact-sheet.png](contact-sheet.png). Prototype comparison: [prototype-comparison.png](prototype-comparison.png). ` +
     `SHA256, nontransparent bounds, PNG chunks and built asset paths: [artwork-quality.json](artwork-quality.json).\n\n` +
     `These automatic checks do not establish anatomical or artistic quality. Inspect every image and the UI captures before approval.\n`);

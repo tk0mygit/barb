@@ -4,6 +4,7 @@ import { promisify } from 'node:util';
 import { Scene, PerspectiveCamera, Vector3, MeshBasicMaterial, DoubleSide } from 'three';
 import { mobileGit, replayMobileCamera, expectedMobileResourceCamera } from './mobile-comparison-source.js';
 import { nativeFishingState, fishingDisplayDraws, FISHING_PHASE_IDS } from './mobile-rod-reel-replay.js';
+import { mobileFishingRandomValue } from './mobile-capture-rng.js';
 import { readMobileFightSource } from './mobile-fight-replay.js';
 
 export const WATER_EFFECTS_BASE = 'b562b3f4d9d39ed38b05049e2981923bac175cfc';
@@ -212,7 +213,7 @@ export async function replayWaterEffectsDisplay(implementation, entry) {
         }
         equipment.update(true, fishing.state, elapsed);
         view.update(fishing, true, elapsed, equipment.copyTipWorld(tip));
-      });
+      }, mobileFishingRandomValue(entry));
       assert.equal(replay.fishing.state.phase, entry.id.endsWith('bite') ? 'bite' : 'fight', '5F-1B: native capture phase');
     } else {
       // The other 25 captures never cast. Reproduce their inactive timeline

@@ -283,7 +283,7 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       assert.deepEqual(m.buffer, { width: Math.floor(m.viewport.width * m.pixelRatio), height: Math.floor(m.viewport.height * m.pixelRatio) }, `${b.id}: drawing buffer dimensions`);
       assert.equal(m.pixels, m.buffer.width * m.buffer.height, `${b.id}: drawing buffer pixels`);
     }
-    for (const key of ['viewport', 'dpr', 'savedClockSeconds', 'boat', 'waterTime', 'fogStrength']) {
+    for (const key of ['viewport', 'dpr', 'savedClockSeconds', 'boat', 'waterTime', 'fogStrength', 'fishingRandomValue']) {
       assert.deepEqual(a.metrics[key], b.metrics[key], `${b.id}: ${key} differs`);
     }
     if (a.metrics.resourceCamera || b.metrics.resourceCamera) {

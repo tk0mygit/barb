@@ -29,7 +29,8 @@ export function historicalSave(version) {
   data.collection.catches[0].salePrice = 777;
   data.collection.catches[0].soldAt = '1970-01-01T00:00:01Z';
   data.collection.wallet = { balance: 777, lifetimeSales: 777 };
-  if (version === 1) { data.saveVersion = 1; for (const record of data.collection.catches) delete record.qteSuccessCount; }
+  delete data.rosterRevision; data.achievements.contractVersion = 2; data.saveVersion = version;
+  if (version === 1) { for (const record of data.collection.catches) delete record.qteSuccessCount; }
   return data;
 }
 

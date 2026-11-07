@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { FISH_RARITY } from '../src/game/fish-rarity.js';
 import { FISH_SPECIES } from '../src/game/fish-species.js';
 import { calculateSalePrice, addMoney } from '../src/game/fish-sales.js';
 import { createCatchCollection } from '../src/game/catch-collection.js';
@@ -11,18 +12,18 @@ const captured = (id, weightKg = 1.15, speciesId = 'catfish') => Object.freeze({
   conditions: Object.freeze({ depthM: 5, timeOfDay: 'night', lureId: 'worm', lurePosition: Object.freeze({ x: 2, z: 3 }) }),
 });
 
-test('all 12 species use existing per-kg prices with consistent half-up decimal rounding', () => {
+test('all 20 species use unchanged per-kg prices and the Uncommon floor with consistent half-up decimal rounding', () => {
   for (const fish of FISH_SPECIES) {
     assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: 1, qteSuccessCount: 0 }), fish.basePricePerKg);
     assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: 2, qteSuccessCount: 0 }), fish.basePricePerKg * 2);
     // Integer reference calculation over the hundredths produced by fishing.
     for (let hundredths = 1; hundredths <= 300; hundredths++) {
-      assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: hundredths / 100, qteSuccessCount: 0 }), Math.floor((fish.basePricePerKg * hundredths + 50) / 100));
+      assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: hundredths / 100, qteSuccessCount: 0 }), Math.max(FISH_RARITY[fish.id] === 'Uncommon' ? 50 : 0, Math.floor((fish.basePricePerKg * hundredths + 50) / 100)));
     }
   }
   assert.equal(calculateSalePrice(captured('a')), 104); // 90 * 1.15, not 103
   assert.equal(calculateSalePrice(captured('b', 1.145, 'black-bass')), 115);
-  assert.equal(calculateSalePrice(captured('c', 1e-7)), 0);
+  assert.equal(calculateSalePrice(captured('c', 1e-7)), 50);
   for (const weight of [0, -1, NaN, Infinity, '1', Number.MAX_VALUE]) assert.throws(() => calculateSalePrice(captured('bad', weight)), RangeError);
   assert.throws(() => calculateSalePrice(captured('bad', 1, 'missing')), RangeError);
   assert.equal(addMoney(Number.MAX_SAFE_INTEGER, 0), Number.MAX_SAFE_INTEGER);
