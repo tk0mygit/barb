@@ -6,13 +6,16 @@ import { installPausedClock } from './clock-fixture.js';
 import { expirePublicQte, succeedMousePublicQte } from './input-fixture.js';
 import { validateFishImage } from '../../scripts/lib/fish-image-validation.js';
 import { calculateSalePrice } from '../../src/game/fish-sales.js';
+import { armEncounter, verifyEncounterBite, readFishingEvidence } from './encounter-fixture.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
 test.use({ deviceScaleFactor: 0.5 });
 
 // Controlled RNG and the real production build. No state-forcing hooks.
 async function setup(page, { paused = false } = {}) {
-  await page.addInitScript(() => { Math.random = () => window.testRandomValue ?? 0.5; });
+  await page.addInitScript(() => {
+    Math.random = () => window.testRandomDraws?.length ? window.testRandomDraws.shift() : window.testRandomValue ?? 0.5;
+  });
   if (paused) await installPausedClock(page);
   await page.goto('./');
   if (paused) await page.clock.fastForward(250);
@@ -384,7 +387,11 @@ test('mouse: blur/lost capture reset aim, over-tension fails and retry works', a
     await expect(page.locator('#cast-button')).toBeEnabled();
   }
   await cast(page, input, tick);
+  // This cancellation/QTE/line-break regression previously selected this fish
+  // with .5 in the twelve-species roster. Keep its size/resistance stable.
+  const encounterPlan = await armEncounter(page, { speciesId: 'rainbow-trout', lengthRoll: 0.5, rodLevel: 1 });
   await advanceTo('bite');
+  await verifyEncounterBite(page, encounterPlan);
   await input.tap(); await tick();
   await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
   await input.down();
@@ -407,9 +414,13 @@ test('mouse: blur/lost capture reset aim, over-tension fails and retry works', a
   }).toBeLessThan(tension);
   await input.up(); await input.down();
   const hud = page.locator('.qte-hud'), handoffs = [];
+  const samples = [];
+  const observedPhase = async () => {
+    const sample = await readFishingEvidence(page); samples.push(sample); return sample.phase;
+  };
   // Warning invalidates the old normal hold. Keep the 64 ordinary-step
   // budget; only the existing finite QTE wait has its own bounded clock.
-  for (let frame = 0; frame < 64 && await phase(page).getAttribute('data-phase') !== 'failed'; frame++) {
+  for (let frame = 0; frame < 64 && await observedPhase() !== 'failed'; frame++) {
     if (await hud.isVisible()) {
       await expect(hud).toHaveAttribute('data-state', 'warning');
       expect(await expirePublicQte(page, input.up)).toBe(true);
@@ -426,7 +437,7 @@ test('mouse: blur/lost capture reset aim, over-tension fails and retry works', a
     await tick();
   }
   expect(handoffs.length).toBeGreaterThan(0);
-  await test.info().attach('over-tension-qte-handoff', { body: JSON.stringify({ handoffs,
+  await test.info().attach('over-tension-qte-handoff', { body: JSON.stringify({ encounterPlan, handoffs, samples,
     native: await page.evaluate(() => window.e2eDiagnostics.events.filter(e => e.target === 'scene')) }), contentType: 'application/json' });
   await expect(phase(page)).toHaveAttribute('data-phase', 'failed'); await input.up();
   await expect(phase(page)).toHaveAttribute('data-phase', 'failed');
