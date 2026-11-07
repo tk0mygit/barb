@@ -10,7 +10,7 @@ async function openAchievements(page, click = locator => locator.click()) {
   await click(page.locator('[data-view="achievements"]'));
 }
 
-for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: fifteen achievements, live progress, sales and upgrades in the shared menu`, async ({ createContext }) => {
+for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: sixteen achievements, live progress, sales and upgrades in the shared menu`, async ({ createContext }) => {
   const context = await createContext({ viewport: touch ? { width: 320, height: 568 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch });
   const page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));

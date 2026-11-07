@@ -24,3 +24,23 @@ Existing catches, dispositions, QTE counts, sold amounts/times, wallet, equipmen
 ## Artwork
 
 Only the approved eight images are copied byte-for-byte. [Public image ledger](artwork/phase6/approved-6b.json) records IDs, scientific names, bytes and SHA-256, without source ZIPs or private review data. Added PNGs total 4,775,452 bytes; all twenty-eight total 15,788,012 bytes. Original twenty retain their exact source bytes. The original twelve's stricter opaque-pixel tests remain; approved later additions retain dense near-opaque body, soft contour and transparent-margin checks. Automated checks do not establish anatomical correctness. Final PC/Android device and public Pages acceptance remain PM gates.
+
+## Local validation
+
+Implementation SHA: `f213a64a0bc4c25ae22157553faab9e5db380560`. The subsequent submission commit changes only this validation record and an E2E title. Product source and build inputs remain identical.
+
+| Check | Observed result |
+| --- | --- |
+| Install | `npm ci --cache /tmp/barb-npm-cache` passed; lockfile/dependencies unchanged |
+| Full Unit | `npm test`: 1,141 passed, zero failed/cancelled/skipped |
+| Build | `npm run build` passed; existing large Three.js chunk warning |
+| Artwork | 28/28 source PNGs structurally valid and Chromium-decoded; SHA/bytes exact in dist; 15,788,012 PNG bytes; 18,507,855 build asset bytes; no extra PNG/ZIP |
+| PC/touch production | Phase 6-B grid/detail/rotation/scrolling, eight source-matching images, unknown metadata/URL concealment, sales and save/reload: 2 passed |
+| Common smoke | PC + touch: 2 passed |
+| Related E2E | No production PNG preload, sixteen-award live UI including 24 species, native cancellation/QTE/line-break/retry: 3 passed |
+| Local execution integrity | Seven collected IDs exactly equal seven executed IDs; each passed once with retry zero |
+| L2 selection | Existing classifier selects all 40 browser specs; no workflow/classifier/gate modifications |
+
+The first full Unit run had fourteen failures: stale roster/award/cell-count expectations, the old final-species expectation, a fixture's image substitution count, a new fish outside the historical pacing profile, a missing historical source commit, and the deliberately strict uncommitted-source provenance guard. Updated the roster expectations, fetched only the missing referenced commit and committed product source before the passing full run. Historical twenty-species 16s/20s equivalent-span pacing limits remain intact; the eight approved new profiles retain the same all-lure/size/30–144fps capture checks with the existing 30s elapsed limit (observed new-species maximum 25.70s). No production physics or approved numbers were changed. A newly added RNG test initially assumed a boolean return from `cast`; it now verifies the actual CAST transition and exact three consumed draws. The first default-cache install failed to write npm's log/cache path; the same lockfile install succeeded using the temporary cache.
+
+Unexecuted locally: full WebGL suite, all 28 consecutive production browser captures, and the 34-pair Mobile comparison. Unit exercises of the comparison/final-gate code are not actual CI evidence. Required Actions lanes are Unit/Build, Regular A, Regular B, Mobile and `ci-required`; their real run IDs, collected/executed IDs and validation merge SHA must be audited by PM. Codex does not monitor/wait for CI after creating the PR. No direct main push, merge, deployment, real-device acceptance or Phase 6-R completion was performed.
