@@ -248,27 +248,49 @@ const artworkViewports = [
 // Match a disposal to the exact in-flight Request, never a URL-wide exception.
 async function observeCollectionImageRequests(page) {
   const requests = new Map(), pending = new Set(), disposals = new Map();
+  let transitionRequests = new Map();
+  const events = [];
+  const recordEvent = (type, request) => events.push({ sequence: events.length + 1,
+    type, requestId: requests.get(request)?.id ?? null, observedAt: Date.now() });
   page.on('request', request => {
     if (request.resourceType() !== 'image') return;
     requests.set(request, { id: requests.size + 1, url: request.url(), outcome: 'pending' });
     pending.add(request);
+    recordEvent('request', request);
   });
   page.on('requestfinished', request => {
     if (requests.has(request)) requests.get(request).outcome = 'finished';
     pending.delete(request);
+    if (requests.has(request)) recordEvent('requestfinished', request);
   });
   page.on('requestfailed', request => {
     if (requests.has(request)) Object.assign(requests.get(request), { outcome: 'failed', error: request.failure()?.errorText });
     pending.delete(request);
+    if (requests.has(request)) recordEvent('requestfailed', request);
   });
   await page.exposeBinding('recordFishImageDisposal', (_, { phase, key, ...sample }) => {
+    const disposal = disposals.get(key) ?? {};
+    disposals.set(key, disposal);
     if (phase === 'before') {
-      const candidates = [...pending].filter(request => request.url() === sample.url);
-      disposals.set(key, { before: sample, request: candidates.length === 1 ? candidates[0] : null });
-    } else if (disposals.has(key)) disposals.get(key).after = sample;
+      disposal.before = sample;
+      disposal.request = transitionRequests.get(sample.imageKey) ?? null;
+    } else disposal.after = sample;
+    events.push({ sequence: events.length + 1, type: `dispose-${phase}`, key,
+      requestId: requests.get(disposal.request)?.id ?? null, observedAt: Date.now() });
   });
   await page.addInitScript(() => {
-    let transition, serial = 0;
+    let transition, serial = 0, imageSerial = 0;
+    const images = new WeakMap(), bindings = [];
+    const imageKey = image => {
+      if (!images.has(image)) images.set(image, `${performance.timeOrigin}:image-${++imageSerial}`);
+      return images.get(image);
+    };
+    window.fishImageAudit = {
+      snapshot: () => [...document.querySelectorAll('#collection-content img')].map(image => ({
+        imageKey: imageKey(image), url: image.src, complete: image.complete, connected: image.isConnected,
+      })),
+      flush: () => Promise.all(bindings.splice(0)),
+    };
     document.addEventListener('click', event => {
       const button = event.target.closest?.('button');
       if (!event.isTrusted || !button?.matches('button.fish-card, #collection-back, #collection-close, [data-view]')) return;
@@ -278,39 +300,62 @@ async function observeCollectionImageRequests(page) {
     Element.prototype.removeAttribute = function(name) {
       if (name !== 'src' || !(this instanceof HTMLImageElement) || !transition?.event.eventPhase || !this.closest('#collection-content')) return remove.apply(this, arguments);
       const key = `${performance.timeOrigin}:${++serial}`;
-      const before = { url: this.src, complete: this.complete, connected: this.isConnected,
+      const before = { imageKey: imageKey(this), url: this.src, complete: this.complete, connected: this.isConnected,
+        at: performance.timeOrigin + performance.now(),
         transition: { trigger: transition.trigger, trusted: transition.event.isTrusted },
         title: document.querySelector('#collection-title').textContent, stack: new Error().stack };
-      window.recordFishImageDisposal({ phase: 'before', key, ...before });
+      bindings.push(window.recordFishImageDisposal({ phase: 'before', key, ...before }));
       const result = remove.apply(this, arguments);
-      queueMicrotask(() => window.recordFishImageDisposal({ phase: 'after', key, src: this.getAttribute('src'),
+      queueMicrotask(() => bindings.push(window.recordFishImageDisposal({ phase: 'after', key, src: this.getAttribute('src'),
+        imageKey: imageKey(this), at: performance.timeOrigin + performance.now(),
         connected: this.isConnected, title: document.querySelector('#collection-title').textContent,
-        dialogOpen: document.querySelector('#collection-dialog').open }));
+        dialogOpen: document.querySelector('#collection-dialog').open })));
       return result;
     };
   });
-  return async () => {
+  const audit = async () => {
     await expect.poll(() => pending.size).toBe(0);
-    await page.evaluate(() => {}); // Flush the observer bindings after the native action.
+    await page.evaluate(() => window.fishImageAudit.flush());
     const expectedCancellations = [], unexpectedFailures = [];
     for (const [request, record] of requests) {
       if (record.outcome !== 'failed') continue;
       const matches = [...disposals.entries()].filter(([, disposal]) => {
         const { before, after } = disposal;
-        return disposal.request === request && record.error === 'net::ERR_ABORTED'
+        return disposal.request === request && before?.url === record.url && record.error === 'net::ERR_ABORTED'
           && /^\/barb\/src\/assets\/fish\/[\w-]+\.png$/.test(new URL(record.url).pathname)
           && before.complete === false && before.connected && before.transition.trusted
           && /at Object\.dispose \([^\n]*\/src\/ui\/fish-image-loader\.js:\d+:\d+\)/.test(before.stack)
           && /at (render|finishClose) \([^\n]*\/src\/ui\/collection-menu\.js:\d+:\d+\)/.test(before.stack)
-          && after?.src === null && ((!after.connected && after.dialogOpen && after.title !== before.title)
+          && after?.src === null && after.imageKey === before.imageKey && after.at >= before.at
+          && ((!after.connected && after.dialogOpen && after.title !== before.title)
             || (before.transition.trigger === 'collection-close' && !after.dialogOpen));
       });
       if (matches.length === 1) expectedCancellations.push({ ...record, disposalKey: matches[0][0] });
       else unexpectedFailures.push(record);
     }
-    return { requests: [...requests.values()], expectedCancellations, unexpectedFailures,
+    return { requests: [...requests.values()], expectedCancellations, unexpectedFailures, events,
       disposals: [...disposals].map(([key, { request, ...record }]) => ({ key, requestId: requests.get(request)?.id ?? null, ...record })) };
   };
+  audit.click = async (locator, { touch = false } = {}) => {
+    // Finish native actionability/scrolling first. Freeze Request identities for
+    // these exact DOM images before the click can cancel them or start a new
+    // request for the same URL. Binding delivery order is not network order.
+    if (touch) await locator.tap({ trial: true }); else await locator.click({ trial: true });
+    const images = await page.evaluate(() => window.fishImageAudit.snapshot());
+    transitionRequests = new Map(images.filter(image => image.connected && !image.complete).map(image => {
+      const candidates = [...pending].filter(request => request.url() === image.url);
+      return [image.imageKey, candidates.length === 1 ? candidates[0] : null];
+    }));
+    recordEvent('action-start');
+    try {
+      if (touch) await locator.tap(); else await locator.click();
+    } finally {
+      await page.evaluate(() => window.fishImageAudit.flush());
+      transitionRequests.clear();
+      recordEvent('action-end');
+    }
+  };
+  return audit;
 }
 
 test('collection image audit identifies native dispose cancellation and subsequent production decode', async ({ createContext }, testInfo) => {
@@ -325,14 +370,15 @@ test('collection image audit identifies native dispose cancellation and subseque
     if (first) { first = false; started(); await gate; }
     await route.fallback();
   });
-  await page.locator('#menu-button').tap(); await page.locator('[data-view="encyclopedia"]').tap();
+  await audit.click(page.locator('#menu-button'), { touch: true });
+  await audit.click(page.locator('[data-view="encyclopedia"]'), { touch: true });
   await requested;
   const failed = page.waitForEvent('requestfailed', request => request.url().endsWith('/black-bass.png'));
-  await page.locator('button.fish-card').nth(2).tap();
+  await audit.click(page.locator('button.fish-card').nth(2), { touch: true });
   expect((await failed).failure()?.errorText).toBe('net::ERR_ABORTED');
   release();
   await checkProductionImage(page.locator('.fish-detail img'), FISH_SPECIES[2]);
-  await page.locator('#collection-back').tap();
+  await audit.click(page.locator('#collection-back'), { touch: true });
   await checkProductionImage(page.locator('button.fish-card img').first(), BLACK_BASS, { inspectPixels: true });
   const report = await audit();
   const path = testInfo.outputPath('image-request-audit.json');
@@ -342,6 +388,68 @@ test('collection image audit identifies native dispose cancellation and subseque
   expect(report.expectedCancellations).toHaveLength(1);
   expect(report.expectedCancellations[0].url).toMatch(/\/black-bass\.png$/);
 });
+
+for (const nextOutcome of ['decode', 'aborted', 'failed']) {
+  test(`collection image audit pairs delayed disposal notifications before same-URL ${nextOutcome}`, async ({ page }, testInfo) => {
+    let cancelled, releaseImage, releaseBefore, delayed = false;
+    const deliveries = [];
+    const imageGate = new Promise(resolve => { releaseImage = resolve; });
+    const beforeGate = new Promise(resolve => { releaseBefore = resolve; });
+    // Reproduce the cross-channel race without changing the DOM, network
+    // failure, product loader or native action: deliver "after" before "before",
+    // and deliver "before" only after the exact Request has actually failed.
+    const exposeBinding = page.exposeBinding.bind(page);
+    page.exposeBinding = (name, callback) => exposeBinding(name, async (...args) => {
+      const sample = args[1];
+      if (sample.phase === 'before' && !delayed) { delayed = true; await beforeGate; }
+      deliveries.push(sample.phase);
+      return callback(...args);
+    });
+    const audit = await observeCollectionImageRequests(page);
+    page.exposeBinding = exposeBinding;
+    await openUIFixture(page, allSpeciesLegacySave());
+    page.on('requestfailed', request => { if (request === cancelled) releaseBefore(); });
+    await page.route('**/barb/src/assets/fish/black-bass.png', async route => {
+      if (!cancelled) { cancelled = route.request(); await imageGate; }
+      else if (nextOutcome !== 'decode') { await route.abort(nextOutcome); return; }
+      await route.fallback();
+    });
+    try {
+      const started = page.waitForRequest(request => request.url().endsWith('/black-bass.png'));
+      await audit.click(page.locator('#menu-button'));
+      await audit.click(page.locator('[data-view="encyclopedia"]'));
+      expect(await started).toBe(cancelled);
+      const failed = page.waitForEvent('requestfailed', request => request === cancelled);
+      await audit.click(page.locator('button.fish-card').nth(2));
+      expect((await failed).failure()?.errorText).toBe('net::ERR_ABORTED');
+      releaseImage();
+      await checkProductionImage(page.locator('.fish-detail img'), FISH_SPECIES[2]);
+      expect(deliveries.slice(0, 2)).toEqual(['after', 'before']);
+      await audit.click(page.locator('#collection-back'));
+      const image = page.locator('button.fish-card img').first();
+      if (nextOutcome === 'decode') await checkProductionImage(image, BLACK_BASS, { inspectPixels: true });
+      else {
+        await expect(image).toHaveJSProperty('complete', true);
+        expect(await image.evaluate(img => img.decode().then(() => true, () => false))).toBe(false);
+      }
+      const report = await audit();
+      await testInfo.attach('delayed-disposal-request-audit', { body: JSON.stringify({ deliveries, ...report }, null, 2), contentType: 'application/json' });
+      const sameURL = report.requests.filter(request => request.url === cancelled.url());
+      expect(sameURL).toHaveLength(2);
+      expect(report.expectedCancellations).toEqual([{ ...sameURL[0], disposalKey: report.disposals[0].key }]);
+      expect(report.disposals[0].requestId).toBe(sameURL[0].id);
+      expect(sameURL[0]).toEqual({ id: 1, url: cancelled.url(), outcome: 'failed', error: 'net::ERR_ABORTED' });
+      if (nextOutcome === 'decode') {
+        expect(sameURL[1].outcome).toBe('finished');
+        expect(report.unexpectedFailures).toEqual([]);
+      } else {
+        expect(sameURL[1].outcome).toBe('failed');
+        expect(sameURL[1].error).toBe(nextOutcome === 'aborted' ? 'net::ERR_ABORTED' : 'net::ERR_FAILED');
+        expect(report.unexpectedFailures).toEqual([sameURL[1]]);
+      }
+    } finally { releaseImage(); releaseBefore(); }
+  });
+}
 
 for (const error of ['aborted', 'failed']) {
   test(`collection image audit rejects an active image network ${error}`, async ({ page }) => {
@@ -353,6 +461,7 @@ for (const error of ['aborted', 'failed']) {
     const request = await failed;
     await expect(page.locator('button.fish-card img').first()).toHaveJSProperty('complete', true);
     expect(await page.locator('button.fish-card img').first().evaluate(image => image.decode().then(() => true, () => false))).toBe(false);
+    await audit.click(page.locator('#collection-back'));
     const report = await audit();
     expect(report.expectedCancellations).toEqual([]);
     expect(report.unexpectedFailures).toEqual([{ id: 1, url: request.url(), outcome: 'failed', error: request.failure().errorText }]);
@@ -371,7 +480,7 @@ for (const { label, viewport, touch } of artworkViewports) {
       }
     });
     await page.addInitScript(() => { Math.random = () => window.artworkRoll ?? 0; });
-    const click = locator => touch ? locator.tap() : locator.click();
+    const click = locator => imageRequestAudit.click(locator, { touch });
     await openUIFixture(page, allSpeciesLegacySave());
     expect(imageResponses).toEqual([]);
     expect(await page.evaluate(() => fixture.restored.collection.catches.every(record => record.schemaVersion === 1 && !('image' in record) && !('imageUrl' in record)))).toBe(true);
