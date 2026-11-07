@@ -11,6 +11,8 @@ export const LURES = Object.freeze([
     catfish: 0.6, 'alligator-gar': 1.1, arowana: 1.4,
     'common-carp': 0.85, tench: 0.85, pumpkinseed: 0.85, 'black-crappie': 1.60,
     'rock-bass': 0.85, 'freshwater-drum': 0.85, 'white-bass': 1.60, 'brook-trout': 1.60,
+    'striped-bass': 1.60, burbot: 0.85, grayling: 1.60, 'lake-trout': 0.85,
+    'arctic-char': 1.60, bowfin: 0.85, 'murray-cod': 0.85, 'golden-dorado': 0.85,
   }),
   lure('crankbait', 'クランクベイト', 1, {
     'black-bass': 1.5, 'smallmouth-bass': 1.5, bluegill: 0.8,
@@ -19,6 +21,8 @@ export const LURES = Object.freeze([
     catfish: 0.8, 'alligator-gar': 0.9, arowana: 0.8,
     'common-carp': 0.85, tench: 0.85, pumpkinseed: 0.85, 'black-crappie': 0.85,
     'rock-bass': 1.60, 'freshwater-drum': 0.85, 'white-bass': 0.85, 'brook-trout': 0.85,
+    'striped-bass': 0.85, burbot: 0.85, grayling: 0.85, 'lake-trout': 1.60,
+    'arctic-char': 0.85, bowfin: 0.85, 'murray-cod': 1.60, 'golden-dorado': 0.85,
   }),
   lure('worm', 'ワーム', 0.9, {
     'black-bass': 1.5, 'smallmouth-bass': 1.1, bluegill: 1.8,
@@ -27,6 +31,8 @@ export const LURES = Object.freeze([
     catfish: 1.8, 'alligator-gar': 0.6, arowana: 0.7,
     'common-carp': 1.60, tench: 1.60, pumpkinseed: 1.60, 'black-crappie': 0.85,
     'rock-bass': 0.85, 'freshwater-drum': 1.60, 'white-bass': 0.85, 'brook-trout': 0.85,
+    'striped-bass': 0.85, burbot: 1.60, grayling: 0.85, 'lake-trout': 0.85,
+    'arctic-char': 0.85, bowfin: 0.85, 'murray-cod': 0.85, 'golden-dorado': 0.85,
   }),
   lure('spinnerbait', 'スピナーベイト', 1.1, {
     'black-bass': 1.5, 'smallmouth-bass': 1.3, bluegill: 0.5,
@@ -35,6 +41,8 @@ export const LURES = Object.freeze([
     catfish: 1, 'alligator-gar': 1.5, arowana: 1.4,
     'common-carp': 0.85, tench: 0.85, pumpkinseed: 0.85, 'black-crappie': 0.85,
     'rock-bass': 0.85, 'freshwater-drum': 0.85, 'white-bass': 0.85, 'brook-trout': 0.85,
+    'striped-bass': 0.85, burbot: 0.85, grayling: 0.85, 'lake-trout': 0.85,
+    'arctic-char': 0.85, bowfin: 1.60, 'murray-cod': 0.85, 'golden-dorado': 1.60,
   }),
 ]);
 export const DEFAULT_LURE_ID = 'minnow';

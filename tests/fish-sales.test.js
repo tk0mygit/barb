@@ -12,10 +12,11 @@ const captured = (id, weightKg = 1.15, speciesId = 'catfish') => Object.freeze({
   conditions: Object.freeze({ depthM: 5, timeOfDay: 'night', lureId: 'worm', lurePosition: Object.freeze({ x: 2, z: 3 }) }),
 });
 
-test('all 20 species use unchanged per-kg prices and the Uncommon floor with consistent half-up decimal rounding', () => {
+test('all 28 species use unchanged per-kg prices and the Uncommon floor with consistent half-up decimal rounding', () => {
   for (const fish of FISH_SPECIES) {
-    assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: 1, qteSuccessCount: 0 }), fish.basePricePerKg);
-    assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: 2, qteSuccessCount: 0 }), fish.basePricePerKg * 2);
+    const floor = FISH_RARITY[fish.id] === 'Uncommon' ? 50 : 0;
+    assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: 1, qteSuccessCount: 0 }), Math.max(floor, fish.basePricePerKg));
+    assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: 2, qteSuccessCount: 0 }), Math.max(floor, fish.basePricePerKg * 2));
     // Integer reference calculation over the hundredths produced by fishing.
     for (let hundredths = 1; hundredths <= 300; hundredths++) {
       assert.equal(calculateSalePrice({ speciesId: fish.id, weightKg: hundredths / 100, qteSuccessCount: 0 }), Math.max(FISH_RARITY[fish.id] === 'Uncommon' ? 50 : 0, Math.floor((fish.basePricePerKg * hundredths + 50) / 100)));

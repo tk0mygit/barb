@@ -43,7 +43,7 @@ async function renderSheet(page, entries, destination, columns, title) {
     .grid{display:grid;grid-template-columns:repeat(${columns},640px);gap:12px 0}
     figure{margin:0;height:330px;padding:0 8px}img{display:block;width:624px;height:273px;object-fit:contain}
     figcaption{padding:3px 16px;font-size:19px}small{display:block;font-size:14px;color:#4a5c53;margin-top:3px}
-    </style><h1>${escapeHTML(title)}</h1><p>AI-generated artwork · original 12 and approved Phase 6-A 8 · human morphology review is separate from automatic validation</p>
+    </style><h1>${escapeHTML(title)}</h1><p>AI-generated artwork · original 12 and approved Phase 6-A/6-B 16 · human morphology review is separate from automatic validation</p>
     <div class="grid">${entries.map(entry => `<figure><img src="${entry.dataURI}"><figcaption>${escapeHTML(entry.name)}<small>${entry.id}</small></figcaption></figure>`).join('')}</div></html>`);
   await page.locator('img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
   await page.screenshot({ path: destination, fullPage: true });
@@ -54,7 +54,8 @@ async function renderSheet(page, entries, destination, columns, title) {
 export async function generateFishArtworkReport({ outputDirectory = join(root, 'test-results/fish-artwork-review'), browser, page: suppliedPage } = {}) {
   outputDirectory = resolve(outputDirectory);
   await mkdir(outputDirectory, { recursive: true });
-  const approved = JSON.parse(await readFile(join(root, 'docs/artwork/phase6/approved-6a.json'), 'utf8'));
+  const approved = (await Promise.all(['6a', '6b'].map(async phase =>
+    JSON.parse(await readFile(join(root, `docs/artwork/phase6/approved-${phase}.json`), 'utf8'))))).flatMap(ledger => ledger.images);
   const entries = await Promise.all(FISH_SPECIES.map(async fish => {
     const path = `src/assets/fish/${fish.id}.png`, bytes = await readFile(join(root, path));
     const format = validateFishImage(path, bytes), png = metadata(bytes);
@@ -63,19 +64,19 @@ export async function generateFishArtworkReport({ outputDirectory = join(root, '
     assert.ok(bytes.length <= 800 * 1024, `${path}: exceeds 800 KiB`);
     return { id: fish.id, name: fish.name, path, bytes: bytes.length, sha256: sha256(bytes), ...format, ...png,
       productionMethod: ORIGINAL_FISH_SPECIES_IDS.includes(fish.id)
-        ? 'Original twelve AI-generated illustrations; previously normalized/padded PNGs, unchanged in Phase 6-A'
-        : 'Phase 6-A approved AI-generated PNG; copied byte-for-byte, no alpha adjustment, resize or re-encoding',
+        ? 'Original twelve AI-generated illustrations; previously normalized/padded PNGs, unchanged in Phase 6-A/6-B'
+        : `Phase ${FISH_SPECIES.indexOf(fish) < 20 ? '6-A' : '6-B'} approved AI-generated PNG; copied byte-for-byte, no alpha adjustment, resize or re-encoding`,
       dataURI: `data:image/png;base64,${bytes.toString('base64')}` };
   }));
-  assert.equal(entries.length, 20);
-  assert.deepEqual(entries.slice(12).map(entry => entry.id), approved.images.map(entry => entry.speciesId));
-  for (const row of approved.images) {
+  assert.equal(entries.length, 28);
+  assert.deepEqual(entries.slice(12).map(entry => entry.id), approved.map(entry => entry.speciesId));
+  for (const row of approved) {
     const entry = entries.find(entry => entry.id === row.speciesId);
     assert.equal(entry.sha256, row.sha256, row.speciesId); assert.equal(entry.bytes, row.bytes, row.speciesId);
   }
-  assert.equal(new Set(entries.map(entry => entry.sha256)).size, 20, 'All artworks must differ');
+  assert.equal(new Set(entries.map(entry => entry.sha256)).size, 28, 'All artworks must differ');
   const totalImageBytes = entries.reduce((total, entry) => total + entry.bytes, 0);
-  assert.equal(totalImageBytes, 11012560, 'Exact approved twenty-image total');
+  assert.equal(totalImageBytes, 15788012, 'Exact approved twenty-eight-image total');
   assert.ok(totalImageBytes <= 20 * 1024 * 1024, 'Phase 6 artwork review threshold');
 
   let ownedBrowser;
@@ -100,7 +101,7 @@ export async function generateFishArtworkReport({ outputDirectory = join(root, '
       assert.equal(decoded.decodedWidth, entry.width); assert.equal(decoded.decodedHeight, entry.height);
       Object.assign(entry, decoded);
     }
-    await renderSheet(page, entries, join(outputDirectory, 'contact-sheet.png'), 3, 'BARB · Phase 6-A · 20 fish artworks');
+    await renderSheet(page, entries, join(outputDirectory, 'contact-sheet.png'), 3, 'BARB · Phase 6-B · 28 fish artworks');
     await renderSheet(page, entries.filter(entry => ['black-bass', 'bluegill'].includes(entry.id)),
       join(outputDirectory, 'prototype-comparison.png'), 2, 'BARB · Largemouth bass / Bluegill · Style comparison');
   } finally {
@@ -116,7 +117,8 @@ export async function generateFishArtworkReport({ outputDirectory = join(root, '
     entry.builtPath = built.path;
   }
   const builtPNGs = assets.filter(file => file.path.endsWith('.png'));
-  assert.equal(builtPNGs.length, 20, 'Only the twenty production fish PNGs are emitted');
+  assert.equal(builtPNGs.length, 28, 'Only the twenty-eight production fish PNGs are emitted');
+  assert.equal(builtPNGs.reduce((total, file) => total + file.bytes.length, 0), 15788012);
   assert.ok(builtPNGs.every(file => entries.some(entry => entry.sha256 === sha256(file.bytes))), 'Unapproved PNG in production');
   assert.ok(!builtFiles.some(file => /\.zip$/i.test(file.path)), 'Source ZIP in production');
   const fixture = await readFile(join(root, 'tests/fixtures/fish-assets/transparent-test.png'));
@@ -128,13 +130,13 @@ export async function generateFishArtworkReport({ outputDirectory = join(root, '
     buildAssetBytes: assets.reduce((total, file) => total + file.bytes.length, 0),
     buildTotalBytes: builtFiles.reduce((total, file) => total + file.bytes.length, 0),
     buildAssetCount: assets.length, testFixtureInProduction: false,
-    validation: 'Structural PNG validation and Chromium decoding; eight-pixel clear margins, original opaque checks and Phase 6-A near-opaque body/soft-contour checks. Visual approval is a separate human/PM review.',
+    validation: 'Structural PNG validation and Chromium decoding; eight-pixel clear margins, original opaque checks and Phase 6-A/6-B near-opaque body/soft-contour checks. Visual approval is a separate human/PM review.',
     images: entries.map(({ dataURI, ...entry }) => entry),
   };
   await writeFile(join(outputDirectory, 'artwork-quality.json'), JSON.stringify(report, null, 2) + '\n');
-  await writeFile(join(outputDirectory, 'artwork-quality.md'), `# BARB Phase 6-A artwork quality\n\n` +
-    `AI-generated illustrations: original twelve previously normalized PNGs retained unchanged; eight approved Phase 6-A PNGs copied without processing. Public SHA ledger: docs/artwork/phase6/approved-6a.json. Morphology approval and applicable service/license terms require separate review.\n\n` +
-    `20 PNG total: ${totalImageBytes.toLocaleString('en-US')} bytes (${report.totalImageMiB.toFixed(3)} MiB). ` +
+  await writeFile(join(outputDirectory, 'artwork-quality.md'), `# BARB Phase 6-B artwork quality\n\n` +
+    `AI-generated illustrations: original twelve previously normalized PNGs retained unchanged; sixteen approved Phase 6-A/6-B PNGs copied without processing. Public SHA ledgers: docs/artwork/phase6/approved-6a.json and approved-6b.json. Morphology approval and applicable service/license terms require separate review.\n\n` +
+    `28 PNG total: ${totalImageBytes.toLocaleString('en-US')} bytes (${report.totalImageMiB.toFixed(3)} MiB). ` +
     `Build assets: ${report.buildAssetBytes.toLocaleString('en-US')} bytes; all dist files: ${report.buildTotalBytes.toLocaleString('en-US')} bytes.\n\n` +
     `All images: 1280×560, PNG RGBA8, non-interlaced, sRGB; decoded successfully. All outer-border pixels have alpha=0. Test PNG absent from production.\n\n` +
     `| Fish | ID | Bytes | Transparent | Partial alpha | Opaque | Near opaque ≥250 | Soft contour | Margin errors |\n| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n` +

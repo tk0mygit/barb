@@ -28,7 +28,7 @@ export async function fishSpeciesSandbox(t, { png = false, svg = false, extra = 
       }
       return reference;
     });
-    if (substitutions !== (svg ? 20 : 1)) throw new Error('Fish asset fixture substitution did not match production references');
+    if (substitutions !== (svg ? 28 : 1)) throw new Error('Fish asset fixture substitution did not match production references');
   }
   if (extra) source = source.replace('  BLACK_BASS,', "  BLACK_BASS,\n  species({ ...BLACK_BASS, id: 'fixture-species', name: 'テスト専用魚' }),");
   await writeFile(path, source);

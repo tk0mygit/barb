@@ -44,7 +44,7 @@ test('fixed pre-change canonical A/B bytes retain their hashes and exact old con
   for (const [i, data] of legacy.entries()) {
     assert.equal(Object.hasOwn(data.achievements, 'contractVersion'), false);
     assert.deepEqual(validateSaveData(data), data);
-    assert.deepEqual(parseSaveData(serializeSaveData(data, { now: () => now })), { ...data, saveVersion: 3, rosterRevision: 1,
+    assert.deepEqual(parseSaveData(serializeSaveData(data, { now: () => now })), { ...data, saveVersion: 3, rosterRevision: 2,
       achievements: save(restoreSaveData(data, { now: () => now })).achievements,
       collection: { ...data.collection, catches: data.collection.catches.map(record => ({ ...record, qteSuccessCount: 0 })) } });
     const restored = restoreSaveData(data, { now: () => now });
@@ -59,7 +59,7 @@ test('fixed pre-change canonical A/B bytes retain their hashes and exact old con
     assert.deepEqual(notices, []);
     const added = restored.achievements.snapshot.unlocked.filter(record => !legacyIds.includes(record.id));
     assert.deepEqual(added, i === 0 ? [] : ['normal-rod-level-5', 'normal-reel-level-5'].map(id => ({ id, unlockedAt: savedAt })));
-    assert.equal(save(restored).achievements.contractVersion, 3);
+    assert.equal(save(restored).achievements.contractVersion, 4);
   }
 });
 
@@ -69,7 +69,7 @@ test('legacy load never rewrites either raw slot; a failed migration save retain
   assert.equal(status.phase, 'restored'); assert.equal(status.generation, 2);
   assert.equal(manager.load().state, state);
   assert.deepEqual([...storage.map.values()], rawSlots); assert.deepEqual(storage.writes, []);
-  const data = save(state); assert.equal(data.achievements.contractVersion, 3);
+  const data = save(state); assert.equal(data.achievements.contractVersion, 4);
   storage.fail = true;
   assert.equal(manager.save(data).ok, false); assert.equal(manager.status.code, 'quota-exceeded');
   assert.equal(manager.status.generation, 2);
@@ -79,7 +79,7 @@ test('legacy load never rewrites either raw slot; a failed migration save retain
   assert.equal(storage.map.get(SAVE_STORAGE_KEYS[1]), rawSlots[1]);
   const envelope = JSON.parse(storage.writes[0].value);
   assert.equal(envelope.storageVersion, 1); assert.equal(envelope.data.saveVersion, 3);
-  assert.equal(envelope.data.achievements.contractVersion, 3);
+  assert.equal(envelope.data.achievements.contractVersion, 4);
   const reloaded = createSaveStorage({ getStorage: () => storage }).load();
   assert.equal(reloaded.status.generation, 3);
   assert.deepEqual(save(reloaded.state), data);
@@ -180,7 +180,7 @@ test('old Lv.5 → each newly purchased Lv.6–10 saves and reloads the complete
     for (const kind of ['rod', 'reel']) {
       const receipt = state.collection.purchaseUpgrade(kind, level - 1); assert.ok(receipt); spent += receipt.cost;
       const data = save(state), parsed = parseSaveData(serializeSaveData(data, { now: () => now }));
-      assert.equal(data.saveVersion, 3); assert.equal(data.achievements.contractVersion, 3);
+      assert.equal(data.saveVersion, 3); assert.equal(data.achievements.contractVersion, 4);
       const next = restoreSaveData(parsed, { now: () => { throw new Error('No newly earned awards on reload'); } });
       assert.deepEqual(save(next), data);
       assert.deepEqual(oldAwards(next.achievements.snapshot), legacy[1].achievements.unlocked);
@@ -202,6 +202,8 @@ test('old Lv.5 → each newly purchased Lv.6–10 saves and reloads the complete
     rejects(data, `achievements.${award.id}`);
   }
   const duplicate = clone(complete); duplicate.achievements.unlocked.push(duplicate.achievements.unlocked[14]);
+  rejects(duplicate, 'achievements.unlocked[15].id');
+  duplicate.achievements.unlocked.push(duplicate.achievements.unlocked[14]);
   rejects(duplicate, 'achievements.unlocked', 'input-too-large');
   for (const kind of ['rod', 'reel']) {
     const data = clone(save(state)); delete data.achievements.contractVersion;

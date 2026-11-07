@@ -12,8 +12,7 @@ test('only the two documented capture RNG inputs are accepted, including legacy 
   for(const value of [undefined,null,0,1,.1,'0.01',NaN,Infinity])assert.throws(()=>mobileFishingRandomValue({metrics:{fishingRandomValue:value}}));
 });
 
-test('actual base and current fishing sources reproduce the same black-bass fight with the 6-A capture input',async()=>{
-  const base=await readMobileFightSource('4a9255054565310f857e74dc52f77c0b885c762b');
+test('actual twelve-, twenty- and twenty-eight-fish sources reproduce the same black-bass fight with the 6-A capture input',async()=>{
   function play(factory){
     let calls=0;const fishing=factory({random:()=>{calls++;return .01;},now:()=>1000,getEnvironment:()=>({depthM:12,timeOfDay:'day'})});
     fishing.prepare({x:10,z:20},0);fishing.aim(0,150);fishing.cast();
@@ -22,7 +21,10 @@ test('actual base and current fishing sources reproduce the same black-bass figh
     const history=[];for(let n=0;n<5;n++){fishing.reel(n<2);fishing.step(.25);history.push(structuredClone(fishing.state));}
     return history;
   }
-  assert.deepEqual(play(createFishing),play(base.createFishing));
+  for(const sha of ['4a9255054565310f857e74dc52f77c0b885c762b','4edd6c191ff9fd7d4cc8e93908d781106b72071a']){
+    const base=await readMobileFightSource(sha);
+    assert.deepEqual(play(createFishing),play(base.createFishing));
+  }
 });
 
 test('the shared comparison path used by capture and ci-required rejects mismatched RNG inputs',async()=>{

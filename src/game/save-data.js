@@ -3,11 +3,12 @@ import { validateAchievementData, validateAchievementContract, migrateAchievemen
 import { createBoatState, isNavigableBoatPosition } from './boat.js';
 import { createGameClock } from './game-clock.js';
 import { createGameplay } from './gameplay.js';
+import { ORIGINAL_FISH_SPECIES_IDS, PHASE6A_FISH_SPECIES_IDS } from './fish-roster.js';
 import { SAVE_LIMITS, SaveDataError, requireValid, objectFields, finite, timestamp, validateCollectionData, validateLegacyCollectionData } from './save-validation.js';
 
 export { SAVE_LIMITS, SaveDataError } from './save-validation.js';
 export const SAVE_VERSION = 3;
-export const SAVE_ROSTER_REVISION = 1; // 20 species; increment for 28 / 36.
+export const SAVE_ROSTER_REVISION = 2; // 28 species; revision1 remains a strict source format.
 
 // Throws SaveDataError, returns a detached deeply frozen envelope. Unknown
 // fields are rejected instead of being copied, recursively traversed or lost.
@@ -20,14 +21,19 @@ export function validateSaveData(value) {
   if (v3) {
     const roster = Object.getOwnPropertyDescriptor(value, 'rosterRevision');
     requireValid(roster && 'value' in roster && Number.isSafeInteger(roster.value) && roster.value >= 1, 'rosterRevision');
-    requireValid(roster.value === SAVE_ROSTER_REVISION, 'rosterRevision', 'unsupported-version');
+    requireValid([1, SAVE_ROSTER_REVISION].includes(roster.value), 'rosterRevision', 'unsupported-version');
   }
+  const revision1 = v3 && value.rosterRevision === 1;
+  const contracts = v3 ? [revision1 ? 3 : ACHIEVEMENT_CONTRACT_VERSION] : [undefined, 2];
+  // Future contracts protect storage even if their outer envelope introduces
+  // new fields. Inspect a data descriptor, without executing an input getter.
+  const achievement = Object.getOwnPropertyDescriptor(value, 'achievements');
+  requireValid(achievement && 'value' in achievement, 'save.achievements');
+  validateAchievementContract(achievement.value, contracts);
   objectFields(value, ['saveVersion', ...(v3 ? ['rosterRevision'] : []), 'savedAt', 'collection', 'achievements', 'boat', 'clock', 'settings'], [], 'save');
-  const contracts = v3 ? [ACHIEVEMENT_CONTRACT_VERSION] : [undefined, 2];
-  validateAchievementContract(value.achievements, contracts);
   timestamp(value.savedAt, 'savedAt');
   const collection = version.value === 1 ? validateLegacyCollectionData(value.collection)
-    : validateCollectionData(value.collection, { originalRoster: !v3 });
+    : validateCollectionData(value.collection, { speciesIds: !v3 ? ORIGINAL_FISH_SPECIES_IDS : revision1 ? PHASE6A_FISH_SPECIES_IDS : undefined });
   const achievements = validateAchievementData(value.achievements, collection,
     { contracts });
   objectFields(value.boat, ['x', 'z', 'heading'], [], 'boat');
@@ -45,7 +51,7 @@ export function validateSaveData(value) {
 // Source wire shapes remain distinct: never accept new fields or species
 // under an old discriminator on a later API call.
 function migrateValidatedSaveData(data, options) {
-  if (data.saveVersion === SAVE_VERSION) return data;
+  if (data.saveVersion === SAVE_VERSION && data.rosterRevision === SAVE_ROSTER_REVISION) return data;
   const collection = data.saveVersion === 1 ? Object.freeze({ ...data.collection,
     catches: Object.freeze(data.collection.catches.map(record => Object.freeze({ ...record, qteSuccessCount: 0 }))) }) : data.collection;
   return validateSaveData({ ...data, saveVersion: SAVE_VERSION, rosterRevision: SAVE_ROSTER_REVISION,

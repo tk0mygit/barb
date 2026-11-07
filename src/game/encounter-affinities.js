@@ -24,6 +24,14 @@ export const FISH_ENVIRONMENT_AFFINITIES = Object.freeze({
   'freshwater-drum': profile(0.90, 0.90, 1.40, 0.90, 1.25),
   'white-bass': profile(0.90, 1.40, 0.90, 1.25, 0.90),
   'brook-trout': profile(0.90, 1.40, 0.90, 1.25, 0.90),
+  'striped-bass': profile(0.90, 0.90, 1.40, 1.25, 0.90),
+  burbot: profile(0.90, 0.90, 1.40, 0.90, 1.25),
+  grayling: profile(1.40, 0.90, 0.90, 1.25, 0.90),
+  'lake-trout': profile(0.90, 0.90, 1.40, 1.25, 0.90),
+  'arctic-char': profile(0.90, 0.90, 1.40, 0.90, 1.25),
+  bowfin: profile(1.40, 0.90, 0.90, 0.90, 1.25),
+  'murray-cod': profile(0.90, 1.40, 0.90, 0.90, 1.25),
+  'golden-dorado': profile(0.90, 1.40, 0.90, 1.25, 0.90),
 });
 export const LURE_DEPTH_AFFINITIES = Object.freeze({
   minnow: Object.freeze({ shallow: 1.15, mid: 1, deep: 0.85 }),
