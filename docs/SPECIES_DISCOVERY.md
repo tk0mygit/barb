@@ -59,7 +59,77 @@ the discovery; queued simultaneous achievements each start their full five secon
 
 ## Validation
 
-Local measurements and limitations are recorded with the implementation PR. Full
-Regular A/B, Mobile 34-pair comparison, ci-required and physical-device acceptance
-remain separate gates. No Actions monitoring, merge or Pages deployment is performed
-by this implementation task.
+Validated runtime commit: `e05df37da3d9b6d941ee1e952d987005768c9f38`.
+The PR records the final HEAD separately; subsequent changes are tests/documentation.
+
+- `npm ci`: success, 21 existing locked packages installed; no dependency changes.
+- `npm test`: **1,179 / 1,179 passed**, no skipped/canceled/todo tests (121.54s in the final run).
+- `npm run build`: success, 100 modules; the existing Three.js chunk-size warning remains.
+- Local Browser slices covered **59 distinct cases**: 23 discovery cases and 36
+  existing notification, image, restore, menu, smoke and audio cases. These were
+  selected runs, not the complete browser inventory. The 58-case run had 56 passes
+  and two image expectations awaiting adaptation; the corrected image cases passed
+  in the next 25-case slice (23 passed). Its two real-time sampling failures were
+  fixed without changing their opacity expectations; the affected six cases then
+  passed, including all four layouts and both real-time timelines. No retries or
+  timeouts were added, and no assertions were removed.
+- First-time capture tests use the built application's native cast/draw/hook/fight/QTE/
+  landing/result path: black bass (two QTE successes), northern pike (three). Both
+  save, reload and render the encyclopedia without replay. UI/Unit fixtures additionally
+  cover Common, Uncommon, Rare, No.01/No.36, duplicate IDs, known recaptures, image
+  delay/404/decode rejection, hidden-before-start, blur/pagehide recovery, early
+  close/sale/Esc, context loss, disposal and achievement queue release.
+- Desktop 1000×700 and touch 320×568 / 390×844 / 844×390 were exercised with reduced
+  motion, synthetic safe insets and a 20px root font. Result field/button rectangles
+  remain unchanged. Real taps/clicks sell a second distinct catch while its discovery
+  is still visible. Accessible text is not rewritten on lifecycle recovery.
+- Native Chromium audio observed one shared ready AudioContext, zero new oscillators
+  for Common and one for Rare with ambient loops OFF. Unit fault cases cover waiting,
+  blocked/unsupported/interrupted/closed sessions, partial allocation, one-voice
+  suppression, short gain/frequency envelopes and lifecycle teardown.
+
+### Local resource observations
+
+Built production paths used ANGLE / Vulkan SwiftShader, 800×600 CSS pixels, DPR 0.5.
+The same renderer counters were observed during discovery, immediately afterward,
+and in the subsequent normal result interval:
+
+| Metric | Common | Rare |
+| --- | --- | --- |
+| Temporary overlay DOM (including root) | 14 → 0 | 16 → 0 |
+| Total DOM during / after | 156 / 144 | 158 / 144 |
+| Draw calls / triangles per submitted frame | 27 / 275,164, unchanged | 27 / 275,164, unchanged |
+| Live geometries / textures / programs | 27 / 4 / 13, unchanged | 27 / 4 / 13, unchanged |
+| Additional requests during presentation | 0 | 0 |
+| Observed WebGL context losses | 0 | 0 |
+
+The existing achievement region adds its two child nodes after discovery, explaining
+the total-DOM differences. No second fish image, scene object or shader is created.
+
+CDP also recorded browser task/layout durations. The staged overlay interval delivered
+four main renders per case: Common task 1.325s / layout 6.323ms, Rare task 1.259s /
+layout 10.415ms. The following 600ms simulated normal-result interval delivered 38
+renders: Common task 11.030s / layout 47.710ms, Rare task 7.947s / layout 13.723ms.
+These are **different windows**, include capture/protocol work and ran under software
+rendering; they do not establish FPS, equivalent workload, or a numerical animation
+overhead bound. Live renderer counters are not GPU-memory bytes or a trace of every
+transient GL allocation. Browser recordings validate visible stages, not physical
+Android frame pacing.
+
+### Corrections and remaining gates
+
+Initial diagnostics were retained locally. Missing historical Git objects were
+fetched, and strict source-provenance checks were run after committing runtime source.
+The historical HUD fixture was pinned as described above. New test data was corrected
+to derive size awards from the actual individual. Native cast tests present the AIM
+preview before releasing. Image tests keep their original pixel/generation assertions
+after the new scan completes. Real-time sampling waits for the frame after its target
+deadline, retaining the same strict opacity checks. WAAPI presentation is anchored to
+the notice's monotonic visible-time deadline, avoiding a pending-play start delay.
+
+Full Regular A/B, Mobile 34 pairs / 68 images, validation-merge parent checks and
+`ci-required` are **not verified locally** and remain mandatory L2 gates. Physical
+PC/Android acceptance, OS mute behavior, GPU memory and real-device frame pacing are
+unverified. No CI/workflow/comparison implementation, probability/Tier, QTE, economy,
+save schema, PNG bytes, permissions or secrets were changed. Actions monitoring,
+merge and Pages deployment are not performed by this implementation task.

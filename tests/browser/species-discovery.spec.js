@@ -224,6 +224,8 @@ for (const speciesId of ['black-bass', 'arapaima']) test(`${speciesId} real brow
       const root = document.querySelector('.species-discovery');
       if (!root) return;
       observer.disconnect(); const started = performance.now();
+      // Sample the frame presented at/after the deadline. A timer alone can
+      // read the previous compositor frame's opacity just before the next paint.
       for (const time of [0, 600, 900, 1500, 2500, 3050]) setTimeout(() => requestAnimationFrame(() => {
         const opacity = selector => Number(getComputedStyle(root.querySelector(selector)).opacity);
         window.discoveryPaintSamples.push({ time, elapsed: performance.now() - started,
