@@ -125,7 +125,15 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .fish-image-frame { position: relative; display: block; width: 100%; aspect-ratio: 640 / 280; overflow: hidden; background: #ced5b6; border-radius: 4px; }
 .fish-image-frame > img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
 /* Bounded to the existing artwork frame: no result geometry or hit targets move. */
-.species-discovery { position: absolute; inset: 0; z-index: 1; color: #f4f2e6; pointer-events: none; contain: layout paint; }
+.species-discovery { position: absolute; inset: 0; z-index: 2; color: #f4f2e6; pointer-events: none; contain: layout paint; }
+/* The isolated negative layer shades only the dialog background. Artwork,
+   readable copy and controls keep their original color; backdrop is unchanged. */
+#catch-dialog:has(> .discovery-vignette) { isolation: isolate; }
+.discovery-vignette { position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; background: radial-gradient(ellipse farthest-corner at var(--discovery-focus-x, 50%) var(--discovery-focus-y, 36%), transparent 12%, #071f2214 42%, #071f223d 100%); }
+.discovery-sigil { position: absolute; top: 46%; left: 50%; z-index: 0; height: 80%; max-height: 148px; width: 94%; transform: translate(-50%, -50%); fill: #eee5c8; stroke: #67735b; stroke-width: .5; pointer-events: none; }
+.discovery-sigil path { opacity: 0; vector-effect: non-scaling-stroke; pointer-events: none; }
+.discovery-sigil[data-reduced-motion="true"] path { opacity: .75; }
+.fish-image-frame:has(> .discovery-sigil) > img { z-index: 1; }
 .species-discovery *, .discovery-visual { pointer-events: none; }
 .discovery-visual { position: absolute; inset: 0; overflow: hidden; }
 .species-discovery[data-tier="Rare"] { color: #e0d5a9; }
