@@ -7,10 +7,30 @@ import { getFishTier } from '../../src/game/fish-rarity.js';
 
 const discovery = page => page.locator('.species-discovery');
 const award = page => page.locator('#achievement-notice');
+const decorationSelector = '.species-discovery, .discovery-vignette, .discovery-sigil';
+test.use({ viewport: { width: 1000, height: 700 } });
+async function seekPaint(page, time) {
+  return page.locator('#catch-dialog').evaluate(async (dialog, time) => {
+    const effects = dialog.getAnimations({ subtree: true }).filter(animation => animation.effect.target.closest('.species-discovery, .discovery-vignette, .discovery-sigil'));
+    for (const animation of effects) animation.pause();
+    // A subsequent fake-clock catch can be ahead of the compositor timeline.
+    // Resolve pending pause tasks before seeking the presented frame.
+    await Promise.all(effects.map(animation => animation.ready));
+    for (const animation of effects) animation.currentTime = time;
+    return effects.length;
+  }, time);
+}
+async function expectClean(page) {
+  await expect(page.locator(decorationSelector)).toHaveCount(0);
+  expect(await page.locator('#catch-dialog').evaluate(dialog => dialog.getAnimations({ subtree: true })
+    .filter(animation => animation.effect.target.closest('.species-discovery, .discovery-vignette, .discovery-sigil')).length)).toBe(0);
+}
 async function setup(page, { paused = true } = {}) {
   if (paused) await installPausedClock(page);
   await page.addInitScript(() => { Math.random = () => window.imageRoll ?? 0; });
   await openUIFixture(page);
+  // Keep native hover transitions out of geometry/pixel comparisons.
+  await page.mouse.move(0, 0);
 }
 async function catchFish(page, speciesId = 'black-bass') {
   expect((await biteFish(page, speciesId)).phase).toBe('bite');
@@ -36,6 +56,13 @@ for (const speciesId of ['black-bass', 'brown-trout', 'arapaima', FISH_SPECIES.a
     await expect(root.locator('.discovery-registered')).toHaveText('図鑑登録完了');
     await expect(root.locator('.discovery-ripple')).toHaveCount(rare ? 2 : 1);
     await expect(root.locator('.discovery-imprint')).toHaveCount(rare ? 1 : 0);
+    await expect(page.locator('.discovery-vignette')).toHaveCount(1);
+    await expect(page.locator('.discovery-vignette')).toHaveAttribute('aria-hidden', 'true');
+    await expect(page.locator('.discovery-sigil')).toHaveCount(rare ? 1 : 0);
+    if (rare) {
+      await expect(page.locator('.discovery-sigil')).toHaveAttribute('aria-hidden', 'true');
+      await expect(page.locator('.discovery-sigil path')).toHaveCount(3);
+    }
     await expect(root).toHaveCSS('color', rare ? 'rgb(224, 213, 169)' : 'rgb(244, 242, 230)');
     await expect(award(page)).toBeHidden();
     const committed = await page.evaluate(() => ({ count: fixture.collection.catches.length,
@@ -45,26 +72,43 @@ for (const speciesId of ['black-bass', 'brown-trout', 'arapaima', FISH_SPECIES.a
     expect(committed.count).toBe(1); expect(committed.encyclopedia).toBe(1);
     expect(committed.unlocked.map(entry => entry.id)).toEqual(['normal-first-catch',
       ...(committed.lengthCm >= 100 ? ['normal-length-100'] : [])]);
-    const times = [0, 600, 1500, 2500, 2999], states = [];
+    await expect(page.locator('#catch-image')).toBeVisible();
+    await page.screenshot({ path: info.outputPath('result-before-decoration.png'), style: `${decorationSelector} { visibility: hidden !important; }` });
+    const times = [0, 200, 600, 800, 940, 1030, 1320, 1400, 1500, 2500, 2999], states = [];
     let elapsed = 0;
     for (const time of times) {
       await page.clock.fastForward(time - elapsed); elapsed = time;
       // WAAPI's compositor clock is separate from Playwright's JS fake clock.
       // Seek each paint effect to the same visible age; JS timeout remains real.
+      const animationCount = await seekPaint(page, time);
+      expect(animationCount).toBe(rare ? 11 : 7);
       states.push(await root.evaluate((root, time) => {
-        for (const animation of root.getAnimations({ subtree: true })) { animation.pause(); animation.currentTime = time; }
         const opacity = selector => Number(getComputedStyle(root.querySelector(selector)).opacity);
         return { time, label: opacity('.discovery-label'), name: opacity('.discovery-name'),
           registered: opacity('.discovery-registration'), opacity: Number(getComputedStyle(root).opacity),
+          vignette: Number(getComputedStyle(document.querySelector('.discovery-vignette')).opacity),
+          sigil: [...document.querySelectorAll('.discovery-sigil path')].map(path => Number(getComputedStyle(path).opacity)),
           effects: root.getAnimations({ subtree: true }).map(animation => animation.effect.getTiming().duration) };
       }, time));
+      if ([200, 1030].includes(time)) await page.screenshot({ path: info.outputPath(`discovery-${time}ms.png`) });
       await expect(award(page)).toBeHidden();
     }
-    expect(states[0].label).toBe(1); expect(states[0].name).toBe(0);
-    expect(states[1].name).toBeGreaterThan(0); expect(states[2].registered).toBe(1);
-    expect(states[3].opacity).toBe(1); expect(states[4].opacity).toBeLessThan(.01);
+    const at = time => states.find(state => state.time === time);
+    expect(at(0).label).toBe(1); expect(at(0).name).toBe(0);
+    expect(at(600).name).toBeGreaterThan(0); expect(at(1500).registered).toBe(1);
+    expect(at(2500).opacity).toBe(1); expect(at(2999).opacity).toBeLessThan(.01);
+    expect(at(0).vignette).toBe(0); expect(at(200).vignette).toBe(1);
+    expect(at(2500).vignette).toBe(1); expect(at(2999).vignette).toBeLessThan(.01);
+    if (rare) {
+      expect(at(800).sigil).toEqual([0, 0, 0]);
+      expect(at(940).sigil[0]).toBeGreaterThan(at(940).sigil[2]);
+      expect(at(1030).sigil.every(opacity => opacity >= .7)).toBe(true);
+      expect(at(1320).sigil).toEqual([0, 0, 0]); expect(at(1400).sigil).toEqual([0, 0, 0]);
+    } else expect(states.every(state => state.sigil.length === 0)).toBe(true);
     expect(states.every(state => state.effects.every(duration => duration === 3000))).toBe(true);
     await page.clock.fastForward(1); await expect(root).toHaveCount(0);
+    await expectClean(page);
+    await page.screenshot({ path: info.outputPath('discovery-3000ms-removed.png') });
     const ids = committed.unlocked.map(entry => entry.id);
     for (const id of ids) {
       await expect(award(page)).toHaveAttribute('data-achievement-id', id);
@@ -113,6 +157,7 @@ for (const action of ['store', 'sale', 'Escape', 'native-close', 'context-lost',
     else if (action === 'context-lost') await page.locator('#scene').evaluate(canvas => canvas.dispatchEvent(new Event('webglcontextlost')));
     else await page.evaluate(() => fixture.discoveryCoordinator.dispose());
     await expect(discovery(page)).toHaveCount(0);
+    await expectClean(page);
     await expect(award(page)).toHaveAttribute('data-achievement-id', 'normal-first-catch');
     if (['context-lost', 'dispose'].includes(action)) await page.locator('#close-catch').click();
     expect(await page.evaluate(() => fixture.collection.catches[0].disposition)).toBe(action === 'sale' ? 'sold' : 'stored');
@@ -128,8 +173,10 @@ for (const action of ['store', 'sale', 'Escape', 'native-close', 'context-lost',
 }
 
 test('hidden before first presentation and blur/pagehide during it preserve 3 visible seconds without rewriting live text', async ({ page }) => {
-  await setup(page); await visibility(page, true); await catchFish(page);
+  await setup(page); await visibility(page, true); await catchFish(page, 'peacock-bass');
   await expect(discovery(page)).toBeHidden(); await page.clock.fastForward(60000);
+  await expect(page.locator('.discovery-vignette')).toBeHidden();
+  await expect(page.locator('.discovery-sigil')).toBeHidden();
   await expect(award(page)).toBeHidden(); await visibility(page, false);
   await expect(discovery(page)).toBeVisible();
   await page.evaluate(() => {
@@ -138,6 +185,8 @@ test('hidden before first presentation and blur/pagehide during it preserve 3 vi
     discoveryObserver.observe(document.querySelector('.discovery-accessible'), { childList: true, characterData: true, subtree: true });
   });
   await page.clock.fastForward(600); await visibility(page, true); await page.clock.fastForward(60000);
+  await expect(page.locator('.discovery-vignette')).toBeHidden();
+  await expect(page.locator('.discovery-sigil')).toBeHidden();
   await visibility(page, false); await page.clock.fastForward(900);
   await page.evaluate(() => window.dispatchEvent(new Event('blur'))); await page.clock.fastForward(60000);
   await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await page.clock.fastForward(1000);
@@ -152,21 +201,138 @@ test('hidden before first presentation and blur/pagehide during it preserve 3 vi
   await expect(discovery(page)).toBeVisible(); await expect(award(page)).toBeHidden();
   expect(await page.evaluate(() => window.discoveryMutations)).toBe(0);
   await page.clock.fastForward(1); await expect(discovery(page)).toHaveCount(0); await expect(award(page)).toBeVisible();
+  await expectClean(page);
+});
+
+test('Rare rotation and motion changes preserve the deadline; Escape during the next stamp removes every effect', async ({ createContext }) => {
+  const context = await createContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage(); await setup(page); await catchFish(page, 'peacock-bass');
+  await page.clock.fastForward(600);
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.evaluate(() => window.dispatchEvent(new Event('orientationchange')));
+  expect(await page.locator('#catch-dialog').evaluate(dialog => {
+    const frame = dialog.querySelector('.fish-image-frame').getBoundingClientRect();
+    const vignette = dialog.querySelector('.discovery-vignette'), bounds = vignette.getBoundingClientRect();
+    const style = getComputedStyle(vignette);
+    return Math.abs(bounds.x + parseFloat(style.getPropertyValue('--discovery-focus-x')) - frame.x - frame.width / 2) < .1
+      && Math.abs(bounds.y + parseFloat(style.getPropertyValue('--discovery-focus-y')) - frame.y - frame.height * .46) < .1;
+  })).toBe(true);
+  await page.clock.fastForward(430); await seekPaint(page, 1030);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(discovery(page)).toHaveAttribute('data-reduced-motion', 'true');
+  expect(await page.locator('#catch-dialog').evaluate(dialog => dialog.getAnimations({ subtree: true }).length)).toBe(0);
+  await expect(page.locator('.discovery-vignette')).toHaveCSS('opacity', '1');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await expect(discovery(page)).toHaveAttribute('data-reduced-motion', 'false');
+  expect(await seekPaint(page, 1030)).toBe(11);
+  await page.clock.fastForward(1969); await expect(discovery(page)).toBeVisible(); await expect(award(page)).toBeHidden();
+  await page.clock.fastForward(1); await expectClean(page); await expect(award(page)).toBeVisible();
+  await page.locator('#close-catch').tap(); await page.clock.fastForward(5000);
+  await catchFish(page, 'northern-pike'); await page.clock.fastForward(1030); await seekPaint(page, 1030);
+  await expect(page.locator('.discovery-sigil')).toBeVisible();
+  await page.keyboard.press('Escape'); await expectClean(page);
+  await page.clock.fastForward(6000); await expectClean(page);
 });
 
 const layouts = [
   { width: 1000, height: 700, touch: false }, { width: 320, height: 568, touch: true },
   { width: 390, height: 844, touch: true }, { width: 844, height: 390, touch: true },
+  { width: 568, height: 320, touch: true },
 ];
+for (const { touch, ...viewport } of layouts) {
+  test(`${viewport.width}x${viewport.height}: animated focus protects artwork and text, Rare stamp fits behind fish`, async ({ createContext }, info) => {
+    const context = await createContext({ viewport, hasTouch: touch, isMobile: touch });
+    const page = await context.newPage(); await setup(page);
+    await page.addStyleTag({ content: 'html:root { --safe-top: 12px; --safe-right: 8px; --safe-bottom: 14px; --safe-left: 8px; font-size: 20px; }' });
+    expect(await page.evaluate(() => ['top', 'right', 'bottom', 'left'].map(edge => getComputedStyle(document.documentElement).getPropertyValue(`--safe-${edge}`).trim()))).toEqual(['12px', '8px', '14px', '8px']);
+    const backdrop = await page.locator('#catch-dialog').evaluate(dialog => getComputedStyle(dialog, '::backdrop').backgroundColor);
+    for (const speciesId of ['black-bass', 'peacock-bass']) {
+      await catchFish(page, speciesId); await expect(page.locator('#catch-image')).toBeVisible();
+      await page.mouse.move(0, 0);
+      for (const id of ['sell-catch', 'close-catch']) await expect(page.locator(`#${id}`)).toHaveCSS('transform', 'none');
+      const geometry = () => page.locator('#catch-dialog').evaluate(dialog => ({
+        dialog: dialog.getBoundingClientRect().toJSON(), scroll: dialog.scrollTop,
+        fields: [...dialog.querySelectorAll('#catch-species, dl, #catch-sale-price, .catch-actions button')].map(node => node.getBoundingClientRect().toJSON()),
+      }));
+      const before = await geometry();
+      await page.screenshot({ path: info.outputPath(`${speciesId}-before.png`), style: `${decorationSelector} { visibility: hidden !important; }` });
+      let elapsed = 0;
+      for (const time of [200, 1030, 1500]) {
+        await page.clock.fastForward(time - elapsed); elapsed = time; await seekPaint(page, time);
+        await page.screenshot({ path: info.outputPath(`${speciesId}-${time}ms.png`) });
+      }
+      const reading = await page.locator('#catch-dialog').evaluate(dialog => {
+        const frame = dialog.querySelector('.fish-image-frame').getBoundingClientRect(), vignette = dialog.querySelector('.discovery-vignette');
+        const focus = getComputedStyle(vignette), bounds = vignette.getBoundingClientRect();
+        const stamp = dialog.querySelector('.discovery-sigil')?.getBoundingClientRect();
+        return { frame: frame.toJSON(), bounds: bounds.toJSON(),
+          focusX: parseFloat(focus.getPropertyValue('--discovery-focus-x')) + bounds.x,
+          focusY: parseFloat(focus.getPropertyValue('--discovery-focus-y')) + bounds.y,
+          backdrop: getComputedStyle(dialog, '::backdrop').backgroundColor,
+          // The discovery already repeats the canonical species name. Native
+          // focus may scroll the original duplicate h2 outside a short dialog;
+          // require the discovery name and registration themselves to fit.
+          text: [...dialog.querySelectorAll('.discovery-name, .discovery-registration')].map(node => {
+            const box = node.getBoundingClientRect(); return { visible: box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth,
+              opacity: getComputedStyle(node).opacity };
+          }),
+          pointer: [...dialog.querySelectorAll('.species-discovery, .species-discovery *, .discovery-vignette, .discovery-sigil, .discovery-sigil *')]
+            .every(node => getComputedStyle(node).pointerEvents === 'none'),
+          stampFits: !stamp || (stamp.left >= frame.left && stamp.right <= frame.right && stamp.top >= frame.top && stamp.bottom <= frame.bottom) };
+      });
+      expect(reading.bounds.width).toBeGreaterThan(reading.frame.width);
+      expect(reading.bounds.height).toBeGreaterThan(reading.frame.height);
+      expect(reading.focusX).toBeCloseTo(reading.frame.x + reading.frame.width / 2, 1);
+      expect(reading.focusY).toBeCloseTo(reading.frame.y + reading.frame.height * .46, 1);
+      expect(reading.backdrop).toBe(backdrop);
+      expect(reading.text).toEqual(Array(2).fill({ visible: true, opacity: '1' }));
+      expect(reading.pointer).toBe(true); expect(reading.stampFits).toBe(true);
+      // Compare the same paused paint with/without ONLY the background layer.
+      // This tests actual pixels without injecting domain or notice state.
+      const focused = await page.screenshot();
+      await page.locator('.discovery-vignette').evaluate(node => { node.getAnimations()[0].currentTime = 0; });
+      const unshaded = await page.screenshot();
+      await page.locator('.discovery-vignette').evaluate(node => { node.getAnimations()[0].currentTime = 1500; });
+      const pixels = await page.evaluate(async ({ focused, unshaded, frame, bounds }) => {
+        const decode = async source => {
+          const img = new Image(); img.src = `data:image/png;base64,${source}`; await img.decode();
+          const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height;
+          const context = canvas.getContext('2d'); context.drawImage(img, 0, 0); return context;
+        };
+        const a = await decode(focused), b = await decode(unshaded);
+        const sample = (context, x, y) => [...context.getImageData(Math.floor(x), Math.floor(y), 1, 1).data];
+        return { center: [a, b].map(context => sample(context, frame.x + frame.width / 2, frame.y + frame.height * .46)),
+          edge: [a, b].map(context => sample(context, bounds.x + 8, bounds.y + bounds.height - 8)) };
+      }, { focused: focused.toString('base64'), unshaded: unshaded.toString('base64'), frame: reading.frame, bounds: reading.bounds });
+      expect(pixels.center[0]).toEqual(pixels.center[1]);
+      expect(pixels.edge[0][0] + pixels.edge[0][1] + pixels.edge[0][2]).toBeLessThan(pixels.edge[1][0] + pixels.edge[1][1] + pixels.edge[1][2]);
+      await page.clock.fastForward(1500); await expectClean(page);
+      expect(await geometry()).toEqual(before);
+      await page.screenshot({ path: info.outputPath(`${speciesId}-3000ms.png`) });
+      const action = page.locator('#sell-catch'); if (touch) await action.tap(); else await action.click();
+      await expect(page.locator('#catch-dialog')).toBeHidden();
+      await page.clock.fastForward(10000); await expect(award(page)).toBeHidden();
+      await info.attach(`${speciesId}-focus-geometry-and-pixels`, { body: JSON.stringify({ reading, pixels }), contentType: 'application/json' });
+    }
+  });
+}
+
 for (const { touch, ...viewport } of layouts) {
   test(`${viewport.width}x${viewport.height}: reduced motion, safe insets, large text and fixed transparent result controls`, async ({ createContext }, info) => {
     const context = await createContext({ viewport, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce' });
     const page = await context.newPage(); await setup(page);
-    await page.addStyleTag({ content: ':root { --safe-top: 12px; --safe-right: 8px; --safe-bottom: 14px; --safe-left: 8px; font-size: 20px; }' });
-    await catchFish(page, 'red-bellied-piranha');
+    await page.addStyleTag({ content: 'html:root { --safe-top: 12px; --safe-right: 8px; --safe-bottom: 14px; --safe-left: 8px; font-size: 20px; }' });
+    expect(await page.evaluate(() => ['top', 'right', 'bottom', 'left'].map(edge => getComputedStyle(document.documentElement).getPropertyValue(`--safe-${edge}`).trim()))).toEqual(['12px', '8px', '14px', '8px']);
+    // A small Rare exercises the static sigil without also awarding length-100;
+    // the existing single-award queue assertion below remains unchanged.
+    await catchFish(page, 'peacock-bass');
     const root = discovery(page); await expect(root).toBeVisible();
     expect(await root.evaluate(root => root.getAnimations({ subtree: true }).length)).toBe(0);
     expect(await root.locator('.discovery-name').evaluate(el => getComputedStyle(el).opacity)).toBe('1');
+    await expect(page.locator('.discovery-vignette')).toHaveCSS('opacity', '1');
+    await expect(page.locator('.discovery-sigil')).toHaveAttribute('data-reduced-motion', 'true');
+    expect(await page.locator('.discovery-sigil path').evaluateAll(paths => paths.map(path => getComputedStyle(path).opacity))).toEqual(['0.75', '0.75', '0.75']);
+    expect(await page.locator('#catch-dialog').evaluate(dialog => dialog.getAnimations({ subtree: true }).length)).toBe(0);
     const before = await page.evaluate(() => ({
       buttons: [...document.querySelectorAll('.catch-actions button')].map(button => button.getBoundingClientRect().toJSON()),
       fields: ['catch-length', 'catch-weight', 'catch-sale-price', 'catch-save-status'].map(id => document.getElementById(id).getBoundingClientRect().toJSON()),
@@ -179,6 +345,7 @@ for (const { touch, ...viewport } of layouts) {
     expect(await root.evaluate(root => root.getBoundingClientRect().width <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath('static-discovery.png') });
     await page.clock.fastForward(3000); await expect(root).toHaveCount(0);
+    await expectClean(page);
     const after = await page.evaluate(() => ({
       buttons: [...document.querySelectorAll('.catch-actions button')].map(button => button.getBoundingClientRect().toJSON()),
       fields: ['catch-length', 'catch-weight', 'catch-sale-price', 'catch-save-status'].map(id => document.getElementById(id).getBoundingClientRect().toJSON()),
@@ -189,6 +356,7 @@ for (const { touch, ...viewport } of layouts) {
     // A second distinct discovery exercises a real tap/click while its overlay
     // is still visible, including a previously active achievement's release.
     await catchFish(page, 'bluegill'); await expect(root).toBeVisible();
+    await expect(page.locator('.discovery-sigil')).toHaveCount(0);
     if (touch) await page.locator('#sell-catch').tap(); else await page.locator('#sell-catch').click();
     await expect(root).toHaveCount(0); await expect(page.locator('#catch-dialog')).toBeHidden();
     expect(await page.evaluate(() => fixture.collection.catches.at(-1).disposition)).toBe('sold');
