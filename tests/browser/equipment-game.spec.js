@@ -104,18 +104,81 @@ for (const touch of [false, true]) {
         await expect(page.locator('#collection-dialog')).toBeHidden();
       }
     }
+    // Observe the actual first RESULT, including any final 250ms landing tick.
+    // This marker reads the DOM only; it does not drive presentation or state.
+    await page.locator('#catch-dialog').evaluate(dialog => {
+      window.equipmentDiscoveryStart = null;
+      const observer = new MutationObserver(() => {
+        const discovery = dialog.querySelector('.species-discovery');
+        if (!discovery) return;
+        const notice = document.querySelector('#achievement-notice');
+        window.equipmentDiscoveryStart = { at: performance.now(), catchId: discovery.dataset.catchId,
+          phase: document.querySelector('#fishing-panel').dataset.phase, dialogOpen: dialog.open,
+          label: discovery.querySelector('.discovery-label').textContent,
+          noticeHidden: notice.hidden, noticeText: notice.textContent };
+        observer.disconnect();
+      });
+      observer.observe(dialog, { childList: true, subtree: true });
+    });
     await cast(); await land();
     await info.attach('equipment-production-catch', {
       body: JSON.stringify(await readFishingEvidence(page)), contentType: 'application/json',
     });
-    // Reach achievements through a real cast/hook/fight/landing on the shipped
-    // build. Capture unlocks before the sale/storage decision.
-    await expect(page.locator('#achievement-notice')).toContainText('始まり');
-    expect(await page.locator('#achievement-notice').evaluate(el => el.parentElement.id)).toBe('catch-dialog');
-    await expect(page.locator('#achievement-notice')).toHaveCSS('opacity', '1');
-    await page.screenshot({ path: info.outputPath('achievement-in-production-catch.png') });
-    await page.clock.fastForward(5000);
-    await expect(page.locator('#achievement-notice')).toBeHidden();
+    // Capture commits immediately, but the first Rare discovery owns the first
+    // three visible seconds. Real-time expect polling cannot advance this clock.
+    const discovery = page.locator('.species-discovery'), notice = page.locator('#achievement-notice');
+    const sequence = [];
+    const observe = async stage => {
+      const sample = await page.evaluate(stage => {
+        const now = performance.now(), notice = document.querySelector('#achievement-notice');
+        return { stage, at: now, discoveryAge: now - window.equipmentDiscoveryStart.at,
+          discoveryPresent: Boolean(document.querySelector('.species-discovery')),
+          noticeHidden: notice.hidden, noticeText: notice.textContent,
+          noticeId: notice.dataset.achievementId ?? null, host: notice.parentElement.id,
+          opacity: getComputedStyle(notice).opacity, animationTime: notice.getAnimations()[0]?.currentTime ?? null };
+      }, stage);
+      sequence.push(sample); return sample;
+    };
+    try {
+      const start = await page.evaluate(() => window.equipmentDiscoveryStart);
+      sequence.push({ stage: 'discovery-start', ...start });
+      expect(start).toMatchObject({ phase: 'result', dialogOpen: true, label: '希少種発見',
+        noticeHidden: true, noticeText: '' });
+      await expect(page.locator('#catch-dialog')).toBeVisible();
+      await expect(discovery).toBeVisible();
+      await expect(discovery.locator('.discovery-english')).toHaveText('RARE DISCOVERY');
+      await expect(notice).toBeHidden();
+      const landed = await observe('after-landing-ticks');
+      expect(landed.discoveryAge).toBeLessThan(1500);
+      await page.clock.fastForward(1500 - landed.discoveryAge);
+      await expect(discovery).toBeVisible(); await expect(notice).toBeHidden();
+      const priority = await observe('discovery-priority');
+      expect(priority.discoveryAge).toBe(1500);
+      await page.clock.fastForward(2999 - priority.discoveryAge);
+      await expect(discovery).toBeVisible(); await expect(notice).toBeHidden();
+      await observe('discovery-before-deadline');
+      await page.clock.fastForward(1);
+      await expect(discovery).toHaveCount(0);
+      await expect(notice).toContainText('始まり');
+      await expect(notice).toBeVisible();
+      await expect(notice).toHaveAttribute('data-achievement-id', 'normal-first-catch');
+      expect(await notice.evaluate(el => el.parentElement.id)).toBe('catch-dialog');
+      await observe('achievement-start');
+      // Keep the original opacity and five-second expiry assertions. The full
+      // opacity plateau begins 600ms after the award, not when it is first shown.
+      await page.clock.fastForward(600);
+      await expect(notice).toHaveCSS('opacity', '1');
+      expect(await notice.evaluate(el => el.getAnimations()[0].effect.getTiming().duration)).toBe(5000);
+      await observe('achievement-opaque');
+      await page.screenshot({ path: info.outputPath('achievement-in-production-catch.png') });
+      await page.clock.fastForward(5000);
+      await expect(notice).toBeHidden();
+      await observe('achievement-expired');
+    } finally {
+      await info.attach('equipment-discovery-achievement-sequence', {
+        body: JSON.stringify(sequence, null, 2), contentType: 'application/json',
+      });
+    }
     await click(page.locator('#sell-catch')); await tick(); expect(await phase()).toBe('ready');
     const income = parseInt((await page.locator('#wallet-balance').textContent()).replaceAll(',', ''));
     expect(income).toBeGreaterThanOrEqual(600);
