@@ -248,6 +248,7 @@ for (const { touch, ...viewport } of layouts) {
     const backdrop = await page.locator('#catch-dialog').evaluate(dialog => getComputedStyle(dialog, '::backdrop').backgroundColor);
     for (const speciesId of ['black-bass', 'peacock-bass']) {
       await catchFish(page, speciesId); await expect(page.locator('#catch-image')).toBeVisible();
+      await expect(discovery(page).locator('.discovery-english')).toHaveText(getFishTier(speciesId) === 'Rare' ? 'RARE DISCOVERY' : 'NEW SPECIES');
       await page.mouse.move(0, 0);
       for (const id of ['sell-catch', 'close-catch']) await expect(page.locator(`#${id}`)).toHaveCSS('transform', 'none');
       const geometry = () => page.locator('#catch-dialog').evaluate(dialog => ({
@@ -276,6 +277,17 @@ for (const { touch, ...viewport } of layouts) {
             const box = node.getBoundingClientRect(); return { visible: box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth,
               opacity: getComputedStyle(node).opacity };
           }),
+          headings: [...dialog.querySelectorAll('.discovery-english, .discovery-label')].map(node => {
+            const box = node.getBoundingClientRect();
+            return box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth;
+          }),
+          textClearsActions: [...dialog.querySelectorAll('.discovery-heading, .discovery-copy')].every(node => {
+            const box = node.getBoundingClientRect();
+            return [...dialog.querySelectorAll('.catch-actions button')].every(button => {
+              const action = button.getBoundingClientRect();
+              return box.bottom <= action.top || box.top >= action.bottom || box.right <= action.left || box.left >= action.right;
+            });
+          }),
           pointer: [...dialog.querySelectorAll('.species-discovery, .species-discovery *, .discovery-vignette, .discovery-sigil, .discovery-sigil *')]
             .every(node => getComputedStyle(node).pointerEvents === 'none'),
           stampFits: !stamp || (stamp.left >= frame.left && stamp.right <= frame.right && stamp.top >= frame.top && stamp.bottom <= frame.bottom) };
@@ -286,6 +298,7 @@ for (const { touch, ...viewport } of layouts) {
       expect(reading.focusY).toBeCloseTo(reading.frame.y + reading.frame.height * .46, 1);
       expect(reading.backdrop).toBe(backdrop);
       expect(reading.text).toEqual(Array(2).fill({ visible: true, opacity: '1' }));
+      expect(reading.headings).toEqual([true, true]); expect(reading.textClearsActions).toBe(true);
       expect(reading.pointer).toBe(true); expect(reading.stampFits).toBe(true);
       // Compare the same paused paint with/without ONLY the background layer.
       // This tests actual pixels without injecting domain or notice state.
@@ -307,12 +320,12 @@ for (const { touch, ...viewport } of layouts) {
       expect(pixels.center[0]).toEqual(pixels.center[1]);
       expect(pixels.edge[0][0] + pixels.edge[0][1] + pixels.edge[0][2]).toBeLessThan(pixels.edge[1][0] + pixels.edge[1][1] + pixels.edge[1][2]);
       await page.clock.fastForward(1500); await expectClean(page);
-      expect(await geometry()).toEqual(before);
+      const after = await geometry(); expect(after).toEqual(before);
       await page.screenshot({ path: info.outputPath(`${speciesId}-3000ms.png`) });
       const action = page.locator('#sell-catch'); if (touch) await action.tap(); else await action.click();
       await expect(page.locator('#catch-dialog')).toBeHidden();
       await page.clock.fastForward(10000); await expect(award(page)).toBeHidden();
-      await info.attach(`${speciesId}-focus-geometry-and-pixels`, { body: JSON.stringify({ reading, pixels }), contentType: 'application/json' });
+      await info.attach(`${speciesId}-focus-geometry-and-pixels`, { body: JSON.stringify({ before, after, reading, pixels }), contentType: 'application/json' });
     }
   });
 }

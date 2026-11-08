@@ -102,12 +102,12 @@ Retained initial diagnostics and corrections:
 Prior diagnostic outputs remain in `test-results/r1-discovery-initial`,
 `test-results/r1-discovery-refined` and `/tmp/barb-r1-*.log`; they are not committed.
 
-## Final local result and pending acceptance
+## Initial local result and acceptance stop (resolved below)
 
 Runtime: `feee19f78ffa46ce3b7d542924a502d70f1b011a`.
 Source tree: `d142470056ab348ee79e522c12fe519773cfb5bf`.
-Subsequent commits contain only the two focused Browser specs and this evidence
-document. The actual remote main still equals the G0 baseline.
+At that checkpoint the following commits contained only focused Browser specs and
+this evidence document. The actual remote main still equaled the G0 baseline.
 
 | Changed file | Purpose |
 | --- | --- |
@@ -124,7 +124,7 @@ all **43/43 Browser specs** for CI. That classification is not a CI execution re
 - `npm test`: **1,179/1,179 PASS**, no fail/skip/cancel/todo; 117.02s on final runtime.
 - `npm run build`: PASS, 100 modules; existing Three.js chunk-size warning only.
 - `git diff --check`: PASS.
-- Final selected Browser run: **47 PASS / 1 FAIL**, 48 distinct cases, no retry,
+- Pre-approval selected Browser run: **47 PASS / 1 FAIL**, 48 distinct cases, no retry,
   skip or flaky classification (345.28s). This is not a full Browser suite PASS.
   Only discovery, production discovery, achievement-notice, equipment-game and
   the two smoke specs ran. All other Browser specs remain unexecuted locally.
@@ -142,7 +142,7 @@ all **43/43 Browser specs** for CI. That classification is not a CI execution re
   insets and 20px root text. Pixel checks retain the center and dim the surroundings;
   result rectangles/scroll and pointer hit targets stay unchanged.
 
-The sole failure is **568×320 animated layout**: discovery name and registration
+The sole failure at that checkpoint was **568×320 animated layout**: discovery name and registration
 are outside the visible dialog after its existing focus scroll. Independently
 loading the G0 main's exact CSS and discovery module reproduces the same result.
 With actual safe insets 12/8/14/8px and 20px text, both main and R1 have identical
@@ -151,10 +151,59 @@ registration top -10px, and action rectangles. Even the no-inset comparison fail
 identically in both versions (scrollTop 182). No assertion is skipped or relaxed
 to turn this acceptance failure into success.
 
-Changing the existing dialog height/button coordinates/scroll would exceed the
-task's invariant 4. PM has been asked whether to preserve the fixed layout and
-submit this known limitation or authorize a short-landscape layout adjustment.
-That decision is pending; no push, PR, CI, merge or deployment has occurred.
+The original invariant 4 required a STOP rather than an unapproved change to the
+dialog height/button coordinates/scroll. PM then explicitly approved a limited
+landscape correction in this same chat and branch. The failure and initial
+diagnostics above are retained rather than replaced by a later PASS.
+
+## Additional PM-approved landscape correction
+
+PM lifted the STOP and authorized a limited layout fix, preferring discovery-only
+placement/fonts/spacing and preserving the original 47 PASS cases. No additional
+approval for the already authorized branch push and PR is required.
+
+Runtime: `cbbfae1e0dfbec636dcc1677197146daaf841397`.
+Source tree: `aaeeb48be0286d63915ec43b504c05cbaf6783c9`.
+
+Only for landscape at height ≤500px and width ≥440px, the existing heading and
+copy escape the scrolled artwork into a 48px strip at the visible dialog's top
+plus 8px, aligned with the artwork's horizontal bounds. The two columns use
+32%/68% of the existing artwork width. English/Japanese heading sizes are
+10px/13px; canonical name is 18px and registration is 11px. The strip has the same
+opaque lake-green background so the underlying length/weight cannot bleed through
+its text. It temporarily covers that upper metadata area during the same three
+seconds, and never covers the store/sell actions. A foreground stacking rule is
+limited to this active discovery mode. Portrait and desktop placements are unchanged.
+
+The three positioning variables reuse the existing start/resize/orientation
+measurements. No new DOM, animation, image, timer, listener, game-state mutation
+or save/economy behavior is added. Dialog height, focus, scrollTop and action hit
+regions remain unchanged. The original failed name/registration checks stay
+strict; heading visibility, correct NEW SPECIES/RARE DISCOVERY and no intersection
+with actions are additional assertions. Both reduced/static and animated modes
+use these positions; existing 3s/5s timing and motion preferences are preserved.
+
+Focused layout/motion regression before final validation: **11/11 PASS**, including
+568×320 normal/Rare, both portrait sizes, 844×390, PC, static motion and rotation.
+Final validation of the approved runtime:
+
+- Unit **1,179/1,179 PASS** (120.14s), fail/skip/cancel/todo 0; build PASS with 100
+  modules and the same existing Three.js size warning. `git diff --check` PASS.
+- The same six selected Browser specs: **48/48 PASS** (352.63s), no failures,
+  skips, retries or flaky cases. This includes the previous failure and all
+  previous 47 PASS cases. No timeout or expectation was weakened.
+- **Regular B recurrence prevention: equipment-game mouse PASS / touch PASS**,
+  completing sale, upgrades, persistence/reload at 76.57s / 63.97s. Both native
+  production discovery/audio/artwork/save paths also PASS (44.60s / 51.44s).
+- At 568×320 with the actual insets/20px text, the independent main/R1 comparison
+  retains the exact dialog/image/action rectangles and scrollTop **208**. Name
+  top moves only within discovery UI from -31.59px to **39.61px**; registration
+  from -10px to **61.20px**. Both fit within the unchanged visible dialog.
+- The resource observations below were rechecked on this approved runtime and
+  remain unchanged, including all decoration DOM/WAAPI/SVG counts reaching zero.
+
+This scoped decision did not approve
+editing other phases, CI infrastructure, main, permissions, secrets, merge or deploy.
 
 ### Resource observations
 
@@ -184,10 +233,12 @@ performance improvement is claimed; CDP windows differ and are diagnostic only.
 ### Evidence and remaining gates
 
 Local comparison page: `test-results/r1-review/index.html` with ordinary/Rare,
-before/200ms/1,030ms/3,000ms, PC/portrait/landscape, explicit missing captures for
-the failed short case, and the main/R1 baseline comparison. JSON alongside it
-records the exact current case outcomes, resource counters and equipment timing.
-Original final-run files and failure trace remain under `test-results/r1-complete`.
+before/200ms/1,030ms/1,500ms/3,000ms, PC/portrait/landscape including the corrected
+short case, and the main/R1 baseline comparison. JSON alongside it records the
+exact current outcomes, resource counters and equipment timing. Current raw
+captures are under `test-results/r1-approved-complete`. The prior 47/1 outcome
+and failed trace remain under `test-results/r1-complete`; its review page was
+preserved under `test-results/r1-review-before-layout-approval`.
 Images and generated reports are not committed.
 
 Required L2 Unit/Build, Regular A/B, Mobile 34 pairs/68 images and `ci-required` on GitHub Actions,
