@@ -98,6 +98,9 @@ for (const { name, viewport, touch } of profiles) {
     for (let i = 0; i < 10; i++) await updateFishHUD(page);
     expect((await landFish(page)).phase).toBe('result');
     await expect(page.locator('#catch-image')).toBeVisible();
+    // Exact original pixels are asserted after the approved discovery scan;
+    // the cold-transition stream below still covers every delivered paint.
+    await expect(page.locator('.species-discovery')).toHaveCount(0);
     expect((await samplePaint(page, testInfo, 'previous-bass')).redPixels).toBeGreaterThan(100);
     const size = await page.locator('#catch-image').locator('..').boundingBox();
     await click(page.locator('#close-catch'));
@@ -115,6 +118,7 @@ for (const { name, viewport, touch } of profiles) {
       expect(sample.redPixels).toBe(0); expect(sample.bluePixels).toBe(0);
     }
     gate.release(); await expect(page.locator('#catch-image')).toBeVisible();
+    await expect(page.locator('.species-discovery')).toHaveCount(0);
     const decoded = await samplePaint(page, testInfo, 'decoded-bluegill');
     expect(decoded.redPixels).toBe(0); expect(decoded.bluePixels).toBeGreaterThan(100); frames.push(decoded);
     const coldStream = await finishColdStream();
@@ -174,6 +178,7 @@ test('pending images cannot resurrect after button/Esc/native close, sale, inact
     gate.release(); await response;
     // Flush old fetch+decode completion, then sample the actual new frame.
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(page.locator('.species-discovery')).toHaveCount(0);
     const sample = await samplePaint(page, testInfo, `late-${action}`);
     expect(sample.redPixels).toBeGreaterThan(100); expect(sample.bluePixels).toBe(0);
     expect(await page.evaluate(id => fixture.collection.catches.find(record => record.id === id).disposition, old.catchId))
@@ -230,6 +235,7 @@ test('a missed hook invalidates the pending encounter without showing a result o
   gate.release(); await response;
   await page.evaluate(() => fixture.fishing.step(2)); await updateFishHUD(page);
   await biteFish(page); await landFish(page); await expect(page.locator('#catch-image')).toBeVisible();
+  await expect(page.locator('.species-discovery')).toHaveCount(0);
   const pixels = await samplePaint(page, testInfo, 'after-missed-hook');
   expect(pixels.redPixels).toBeGreaterThan(100); expect(pixels.bluePixels).toBe(0);
   expect(await page.evaluate(() => fixture.collection.catches.length)).toBe(1);

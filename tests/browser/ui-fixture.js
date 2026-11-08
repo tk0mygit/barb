@@ -26,6 +26,8 @@ export async function openUIFixture(page, saveData = null, { pngFishImage = fals
         import { createSalesHUD } from './src/ui/sales-hud.js';
         import { createAchievements } from './src/game/achievements.js';
         import { createAchievementNotice } from './src/ui/achievement-notice.js';
+        import { createDiscoveryCoordinator } from './src/ui/discovery-coordinator.js';
+        import { createSpeciesDiscoveryNotice } from './src/ui/species-discovery-notice.js';
         import { restoreSaveData } from './src/game/save-data.js';
         import { createFishingHUD } from './src/ui/fishing-hud.js';
         const restored = ${saveData === null ? 'null' : `restoreSaveData(${JSON.stringify(saveData).replace(/</g, '\\u003c')})`};
@@ -34,9 +36,11 @@ export async function openUIFixture(page, saveData = null, { pngFishImage = fals
         const salesHUD = createSalesHUD(collection);
         const achievements = restored?.achievements ?? createAchievements({ collection });
         const achievementNotice = createAchievementNotice();
-        achievements.subscribe(awards => achievementNotice.notify(awards));
-        const fixture = window.fixture = { collection, fishing, salesHUD, achievements, achievementNotice, restored, allowed: true };
+        const discoveryNotice = createSpeciesDiscoveryNotice();
+        const discoveryCoordinator = createDiscoveryCoordinator({ collection, fishing, achievements, achievementNotice, discoveryNotice });
+        const fixture = window.fixture = { collection, fishing, salesHUD, achievements, achievementNotice, discoveryNotice, discoveryCoordinator, restored, allowed: true };
         fixture.fishingHUD = createFishingHUD({ onPrepare: () => {}, onCancel: () => {},
+          onResult: discoveryCoordinator.showResult, onResultClose: discoveryCoordinator.closeResult,
           onClose: () => fishing.closeResult(), onSell: () => fishing.sellResult(), onSelectLure: id => fishing.selectLure(id) });
         fixture.menu = createCollectionMenu({ collection, achievements, canOpen: () => true,
           canPurchase: () => fixture.allowed,

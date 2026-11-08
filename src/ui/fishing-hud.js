@@ -10,7 +10,8 @@ const hints = {
   ready: '', aim: '', cast: '着水待ち...', lure: '', bite: '', fight: '',
   landing: '回収まで、あとわずか', failed: '再試行を待機', result: '',
 };
-export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelectLure }) {
+export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelectLure,
+  onResult = () => {}, onResultClose = () => {} }) {
   const panel = document.querySelector('#fishing-panel');
   const app = document.querySelector('#app');
   const status = document.querySelector('#fishing-state');
@@ -60,16 +61,16 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
   }
   prepare.addEventListener('click', onPrepare);
   cancel.addEventListener('click', onCancel);
-  const closeResult = () => { invalidateImage(); onClose(); dialog.close(); };
+  const closeResult = () => { onResultClose(); invalidateImage(); onClose(); dialog.close(); };
   close.addEventListener('click', closeResult);
   document.querySelector('#sell-catch').addEventListener('click', () => {
-    if (onSell()) { invalidateImage(); dialog.close(); }
+    if (onSell()) { onResultClose(); invalidateImage(); dialog.close(); }
     else document.querySelector('#catch-sale-error').textContent = '売却できませんでした。保管して続けてください。';
   });
   dialog.addEventListener('cancel', event => { event.preventDefault(); closeResult(); });
   // Also settle platform/programmatic dialog closes; the game operation is
   // idempotent, so repeated close/cancel/click events cannot store twice.
-  dialog.addEventListener('close', () => { if (!dialog.open) { invalidateImage(); onClose(); } });
+  dialog.addEventListener('close', () => { if (!dialog.open) { onResultClose(); invalidateImage(); onClose(); } });
   return {
     update(fishing, active, clock) {
       const s = fishing.state;
@@ -77,8 +78,8 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
       // A native close event can arrive after the next animation frame. Settle
       // that result before rendering instead of reopening the closed dialog.
       if (active && previous === PHASE.RESULT && s.phase === PHASE.RESULT && !dialog.open
-        && currentRequest?.catchId === s.catch?.id) { invalidateImage(); onClose(); }
-      if ((!active || s.phase !== PHASE.RESULT) && currentRequest) invalidateImage();
+        && currentRequest?.catchId === s.catch?.id) { onResultClose(); invalidateImage(); onClose(); }
+      if ((!active || s.phase !== PHASE.RESULT) && currentRequest) { onResultClose(); invalidateImage(); }
       if ((!active || s.phase !== PHASE.RESULT) && dialog.open) { dialog.close(); onClose(); }
       if (active && [PHASE.BITE, PHASE.FIGHT, PHASE.LANDING].includes(s.phase)) {
         if (s.encounter && prefetchedEncounter !== s.encounter) {
@@ -134,6 +135,7 @@ export function createFishingHUD({ onPrepare, onCancel, onClose, onSell, onSelec
         document.querySelector('#catch-sale-error').textContent = '';
         if (!dialog.open) dialog.showModal();
         close.focus();
+        onResult(s.catch);
       }
       previous = s.phase;
     },

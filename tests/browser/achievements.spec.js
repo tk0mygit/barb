@@ -191,9 +191,11 @@ test('simultaneous awards queue exactly once and expire without frames, includin
 
 test('throttled background timer expires the visible award and preserves pending awards with their full turn', async ({ page }) => {
   await installPausedClock(page); await openUIFixture(page);
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     fixture.collection.register({ schemaVersion: 1, id: 'big', speciesId: 'arowana', lengthCm: 100,
       weightKg: 1, caughtAt: '2026-01-01T00:00:00Z' });
+    // Complete notification arbitration before hiding an already-visible award.
+    await Promise.resolve();
     Object.defineProperty(document, 'hidden', { configurable: true, value: true });
     document.dispatchEvent(new Event('visibilitychange'));
   });

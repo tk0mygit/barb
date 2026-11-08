@@ -24,6 +24,9 @@ import { createFishingSpotsHUD } from './ui/fishing-spots-hud.js';
 import { createCollectionMenu } from './ui/collection-menu.js';
 import { createSalesHUD } from './ui/sales-hud.js';
 import { createAchievementNotice } from './ui/achievement-notice.js';
+import { createDiscoveryCoordinator } from './ui/discovery-coordinator.js';
+import { createSpeciesDiscoveryNotice } from './ui/species-discovery-notice.js';
+import { createRareDiscoveryCue } from './audio/rare-discovery-cue.js';
 import { createSaveStorage, SAVE_STORAGE_KEYS } from './game/save-storage.js';
 import { createAutosave } from './game/autosave.js';
 import { createSaveStatus } from './ui/save-status.js';
@@ -46,7 +49,7 @@ function showError(message) {
   document.querySelector('#fish-button').disabled = true;
   document.querySelector('#menu-button').disabled = true;
 }
-let autosave, environmentAudio, audioSession, qteDelivery, qteHUD, rodReelView, fishingView;
+let autosave, environmentAudio, audioSession, qteDelivery, qteHUD, rodReelView, fishingView, discoveryCoordinator;
 try {
   // Choose one complete domain before anything subscribes or renders. Storage
   // remains read-only until the scene, controls and every HUD are ready.
@@ -81,7 +84,6 @@ try {
   const spotsView = createFishingSpotsView(scene);
   const salesHUD = createSalesHUD(collection);
   const achievementNotice = createAchievementNotice();
-  achievements.subscribe(awards => achievementNotice.notify(awards));
   const spotsHUD = createFishingSpotsHUD();
   if (qteEnabled) {
     const provider = { getDescriptor: index => state.qteProvider.getDescriptor(index) };
@@ -100,6 +102,8 @@ try {
   audioSession = createAudioSession();
   const ambientAudio = environmentAudio = createAmbientAudio({ session: audioSession, clock: gameClock });
   const audio = createFishingAudio({ session: audioSession });
+  discoveryCoordinator = createDiscoveryCoordinator({ collection, fishing, achievements, achievementNotice,
+    discoveryNotice: createSpeciesDiscoveryNotice({ cue: createRareDiscoveryCue({ session: audioSession }) }) });
   const unlockAudio = event => {
     if (!event.isTrusted || document.hidden) return;
     const touch = event.pointerType === 'touch' || event.type.startsWith('touch');
@@ -120,6 +124,7 @@ try {
     const startupInput = focusRecovery === 'startup' && ['pointerdown', 'keydown'].includes(event.type);
     if (!focused && (startupInput || freshTouch)) {
       focused = true; focusRecovery = null;
+      discoveryCoordinator.recoverFocus();
       fishingInput.setSuspended('blur', false, performance.now());
       previous = performance.now(); ambientAudio.setPaused('blur', false);
     }
@@ -206,6 +211,8 @@ try {
   }
   const hud = createHUD({ onFish: () => changeMode('fishing'), onReturn: () => changeMode('sailing') });
   const fishingHUD = createFishingHUD({
+    onResult: discoveryCoordinator.showResult,
+    onResultClose: discoveryCoordinator.closeResult,
     onSelectLure: id => { fishing.selectLure(id); },
     onPrepare: () => {
       if (preparation || boat.mode !== 'fishing' || fishing.state.phase !== PHASE.READY) return;
@@ -408,6 +415,7 @@ try {
     event.preventDefault();
     controls.setEnabled(false);
     renderer.setAnimationLoop(null);
+    discoveryCoordinator.dispose();
     ambientAudio.dispose(); audioSession.dispose();
     qteHUD?.dispose(); qteDelivery?.retire();
     rodReelView.dispose();
@@ -421,6 +429,7 @@ try {
   controls.setEnabled(true);
   return { state, storage, autosave, qteDelivery, qteHUD, renderer };
 } catch (error) {
+  discoveryCoordinator?.dispose();
   environmentAudio?.dispose(); audioSession?.dispose();
   autosave?.dispose(); qteHUD?.dispose(); qteDelivery?.retire();
   rodReelView?.dispose();

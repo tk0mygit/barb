@@ -124,6 +124,33 @@ button:disabled { opacity: 0.5; cursor: wait; }
 #catch-dialog h2 { font-size: 24px; font-weight: 400; letter-spacing: 3px; }
 .fish-image-frame { position: relative; display: block; width: 100%; aspect-ratio: 640 / 280; overflow: hidden; background: #ced5b6; border-radius: 4px; }
 .fish-image-frame > img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
+/* Bounded to the existing artwork frame: no result geometry or hit targets move. */
+.species-discovery { position: absolute; inset: 0; z-index: 1; color: #f4f2e6; pointer-events: none; contain: layout paint; }
+.species-discovery *, .discovery-visual { pointer-events: none; }
+.discovery-visual { position: absolute; inset: 0; overflow: hidden; }
+.species-discovery[data-tier="Rare"] { color: #e0d5a9; }
+.discovery-shade { position: absolute; inset: 0; background: #173d38e8; transform-origin: bottom; }
+.discovery-ripple { position: absolute; top: 46%; left: 50%; width: 76%; aspect-ratio: 2.3; border: 2px solid currentColor; border-radius: 50%; transform: translate(-50%, -50%) scale(.65); opacity: .65; }
+.discovery-ripple-second { width: 60%; border-width: 1px; }
+.discovery-scan { position: absolute; inset: 0; border-top: 1px solid currentColor; opacity: 0; }
+.discovery-imprint { position: absolute; inset: 5px; border-top: 1px solid currentColor; border-bottom: 3px double currentColor; opacity: .8; }
+.discovery-heading, .discovery-copy { position: absolute; left: 0; right: 0; display: flex; align-items: center; flex-direction: column; text-align: center; padding: 6px 8px; }
+.discovery-heading { top: 0; background: linear-gradient(#173d38f5 65%, transparent); }
+.discovery-english { font-size: clamp(9px, 2vw, 12px); line-height: 1.4; letter-spacing: .18em; }
+.discovery-label { font-size: clamp(14px, 3vw, 20px); line-height: 1.4; letter-spacing: .12em; }
+.discovery-copy { bottom: 0; background: linear-gradient(transparent, #173d38f5 25%); }
+.discovery-name { display: block; max-width: 100%; font-size: clamp(18px, 4.5vw, 30px); line-height: 1.3; letter-spacing: .04em; overflow-wrap: anywhere; }
+.discovery-registration { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 12px; font-size: clamp(10px, 2.4vw, 13px); line-height: 1.5; }
+.discovery-number { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.discovery-accessible { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.species-discovery[data-reduced-motion="true"] :is(.discovery-shade, .discovery-scan) { display: none; }
+@media (max-height: 500px) {
+  .discovery-heading, .discovery-copy { padding: 3px 8px; }
+  .discovery-label { font-size: 13px; line-height: 1.2; }
+  .discovery-english { font-size: 9px; line-height: 1.2; }
+  .discovery-name { font-size: 18px; line-height: 1.2; }
+  .discovery-registration { font-size: 10px; line-height: 1.2; }
+}
 #catch-image-status { position: absolute; inset: 0; display: grid; place-items: center; color: #173d38; font-size: 14px; }
 #catch-dialog dl { display: flex; justify-content: space-around; margin: 24px 0; }
 #catch-dialog dt { font-size: 11px; opacity: 0.7; }
