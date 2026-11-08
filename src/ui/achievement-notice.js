@@ -9,7 +9,7 @@ export function createAchievementNotice() {
   const queue = [], seen = new Set();
   const duration = 5000;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let expiresAt = 0, timeout = null, animation = null;
+  let expiresAt = 0, timeout = null, animation = null, paused = false, remaining = 0, disposed = false;
   function syncHost(event) {
     // beforetoggle fires before the native open attribute changes. Move the
     // notice in that same turn so the first visible layout is already final;
@@ -25,15 +25,16 @@ export function createAchievementNotice() {
     return true;
   }
   function update(event) {
+    if (disposed) return;
     clearTimeout(timeout); timeout = null;
     const moved = syncHost(event);
     const now = Date.now();
     if (expiresAt && now >= expiresAt) { queue.shift(); expiresAt = 0; }
     // An already displayed award expires in the background. Pending awards
     // retain their full turn, and start only when the document is visible.
-    if (!expiresAt && queue.length && !document.hidden) expiresAt = now + duration;
-    notice.hidden = !expiresAt || document.hidden;
-    const current = expiresAt ? queue[0] : null;
+    if (!paused && !expiresAt && queue.length && !document.hidden) expiresAt = now + duration;
+    notice.hidden = paused || !expiresAt || document.hidden;
+    const current = expiresAt || remaining ? queue[0] : null;
     if (notice.dataset.achievementId !== current?.id) {
       animation?.cancel(); animation = null;
       notice.replaceChildren();
@@ -66,12 +67,36 @@ export function createAchievementNotice() {
   return {
     update,
     notify(awards) {
+      if (disposed) return;
       update();
       for (const { id, name } of awards) {
         if (seen.has(id)) continue;
         seen.add(id); queue.push({ id, name });
       }
       update();
+    },
+    setPaused(value) {
+      if (disposed || paused === value) return;
+      paused = value;
+      if (paused && expiresAt) {
+        remaining = Math.max(0, expiresAt - Date.now()); expiresAt = 0;
+        if (!remaining) queue.shift();
+      } else if (!paused && remaining) {
+        expiresAt = Date.now() + remaining; remaining = 0;
+      }
+      update();
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true; clearTimeout(timeout); animation?.cancel();
+      queue.length = 0; notice.replaceChildren(); notice.hidden = true;
+      for (const dialog of [collectionDialog, catchDialog]) {
+        dialog.removeEventListener('beforetoggle', update);
+        dialog.removeEventListener('toggle', update); dialog.removeEventListener('close', update);
+      }
+      document.removeEventListener('visibilitychange', update);
+      reducedMotion.removeEventListener('change', update);
+      for (const event of ['focus', 'pageshow']) window.removeEventListener(event, update);
     },
   };
 }

@@ -98,6 +98,9 @@ for (const { name, viewport, touch } of profiles) {
     for (let i = 0; i < 10; i++) await updateFishHUD(page);
     expect((await landFish(page)).phase).toBe('result');
     await expect(page.locator('#catch-image')).toBeVisible();
+    // Exact original pixels are asserted after the approved discovery scan;
+    // the cold-transition stream below still covers every delivered paint.
+    await expect(page.locator('.species-discovery')).toHaveCount(0);
     expect((await samplePaint(page, testInfo, 'previous-bass')).redPixels).toBeGreaterThan(100);
     const size = await page.locator('#catch-image').locator('..').boundingBox();
     await click(page.locator('#close-catch'));
@@ -115,6 +118,7 @@ for (const { name, viewport, touch } of profiles) {
       expect(sample.redPixels).toBe(0); expect(sample.bluePixels).toBe(0);
     }
     gate.release(); await expect(page.locator('#catch-image')).toBeVisible();
+    await expect(page.locator('.species-discovery')).toHaveCount(0);
     const decoded = await samplePaint(page, testInfo, 'decoded-bluegill');
     expect(decoded.redPixels).toBe(0); expect(decoded.bluePixels).toBeGreaterThan(100); frames.push(decoded);
     const coldStream = await finishColdStream();
