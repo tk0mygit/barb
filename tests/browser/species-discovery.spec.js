@@ -186,6 +186,13 @@ for (const { touch, ...viewport } of layouts) {
     expect(after).toEqual(before);
     if (touch) await page.locator('#sell-catch').tap(); else await page.locator('#close-catch').click();
     await expect(page.locator('#catch-dialog')).toBeHidden();
+    // A second distinct discovery exercises a real tap/click while its overlay
+    // is still visible, including a previously active achievement's release.
+    await catchFish(page, 'bluegill'); await expect(root).toBeVisible();
+    if (touch) await page.locator('#sell-catch').tap(); else await page.locator('#sell-catch').click();
+    await expect(root).toHaveCount(0); await expect(page.locator('#catch-dialog')).toBeHidden();
+    expect(await page.evaluate(() => fixture.collection.catches.at(-1).disposition)).toBe('sold');
+    await page.clock.fastForward(5000); await expect(award(page)).toBeHidden();
   });
 }
 
@@ -217,13 +224,13 @@ for (const speciesId of ['black-bass', 'arapaima']) test(`${speciesId} real brow
       const root = document.querySelector('.species-discovery');
       if (!root) return;
       observer.disconnect(); const started = performance.now();
-      for (const time of [0, 600, 900, 1500, 2500, 3050]) setTimeout(() => {
+      for (const time of [0, 600, 900, 1500, 2500, 3050]) setTimeout(() => requestAnimationFrame(() => {
         const opacity = selector => Number(getComputedStyle(root.querySelector(selector)).opacity);
         window.discoveryPaintSamples.push({ time, elapsed: performance.now() - started,
           connected: root.isConnected, label: opacity('.discovery-label'), name: opacity('.discovery-name'),
           registered: opacity('.discovery-registration'), opacity: Number(getComputedStyle(root).opacity),
           ripple: opacity('.discovery-ripple') });
-      }, time);
+      }), time);
     });
     observer.observe(document.querySelector('#catch-dialog'), { childList: true, subtree: true });
   });
