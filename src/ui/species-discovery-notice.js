@@ -84,8 +84,13 @@ export function createSpeciesDiscoveryNotice({ cue } = {}) {
     // Only start/resize/orientation reads geometry. The decoration lives below
     // dialog content, outside the clipped artwork, without changing its layout.
     const bounds = dialog.getBoundingClientRect(), artwork = frame.getBoundingClientRect();
-    current.vignette.style.setProperty('--discovery-focus-x', `${artwork.x + artwork.width / 2 - bounds.x - dialog.clientLeft}px`);
-    current.vignette.style.setProperty('--discovery-focus-y', `${artwork.y + artwork.height * .46 - bounds.y - dialog.clientTop + dialog.scrollTop}px`);
+    const left = bounds.x + dialog.clientLeft, top = bounds.y + dialog.clientTop;
+    // Match the visible dialog surface, including a scrolled native modal.
+    // A fixed decoration cannot enlarge its scrollable content or move buttons.
+    Object.assign(current.vignette.style, { left: `${left}px`, top: `${top}px`,
+      width: `${dialog.clientWidth}px`, height: `${dialog.clientHeight}px` });
+    current.vignette.style.setProperty('--discovery-focus-x', `${artwork.x + artwork.width / 2 - left}px`);
+    current.vignette.style.setProperty('--discovery-focus-y', `${artwork.y + artwork.height * .46 - top}px`);
   }
   function sync() {
     const entry = current;
