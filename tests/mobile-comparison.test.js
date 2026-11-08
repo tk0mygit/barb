@@ -267,8 +267,14 @@ test('HUD area and position regressions cannot pass as 0% pixel reduction', () =
 
 test('5E-2B hint removal permits exactly its source-bound row collapse and rejects other layout changes', async () => {
   const main = await readMobileImplementation('87c7822e0dd0af71e08baa3b92e2e85f23fae897');
-  const pr = await readMobileImplementation(await mobileGit('rev-parse', 'HEAD'));
+  // This allowance belongs only to the reviewed 5E-2B transition. Later
+  // presentation changes must not inherit its source-bound layout exception.
+  const pr = await readMobileImplementation('4852ad449359b41ea0cf75c1d2e9b1d782a711bb');
   const proof = await readFishingHintRemoval(main, pr); assert(proof);
+  const head = await readMobileImplementation(await mobileGit('rev-parse', 'HEAD'));
+  if (head.hudLogicBlob !== pr.hudLogicBlob || head.hudBlob !== pr.hudBlob || head.indexBlob !== pr.indexBlob) {
+    assert.equal(await readFishingHintRemoval(main, head), null);
+  }
   const data = { mode: 'regression', baseSha: main.sha, headSha: pr.sha, validationSha: pr.sha,
     implementations: { main: mobileSourceMetadata(main), pr: mobileSourceMetadata(pr) } };
   const sources = { fishingHintRemoval: proof };

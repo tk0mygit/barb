@@ -82,6 +82,13 @@ test('all 0–36 restored known sets are silent; existing IDs, store, sale and i
     }
     assert.throws(() => f.collection.register({ ...record('invalid'), speciesId: 'unknown' }));
     f.drain(); assert.deepEqual(f.displayed, []);
+    const next = f.catchFish(FISH_SPECIES[count % FISH_SPECIES.length].id);
+    f.coordinator.showResult(next); f.drain();
+    assert.equal(f.displayed.length, count < FISH_SPECIES.length ? 1 : 0);
+    if (count === 35) {
+      assert.equal(f.collection.encyclopedia.filter(entry => entry.count > 0).length, 36);
+      assert.ok(f.notified.some(award => award.id === 'normal-species-36'));
+    }
     f.coordinator.dispose();
   }
 });

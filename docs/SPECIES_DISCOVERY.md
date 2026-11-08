@@ -35,6 +35,10 @@ Baseline main: `17111451aeee11fd65ba16f051ec014faad6ec24`. Risk classification: 
   Rare uses that same session without changing the ambient preference contract.
 - Production-path cases must use cast, probability interval selection, hook, fight/QTE,
   landing and result, with no direct insertion of catches or result state.
+- The historical 5E-2B hint-removal Unit fixture uses its reviewed merge commit
+  `4852ad449359b41ea0cf75c1d2e9b1d782a711bb`, rather than an evolving HEAD.
+  It also rejects inheritance by a changed current HUD. The comparison implementation,
+  its source-bound exception, all 34 IDs and every negative layout assertion remain intact.
 
 ## Presentation contract
 
