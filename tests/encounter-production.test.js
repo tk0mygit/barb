@@ -53,11 +53,11 @@ function bite(f, dt = 1 / 60, flick = false) {
   return frames;
 }
 
-test('production model and all ten immutable species modifier tables use exactly the approved 28 fish', () => {
-  assert.equal(encounterModel.definitions.species.length, 28);
+test('production model and all ten immutable species modifier tables use exactly the approved 36 fish', () => {
+  assert.equal(encounterModel.definitions.species.length, 36);
   assert.deepEqual(encounterModel.definitions.species, FISH_SPECIES);
   assert.deepEqual(encounterModel.definitions.tiers, FISH_RARITY);
-  assert.deepEqual(FISH_TIERS.map(tier => Object.values(FISH_RARITY).filter(value => value === tier).length), [12, 13, 3]);
+  assert.deepEqual(FISH_TIERS.map(tier => Object.values(FISH_RARITY).filter(value => value === tier).length), [12, 15, 9]);
   for (let level = 1; level <= 10; level++) {
     const modifiers = getRodEncounterModifiers(level), row = getEquipmentLevel('rod', level);
     assert.equal(getRodEncounterModifiers(level), modifiers);
@@ -77,7 +77,7 @@ test('production model and all ten immutable species modifier tables use exactly
   }
 });
 
-test('Lv.1–5 match all 672 twenty-eight-species cells; Lv.6–10 match reference normalization', t => {
+test('Lv.1–5 match all 864 thirty-six-species cells; Lv.6–10 match reference normalization', t => {
   const uncommonDecreases = [];
   for (const lure of LURES) for (const conditions of environments) {
     let previous;
@@ -105,12 +105,12 @@ test('Lv.1–5 match all 672 twenty-eight-species cells; Lv.6–10 match referen
       previous = tier;
     }
   }
-  // Seven extra Common fish change the denominator: the old three absolute
-  // Uncommon decreases no longer occur. Pairwise old-fish odds are separately
-  // pinned against the pre-6A data in phase6a.test.js.
-  assert.deepEqual(uncommonDecreases, []);
-  t.diagnostic('Lv.1–5: 3360/3360 cells match legacy API; Lv.6–10: 3360/3360 reference cells');
-  t.diagnostic('Uncommon/Common and Rare/Common odds rise in all 24 conditions; no absolute Uncommon decrease in the twenty-eight-species roster');
+  // New Rare weights change normalization: at Lv.6 the absolute Uncommon
+  // share falls only in these two cells. Relative Tier odds still rise in
+  // every cell, as checked above; original28 coefficients are pinned in 6-C.
+  assert.deepEqual(uncommonDecreases, ['spinnerbait/1/day', 'spinnerbait/1/night']);
+  t.diagnostic('Lv.1–5: 4320/4320 cells match legacy API; Lv.6–10: 4320/4320 reference cells');
+  t.diagnostic('Uncommon/Common and Rare/Common odds rise in all 24 conditions; two expected absolute Uncommon decreases at Lv.6');
 });
 
 test('neutral and malformed conditions, legacy mutable returns and species RNG boundaries remain compatible', () => {
@@ -138,7 +138,7 @@ test('neutral and malformed conditions, legacy mutable returns and species RNG b
     }
   }
   const mutable = getSpeciesProbabilities('minnow'); mutable[0].weight = 0; mutable.pop();
-  assert.equal(getSpeciesProbabilities('minnow').length, 28);
+  assert.equal(getSpeciesProbabilities('minnow').length, 36);
   assert.equal(getSpeciesProbabilities('minnow')[0].weight, 26.400000000000002);
 });
 

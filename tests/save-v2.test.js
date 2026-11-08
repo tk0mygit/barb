@@ -72,7 +72,7 @@ test('V1 wire APIs remain strictly V1; only complete validation permits canonica
   assert.deepEqual(validateSaveData(v1), before);
   assert.deepEqual(parseSaveData(JSON.stringify(v1)), before);
   const canonical = parseSaveData(serializeSaveData(v1)); assert.equal(canonical.saveVersion, 3);
-  assert.equal(canonical.rosterRevision, 2);
+  assert.equal(canonical.rosterRevision, 3);
   assert.deepEqual(withoutCounts(canonical.collection.catches), v1.collection.catches);
   assert.ok(canonical.collection.catches.every(record => record.qteSuccessCount === 0 && Object.isFrozen(record)));
   const restored = restoreSaveData(v1, { now: () => { throw new Error('No invented dates'); } });
@@ -80,7 +80,7 @@ test('V1 wire APIs remain strictly V1; only complete validation permits canonica
     record.disposition === 'unassigned' ? { ...record, disposition: 'stored' } : record));
   assert.deepEqual(restored.collection.wallet, v1.collection.wallet);
   assert.deepEqual(restored.achievements.snapshot.unlocked, v1.achievements.unlocked);
-  assert.equal(restored.achievements.snapshot.contractVersion, 4);
+  assert.equal(restored.achievements.snapshot.contractVersion, 5);
   const data = save(restored);
   assert.equal(data.saveVersion, 3); assert.equal(restored.collection.snapshot.schemaVersion, 1);
   assert.ok(data.collection.catches.every(record => record.schemaVersion === 1));

@@ -1,5 +1,5 @@
 import { objectFields, arrayData, timestamp, requireValid } from './save-validation.js';
-import { ORIGINAL_FISH_SPECIES_IDS, PHASE6A_FISH_SPECIES_IDS } from './fish-roster.js';
+import { ORIGINAL_FISH_SPECIES_IDS, PHASE6A_FISH_SPECIES_IDS, PHASE6B_FISH_SPECIES_IDS } from './fish-roster.js';
 
 // Stable public IDs. Definitions are shared by evaluation and presentation.
 export const NORMAL_ACHIEVEMENTS = Object.freeze([
@@ -19,11 +19,13 @@ export const NORMAL_ACHIEVEMENTS = Object.freeze([
   { id: 'normal-reel-level-10', name: '円環', description: 'リールをLv.10に強化する。', metric: 'reel-level', target: 10 },
   { id: 'normal-equipment-level-10', name: '日が暮れる', description: 'ロッドとリールの両方をLv.10にする。', metric: 'equipment-max', target: 10 },
   { id: 'normal-species-24', name: '広がる記録', description: '異なる通常魚を24種以上捕獲する。', metric: 'species', target: 24 },
+  { id: 'normal-species-36', name: '湖の記録', description: '異なる通常魚36種すべてを捕獲する。', metric: 'species', target: 36 },
 ].map(Object.freeze));
 
 const LEGACY_ACHIEVEMENTS = Object.freeze(NORMAL_ACHIEVEMENTS.slice(0, 10));
 const PHASE6A_ACHIEVEMENTS = Object.freeze(NORMAL_ACHIEVEMENTS.slice(0, 15));
-export const ACHIEVEMENT_CONTRACT_VERSION = 4;
+const PHASE6B_ACHIEVEMENTS = Object.freeze(NORMAL_ACHIEVEMENTS.slice(0, 16));
+export const ACHIEVEMENT_CONTRACT_VERSION = 5;
 
 function achievementValues(collection) {
   const { rodLevel, reelLevel } = collection.equipment;
@@ -48,12 +50,13 @@ export function validateAchievementContract(value, contracts) {
   const version = Object.getOwnPropertyDescriptor(value, 'contractVersion');
   if (version) {
     requireValid('value' in version && Number.isSafeInteger(version.value) && version.value >= 0, 'achievements.contractVersion');
-    requireValid(contracts.includes(version.value), 'achievements.contractVersion', 'unsupported-version');
+    requireValid(contracts.includes(version.value), 'achievements.contractVersion',
+      [2, 3, 4, ACHIEVEMENT_CONTRACT_VERSION].includes(version.value) ? 'invalid-data' : 'unsupported-version');
   } else requireValid(contracts.includes(undefined), 'achievements.contractVersion');
   return version?.value;
 }
 
-export function validateAchievementData(value, collection, { contracts = [undefined, 2, 3, ACHIEVEMENT_CONTRACT_VERSION] } = {}) {
+export function validateAchievementData(value, collection, { contracts = [undefined, 2, 3, 4, ACHIEVEMENT_CONTRACT_VERSION] } = {}) {
   validateAchievementContract(value, contracts);
   objectFields(value, ['unlocked'], ['contractVersion'], 'achievements');
   const currentContract = Object.hasOwn(value, 'contractVersion');
@@ -62,11 +65,13 @@ export function validateAchievementData(value, collection, { contracts = [undefi
     for (const kind of ['rod', 'reel']) requireValid(collection.equipment[`${kind}Level`] <= 5, `collection.equipment.${kind}Level`);
   }
   if (value.contractVersion !== ACHIEVEMENT_CONTRACT_VERSION) {
-    const sourceIds = value.contractVersion === 3 ? PHASE6A_FISH_SPECIES_IDS : ORIGINAL_FISH_SPECIES_IDS;
+    const sourceIds = value.contractVersion === 4 ? PHASE6B_FISH_SPECIES_IDS
+      : value.contractVersion === 3 ? PHASE6A_FISH_SPECIES_IDS : ORIGINAL_FISH_SPECIES_IDS;
     requireValid(collection.catches.every(record => sourceIds.includes(record.speciesId)), 'achievements.contractVersion');
   }
   const definitions = !currentContract ? LEGACY_ACHIEVEMENTS
-    : value.contractVersion === ACHIEVEMENT_CONTRACT_VERSION ? NORMAL_ACHIEVEMENTS : PHASE6A_ACHIEVEMENTS;
+    : value.contractVersion === ACHIEVEMENT_CONTRACT_VERSION ? NORMAL_ACHIEVEMENTS
+      : value.contractVersion === 4 ? PHASE6B_ACHIEVEMENTS : PHASE6A_ACHIEVEMENTS;
   arrayData(value.unlocked, definitions.length, 'achievements.unlocked');
   const ids = new Set();
   const unlocked = value.unlocked.map((record, i) => {

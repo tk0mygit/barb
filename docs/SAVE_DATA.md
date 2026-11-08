@@ -3,7 +3,7 @@
 `src/game/save-data.js` は保存データの作成、JSON変換、検証、ドメイン再構築を提供します。
 DOM・Three.js・ブラウザストレージへの依存や副作用はありません。
 Phase 3C-3Bで `src/game/save-storage.js` と `src/game/autosave.js` を追加し、
-実際の起動・ゲーム進行・保存状態表示へ接続しています。Phase 6-Bのwriterは `saveVersion: 3`・`rosterRevision: 2`（28種）・実績契約4を出力します。旧V1/V2とV3 revision1（20種・契約3）はソース形式を完全検証してから明示移行します。方式・段階公開契約は [Phase 6-B](PHASE6B.md) も参照してください。
+実際の起動・ゲーム進行・保存状態表示へ接続しています。Phase 6-Cのwriterは `saveVersion: 3`・`rosterRevision: 3`（36種）・実績契約5を出力します。旧V1/V2、V3 revision1（20種・契約3）とrevision2（28種・契約4）は各ソース形式を完全検証してから明示移行します。方式・段階公開契約は [Phase 6-C](PHASE6C.md) も参照してください。
 
 ## モジュールの役割
 
@@ -114,37 +114,39 @@ localStorageプロパティ取得自体の例外も捕捉し、`SecurityError`�
 非表示・離脱時もブラウザやOSの強制終了で処理が実行されない場合があり、最後の変更の保存は保証できません。
 ブラウザによるサイトデータ消去・プライベートブラウズ終了・別ブラウザ／別端末への引継ぎも保証しません。
 
-## 正式スキーマ V3 revision2 と旧形式移行
+## 正式スキーマ V3 revision3 と旧形式移行
 
 V1は元の厳密なフィールド一覧で全体を検証してから、復元／書込み時に各釣果へ `qteSuccessCount: 0` を補います。
 V1に明示的な成功数フィールドがあれば0でも拒否します。V2/V3では全個体に整数0〜3が必須で、欠落・不正型・未知フィールドを補修しません。
 `validateSaveData` / `parseSaveData` は入力版のwire形式を保持し、`restoreSaveData` は検証後にcanonical V3のドメインを生成します。
-`serializeSaveData` はV1/V2とV3 revision1入力も完全検証してV3 revision2へ変換します。`saveVersion: 3`だけを見て移行を省略しません。直接の `createCatchCollection({ initialData })` は成功数が必須の正規釣果形式だけを受理します。
+`serializeSaveData` はV1/V2とV3 revision1／revision2入力も完全検証してV3 revision3へ変換します。`saveVersion: 3`だけを見て移行を省略しません。直接の `createCatchCollection({ initialData })` は成功数が必須の正規釣果形式だけを受理します。
 live `register()` の成功数省略は単体のQTE-OFF捕獲APIに限って0で、V2/V3保存の検証では省略を許容しません。
 
-load／restore自体は書込みを行いません。最初の適法なrevision2保存も非active側の1キーだけを更新し、採用した旧V1/V2またはV3 revision1原本を残します。
+load／restore自体は書込みを行いません。最初の適法なrevision3保存も非active側の1キーだけを更新し、採用した旧V1/V2またはV3 revision1／revision2原本を残します。
 同じ2キー、`storageVersion: 1`、釣果／collectionの `schemaVersion: 1`、世代・raw競合・失敗保護を維持します。
-未知の将来版が片スロットにあれば、他方を復元できてもwriterを保護停止します。旧V1/V2アプリはV3を、6-Aのrevision1アプリはrevision2を未対応として保護し、正常な旧バックアップがあっても書き込みません。古いタブは保存直前のrawチェックで外部更新を検出して停止します。
+未知の将来版が片スロットにあれば、他方を復元できてもwriterを保護停止します。旧V1/V2アプリはV3を、6-Aのrevision1アプリはrevision2以降を、6-Bのrevision2アプリはrevision3を未対応として保護し、正常な旧バックアップがあっても書き込みません。古いタブは保存直前のrawチェックで外部更新を検出して停止します。
 過去のsoldの価格・売却日時・wallet・実績解除日時は再計算せず維持します。V3の再読込・再保存は冪等です。
 
 ```json
 {
   "saveVersion": 3,
-  "rosterRevision": 2,
+  "rosterRevision": 3,
   "savedAt": "2026-10-23T00:00:00.000Z",
   "collection": {
     "catches": [],
     "wallet": { "balance": 0, "lifetimeSales": 0 },
     "equipment": { "rodLevel": 1, "reelLevel": 1 }
   },
-  "achievements": { "contractVersion": 4, "unlocked": [] },
+  "achievements": { "contractVersion": 5, "unlocked": [] },
   "boat": { "x": 0, "z": 30, "heading": 0 },
   "clock": { "elapsedSeconds": 0 },
   "settings": {}
 }
 ```
 
-V3 revision1は明示的なNo.1–20のIDと実績契約3・15実績、revision2はNo.1–28と実績契約4・16実績を要求します。V1/V2に新魚種や新実績を、revision1にNo.21–28や24種実績を混入した保存を拒否します。未知revision3+／実績契約5+は追加フィールドや未知魚種の検査より先に未対応と判定し、両スロットを保護します。元12種実績は `fish-roster.js` の元12IDすべての捕獲で、任意12種では成立しません。24種実績は異なる通常魚24種の捕獲時点で解除し、その評価時刻を記録します。既存解除日時は移行でも維持し、36種実績は未導入です。
+V3 revision1は明示的なNo.1–20と契約3・15実績、revision2はNo.1–28と契約4・16実績、revision3はNo.1–36と契約5・17実績を要求します。V1/V2は元12種と未版／契約2だけを受理します。各源版に後の魚・実績IDを混入した保存を拒否し、`saveVersion:3`だけで移行を省略しません。既知revisionと既知契約の矛盾、不正型の識別子、未知追加フィールドは`invalid-data`です。未知の将来revision4+／契約6+／saveVersion4+は追加フィールドや未知魚種の検査より先に`unsupported-version`と判定し、片方が正常でも両スロットのwriterを保護します。
+
+元12種実績は元12 IDすべて、24種実績は任意の異なる通常魚24種、36種実績は通常36種すべてを捕獲した時点で解除し、その現在時刻を記録します。保管・売却で進捗を減らさず、既存解除日時は移行でも維持します。
 
 上記フィールドはすべて必須です。各オブジェクトは以下に列挙するフィールドだけを許容します。
 未知フィールドを黙って削除しません。設定は予約領域の空オブジェクトのみです。
@@ -158,7 +160,7 @@ V3 revision1は明示的なNo.1–20のIDと実績契約3・15実績、revision2
 | --- | --- |
 | `schemaVersion` | 数値の `1` |
 | `id` | 空白だけでない文字列、256 UTF-16コード単位以内、履歴全体で一意 |
-| `speciesId` | V3 revision2は通常28種、revision1は明示的な旧20種。V1/V2は元12種だけを許容 |
+| `speciesId` | V3 revision3は通常36種、revision2は明示的な旧28種、revision1は旧20種。V1/V2は元12種だけを許容 |
 | `lengthCm`, `weightKg` | 有限の正数。既存 `register()` の正当な個体差を保つため、現在の抽選体長範囲や重量式への完全一致は強制しない。重量は単体売価が安全な整数になる範囲 |
 | `caughtAt` | 有効なUTC ISO日時文字列 |
 | `disposition` | `unassigned` / `stored` / `sold` |
@@ -206,6 +208,7 @@ A/B保存キーは維持し、実績の識別子だけを追加します。旧�
 | `contractVersion: 2` | V1/V2用。旧10件＋個別ロッド／リールLv.5・Lv.10＋両装備Lv.10の計15件 |
 | `contractVersion: 3` | V3 revision1用の15件。12種実績の対象を元12IDの集合として固定 |
 | `contractVersion: 4` | V3 revision2用の16件。既存15件を維持し、`normal-species-24`を追加 |
+| `contractVersion: 5` | V3 revision3用の17件。既存16件を維持し、`normal-species-36`を追加 |
 
 いずれも達成状態との完全一致を要求し、重複・日時不正・未達成取得・達成済み未記録を拒否します。
 有効な非負整数の未知契約versionは `unsupported-version`、不正型・負数・非整数は `invalid-data`、
@@ -214,7 +217,7 @@ A/B保存キーは維持し、実績の識別子だけを追加します。旧�
 旧契約を検証してからドメインを復元し、旧解除日時をそのままシードします。
 過去の到達レベルで新たに満たす個別Lv.5実績だけを現在の評価時刻で取得します。
 初期評価はUI購読前に完了するため、新旧どちらも復元通知を再送しません。
-当時のwriterは `contractVersion: 2` を出力しました。Phase 6-Bの次回保存は契約4へ明示移行します。保存失敗・競合・未知version時の保護を維持し、
+当時のwriterは `contractVersion: 2` を出力しました。Phase 6-Cの次回保存は契約5へ明示移行します。保存失敗・競合・未知version時の保護を維持し、
 保存成功まで最新正常世代を残します。履歴の売価・財布・船・時計も補正しません。
 
 変更前mainで釣り・売却・購入・保存APIを通した旧A/B生文字列を
@@ -297,14 +300,14 @@ Phase 3C-3Bでは、起動時に保存候補を選択してから、その一式
 
 ## 今後の形式変更
 
-- 上記の承認済み5B-1AとPhase 6-A／6-B移行以外で、将来フィールド・魚種・実績条件・通貨規則を変更する場合は外側の `saveVersion`（同一V3の承認済み段階公開はroster revision／実績契約）を明示更新し、
+- 上記の承認済み5B-1AとPhase 6-A／6-B／6-C移行以外で、将来フィールド・魚種・実績条件・通貨規則を変更する場合は外側の `saveVersion`（同一V3の承認済み段階公開はroster revision／実績契約）を明示更新し、
   明示的な移行関数と移行前後の検証・テストを追加すること。既存データへ暗黙の初期値を補わないこと。
   特に実績条件を変更する移行では、過去の解除日時を維持する方針を別途定義すること。
 
 ## 検証
 
-`tests/save-data.test.js` は初期値・往復変換・不変性・厳格な拒否・部分復元なし・28魚種・売却・
-未処理魚救済・ロッド／リール全100レベル組合せ・16実績（旧10件の履歴保護を含む）・ID衝突・湖岸の実操船境界・
+`tests/save-data.test.js` は初期値・往復変換・不変性・厳格な拒否・部分復元なし・36魚種・売却・
+未処理魚救済・ロッド／リール全100レベル組合せ・17実績（旧10件の履歴保護を含む）・ID衝突・湖岸の実操船境界・
 180/360秒・30/60/144fps・20,000件の履歴を確認します。
 `tests/browser/save-data.spec.js` はテスト時だけ復元APIを接続し、マウス／タッチでメニュー表示・
 救済魚へのアクセス・復元通知なし・新規達成通知を確認します。
@@ -314,7 +317,7 @@ Phase 3C-3Bでは、起動時に保存候補を選択してから、その一式
 `tests/browser/autosave.spec.js` は本番ゲームでの保存・再読み込み・復元、釣果／ファイト途中の安全な再開、バックアップ、保存失敗と競合、小型画面を確認します。
 テスト用fixtureやストレージ差し替えはテスト時だけ提供し、本番にデバッグ用の状態変更APIは追加しません。
 テスト成功件数・実際の性能計測・実機未確認の範囲はPRの検証結果を参照してください。
-`tests/save-v3-revision2.test.js` は基準mainのrevision1クライアントを実際に再生し、旧20種のsource検証、revision2移行、旧クライアント／旧タブの保護、単一スロット更新、未来混在、quota、constructor失敗を検査します。`tests/phase6b.test.js` は24種実績の達成・未達成・重複・欠落・不正日時も検査します。
+`tests/save-v3-revision2.test.js` は基準mainのrevision1クライアントを実際に再生し、旧20種のsource検証、現行revision3への移行、旧クライアント／旧タブの保護、単一スロット更新、未来混在、quota、constructor失敗を検査します。`tests/phase6b.test.js` は24種実績の達成・未達成・重複・欠落・不正日時も検査します。
 
 
 ## 音声設定との独立性（Phase 4B-2）
@@ -324,3 +327,5 @@ BGM・自然音の設定はゲーム進行データとは別の小規模なユ�
 ゲームセーブの2スロット、世代・競合検出・保護は変更しません。音声設定の変更はゲームの保存処理を呼ばず、
 専用キーの他タブ変更もゲームの競合対象になりません。音声設定の読み書き失敗はサウンド設定内へ個別表示し、
 ゲームセーブの成功表示へ流しません。厳格検証、初期OFF、明示的変更時だけの書き込みは[音響システム](AUDIO_SYSTEM.md)を参照してください。
+
+`tests/save-v3-revision3.test.js` は指定基準mainの実revision2コードから28種・契約4を生成し、完全検証後のrevision3移行、両slotの原文保持、future混在、既知revision×contract全組合せ、旧revision2クライアントの上書き拒否を検査します。`tests/phase6c.test.js` は35／36種の境界・日時保持・売却後進捗・実績の正負を検査します。

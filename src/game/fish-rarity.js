@@ -32,6 +32,14 @@ export const FISH_RARITY = Object.freeze({
   bowfin: 'Uncommon',
   'murray-cod': 'Uncommon',
   'golden-dorado': 'Uncommon',
+  'red-bellied-piranha': 'Uncommon',
+  barramundi: 'Uncommon',
+  muskellunge: 'Rare',
+  'peacock-bass': 'Rare',
+  'northern-snakehead': 'Rare',
+  'lake-sturgeon': 'Rare',
+  arapaima: 'Rare',
+  payara: 'Rare',
 });
 
 export function getFishTier(speciesId) {

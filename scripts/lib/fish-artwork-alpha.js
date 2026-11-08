@@ -1,4 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const approved6c = JSON.parse(readFileSync(new URL('../../docs/artwork/phase6/approved-6c.json', import.meta.url)));
+const approvedImages = new Map(approved6c.images.map(row => [row.speciesId, Object.freeze(row)]));
+const approvedSmallBodies = new Set(['red-bellied-piranha', 'muskellunge', 'lake-sturgeon']);
 
 // Shared by source-pixel unit checks and the Chromium-decoded artwork report.
 export function measureArtworkAlpha(pixels, width, height) {
@@ -19,7 +24,7 @@ export function measureArtworkAlpha(pixels, width, height) {
     nearOpaquePixels, softEdgePixels, nontransparentBorderPixels, nontransparentBounds: { left, top, right, bottom } };
 }
 
-export function assertArtworkAlpha(profile, { legacy, id }) {
+export function assertArtworkAlpha(profile, { legacy, id, sourceSha256 }) {
   const { decodedWidth: width, decodedHeight: height, transparentPixels, nearOpaquePixels, softEdgePixels,
     opaquePixels, nontransparentBounds: bounds } = profile;
   assert.equal(width, 1280, id); assert.equal(height, 560, id);
@@ -29,10 +34,24 @@ export function assertArtworkAlpha(profile, { legacy, id }) {
   if (legacy) assert.ok(opaquePixels > 1000, `${id}: original opaque-pixel requirement`);
   else {
     const visible = width * height - transparentPixels;
+    const approved = approvedImages.get(id);
+    if (approved) {
+      assert.equal(sourceSha256, approved.sha256, `${id}: immutable approved image bytes`);
+      assert.equal(nearOpaquePixels, approved.approvedNearlyOpaquePixelsAlpha250OrMore, `${id}: exact approved alpha>=250 samples`);
+    }
     // Approved 6-A profiles have >177k near-opaque samples and ≥93% core
     // density (measured from immutable source alpha). Require a substantial
     // body, rather than accepting a few opaque specks or a faded fish.
-    assert.ok(nearOpaquePixels >= 150000 && nearOpaquePixels / visible >= 0.92, `${id}: dense near-opaque fish body`);
-    assert.ok(softEdgePixels >= 1000 && softEdgePixels / visible <= 0.08, `${id}: bounded soft contour`);
+    if (!approvedSmallBodies.has(id)) assert.ok(nearOpaquePixels >= 150000, `${id}: dense near-opaque fish body`);
+    if (id === 'barramundi') {
+      // The immutable PM-approved bytes have a wider soft contour. Exact
+      // independent source-alpha counts replace neither other fish's density
+      // nor this image's SHA / approved near-opaque / margin checks above.
+      assert.equal(visible, approved.sourceMeasuredVisiblePixels, `${id}: exact source visible body`);
+      assert.equal(softEdgePixels, approved.sourceMeasuredSoftEdgePixels, `${id}: exact source soft contour`);
+    } else {
+      assert.ok(nearOpaquePixels / visible >= 0.92, `${id}: dense near-opaque fish body`);
+      assert.ok(softEdgePixels >= 1000 && softEdgePixels / visible <= 0.08, `${id}: bounded soft contour`);
+    }
   }
 }

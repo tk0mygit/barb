@@ -29,8 +29,8 @@ for(const touch of [false,true])test(`${touch?'touch':'desktop'}: Phase 6-A buil
   const click=locator=>touch?locator.tap():locator.click();
   await page.goto('./');await expect(page.locator('#status')).toBeHidden();await expect(page.locator('#error')).toBeHidden();
   await click(page.locator('#menu-button'));await click(page.locator('[data-view="encyclopedia"]'));
-  await expect(page.locator('.fish-card')).toHaveCount(28);await expect(page.locator('div.fish-card')).toHaveCount(20);
-  await expect(page.locator('.collection-summary')).toHaveText('発見 8 / 28 種');
+  await expect(page.locator('.fish-card')).toHaveCount(36);await expect(page.locator('div.fish-card')).toHaveCount(28);
+  await expect(page.locator('.collection-summary')).toHaveText('発見 8 / 36 種');
   const unknown=await page.locator('div.fish-card').evaluateAll(nodes=>nodes.map(node=>node.outerHTML).join(''));
   for(const fish of FISH_SPECIES.filter(fish=>!FISH_SPECIES.slice(12,20).includes(fish))){expect(unknown).not.toContain(fish.name);expect(unknown).not.toContain(fish.description);expect(unknown).not.toContain(`${fish.id}.png`);}
   const hashes=[];
@@ -65,9 +65,9 @@ for(const touch of [false,true])test(`${touch?'touch':'desktop'}: Phase 6-A buil
   await expect(page.locator('#wallet-balance')).toHaveText(money(total));
   await page.evaluate(()=>window.dispatchEvent(new Event('pagehide')));
   const saved=await page.evaluate(keys=>keys.map(key=>localStorage.getItem(key)).filter(Boolean).map(JSON.parse).sort((a,b)=>b.generation-a.generation)[0].data,keys);
-  expect([saved.saveVersion,saved.rosterRevision,saved.achievements.contractVersion]).toEqual([3,2,4]);
+  expect([saved.saveVersion,saved.rosterRevision,saved.achievements.contractVersion]).toEqual([3,3,5]);
   expect(saved.collection.wallet).toEqual({balance:total,lifetimeSales:total});expect(saved.collection.catches.every(row=>row.disposition==='sold')).toBe(true);
   await page.reload();await expect(page.locator('#status')).toBeHidden();await expect(page.locator('#wallet-balance')).toHaveText(money(total));
-  await click(page.locator('#menu-button'));await click(page.locator('[data-view="encyclopedia"]'));await expect(page.locator('.collection-summary')).toHaveText('発見 8 / 28 種');
+  await click(page.locator('#menu-button'));await click(page.locator('[data-view="encyclopedia"]'));await expect(page.locator('.collection-summary')).toHaveText('発見 8 / 36 種');
   expect(errors).toEqual([]);
 });

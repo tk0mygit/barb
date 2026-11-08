@@ -11,24 +11,25 @@ import { getFishingSpotStatus } from '../../src/game/fishing-spots.js';
 // Reach the requested start through CAST/LURE/BITE/HOOK; no writable-state
 // injection. The final short LURE step preserves legal near-landing cases.
 export function hookedFight(condition = {}, options = {}) {
-  const { speciesId = 'black-bass', size = 'mid', startDistance = 32, rod = 1, reel = 1, seed = 0x9e3779b9 } = condition;
+  const { speciesId = 'black-bass', size = 'mid', startDistance = 32, rod = 1, reel = 1, lureId = 'minnow', seed = 0x9e3779b9 } = condition;
   const species = getFishSpecies(speciesId), length = condition.lengthCm ?? (size === 'min' ? species.minLengthCm : size === 'max' ? species.maxLengthCm : (species.minLengthCm + species.maxLengthCm) / 2);
   const max = 32 + getEquipmentLevel('rod', rod).castDistanceBonusM;
   assert.ok(startDistance > 4.5 && startDistance <= max, 'fixture must be legally reachable');
   const castDistance = Math.min(max, Math.max(8, Math.ceil(startDistance * 4) / 4));
   const speed = .65 * getEquipmentLevel('reel', reel).reelSpeedMultiplier, travel = (castDistance - startDistance) / speed;
   let total = 0, roll;
-  for (const entry of encounterModel.getProbabilities('minnow', undefined, getRodEncounterModifiers(rod))) {
+  for (const entry of encounterModel.getProbabilities(lureId, undefined, getRodEncounterModifiers(rod))) {
     if (entry.speciesId === species.id) roll = total + entry.probability / 2;
     total += entry.probability;
   }
-  const hitMultiplier = getLure('minnow').hitMultiplier * getFishingSpotStatus({ x: 0, z: 30 }).hitMultiplier;
+  const hitMultiplier = getLure(lureId).hitMultiplier * getFishingSpotStatus({ x: 0, z: 30 }).hitMultiplier;
   const setup = [-Math.expm1(-Math.max(0, travel - 3 + .1) * hitMultiplier / 12), roll,
     Math.min(1 - Number.EPSILON, (length - species.minLengthCm) / (species.maxLengthCm - species.minLengthCm))];
   let x = seed >>> 0, calls = 0;
   const random = () => { calls++; if (setup.length) return setup.shift(); x = (Math.imul(1664525, x) + 1013904223) >>> 0; return x / 4294967296; };
   const collection = createCatchCollection({ initialData: { catches: [], wallet: { balance: 0, lifetimeSales: 0 }, equipment: { rodLevel: rod, reelLevel: reel } } });
   const f = createFishing({ random, collection, ...options });
+  assert.equal(f.selectLure(lureId), true);
   assert.equal(f.prepare({ x: 0, z: 30 }, 0), true);
   f.aim(0, Math.min(180, (castDistance + .125 - 8) / (max - 8) * 180)); assert.equal(f.state.distance, castDistance);
   f.cast(); while (f.state.phase === PHASE.CAST) f.step(1 / 60);

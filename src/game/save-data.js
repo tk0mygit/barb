@@ -3,12 +3,12 @@ import { validateAchievementData, validateAchievementContract, migrateAchievemen
 import { createBoatState, isNavigableBoatPosition } from './boat.js';
 import { createGameClock } from './game-clock.js';
 import { createGameplay } from './gameplay.js';
-import { ORIGINAL_FISH_SPECIES_IDS, PHASE6A_FISH_SPECIES_IDS } from './fish-roster.js';
+import { ORIGINAL_FISH_SPECIES_IDS, PHASE6A_FISH_SPECIES_IDS, PHASE6B_FISH_SPECIES_IDS } from './fish-roster.js';
 import { SAVE_LIMITS, SaveDataError, requireValid, objectFields, finite, timestamp, validateCollectionData, validateLegacyCollectionData } from './save-validation.js';
 
 export { SAVE_LIMITS, SaveDataError } from './save-validation.js';
 export const SAVE_VERSION = 3;
-export const SAVE_ROSTER_REVISION = 2; // 28 species; revision1 remains a strict source format.
+export const SAVE_ROSTER_REVISION = 3; // 36 species; revisions1/2 remain strict source formats.
 
 // Throws SaveDataError, returns a detached deeply frozen envelope. Unknown
 // fields are rejected instead of being copied, recursively traversed or lost.
@@ -21,10 +21,11 @@ export function validateSaveData(value) {
   if (v3) {
     const roster = Object.getOwnPropertyDescriptor(value, 'rosterRevision');
     requireValid(roster && 'value' in roster && Number.isSafeInteger(roster.value) && roster.value >= 1, 'rosterRevision');
-    requireValid([1, SAVE_ROSTER_REVISION].includes(roster.value), 'rosterRevision', 'unsupported-version');
+    requireValid([1, 2, SAVE_ROSTER_REVISION].includes(roster.value), 'rosterRevision', 'unsupported-version');
   }
   const revision1 = v3 && value.rosterRevision === 1;
-  const contracts = v3 ? [revision1 ? 3 : ACHIEVEMENT_CONTRACT_VERSION] : [undefined, 2];
+  const revision2 = v3 && value.rosterRevision === 2;
+  const contracts = v3 ? [revision1 ? 3 : revision2 ? 4 : ACHIEVEMENT_CONTRACT_VERSION] : [undefined, 2];
   // Future contracts protect storage even if their outer envelope introduces
   // new fields. Inspect a data descriptor, without executing an input getter.
   const achievement = Object.getOwnPropertyDescriptor(value, 'achievements');
@@ -33,7 +34,8 @@ export function validateSaveData(value) {
   objectFields(value, ['saveVersion', ...(v3 ? ['rosterRevision'] : []), 'savedAt', 'collection', 'achievements', 'boat', 'clock', 'settings'], [], 'save');
   timestamp(value.savedAt, 'savedAt');
   const collection = version.value === 1 ? validateLegacyCollectionData(value.collection)
-    : validateCollectionData(value.collection, { speciesIds: !v3 ? ORIGINAL_FISH_SPECIES_IDS : revision1 ? PHASE6A_FISH_SPECIES_IDS : undefined });
+    : validateCollectionData(value.collection, { speciesIds: !v3 ? ORIGINAL_FISH_SPECIES_IDS
+      : revision1 ? PHASE6A_FISH_SPECIES_IDS : revision2 ? PHASE6B_FISH_SPECIES_IDS : undefined });
   const achievements = validateAchievementData(value.achievements, collection,
     { contracts });
   objectFields(value.boat, ['x', 'z', 'heading'], [], 'boat');

@@ -31,8 +31,8 @@ test('gameplay definitions retain main 51ab225 values with the approved Phase 5E
     '000d079bde84a88d7002541db875987adebf956b43bdaa3533d581b7095ee0a3');
   assert.equal(createHash('sha256').update(JSON.stringify(data)).digest('hex'),
     'a81a36ce9a8ef295eaab608f5aca6d08076902920085ceacc10a2e94c908660d');
-  assert.equal(NORMAL_ACHIEVEMENTS.length, 16);
-  assert.deepEqual(NORMAL_ACHIEVEMENTS.filter(item => ['species', 'original-species'].includes(item.metric)).map(item => item.target), [5, 12, 24]);
+  assert.equal(NORMAL_ACHIEVEMENTS.length, 17);
+  assert.deepEqual(NORMAL_ACHIEVEMENTS.filter(item => ['species', 'original-species'].includes(item.metric)).map(item => item.target), [5, 12, 24, 36]);
 });
 
 test('registration rejects duplicates and missing/invalid metadata, and detaches mutable inputs', () => {
@@ -59,7 +59,7 @@ test('registration rejects duplicates and missing/invalid metadata, and detaches
   assert.equal(registry.get('black-bass'), BLACK_BASS);
   for (const id of ['missing', 'constructor', '__proto__', null, undefined]) assert.equal(registry.get(id), undefined);
   assert.ok(Object.isFrozen(registry.species) && Object.isFrozen(registry.get('fixture-species')));
-  assert.equal(FISH_SPECIES.length, 28);
+  assert.equal(FISH_SPECIES.length, 36);
 });
 
 test('hypothetical species uses actual neutral encounter/lure/environment defaults and its own price', async t => {
@@ -67,7 +67,7 @@ test('hypothetical species uses actual neutral encounter/lure/environment defaul
   const { FISH_SPECIES: definitions, getFishSpecies } = await sandbox.load('fish-species');
   const { getSpeciesProbabilities: probabilities } = await sandbox.load('fish-encounters');
   const { calculateSalePrice } = await sandbox.load('fish-sales');
-  assert.equal(definitions.length, 29); assert.equal(FISH_SPECIES.length, 28);
+  assert.equal(definitions.length, 37); assert.equal(FISH_SPECIES.length, 36);
   for (const lure of LURES) for (const depthM of [1, 7, 12]) for (const timeOfDay of ['day', 'night']) {
     const entries = probabilities(lure.id, { depthM, timeOfDay });
     assert.equal(entries.find(entry => entry.speciesId === 'fixture-species').weight, 1);

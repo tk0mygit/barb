@@ -51,14 +51,14 @@ function land(f, dt = 1 / 60) {
   return elapsed;
 }
 
-test('four immutable lures have positive affinities for all 28 species and bounded bite rates', () => {
+test('four immutable lures have positive affinities for all 36 species and bounded bite rates', () => {
   assert.deepEqual(LURES.map(lure => lure.id), ['minnow', 'crankbait', 'worm', 'spinnerbait']);
   assert.equal(getLure('missing'), undefined);
   for (const lure of LURES) {
     assert.equal(getLure(lure.id), lure);
     assert.ok(Object.isFrozen(lure) && Object.isFrozen(lure.affinities));
     assert.ok(lure.hitMultiplier >= 0.8 && lure.hitMultiplier <= 1.2);
-    assert.equal(Object.keys(lure.affinities).length, 28);
+    assert.equal(Object.keys(lure.affinities).length, 36);
     for (const fish of FISH_SPECIES) {
       assert.ok(Number.isFinite(lure.affinities[fish.id]) && lure.affinities[fish.id] > 0);
       assert.ok(Number.isFinite(APPEARANCE_WEIGHTS[fish.id]) && APPEARANCE_WEIGHTS[fish.id] > 0);
@@ -66,10 +66,10 @@ test('four immutable lures have positive affinities for all 28 species and bound
   }
 });
 
-test('normalized weights, interval sampling and boundaries cover all 28 species for every lure', () => {
+test('normalized weights, interval sampling and boundaries cover all 36 species for every lure', () => {
   for (const lure of LURES) {
     const entries = getSpeciesProbabilities(lure.id);
-    assert.equal(entries.length, 28);
+    assert.equal(entries.length, 36);
     assert.ok(Math.abs(entries.reduce((sum, entry) => sum + entry.probability, 0) - 1) < 1e-12);
     const total = entries.reduce((sum, entry) => sum + entry.weight, 0);
     for (const entry of entries) {
@@ -78,7 +78,7 @@ test('normalized weights, interval sampling and boundaries cover all 28 species 
       assert.equal(sampleFishSpecies(lure.id, () => speciesRoll(lure.id, entry.speciesId)).id, entry.speciesId);
     }
     assert.equal(sampleFishSpecies(lure.id, () => 0).id, 'black-bass');
-    assert.equal(sampleFishSpecies(lure.id, () => 1 - Number.EPSILON).id, 'golden-dorado');
+    assert.equal(sampleFishSpecies(lure.id, () => 1 - Number.EPSILON).id, 'payara');
   }
   assert.throws(() => getSpeciesProbabilities('missing'), RangeError);
   for (const roll of [-1, 1, NaN, Infinity]) assert.throws(() => sampleFishSpecies('minnow', () => roll), RangeError);
@@ -139,8 +139,10 @@ test('lure selection is locked from preparation through result/failure and resto
   success.closeResult(); assert.equal(success.selectLure('minnow'), true);
 });
 
-test('all 28 species land with all four lures at minimum/mid/maximum sizes at 30 and 144 fps', t => {
-  for (const species of FISH_SPECIES) {
+test('historical 28 species retain all-lure/min-mid-max/30-144fps QTE-OFF pacing bounds', t => {
+  // New eight QTE-ON profiles have separate initial-equipment coverage in
+  // phase6c-fight.test.js; keep every old 30s/16s/20s constraint unchanged.
+  for (const species of FISH_SPECIES.slice(0, 28)) {
     const durations = [];
     for (const lure of LURES) for (const size of [0, 0.5, 1 - Number.EPSILON]) for (const dt of [1 / 30, 1 / 144]) {
       const f = encounter(lure.id, species.id, size);
@@ -190,6 +192,6 @@ test('species, length and surge timing affect actual tension and retrieval diffi
     assert.ok(snapshots[1].distance >= snapshots[0].distance);
     tensionBySpecies.push(snapshots[0].tension);
   }
-  assert.equal(new Set(tensionBySpecies).size, 28);
+  assert.equal(new Set(tensionBySpecies).size, 36);
   assert.ok(tensionBySpecies[10] > tensionBySpecies[2]);
 });

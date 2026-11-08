@@ -469,11 +469,56 @@ test('mobile landscape: prepare/cancel and return controls remain reachable', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('Phase 6-C Rare: initial equipment arapaima through native three-QTE catch, exact PNG and saved reload', async ({ page }, testInfo) => {
+  const started = performance.now();
+  await page.setViewportSize({ width: 800, height: 600 });
+  await setup(page, { paused: true });
+  expect(await page.evaluate(() => ['barb.save.v1.slotA', 'barb.save.v1.slotB'].map(key => localStorage.getItem(key)))).toEqual([null, null]);
+  await page.evaluate(() => { window.testRandomValue = .1; });
+  const tick = () => page.clock.fastForward(250), input = await inputFor(page, false);
+  await page.locator('#fish-button').click(); await tick();
+  await cast(page, input, tick);
+  const plan = await armEncounter(page, { speciesId: 'arapaima', lengthRoll: .5, rodLevel: 1 });
+  for (let i = 0; i < 24 && await phase(page).getAttribute('data-phase') === 'lure'; i++) await tick();
+  await verifyEncounterBite(page, plan);
+  await input.tap(); await tick(); await expect(phase(page)).toHaveAttribute('data-phase', 'fight');
+  const fightStarted = await page.evaluate(() => Date.now());
+  let held = false, successes = 0, ticks = 0;
+  for (; ticks < 100; ticks++) {
+    const state = await page.evaluate(() => ({ phase: document.querySelector('#fishing-panel').dataset.phase, tension: document.querySelector('#line-tension').value }));
+    if (state.phase !== 'fight') break;
+    if (await succeedMousePublicQte(page)) { held = false; successes++; continue; }
+    if (!held && state.tension < .35) { await input.down(); held = true; }
+    else if (held && state.tension > .65) { await input.up(); held = false; }
+    await tick();
+  }
+  if (held) await input.up();
+  await expect(phase(page)).toHaveAttribute('data-phase', 'landing');
+  expect(successes).toBe(3);
+  const observedFightMs = await page.evaluate(() => Date.now()) - fightStarted;
+  for (let i = 0; i < 5; i++) await tick();
+  await assertCatch(page, 'arapaima', plan.lengthRoll);
+  await expect(page.locator('#catch-qte-bonus')).toContainText('QTE成功3回／');
+  await page.locator('#close-catch').click(); await tick();
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  const saved = (await readSpeciesSave(page)).data;
+  expect([saved.saveVersion, saved.rosterRevision, saved.achievements.contractVersion]).toEqual([3, 3, 5]);
+  expect(saved.collection.equipment).toEqual({ rodLevel: 1, reelLevel: 1 });
+  expect(saved.collection.catches).toHaveLength(1);
+  const record = saved.collection.catches[0];
+  expect(record).toMatchObject({ speciesId: 'arapaima', qteSuccessCount: 3, disposition: 'stored', lengthCm: plan.lengthCm, weightKg: plan.weightKg });
+  await page.reload(); await tick(); await expect(page.locator('#status')).toBeHidden();
+  expect((await readSpeciesSave(page)).data.collection.catches).toEqual([record]);
+  await page.locator('#menu-button').click(); await page.locator('[data-view="encyclopedia"]').click();
+  await expect(page.locator('.collection-summary')).toHaveText('発見 1 / 36 種');
+  await expect(page.locator('button.fish-card')).toHaveCount(1); await expect(page.locator('div.fish-card')).toHaveCount(35);
+  await testInfo.attach('phase6c-rare-native', { body: JSON.stringify({ plan, successes, ticks, observedFightMs, durationMs: Math.round(performance.now() - started), record }), contentType: 'application/json' });
+});
+
 const speciesTest = createStorageCheckpointTest(test);
 const speciesSaveKeys = ['barb.save.v1.slotA', 'barb.save.v1.slotB'];
-const speciesGroups = Array.from({ length: Math.ceil(FISH_SPECIES.length / 7) }, (_, index) => ({
-  start: index * 7, end: Math.min((index + 1) * 7, FISH_SPECIES.length),
-}));
+const speciesGroups = [[0, 7], [7, 14], [14, 21], [21, 28], [28, 32], [32, 36]]
+  .map(([start, end]) => ({ start, end }));
 
 async function readSpeciesSave(page) {
   return page.evaluate(keys => {
@@ -484,7 +529,7 @@ async function readSpeciesSave(page) {
 }
 function assertSpeciesSave(data, count, qteCounts) {
   expect(data).not.toBeNull();
-  expect([data.saveVersion, data.rosterRevision, data.achievements.contractVersion]).toEqual([3, 2, 4]);
+  expect([data.saveVersion, data.rosterRevision, data.achievements.contractVersion]).toEqual([3, 3, 5]);
   const records = data.collection.catches;
   expect(records.map(record => record.speciesId)).toEqual(FISH_SPECIES.slice(0, count).map(fish => fish.id));
   expect(new Set(records.map(record => record.id)).size).toBe(count);
@@ -500,7 +545,7 @@ async function assertRestoredCheckpoint(page, checkpoint, expectedCount, qteCoun
   if (expectedCount) assertSpeciesSave(saved.data, expectedCount, qteCounts);
 }
 
-speciesTest.describe('all 28 species: continuous production catches and saved collection', () => {
+speciesTest.describe('all 36 species: continuous production catches and saved collection', () => {
   // Failures block dependent parts through Playwright's serial scheduling;
   // ci-required still rejects every failed or unexecuted test. No shared page.
   speciesTest.describe.configure({ mode: 'serial' });
@@ -508,14 +553,14 @@ speciesTest.describe('all 28 species: continuous production catches and saved co
   let checkpointTime;
 
   speciesTest.beforeAll(() => {
-    expect(FISH_SPECIES).toHaveLength(28);
-    expect(speciesGroups.map(({ start, end }) => end - start)).toEqual([7, 7, 7, 7]);
+    expect(FISH_SPECIES).toHaveLength(36);
+    expect(speciesGroups.map(({ start, end }) => end - start)).toEqual([7, 7, 7, 7, 4, 4]);
   });
 
   for (const { start, end } of speciesGroups) {
     speciesTest(`No.${start + 1}–${end}: cast, hook, fight, QTE, result image and recast`, async ({ page, storageCheckpoint }, testInfo) => {
-      // Seven real fights get their own five-minute budget; the old 28-fight
-      // test's ten-minute timeout is not extended. Final UI work is separate.
+      // Preserve the four seven-fish segments and add two four-fish segments.
+      // Each keeps the existing five-minute budget; final UI work is separate.
       speciesTest.setTimeout(300000);
       const started = performance.now();
       const progress = { planned: FISH_SPECIES.slice(start, end).map(fish => fish.id), stage: 'startup', completed: [], current: null };
@@ -612,33 +657,33 @@ speciesTest.describe('all 28 species: continuous production catches and saved co
     });
   }
 
-  speciesTest('28 caught species: ordered discovered grid, unique storage and QTE save/reload', async ({ page, storageCheckpoint }, testInfo) => {
-    expect(confirmedCounts).toHaveLength(28);
+  speciesTest('36 caught species: ordered discovered grid, unique storage and QTE save/reload', async ({ page, storageCheckpoint }, testInfo) => {
+    expect(confirmedCounts).toHaveLength(36);
     await page.setViewportSize({ width: 800, height: 600 });
     await setup(page, { paused: true, time: checkpointTime });
-    await assertRestoredCheckpoint(page, storageCheckpoint.previous, 28, confirmedCounts);
+    await assertRestoredCheckpoint(page, storageCheckpoint.previous, 36, confirmedCounts);
     await page.locator('#menu-button').click({ force: true });
     await page.locator('[data-view="encyclopedia"]').click({ force: true });
     expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
-    await expect(page.locator('button.fish-card')).toHaveCount(28);
+    await expect(page.locator('button.fish-card')).toHaveCount(36);
     await expect(page.locator('div.fish-card')).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath('encyclopedia-discovered.png'), animations: 'disabled' });
     await page.locator('#collection-back').click({ force: true });
     await page.locator('[data-view="storage"]').click({ force: true });
-    await expect(page.locator('.stored-fish')).toHaveCount(28);
+    await expect(page.locator('.stored-fish')).toHaveCount(36);
     const ids = await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId));
-    expect(new Set(ids).size).toBe(28);
+    expect(new Set(ids).size).toBe(36);
     const scroll = await page.locator('#collection-content').evaluate(el => { el.scrollTop = el.scrollHeight; return { top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight }; });
     expect(scroll.height).toBeGreaterThan(scroll.client); expect(scroll.top).toBeGreaterThan(0);
     await page.locator('#collection-close').click({ force: true });
     await page.clock.resume(); await page.reload(); await expect(page.locator('#status')).toBeHidden();
-    assertSpeciesSave((await readSpeciesSave(page)).data, 28, confirmedCounts);
+    assertSpeciesSave((await readSpeciesSave(page)).data, 36, confirmedCounts);
     await page.locator('#menu-button').click(); await page.locator('[data-view="storage"]').click();
-    await expect(page.locator('.stored-fish')).toHaveCount(28);
+    await expect(page.locator('.stored-fish')).toHaveCount(36);
     expect(await page.locator('.stored-fish').evaluateAll(nodes => nodes.map(node => node.dataset.catchId))).toEqual(ids);
     await page.locator('#collection-back').click(); await page.locator('[data-view="encyclopedia"]').click();
     expect(await page.locator('.fish-card > .fish-card-name').allTextContents()).toEqual(FISH_SPECIES.map(fish => fish.name));
-    await expect(page.locator('button.fish-card')).toHaveCount(28);
+    await expect(page.locator('button.fish-card')).toHaveCount(36);
     await testInfo.attach('all-species-qte-counts', { body: JSON.stringify({ speciesIds: FISH_SPECIES.map(fish => fish.id), qteSuccessCounts: confirmedCounts }), contentType: 'application/json' });
   });
 });

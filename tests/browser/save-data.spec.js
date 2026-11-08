@@ -35,7 +35,7 @@ for (const touch of [false, true]) test(`restored domain renders menus silently,
     boat: { x: 10, z: 20, heading: 1, speed: 0, mode: 'sailing' }, clock: 'night', phase: 'ready', stored: 8,
   });
   await click(page.locator('#menu-button')); await click(page.locator('[data-view="achievements"]'));
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 3 / 16');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 3 / 17');
   await expect(page.locator('[data-achievement-id="normal-catch-10"] h3')).toHaveText('？？？');
   await expect(page.locator('[data-achievement-id="normal-catch-10"]')).toContainText('魚を累計10匹以上釣り上げる。');
   for (const [id, name] of [['first-catch', '始まり'], ['sales-10000', '等価交換'], ['first-upgrade', '更新']]) {
@@ -61,7 +61,7 @@ test('existing V1 save renders renamed unlocked achievements silently and preser
   const { data } = JSON.parse(readFileSync(new URL('../fixtures/saves/phase5b1a-legacy-slot-a.json', import.meta.url), 'utf8'));
   await openUIFixture(page, data);
   await page.locator('#menu-button').click(); await page.locator('[data-view="achievements"]').click();
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 6 / 16');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 6 / 17');
   for (const definition of NORMAL_ACHIEVEMENTS) {
     const saved = data.achievements.unlocked.find(entry => entry.id === definition.id);
     const card = page.locator(`.achievement-card[data-achievement-id="${definition.id}"]`);

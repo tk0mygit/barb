@@ -12,6 +12,7 @@ import { createBoatState } from '../../src/game/boat.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 import { createSaveData } from '../../src/game/save-data.js';
 import { generateFishArtworkReport } from '../../scripts/report-fish-artwork.mjs';
+import { measureArtworkAlpha, assertArtworkAlpha } from '../../scripts/lib/fish-artwork-alpha.js';
 
 const png = readFileSync(new URL('../fixtures/fish-assets/transparent-test.png', import.meta.url));
 const svg = readFileSync(new URL('../fixtures/fish-assets/transparent-test.svg', import.meta.url));
@@ -65,9 +66,9 @@ for (const touch of [false, true]) for (const pngImage of [false, true]) {
     await page.route('**/barb/fish-test.svg', route => route.fulfill({ body: svg, contentType: 'image/svg+xml' }));
     await openUIFixture(page, legacySave(), { pngFishImage: pngImage, svgFishImage: !pngImage });
     await click(page.locator('#menu-button')); await click(page.locator('[data-view="encyclopedia"]'));
-    await expect(page.locator('.fish-card')).toHaveCount(28);
+    await expect(page.locator('.fish-card')).toHaveCount(36);
     const unknown = page.locator('div.fish-card');
-    await expect(unknown).toHaveCount(27);
+    await expect(unknown).toHaveCount(FISH_SPECIES.length - 1);
     const masked = await unknown.evaluateAll(nodes => nodes.map(node => node.outerHTML).join(''));
     for (const fish of FISH_SPECIES.slice(1)) {
       expect(masked).not.toContain(fish.name); expect(masked).not.toContain(fish.description);
@@ -129,7 +130,7 @@ test('Vite builds static SVG/PNG references for /barb/ and the browser loads emi
         const body = files.get(name || 'index.html');
         return body === undefined ? route.abort() : route.fulfill({ body, contentType: name.endsWith('.png') ? 'image/png' : name.endsWith('.svg') ? 'image/svg+xml' : name.endsWith('.js') ? 'text/javascript' : 'text/html' });
       });
-      await page.goto('./'); await expect(page.locator('img')).toHaveCount(28);
+      await page.goto('./'); await expect(page.locator('img')).toHaveCount(36);
       await page.locator('img').evaluateAll(images => Promise.all(images.map(img => img.decode())));
       const loadedImages = await page.locator('img').evaluateAll(images => images.map(img => ({ src: img.currentSrc, width: img.naturalWidth, height: img.naturalHeight })));
       for (const image of loadedImages.slice(1)) {
@@ -169,6 +170,7 @@ async function checkProductionImage(image, fish, { inspectPixels = false } = {})
   await image.scrollIntoViewIfNeeded();
   await expect(image).toBeVisible();
   await expect(image).toHaveAttribute('src', /.+/);
+  if (inspectPixels) await image.page().addScriptTag({ content: measureArtworkAlpha.toString() });
   const state = await image.evaluate(async (img, inspectPixels) => {
     await img.decode();
     const box = img.getBoundingClientRect(), frame = img.parentElement.getBoundingClientRect();
@@ -189,7 +191,12 @@ async function checkProductionImage(image, fish, { inspectPixels = false } = {})
         if ((x === 0 || y === 0 || x === canvas.width - 1 || y === canvas.height - 1) && alpha !== 0) borderNonTransparent++;
       }
       const hash = await crypto.subtle.digest('SHA-256', pixels);
+      const response = await fetch(img.currentSrc);
+      if (!response.ok) throw new Error('Production image byte read failed');
+      const sourceHash = await crypto.subtle.digest('SHA-256', await response.arrayBuffer());
       Object.assign(result, { borderNonTransparent, transparentPixels, opaquePixels, nearOpaquePixels,
+        alphaProfile: window.measureArtworkAlpha(pixels, canvas.width, canvas.height),
+        sourceSha256: [...new Uint8Array(sourceHash)].map(value => value.toString(16).padStart(2, '0')).join(''),
         decodedSha256: [...new Uint8Array(hash)].map(value => value.toString(16).padStart(2, '0')).join('') });
     }
     return result;
@@ -202,13 +209,13 @@ async function checkProductionImage(image, fish, { inspectPixels = false } = {})
     expect(state.borderNonTransparent).toBe(0);
     expect(state.transparentPixels).toBeGreaterThan(0);
     if (FISH_SPECIES.indexOf(fish) < 12) expect(state.opaquePixels).toBeGreaterThan(0);
-    else expect(state.nearOpaquePixels).toBeGreaterThanOrEqual(150000);
+    assertArtworkAlpha(state.alphaProfile, { id: fish.id, legacy: FISH_SPECIES.indexOf(fish) < 12, sourceSha256: state.sourceSha256 });
   }
   return state;
 }
 
 // Keep actual production startup separate from the source-module UI fixture.
-// Defining static image URLs must not initiate twenty-eight PNG downloads.
+// Defining static image URLs must not initiate thirty-six PNG downloads.
 test('production startup and undiscovered encyclopedia do not preload fish PNGs', async ({ page }, testInfo) => {
   const requests = [], failures = [];
   page.on('request', request => { if (request.resourceType() === 'image') requests.push(request.url()); });
@@ -217,7 +224,7 @@ test('production startup and undiscovered encyclopedia do not preload fish PNGs'
   await expect(page.locator('#catch-image')).not.toHaveAttribute('src');
   const initialImages = [...requests];
   await page.locator('#menu-button').click(); await page.locator('[data-view="encyclopedia"]').click();
-  await expect(page.locator('div.fish-card')).toHaveCount(28);
+  await expect(page.locator('div.fish-card')).toHaveCount(36);
   await expect(page.locator('button.fish-card')).toHaveCount(0);
   const cards = await page.locator('.fish-card').evaluateAll(nodes => nodes.map(node => node.outerHTML).join(''));
   for (const fish of FISH_SPECIES) {
@@ -469,13 +476,13 @@ for (const error of ['aborted', 'failed']) {
 }
 
 for (const { label, viewport, touch } of artworkViewports) {
-  test(`${label}: twenty-eight production PNGs decode and agree in legacy grid, detail, storage and catches`, async ({ createContext }, testInfo) => {
+  test(`${label}: thirty-six production PNGs decode and agree in legacy grid, detail, storage and catches`, async ({ createContext }, testInfo) => {
     const context = await createContext({ viewport, hasTouch: touch, isMobile: touch });
     const page = await context.newPage(), errors = [], imageResponses = [], pendingResponses = [];
     const imageRequestAudit = await observeCollectionImageRequests(page);
     page.on('pageerror', error => errors.push(error.message));
     page.on('response', response => {
-      if (/\/src\/assets\/fish\/[\w-]+\.png$/.test(new URL(response.url()).pathname)) {
+      if (response.request().resourceType() === 'image' && /\/src\/assets\/fish\/[\w-]+\.png$/.test(new URL(response.url()).pathname)) {
         pendingResponses.push(response.body().then(body => imageResponses.push({ url: response.url(), status: response.status(), bytes: body.length })));
       }
     });
@@ -485,7 +492,7 @@ for (const { label, viewport, touch } of artworkViewports) {
     expect(imageResponses).toEqual([]);
     expect(await page.evaluate(() => fixture.restored.collection.catches.every(record => record.schemaVersion === 1 && !('image' in record) && !('imageUrl' in record)))).toBe(true);
     await click(page.locator('#menu-button')); await click(page.locator('[data-view="encyclopedia"]'));
-    await expect(page.locator('button.fish-card')).toHaveCount(28);
+    await expect(page.locator('button.fish-card')).toHaveCount(36);
     await expect(page.locator('div.fish-card')).toHaveCount(0);
     const gridImages = new Map(), decoded = [];
     // Compare resolved layout sizes exactly: viewport-relative DOMRects lose
@@ -498,14 +505,14 @@ for (const { label, viewport, touch } of artworkViewports) {
       // and request concurrency before any scrolling or completed downloads.
       expect(state.loading).toBe('eager'); gridImages.set(fish.id, state.src); decoded.push({ speciesId: fish.id, ...state });
     }
-    expect(new Set(decoded.map(image => image.src)).size).toBe(28);
-    expect(new Set(decoded.map(image => image.decodedSha256)).size).toBe(28);
+    expect(new Set(decoded.map(image => image.src)).size).toBe(36);
+    expect(new Set(decoded.map(image => image.decodedSha256)).size).toBe(36);
     expect(await page.locator('.fish-card .fish-image-frame').evaluateAll(nodes => nodes.map(node => ({ width: getComputedStyle(node).width, height: getComputedStyle(node).height })))).toEqual(framesBefore);
     await page.locator('.fish-card').first().scrollIntoViewIfNeeded();
     await page.locator('#collection-dialog').screenshot({ path: testInfo.outputPath(`${label}-encyclopedia.png`) });
     await Promise.all(pendingResponses);
     const gridLoading = [...imageResponses];
-    expect(new Set(gridLoading.map(response => response.url)).size).toBe(28);
+    expect(new Set(gridLoading.map(response => response.url)).size).toBe(36);
     expect(gridLoading.every(response => response.status === 200)).toBe(true);
     for (const [index, fish] of FISH_SPECIES.entries()) {
       await click(page.locator('button.fish-card').nth(index));
@@ -518,7 +525,7 @@ for (const { label, viewport, touch } of artworkViewports) {
       await click(page.locator('#collection-back'));
     }
     await click(page.locator('#collection-back')); await click(page.locator('[data-view="storage"]'));
-    await expect(page.locator('.stored-fish')).toHaveCount(28);
+    await expect(page.locator('.stored-fish')).toHaveCount(36);
     for (const fish of FISH_SPECIES) {
       const state = await checkProductionImage(page.locator(`[data-catch-id="legacy-${fish.id}"] img`), fish);
       expect(state.src).toBe(gridImages.get(fish.id)); expect(state.loading).toBe('eager');
