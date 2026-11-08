@@ -178,6 +178,7 @@ test('pending images cannot resurrect after button/Esc/native close, sale, inact
     gate.release(); await response;
     // Flush old fetch+decode completion, then sample the actual new frame.
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(page.locator('.species-discovery')).toHaveCount(0);
     const sample = await samplePaint(page, testInfo, `late-${action}`);
     expect(sample.redPixels).toBeGreaterThan(100); expect(sample.bluePixels).toBe(0);
     expect(await page.evaluate(id => fixture.collection.catches.find(record => record.id === id).disposition, old.catchId))
@@ -234,6 +235,7 @@ test('a missed hook invalidates the pending encounter without showing a result o
   gate.release(); await response;
   await page.evaluate(() => fixture.fishing.step(2)); await updateFishHUD(page);
   await biteFish(page); await landFish(page); await expect(page.locator('#catch-image')).toBeVisible();
+  await expect(page.locator('.species-discovery')).toHaveCount(0);
   const pixels = await samplePaint(page, testInfo, 'after-missed-hook');
   expect(pixels.redPixels).toBeGreaterThan(100); expect(pixels.bluePixels).toBe(0);
   expect(await page.evaluate(() => fixture.collection.catches.length)).toBe(1);
