@@ -91,6 +91,12 @@ export function createSpeciesDiscoveryNotice({ cue } = {}) {
       width: `${dialog.clientWidth}px`, height: `${dialog.clientHeight}px` });
     current.vignette.style.setProperty('--discovery-focus-x', `${artwork.x + artwork.width / 2 - left}px`);
     current.vignette.style.setProperty('--discovery-focus-y', `${artwork.y + artwork.height * .46 - top}px`);
+    // Short landscape can scroll the artwork above the visible modal. Its
+    // existing text uses these same start/resize measurements to remain readable
+    // without moving the dialog, changing focus or scrolling the action buttons.
+    current.root.style.setProperty('--discovery-text-left', `${artwork.x}px`);
+    current.root.style.setProperty('--discovery-text-top', `${top + 8}px`);
+    current.root.style.setProperty('--discovery-text-width', `${artwork.width}px`);
   }
   function sync() {
     const entry = current;
