@@ -209,7 +209,7 @@ for (const failure of ['delay', '404', 'decode']) {
   });
 }
 
-test('real browser compositor: immediate label, scan/name at 0.6s, registration at 1.5s, fade and removal at 3s', async ({ page }, info) => {
+for (const speciesId of ['black-bass', 'arapaima']) test(`${speciesId} real browser compositor: immediate label, scan/name at 0.6s, registration at 1.5s, fade and removal at 3s`, async ({ page }, info) => {
   await setup(page, { paused: false });
   await page.evaluate(() => {
     window.discoveryPaintSamples = [];
@@ -217,20 +217,23 @@ test('real browser compositor: immediate label, scan/name at 0.6s, registration 
       const root = document.querySelector('.species-discovery');
       if (!root) return;
       observer.disconnect(); const started = performance.now();
-      for (const time of [0, 600, 1500, 2500, 3050]) setTimeout(() => {
+      for (const time of [0, 600, 900, 1500, 2500, 3050]) setTimeout(() => {
         const opacity = selector => Number(getComputedStyle(root.querySelector(selector)).opacity);
         window.discoveryPaintSamples.push({ time, elapsed: performance.now() - started,
           connected: root.isConnected, label: opacity('.discovery-label'), name: opacity('.discovery-name'),
-          registered: opacity('.discovery-registration'), opacity: Number(getComputedStyle(root).opacity) });
+          registered: opacity('.discovery-registration'), opacity: Number(getComputedStyle(root).opacity),
+          ripple: opacity('.discovery-ripple') });
       }, time);
     });
     observer.observe(document.querySelector('#catch-dialog'), { childList: true, subtree: true });
   });
-  await catchFish(page);
-  await page.waitForFunction(() => window.discoveryPaintSamples.length === 5);
+  await catchFish(page, speciesId);
+  await page.waitForFunction(() => window.discoveryPaintSamples.length === 6);
   const states = await page.evaluate(() => window.discoveryPaintSamples);
   expect(states[0].elapsed).toBeLessThan(500); expect(states[0].label).toBe(1);
-  expect(states[1].name).toBeGreaterThan(0); expect(states[2].registered).toBeGreaterThan(.95);
-  expect(states[3].opacity).toBeGreaterThan(.8); expect(states[4].connected).toBe(false);
+  expect(states[1].name).toBeGreaterThan(0); expect(states[3].registered).toBeGreaterThan(.95);
+  if (speciesId === 'arapaima') expect(states[2].ripple).toBe(0);
+  else expect(states[2].ripple).toBeGreaterThan(0);
+  expect(states[4].opacity).toBeGreaterThan(.8); expect(states[5].connected).toBe(false);
   await info.attach('real-compositor-timeline', { body: JSON.stringify(states), contentType: 'application/json' });
 });

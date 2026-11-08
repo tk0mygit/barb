@@ -130,7 +130,7 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .discovery-visual { position: absolute; inset: 0; overflow: hidden; }
 .species-discovery[data-tier="Rare"] { color: #e0d5a9; }
 .discovery-shade { position: absolute; inset: 0; background: #173d38e8; transform-origin: bottom; }
-.discovery-ripple { position: absolute; top: 46%; left: 50%; width: 76%; aspect-ratio: 1; border: 2px solid currentColor; border-radius: 50%; transform: translate(-50%, -50%) scale(.65); opacity: .65; }
+.discovery-ripple { position: absolute; top: 46%; left: 50%; width: 76%; aspect-ratio: 2.3; border: 2px solid currentColor; border-radius: 50%; transform: translate(-50%, -50%) scale(.65); opacity: .65; }
 .discovery-ripple-second { width: 60%; border-width: 1px; }
 .discovery-scan { position: absolute; inset: 0; border-top: 1px solid currentColor; opacity: 0; }
 .discovery-imprint { position: absolute; inset: 5px; border-top: 1px solid currentColor; border-bottom: 3px double currentColor; opacity: .8; }

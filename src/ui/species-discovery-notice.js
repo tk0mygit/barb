@@ -33,7 +33,7 @@ export function createSpeciesDiscoveryNotice({ cue } = {}) {
       { transform: 'translate(-50%, -50%) scale(.12)', opacity: 0, offset: delay },
       { transform: 'translate(-50%, -50%) scale(.85)', opacity: 1, offset: delay + .055 },
       { transform: 'translate(-50%, -50%) scale(1.18)', opacity: .9, offset: delay + .16 },
-      { transform: 'translate(-50%, -50%) scale(.65)', opacity: 0, offset: .5 },
+      { transform: 'translate(-50%, -50%) scale(.65)', opacity: 0, offset: entry.rare ? .28 : .5 },
       { transform: 'translate(-50%, -50%) scale(.65)', opacity: 0, offset: 1 },
     ];
     root.querySelectorAll('.discovery-ripple').forEach((node, index) => animate(entry, node, rippleFrames(index ? .065 : .001)));
