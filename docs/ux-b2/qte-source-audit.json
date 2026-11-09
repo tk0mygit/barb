@@ -1,0 +1,36 @@
+{
+  "scope": "Independent source audit only; no browser/computed-style measurement or CI claim",
+  "baseSha": "fcdc51b2a8eb30c9556b77bf0a6275829b62c495",
+  "sourceSha": "ff2ace63f628081f57e9f3265575267a5245bc5d",
+  "initialHUDMarkupByteEqual": true,
+  "initialHUDMarkupBytes": 652,
+  "initialHUDMarkupSha256": "2e4fc0d3dbeca8a48ade6afaa05c86877e1c54f6fdeeee8c76beba5d0304fdd1",
+  "dynamicHUDSourceByteEqualAfterReversingOnlyFourPassiveSubstitutions": true,
+  "qteCSSByteEqualAfterRejoiningOnlyCircleDecorativeRule": true,
+  "circleRuleShared": "border 1px solid #dce3dfb3; border-radius 50%; background transparent; production width/height/position/translate/coarse rule unchanged",
+  "singleSources": {
+    "SVGPathAndTwoArrowComposition": "src/ui/qte-glyphs.js:qteArrowMarkup",
+    "targetMarkup": "src/ui/qte-glyphs.js:qteTargetMarkup",
+    "circleDecoration": "src/ui/style.css:.qte-target, #collection-dialog .help-qte-target",
+    "tapProgress": "src/ui/qte-glyphs.js:qteTapProgress",
+    "displayedLabels": "src/ui/qte-glyphs.js:QTE_LABELS"
+  },
+  "helpDirectImports": [
+    "./qte-glyphs.js"
+  ],
+  "glyphImports": [],
+  "unchangedRuntimeFiles": [
+    "src/ui/qte-layout.js",
+    "src/input/qte-delivery.js",
+    "src/input/qte-clock.js",
+    "src/game/qte-operations.js",
+    "src/game/qte-operation-provider.js",
+    "src/game/fight-qte.js",
+    "src/main.js"
+  ],
+  "exceptions": [
+    "Class-name parameters are trusted fixed caller constants, not arbitrary user data",
+    "Help jump buttons attach click listeners for document navigation only; glyphs have no listeners",
+    "Computed-style/actual geometry evidence must come from separate Browser assertions"
+  ]
+}

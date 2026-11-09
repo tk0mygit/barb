@@ -5,6 +5,7 @@ import { EQUIPMENT_NAMES, UPGRADE_GUIDANCE, renderEquipment, renderUpgradeConfir
 import { renderAchievements } from './achievements-view.js';
 import { renderSoundSettings } from './sound-settings.js';
 import { createVisibleFishImages } from './fish-image-loader.js';
+import { renderHelp } from './help-view.js';
 
 const silhouette = new URL('../assets/fish/unknown.svg', import.meta.url).href;
 const dates = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeStyle: 'medium' });
@@ -14,6 +15,7 @@ const menuEntries = [
   ['equipment', 'ギア／アップグレード', 'ロッドとリールの強化'],
   ['achievements', '実績', '達成条件と進捗'],
   ['sound', 'サウンド設定', 'BGM・自然音の設定', 'aux'],
+  ['help', 'ヘルプ', 'プレイと操作の基本', 'aux'],
 ];
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -174,6 +176,9 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
         row.append(fishImage(fish.image, fish.name, visibleImages), info); list.append(row);
       }
       content.append(list);
+    } else if (next === 'help') {
+      title.textContent = 'ヘルプ';
+      renderHelp(content, menuEntries);
     } else if (next === 'sound') {
       title.textContent = 'サウンド設定';
       disposeSoundSettings = renderSoundSettings(content, ambientAudio);

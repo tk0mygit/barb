@@ -8,6 +8,7 @@ const entries = [
   ['equipment', 'ギア／アップグレード', 'ロッドとリールの強化'],
   ['achievements', '実績', '達成条件と進捗'],
   ['sound', 'サウンド設定', 'BGM・自然音の設定'],
+  ['help', 'ヘルプ', 'プレイと操作の基本'],
 ];
 const profiles = [
   { name: 'PC', viewport: { width: 1280, height: 800 }, touch: false, rootSize: 16 },
@@ -62,7 +63,7 @@ async function noHorizontalOverflow(page) {
 }
 
 for (const profile of profiles) {
-  test(`${profile.name}: five approved cards, native navigation and parent position survive a menu visit`, async ({ createContext }, info) => {
+  test(`${profile.name}: six approved cards, native navigation and parent position survive a menu visit`, async ({ createContext }, info) => {
     const context = await createContext({ viewport: profile.viewport, hasTouch: profile.touch,
       isMobile: profile.touch, deviceScaleFactor: 0.5, reducedMotion: 'reduce' });
     const page = await context.newPage();
@@ -72,20 +73,34 @@ for (const profile of profiles) {
     await activate(page.locator('#menu-button'), profile.touch);
     await expect(page.locator('#collection-close')).toBeFocused();
     await expect(page.locator('#collection-dialog')).toHaveCount(1);
-    await expect(page.locator('.menu-entry')).toHaveCount(5);
+    await expect(page.locator('.menu-entry')).toHaveCount(6);
     await expect(page.locator('.menu-entry-title')).toHaveText(entries.map(([, label]) => label));
     await expect(page.locator('.menu-entry-description')).toHaveText(entries.map(([, , description]) => description));
-    await expect(page.locator('[data-view="help"]')).toHaveCount(0);
-    await expect(page.locator('.menu-entry--aux')).toHaveCount(1);
-    await expect(page.locator('.menu-entry--aux')).toHaveAttribute('data-view', 'sound');
+    await expect(page.locator('[data-view="help"]')).toHaveCount(1);
+    await expect(page.locator('.menu-entry--aux')).toHaveCount(2);
+    await expect(page.locator('.menu-entry--aux').nth(0)).toHaveAttribute('data-view', 'sound');
+    await expect(page.locator('.menu-entry--aux').nth(1)).toHaveAttribute('data-view', 'help');
     await expect(page.locator('.menu-entry-title').first()).toHaveCSS('font-size', `${profile.rootSize}px`);
     await expect(page.locator('.menu-entry-description').first()).toHaveCSS('font-size', `${profile.rootSize * 13 / 16}px`);
     const initial = await menuMetrics(page);
     expect(initial.cards[0].background).toBe('rgb(33, 74, 64)');
     expect(initial.cards[3].background).toBe('rgb(33, 74, 64)');
     expect(initial.cards[4].background).toBe('rgb(48, 71, 77)');
+    expect(initial.cards[5].background).toBe('rgb(48, 71, 77)');
     if (profile.touch) expect(initial.cards[1].y).toBeGreaterThan(initial.cards[0].y);
     else expect(initial.cards[1].y).toBe(initial.cards[0].y);
+    for (let index = 1; index < initial.cards.length; index++) {
+      if (profile.touch) {
+        expect(initial.cards[index].x).toBe(initial.cards[0].x);
+        expect(initial.cards[index].y).toBeGreaterThan(initial.cards[index - 1].y);
+      } else if (index % 2 === 1) {
+        expect(initial.cards[index].y).toBe(initial.cards[index - 1].y);
+        expect(initial.cards[index].x).toBeGreaterThan(initial.cards[index - 1].x);
+      } else {
+        expect(initial.cards[index].x).toBe(initial.cards[0].x);
+        expect(initial.cards[index].y).toBeGreaterThan(initial.cards[index - 1].y);
+      }
+    }
     await page.screenshot({ path: info.outputPath('menu-start.png'), scale: 'css' });
     const observations = { initial, visited: [] };
     for (const [view, label, description] of entries) {
@@ -106,7 +121,7 @@ for (const profile of profiles) {
       await expect.poll(async () => Math.abs(await page.locator('#collection-content').evaluate(element => element.scrollTop) - top)).toBeLessThanOrEqual(1);
       observations.visited.push({ view, scrollTop: top, hit });
     }
-    await page.screenshot({ path: info.outputPath('menu-returned-from-sound.png'), scale: 'css' });
+    await page.screenshot({ path: info.outputPath('menu-returned-from-help.png'), scale: 'css' });
     if (profile.name === 'touch short landscape') {
       expect(await page.locator('#collection-content').evaluate(element => element.scrollTop)).toBeGreaterThan(0);
       await page.locator('.menu-entry').first().scrollIntoViewIfNeeded();
@@ -172,25 +187,27 @@ test('keyboard and pointer states retain card positions, labels and parent focus
   await expect(page.locator('#collection-title')).toHaveText('生けす');
   await page.locator('#collection-back').click();
   await expect(page.locator('[data-view="storage"]')).toBeFocused();
-  const sound = page.locator('[data-view="sound"]');
-  const before = await sound.boundingBox();
-  await sound.hover();
-  await expect(sound).toHaveCSS('background-color', 'rgb(58, 83, 90)');
-  expect(await sound.boundingBox()).toEqual(before);
-  await sound.focus();
-  await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
-  await expect(sound).toBeFocused();
-  await expect(sound).toHaveCSS('outline-color', 'rgb(242, 201, 108)');
-  await expect(sound).toHaveCSS('outline-width', '3px');
-  await expect(sound).toHaveCSS('outline-offset', '3px');
-  await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
-  await page.mouse.down();
-  await expect(sound).toHaveCSS('background-color', 'rgb(39, 60, 66)');
-  expect(await sound.boundingBox()).toEqual(before);
-  await page.mouse.up();
-  await expect(page.locator('#collection-title')).toHaveText('サウンド設定');
-  await page.locator('#collection-back').click();
-  await expect(page.locator('[data-view="sound"]')).toBeFocused();
+  for (const [view, label] of [['sound', 'サウンド設定'], ['help', 'ヘルプ']]) {
+    const card = page.locator(`[data-view="${view}"]`);
+    const before = await card.boundingBox();
+    await card.hover();
+    await expect(card).toHaveCSS('background-color', 'rgb(58, 83, 90)');
+    expect(await card.boundingBox()).toEqual(before);
+    await card.focus();
+    await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
+    await expect(card).toBeFocused();
+    await expect(card).toHaveCSS('outline-color', 'rgb(242, 201, 108)');
+    await expect(card).toHaveCSS('outline-width', '3px');
+    await expect(card).toHaveCSS('outline-offset', '3px');
+    await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
+    await page.mouse.down();
+    await expect(card).toHaveCSS('background-color', 'rgb(39, 60, 66)');
+    expect(await card.boundingBox()).toEqual(before);
+    await page.mouse.up();
+    await expect(page.locator('#collection-title')).toHaveText(label);
+    await page.locator('#collection-back').click();
+    await expect(page.locator(`[data-view="${view}"]`)).toBeFocused();
+  }
   await page.keyboard.press('Escape');
   await expect(page.locator('#scene')).toBeFocused();
 });
@@ -207,14 +224,16 @@ test('touch: representative portrait, landscape and text enlargement keep the la
     { width: 844, height: 390 }, { width: 568, height: 320 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     await applyTextAndInsets(page);
-    const sound = page.locator('[data-view="sound"]');
-    await reachable(sound);
-    await sound.tap();
-    await expect(page.locator('#collection-title')).toHaveText('サウンド設定');
-    await reachable(page.locator('#collection-back'));
-    await reachable(page.locator('#collection-close'));
-    await page.locator('#collection-back').tap();
-    await expect(page.locator('[data-view="sound"]')).toBeFocused();
+    for (const [view, label] of [['sound', 'サウンド設定'], ['help', 'ヘルプ']]) {
+      const card = page.locator(`[data-view="${view}"]`);
+      await reachable(card);
+      await card.tap();
+      await expect(page.locator('#collection-title')).toHaveText(label);
+      await reachable(page.locator('#collection-back'));
+      await reachable(page.locator('#collection-close'));
+      await page.locator('#collection-back').tap();
+      await expect(page.locator(`[data-view="${view}"]`)).toBeFocused();
+    }
     await noHorizontalOverflow(page);
     observations.push(await menuMetrics(page));
   }
@@ -249,7 +268,7 @@ test('day, clear night and fog: restored production environments keep menu label
       const card = page.locator(`[data-view="${view}"]`);
       hits.push(await reachable(card));
       await expect(card).toHaveCSS('color', 'rgb(244, 242, 230)');
-      await expect(card).toHaveCSS('background-color', view === 'sound' ? 'rgb(48, 71, 77)' : 'rgb(33, 74, 64)');
+      await expect(card).toHaveCSS('background-color', ['sound', 'help'].includes(view) ? 'rgb(48, 71, 77)' : 'rgb(33, 74, 64)');
     }
     await noHorizontalOverflow(page);
     await page.locator('.menu-entry').first().scrollIntoViewIfNeeded();

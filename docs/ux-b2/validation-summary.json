@@ -1,0 +1,186 @@
+{
+  "scope": "Local verification only; not PR L2, CI success, physical-device acceptance, merge or deploy.",
+  "baseSha": "fcdc51b2a8eb30c9556b77bf0a6275829b62c495",
+  "runtimeImplementationSha": "ff2ace63f628081f57e9f3265575267a5245bc5d",
+  "latestTestCommit": "a1f9804643dc34fe29fd1ff5cfab1efe727cd642",
+  "runtimeSourceTree": "2ff6ac86a5649300509daa0f94590a135297b544",
+  "npmCi": {
+    "passed": true,
+    "dependenciesAdded": false,
+    "cache": "/tmp/barb-npm-cache"
+  },
+  "unit": {
+    "command": "npm test",
+    "exitCode": 0,
+    "tests": 1188,
+    "pass": 1188,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "build": {
+    "command": "npm run build",
+    "exitCode": 0,
+    "implementationSha": "ff2ace63f628081f57e9f3265575267a5245bc5d"
+  },
+  "browser": {
+    "passingUniqueCases": 135,
+    "duplicatePassingIdentities": 0,
+    "retry": 0,
+    "passingByFile": {
+      "achievements.spec.js": 6,
+      "audio.spec.js": 9,
+      "autosave.spec.js": 8,
+      "collection-menu.spec.js": 3,
+      "equipment-ui.spec.js": 4,
+      "fish-assets.spec.js": 15,
+      "fish-image-loading.spec.js": 12,
+      "fish-sales.spec.js": 2,
+      "help.spec.js": 9,
+      "menu-navigation.spec.js": 9,
+      "mobile-layout.spec.js": 1,
+      "qte-operations.spec.js": 19,
+      "qte-production.spec.js": 22,
+      "qte-public-on.spec.js": 10,
+      "qte-ui-production.spec.js": 1,
+      "save-data.spec.js": 3,
+      "smoke-pc.spec.js": 1,
+      "smoke-touch.spec.js": 1
+    },
+    "groups": [
+      {
+        "name": "core",
+        "collected": 75,
+        "passed": 75,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "retry": 0,
+        "durationMs": 2150600.49,
+        "passingByFile": {
+          "collection-menu.spec.js": 3,
+          "help.spec.js": 8,
+          "menu-navigation.spec.js": 9,
+          "mobile-layout.spec.js": 1,
+          "qte-operations.spec.js": 19,
+          "qte-production.spec.js": 22,
+          "qte-public-on.spec.js": 10,
+          "qte-ui-production.spec.js": 1,
+          "smoke-pc.spec.js": 1,
+          "smoke-touch.spec.js": 1
+        }
+      },
+      {
+        "name": "domains-initial",
+        "collected": 42,
+        "passed": 40,
+        "failed": 2,
+        "skipped": 0,
+        "flaky": 0,
+        "retry": 0,
+        "durationMs": 614105.406,
+        "passingByFile": {
+          "achievements.spec.js": 4,
+          "equipment-ui.spec.js": 4,
+          "fish-assets.spec.js": 15,
+          "fish-image-loading.spec.js": 12,
+          "fish-sales.spec.js": 2,
+          "save-data.spec.js": 3
+        }
+      },
+      {
+        "name": "save-audio-and-desktop-text",
+        "collected": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "retry": 0,
+        "durationMs": 198744.154,
+        "passingByFile": {
+          "audio.spec.js": 9,
+          "autosave.spec.js": 8,
+          "help.spec.js": 1
+        }
+      },
+      {
+        "name": "achievements-corrected-expectation",
+        "collected": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "retry": 0,
+        "durationMs": 11645.049,
+        "passingByFile": {
+          "achievements.spec.js": 2
+        }
+      }
+    ]
+  },
+  "failureHistory": [
+    {
+      "kind": "new glyph passivity test",
+      "initial": "child process spawn EPERM in sandbox",
+      "correction": "evaluate exact module source in isolated VM with throwing DOM/clock/RNG/timer/input/WebGL globals",
+      "outcome": "new glyph 4/4 and existing HUD 9/9, then full Unit pass"
+    },
+    {
+      "kind": "initial all Unit",
+      "reportedTests": 1185,
+      "passed": 1184,
+      "failedFiles": 1,
+      "cause": "fixed historical lake-scenery source commit missing from local git object database",
+      "correction": "fetched eb10aa13ec302a7a4c9b4a421a596f447c8f6e7c from same origin",
+      "outcome": "narrow 4/4, final all Unit pass; no test relaxation"
+    },
+    {
+      "kind": "initial Browser interrupted",
+      "exitCode": 130,
+      "passed": 11,
+      "notExecuted": 64,
+      "cause": "provided approved supplement required visual alignment before final validation",
+      "outcome": "after scoped help display changes, complete core 75/75"
+    },
+    {
+      "kind": "achievements fixture expected old menu",
+      "failedCases": 2,
+      "expected": [
+        "図鑑",
+        "生けす",
+        "ギア／アップグレード",
+        "実績"
+      ],
+      "actual": [
+        "図鑑",
+        "生けす",
+        "ギア／アップグレード",
+        "実績",
+        "ヘルプ"
+      ],
+      "correction": "append help to exact full-array assertion; fixture intentionally omits ambientAudio",
+      "fixCommit": "a1f9804643dc34fe29fd1ff5cfab1efe727cd642",
+      "outcome": "2/2 full original achievement assertions pass; no timeout/retry/threshold change"
+    }
+  ],
+  "evidence": {
+    "viewportPngs": 8,
+    "uiObservations": "ui-observations.json",
+    "sourceEquivalence": "qte-source-audit.json",
+    "collectionOnly": "collection-audit.json",
+    "touch": "emulated; native input assertions in Browser specs; trusted mouse capture inputs recorded separately",
+    "pageErrorsBeforeCaptureDisposal": 0,
+    "failedRequestsBeforeCaptureDisposal": 0
+  },
+  "notExecuted": [
+    "local complete E2E suite",
+    "actual PR L2 four lanes and ci-required",
+    "Mobile actual 34-pair/68-image comparison",
+    "actual validation merge parents/SHA/ref/run/attempt",
+    "physical-device acceptance",
+    "merge and Pages deploy",
+    "unprovided original UX-A ZIP and draft MD"
+  ],
+  "residualRisk": "PR76 bowfin ERR_ABORTED root cause remains unconfirmed; strict image audit preserved, no unintended abort reproduced locally."
+}

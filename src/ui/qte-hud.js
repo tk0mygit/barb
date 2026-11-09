@@ -1,9 +1,6 @@
 import { calculateQteLayout } from './qte-layout.js';
+import { QTE_LABELS, qteArrowMarkup, qteTargetMarkup, qteTapProgress } from './qte-glyphs.js';
 
-const labels = { flick: '短く素早くフリック', swipe: '長くスワイプ', tap: '3回タップ', target: '円の中をタップ' };
-// One filled shape for every direction; CSS only rotates it, never stretches it.
-const arrowShape = '<svg class="qte-arrow-shape" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="M12 36H53V18L86 50 53 82V64H12Z"/></svg>';
-const secondArrowShape = arrowShape.replace('qte-arrow-shape', 'qte-arrow-shape qte-arrow-secondary');
 const directionNames = { up: '上', right: '右', down: '下', left: '左' };
 const rect = r => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
 const finiteRect = r => r && Object.values(r).every(Number.isFinite)
@@ -22,8 +19,8 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
   const panel = document.createElement('section');
   panel.className = 'qte-hud'; panel.hidden = true; panel.setAttribute('aria-label', 'ファイト補助操作');
   panel.innerHTML = '<strong class="qte-state" role="status" aria-live="polite"></strong><p class="qte-instruction"></p>'
-    + '<div class="qte-gesture" aria-hidden="true"><span class="qte-arrow">' + arrowShape + secondArrowShape + '</span>'
-    + '<span class="qte-target"></span><span class="qte-taps"></span></div>'
+    + '<div class="qte-gesture" aria-hidden="true"><span class="qte-arrow">' + qteArrowMarkup() + '</span>'
+    + qteTargetMarkup() + '<span class="qte-taps"></span></div>'
     + '<div class="qte-timer"><progress max="1" value="1" aria-label="操作の残り時間"></progress><span></span></div>';
   const safeProbe = document.createElement('div'); safeProbe.className = 'qte-safe-probe'; safeProbe.setAttribute('aria-hidden', 'true');
   root.append(safeProbe, panel);
@@ -130,7 +127,7 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     state.textContent = { warning: '待機', active: '入力受付中', 'awaiting-display': '↻ 再開表示を準備中', 'awaiting-result': '判定中',
       success: '成功', failure: '応答なし', interrupted: '処理中断', suspended: '復帰待機' }[mode];
     instruction.textContent = snapshot.interrupted ? '画面をタップして残り時間から再開'
-      : operation === 'target' ? 'ターゲットを選択' : `${descriptor.direction ? directionNames[descriptor.direction] + 'へ ' : ''}${labels[operation]}`;
+      : operation === 'target' ? QTE_LABELS.target : `${descriptor.direction ? directionNames[descriptor.direction] + 'へ ' : ''}${QTE_LABELS[operation]}`;
     gesture.hidden = false; arrow.hidden = !['flick', 'swipe'].includes(operation);
     // SVGElement has no HTMLElement.hidden property; set its presentation
     // directly so the second real SVG is absent from flick's visible shape.
@@ -139,7 +136,7 @@ export function createQteHUD({ fishing, delivery, provider, canvas = document.qu
     arrow.dataset.direction = descriptor.direction ?? '';
     // The circle follows the primary pointer's visual diameter; mouse/touch
     // scoring radii remain owned by the evaluator.
-    taps.textContent = `${preview.completedOperations}/3 ${'●'.repeat(preview.completedOperations)}${'○'.repeat(3 - preview.completedOperations)}`;
+    taps.textContent = qteTapProgress(preview.completedOperations);
     const duration = snapshot.deadline - snapshot.active;
     panel.dataset.urgent = String(snapshot.active !== null && snapshot.remainingMs <= Math.min(300, duration * .3));
     progress.value = snapshot.active === null ? 1 : Math.max(0, Math.min(1, snapshot.remainingMs / duration));
