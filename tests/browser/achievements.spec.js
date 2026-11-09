@@ -17,7 +17,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: seventeen
   await installPausedClock(page); await openUIFixture(page);
   const click = locator => touch ? locator.tap() : locator.click();
   await click(page.locator('#menu-button'));
-  await expect(page.locator('.menu-entry-title')).toHaveText(['図鑑', '生けす', 'ギア／アップグレード', '実績']);
+  await expect(page.locator('.menu-entry-title')).toHaveText(['図鑑', '生けす', 'ギア／アップグレード', '実績', 'ヘルプ']);
   await click(page.locator('[data-view="achievements"]'));
   await expect(page.locator('.achievement-card')).toHaveCount(17);
   await expect(page.locator('.achievement-card h3')).toHaveText(Array(17).fill('？？？'));
