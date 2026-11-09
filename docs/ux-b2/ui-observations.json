@@ -1,0 +1,3815 @@
+{
+  "baseSHA": "fcdc51b2a8eb30c9556b77bf0a6275829b62c495",
+  "captureHEAD": "a1f9804643dc34fe29fd1ff5cfab1efe727cd642",
+  "capturedAt": "2026-11-09T15:33:48.699Z",
+  "kind": "UX-B2 production build; CSS viewport and touch emulation, not physical-device acceptance",
+  "captureInput": "Trusted mouse click for stable screenshots in emulated contexts; native touch assertions run separately in Browser specs",
+  "deviceScaleFactor": 1,
+  "reducedMotion": "reduce",
+  "sourceHashes": {
+    "index.html": "6febe51bd94f2b882a4cd15beddf52895114206245ff5f0fae90ea251e840456",
+    "src/ui/collection-menu.js": "0b32105bab3e65cbeb52dae0746c86bd740a6eac4187862796ce199411d785c7",
+    "src/ui/help-view.js": "c1a8ea5da90f8e932658123ea10b8a0b4e73d74a0d739635afd1513c71de16cc",
+    "src/ui/qte-glyphs.js": "5091f3158fd4f04098b42085a4021c07fba9693770f27ad324ad07eda6e48033",
+    "src/ui/qte-hud.js": "b823b1b6124694137e76836cbbd56ff4ee34d510321d5a74a2cb62d58a837d65",
+    "src/ui/style.css": "b47f238110794dd52d28717c03c062338fabe1043aec0a70884f8b6ab193cca7"
+  },
+  "distHashes": {
+    "assets/index-C7LSTZOF.css": "18207812eab4c1d9a8caff3537decc7ecb46826249ae95d096e290a3ac149211",
+    "assets/index-lGaBg8fq.js": "c8218020b5cc96369c5b7b5426acb8a35e58e7dfd6686cce3b465928c0120d31",
+    "assets/three-BPBTMWmM.js": "9aa6abf5f31781f7fae91627db38d81c84437ebe87e3db2ac18db8f136dc3bea",
+    "index.html": "0a0c756eb67a72d6a7b962642436d441e489580d6c2961c61905b9013236fd8e"
+  },
+  "records": [
+    {
+      "profile": {
+        "id": "pc",
+        "width": 1280,
+        "height": 800,
+        "touch": false,
+        "rootSize": 16
+      },
+      "quotaFailure": false,
+      "screenshots": [
+        {
+          "filename": "pc-menu.png",
+          "metrics": {
+            "viewport": {
+              "width": 1280,
+              "height": 800
+            },
+            "rootFont": "16px",
+            "dialog": {
+              "x": 230,
+              "y": 30,
+              "width": 820,
+              "height": 740,
+              "right": 1050,
+              "bottom": 770
+            },
+            "pane": {
+              "x": 255,
+              "y": 103,
+              "width": 770,
+              "height": 642,
+              "right": 1025,
+              "bottom": 745,
+              "scrollTop": 0,
+              "scrollHeight": 642,
+              "clientHeight": 642,
+              "clientWidth": 770,
+              "scrollWidth": 770
+            },
+            "title": "湖の記録",
+            "wallet": "所持金 0 Value",
+            "save": {
+              "phase": "saved",
+              "text": "このブラウザに保存済みです。 最終保存 11/9 15:34:13",
+              "role": "status",
+              "live": "polite"
+            },
+            "focus": {
+              "id": "collection-close",
+              "view": ""
+            },
+            "horizontalOverflow": [],
+            "controls": [
+              {
+                "id": "collection-close",
+                "rect": {
+                  "x": 981,
+                  "y": 57,
+                  "width": 44,
+                  "height": 44,
+                  "right": 1025,
+                  "bottom": 101
+                },
+                "hit": true
+              }
+            ],
+            "cards": [
+              {
+                "view": "encyclopedia",
+                "name": "図鑑",
+                "description": "発見した魚と捕獲記録",
+                "rect": {
+                  "x": 262,
+                  "y": 176.984375,
+                  "width": 372,
+                  "height": 108,
+                  "right": 634,
+                  "bottom": 284.984375
+                },
+                "inPane": true,
+                "hit": true,
+                "background": "rgb(33, 74, 64)"
+              },
+              {
+                "view": "storage",
+                "name": "生けす",
+                "description": "保管した魚の確認・売却",
+                "rect": {
+                  "x": 646,
+                  "y": 176.984375,
+                  "width": 372,
+                  "height": 108,
+                  "right": 1018,
+                  "bottom": 284.984375
+                },
+                "inPane": true,
+                "hit": true,
+                "background": "rgb(33, 74, 64)"
+              },
+              {
+                "view": "equipment",
+                "name": "ギア／アップグレード",
+                "description": "ロッドとリールの強化",
+                "rect": {
+                  "x": 262,
+                  "y": 296.984375,
+                  "width": 372,
+                  "height": 108,
+                  "right": 634,
+                  "bottom": 404.984375
+                },
+                "inPane": true,
+                "hit": true,
+                "background": "rgb(33, 74, 64)"
+              },
+              {
+                "view": "achievements",
+                "name": "実績",
+                "description": "達成条件と進捗",
+                "rect": {
+                  "x": 646,
+                  "y": 296.984375,
+                  "width": 372,
+                  "height": 108,
+                  "right": 1018,
+                  "bottom": 404.984375
+                },
+                "inPane": true,
+                "hit": true,
+                "background": "rgb(33, 74, 64)"
+              },
+              {
+                "view": "sound",
+                "name": "サウンド設定",
+                "description": "BGM・自然音の設定",
+                "rect": {
+                  "x": 262,
+                  "y": 416.984375,
+                  "width": 372,
+                  "height": 108,
+                  "right": 634,
+                  "bottom": 524.984375
+                },
+                "inPane": true,
+                "hit": true,
+                "background": "rgb(48, 71, 77)"
+              },
+              {
+                "view": "help",
+                "name": "ヘルプ",
+                "description": "プレイと操作の基本",
+                "rect": {
+                  "x": 646,
+                  "y": 416.984375,
+                  "width": 372,
+                  "height": 108,
+                  "right": 1018,
+                  "bottom": 524.984375
+                },
+                "inPane": true,
+                "hit": true,
+                "background": "rgb(48, 71, 77)"
+              }
+            ],
+            "rows": [],
+            "liveQte": [
+              {
+                "hidden": true,
+                "displayed": false,
+                "operation": null
+              }
+            ],
+            "renderedEnvironment": {
+              "first": {
+                "skyDaylight": 0.8017492711370262,
+                "fogStrength": 0,
+                "fogDensity": 0.0018,
+                "mistVisible": false,
+                "mistAmount": 0
+              },
+              "last": {
+                "skyDaylight": 1,
+                "fogStrength": 0,
+                "fogDensity": 0.0018,
+                "mistVisible": false,
+                "mistAmount": 0
+              },
+              "renders": 18
+            }
+          }
+        },
+        {
+          "filename": "pc-qte-first.png",
+          "metrics": {
+            "viewport": {
+              "width": 1280,
+              "height": 800
+            },
+            "rootFont": "16px",
+            "dialog": {
+              "x": 230,
+              "y": 30,
+              "width": 820,
+              "height": 740,
+              "right": 1050,
+              "bottom": 770
+            },
+            "pane": {
+              "x": 255,
+              "y": 99,
+              "width": 770,
+              "height": 646,
+              "right": 1025,
+              "bottom": 745,
+              "scrollTop": 1038,
+              "scrollHeight": 2127,
+              "clientHeight": 646,
+              "clientWidth": 770,
+              "scrollWidth": 770
+            },
+            "title": "ヘルプ",
+            "wallet": "所持金 0 Value",
+            "save": {
+              "phase": "saved",
+              "text": "このブラウザに保存済みです。 最終保存 11/9 15:34:13",
+              "role": "status",
+              "live": "polite"
+            },
+            "focus": {
+              "id": "help-save",
+              "view": ""
+            },
+            "horizontalOverflow": [],
+            "controls": [
+              {
+                "id": "collection-back",
+                "rect": {
+                  "x": 255,
+                  "y": 55,
+                  "width": 44,
+                  "height": 44,
+                  "right": 299,
+                  "bottom": 99
+                },
+                "hit": true
+              },
+              {
+                "id": "collection-close",
+                "rect": {
+                  "x": 981,
+                  "y": 55,
+                  "width": 44,
+                  "height": 44,
+                  "right": 1025,
+                  "bottom": 99
+                },
+                "hit": true
+              }
+            ],
+            "cards": [],
+            "rows": [
+              {
+                "operation": "flick",
+                "label": "短く素早くフリック",
+                "rect": {
+                  "x": 283,
+                  "y": 104.578125,
+                  "width": 714,
+                  "height": 118,
+                  "right": 997,
+                  "bottom": 222.578125
+                },
+                "inPane": true,
+                "visibleSvgCount": 1,
+                "target": null,
+                "taps": null
+              },
+              {
+                "operation": "swipe",
+                "label": "長くスワイプ",
+                "rect": {
+                  "x": 283,
+                  "y": 222.578125,
+                  "width": 714,
+                  "height": 129,
+                  "right": 997,
+                  "bottom": 351.578125
+                },
+                "inPane": true,
+                "visibleSvgCount": 2,
+                "target": null,
+                "taps": null
+              },
+              {
+                "operation": "tap",
+                "label": "3回タップ",
+                "rect": {
+                  "x": 283,
+                  "y": 351.578125,
+                  "width": 714,
+                  "height": 129,
+                  "right": 997,
+                  "bottom": 480.578125
+                },
+                "inPane": true,
+                "visibleSvgCount": 0,
+                "target": null,
+                "taps": "0/3 ○○○"
+              },
+              {
+                "operation": "target",
+                "label": "ターゲットを選択",
+                "rect": {
+                  "x": 283,
+                  "y": 480.578125,
+                  "width": 714,
+                  "height": 118,
+                  "right": 997,
+                  "bottom": 598.578125
+                },
+                "inPane": true,
+                "visibleSvgCount": 0,
+                "target": {
+                  "x": 324,
+                  "y": 516.078125,
+                  "width": 64,
+                  "height": 64,
+                  "right": 388,
+                  "bottom": 580.078125
+                },
+                "taps": null
+              }
+            ],
+            "liveQte": [
+              {
+                "hidden": true,
+                "displayed": false,
+                "operation": null
+              }
+            ],
+            "renderedEnvironment": {
+              "first": {
+                "skyDaylight": 0.8017492711370262,
+                "fogStrength": 0,
+                "fogDensity": 0.0018,
+                "mistVisible": false,
+                "mistAmount": 0
+              },
+              "last": {
+                "skyDaylight": 1,
+                "fogStrength": 0,
+                "fogDensity": 0.0018,
+                "mistVisible": false,
+                "mistAmount": 0
+              },
+              "renders": 18
+            }
+          }
+        },
+        {
+          "filename": "pc-qte-last.png",
+          "metrics": {
+            "viewport": {
+              "width": 1280,
+              "height": 800
+            },
+            "rootFont": "16px",
+            "dialog": {
+              "x": 230,
+              "y": 30,
+              "width": 820,
+              "height": 740,
+              "right": 1050,
+              "bottom": 770
+            },
+            "pane": {
+              "x": 255,
+              "y": 99,
+              "width": 770,
+              "height": 646,
+              "right": 1025,
+              "bottom": 745,
+              "scrollTop": 1285,
+              "scrollHeight": 2127,
+              "clientHeight": 646,
+              "clientWidth": 770,
+              "scrollWidth": 770
+            },
+            "title": "ヘルプ",
+            "wallet": "所持金 0 Value",
+            "save": {
+              "phase": "saved",
+              "text": "このブラウザに保存済みです。 最終保存 11/9 15:34:13",
+              "role": "status",
+              "live": "polite"
+            },
+            "focus": {
+              "id": "help-save",
+              "view": ""
+            },
+            "horizontalOverflow": [],
+            "controls": [
+              {
+                "id": "collection-back",
+                "rect": {
+                  "x": 255,
+                  "y": 55,
+                  "width": 44,
+                  "height": 44,
+                  "right": 299,
+                  "bottom": 99
+                },
+                "hit": true
+              },
+              {
+                "id": "collection-close",
+                "rect": {
+                  "x": 981,
+                  "y": 55,
+                  "width": 44,
+                  "height": 44,
+                  "right": 1025,
+                  "bottom": 99
+                },
+                "hit": true
+              }
+            ],
+            "cards": [],
+            "rows": [
+              {
+                "operation": "tap",
+                "label": "3回タップ",
+                "rect": {
+                  "x": 283,
+                  "y": 104.578125,
+                  "width": 714,
+                  "height": 129,
+                  "right": 997,
+                  "bottom": 233.578125
+                },
+                "inPane": true,
+                "visibleSvgCount": 0,
+                "target": null,
+                "taps": "0/3 ○○○"
+              },
+              {
+                "operation": "target",
+                "label": "ターゲットを選択",
+                "rect": {
+                  "x": 283,
+                  "y": 233.578125,
+                  "width": 714,
+                  "height": 118,
+                  "right": 997,
+                  "bottom": 351.578125
+                },
+                "inPane": true,
+                "visibleSvgCount": 0,
+                "target": {
+                  "x": 324,
+                  "y": 269.078125,
+                  "width": 64,
+                  "height": 64,
+                  "right": 388,
+                  "bottom": 333.078125
+                },
+                "taps": null
+              }
+            ],
+            "liveQte": [
+              {
+                "hidden": true,
+                "displayed": false,
+                "operation": null
+              }
+            ],
+            "renderedEnvironment": {
+              "first": {
+                "skyDaylight": 0.8017492711370262,
+                "fogStrength": 0,
+                "fogDensity": 0.0018,
+                "mistVisible": false,
+                "mistAmount": 0
+              },
+              "last": {
+                "skyDaylight": 1,
+                "fogStrength": 0,
+                "fogDensity": 0.0018,
+                "mistVisible": false,
+                "mistAmount": 0
+              },
+              "renders": 18
+            }
+          }
+        }
+      ],
+      "cardsReached": [
+        {
+          "view": "encyclopedia",
+          "name": "図鑑",
+          "description": "発見した魚と捕獲記録",
+          "rect": {
+            "x": 262,
+            "y": 176.984375,
+            "width": 372,
+            "height": 108,
+            "right": 634,
+            "bottom": 284.984375
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "storage",
+          "name": "生けす",
+          "description": "保管した魚の確認・売却",
+          "rect": {
+            "x": 646,
+            "y": 176.984375,
+            "width": 372,
+            "height": 108,
+            "right": 1018,
+            "bottom": 284.984375
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "equipment",
+          "name": "ギア／アップグレード",
+          "description": "ロッドとリールの強化",
+          "rect": {
+            "x": 262,
+            "y": 296.984375,
+            "width": 372,
+            "height": 108,
+            "right": 634,
+            "bottom": 404.984375
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "achievements",
+          "name": "実績",
+          "description": "達成条件と進捗",
+          "rect": {
+            "x": 646,
+            "y": 296.984375,
+            "width": 372,
+            "height": 108,
+            "right": 1018,
+            "bottom": 404.984375
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "sound",
+          "name": "サウンド設定",
+          "description": "BGM・自然音の設定",
+          "rect": {
+            "x": 262,
+            "y": 416.984375,
+            "width": 372,
+            "height": 108,
+            "right": 634,
+            "bottom": 524.984375
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)",
+          "scrollTop": 0
+        },
+        {
+          "view": "help",
+          "name": "ヘルプ",
+          "description": "プレイと操作の基本",
+          "rect": {
+            "x": 646,
+            "y": 416.984375,
+            "width": 372,
+            "height": 108,
+            "right": 1018,
+            "bottom": 524.984375
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)",
+          "scrollTop": 0
+        }
+      ],
+      "sectionsReached": [
+        {
+          "id": "help-play",
+          "top": 104.734375,
+          "bottom": 133.53125,
+          "paneTop": 99,
+          "paneBottom": 745,
+          "focus": {
+            "id": "help-play",
+            "view": ""
+          },
+          "scrollTop": 188,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-qte",
+          "top": 104.78125,
+          "bottom": 133.578125,
+          "paneTop": 99,
+          "paneBottom": 745,
+          "focus": {
+            "id": "help-qte",
+            "view": ""
+          },
+          "scrollTop": 932,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-menu",
+          "top": 254.078125,
+          "bottom": 282.875,
+          "paneTop": 99,
+          "paneBottom": 745,
+          "focus": {
+            "id": "help-menu",
+            "view": ""
+          },
+          "scrollTop": 1481,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-save",
+          "top": 609.875,
+          "bottom": 638.671875,
+          "paneTop": 99,
+          "paneBottom": 745,
+          "focus": {
+            "id": "help-save",
+            "view": ""
+          },
+          "scrollTop": 1481,
+          "horizontalOverflow": []
+        }
+      ],
+      "rowsReached": [
+        {
+          "operation": "flick",
+          "label": "短く素早くフリック",
+          "explanation": "矢印の方向へ、短く素早く動かします。",
+          "rect": {
+            "x": 283,
+            "y": 104.578125,
+            "width": 714,
+            "height": 118,
+            "right": 997,
+            "bottom": 222.578125
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 283,
+            "y": 107.578125,
+            "width": 146,
+            "height": 96,
+            "right": 429,
+            "bottom": 203.578125
+          },
+          "figureAriaHidden": "true",
+          "paths": [
+            "M12 36H53V18L86 50 53 82V64H12Z",
+            "M12 36H53V18L86 50 53 82V64H12Z"
+          ],
+          "visibleSvg": [
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 316,
+                "y": 115.578125,
+                "width": 80,
+                "height": 80,
+                "right": 396,
+                "bottom": 195.578125
+              }
+            }
+          ],
+          "target": null,
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none",
+            "none",
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1038
+        },
+        {
+          "operation": "swipe",
+          "label": "長くスワイプ",
+          "explanation": "矢印の方向へ、大きく動かします。",
+          "rect": {
+            "x": 283,
+            "y": 104.578125,
+            "width": 714,
+            "height": 129,
+            "right": 997,
+            "bottom": 233.578125
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 283,
+            "y": 121.578125,
+            "width": 146,
+            "height": 96,
+            "right": 429,
+            "bottom": 217.578125
+          },
+          "figureAriaHidden": "true",
+          "paths": [
+            "M12 36H53V18L86 50 53 82V64H12Z",
+            "M12 36H53V18L86 50 53 82V64H12Z"
+          ],
+          "visibleSvg": [
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 297,
+                "y": 142.578125,
+                "width": 54,
+                "height": 54,
+                "right": 351,
+                "bottom": 196.578125
+              }
+            },
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 361,
+                "y": 142.578125,
+                "width": 54,
+                "height": 54,
+                "right": 415,
+                "bottom": 196.578125
+              }
+            }
+          ],
+          "target": null,
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none",
+            "none",
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1156
+        },
+        {
+          "operation": "tap",
+          "label": "3回タップ",
+          "explanation": "すばやく3回タップします。",
+          "rect": {
+            "x": 283,
+            "y": 104.578125,
+            "width": 714,
+            "height": 129,
+            "right": 997,
+            "bottom": 233.578125
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 283,
+            "y": 121.578125,
+            "width": 146,
+            "height": 96,
+            "right": 429,
+            "bottom": 217.578125
+          },
+          "figureAriaHidden": "true",
+          "paths": [],
+          "visibleSvg": [],
+          "target": null,
+          "taps": "0/3 ○○○",
+          "pointerEvents": [
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1285
+        },
+        {
+          "operation": "target",
+          "label": "ターゲットを選択",
+          "explanation": "表示された円の中をタップします。",
+          "rect": {
+            "x": 283,
+            "y": 104.578125,
+            "width": 714,
+            "height": 118,
+            "right": 997,
+            "bottom": 222.578125
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 283,
+            "y": 124.078125,
+            "width": 146,
+            "height": 96,
+            "right": 429,
+            "bottom": 220.078125
+          },
+          "figureAriaHidden": "true",
+          "paths": [],
+          "visibleSvg": [],
+          "target": {
+            "x": 324,
+            "y": 140.078125,
+            "width": 64,
+            "height": 64,
+            "right": 388,
+            "bottom": 204.078125
+          },
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1414
+        }
+      ],
+      "errors": [],
+      "requestFailures": [],
+      "environment": {
+        "name": "new-session-day",
+        "seededTestContext": false,
+        "fixture": null,
+        "fixtureBaseSHA": null,
+        "note": "Empty browser context; production creates ordinary new session",
+        "saveDerived": {
+          "elapsedSeconds": 0,
+          "timeOfDay": "day",
+          "skyDaylight": 0.8017492711370262,
+          "mistVisible": false,
+          "effectiveFogAmount": 0
+        },
+        "observedAtBoot": {
+          "first": {
+            "skyDaylight": 0.8017492711370262,
+            "fogStrength": 0,
+            "fogDensity": 0.0018,
+            "mistVisible": false,
+            "mistAmount": 0
+          },
+          "last": {
+            "skyDaylight": 1,
+            "fogStrength": 0,
+            "fogDensity": 0.0018,
+            "mistVisible": false,
+            "mistAmount": 0
+          },
+          "renders": 9
+        }
+      },
+      "helpOrigin": {
+        "scrollTop": 0,
+        "card": {
+          "view": "help",
+          "name": "ヘルプ",
+          "description": "プレイと操作の基本",
+          "rect": {
+            "x": 646,
+            "y": 416.984375,
+            "width": 372,
+            "height": 108,
+            "right": 1018,
+            "bottom": 524.984375
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)"
+        }
+      },
+      "restored": {
+        "title": "湖の記録",
+        "pane": {
+          "x": 255,
+          "y": 103,
+          "width": 770,
+          "height": 642,
+          "right": 1025,
+          "bottom": 745,
+          "scrollTop": 0,
+          "scrollHeight": 642,
+          "clientHeight": 642,
+          "clientWidth": 770,
+          "scrollWidth": 770
+        },
+        "focus": {
+          "id": "",
+          "view": "help"
+        },
+        "wallet": "所持金 0 Value",
+        "save": {
+          "phase": "saved",
+          "text": "このブラウザに保存済みです。 最終保存 11/9 15:34:13",
+          "role": "status",
+          "live": "polite"
+        },
+        "controls": [
+          {
+            "id": "collection-close",
+            "rect": {
+              "x": 981,
+              "y": 57,
+              "width": 44,
+              "height": 44,
+              "right": 1025,
+              "bottom": 101
+            },
+            "hit": true
+          }
+        ],
+        "horizontalOverflow": []
+      },
+      "closedFocus": {
+        "id": "scene",
+        "view": ""
+      },
+      "reopened": {
+        "title": "湖の記録",
+        "pane": {
+          "x": 255,
+          "y": 103,
+          "width": 770,
+          "height": 642,
+          "right": 1025,
+          "bottom": 745,
+          "scrollTop": 0,
+          "scrollHeight": 642,
+          "clientHeight": 642,
+          "clientWidth": 770,
+          "scrollWidth": 770
+        },
+        "focus": {
+          "id": "collection-close",
+          "view": ""
+        },
+        "wallet": "所持金 0 Value",
+        "save": {
+          "phase": "dirty",
+          "text": "未保存の変更があります。自動保存を待っています。 最終保存 11/9 15:34:13",
+          "role": "status",
+          "live": "polite"
+        },
+        "controls": [
+          {
+            "id": "collection-close",
+            "rect": {
+              "x": 981,
+              "y": 57,
+              "width": 44,
+              "height": 44,
+              "right": 1025,
+              "bottom": 101
+            },
+            "hit": true
+          }
+        ],
+        "horizontalOverflow": []
+      },
+      "escapedFocus": {
+        "id": "scene",
+        "view": ""
+      },
+      "helpLayout": {
+        "rootFont": "16px",
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "pane": {
+          "x": 255,
+          "y": 99,
+          "width": 770,
+          "height": 646,
+          "right": 1025,
+          "bottom": 745,
+          "scrollTop": 188,
+          "scrollHeight": 2127,
+          "clientHeight": 646,
+          "clientWidth": 770,
+          "scrollWidth": 770
+        },
+        "sections": [
+          {
+            "heading": "プレイ",
+            "rect": {
+              "x": 262,
+              "y": 83.734375,
+              "width": 756,
+              "height": 728.046875,
+              "right": 1018,
+              "bottom": 811.78125
+            },
+            "columns": "756px"
+          },
+          {
+            "heading": "QTE",
+            "rect": {
+              "x": 262,
+              "y": 827.78125,
+              "width": 756,
+              "height": 682.296875,
+              "right": 1018,
+              "bottom": 1510.078125
+            },
+            "columns": "756px"
+          },
+          {
+            "heading": "メニュー",
+            "rect": {
+              "x": 262,
+              "y": 1526.078125,
+              "width": 756,
+              "height": 339.796875,
+              "right": 1018,
+              "bottom": 1865.875
+            },
+            "columns": "756px"
+          },
+          {
+            "heading": "セーブ",
+            "rect": {
+              "x": 262,
+              "y": 1881.875,
+              "width": 756,
+              "height": 141.796875,
+              "right": 1018,
+              "bottom": 2023.671875
+            },
+            "columns": "756px"
+          }
+        ],
+        "rows": [
+          {
+            "operation": "flick",
+            "rect": {
+              "x": 283,
+              "y": 954.578125,
+              "width": 714,
+              "height": 118,
+              "right": 997,
+              "bottom": 1072.578125
+            }
+          },
+          {
+            "operation": "swipe",
+            "rect": {
+              "x": 283,
+              "y": 1072.578125,
+              "width": 714,
+              "height": 129,
+              "right": 997,
+              "bottom": 1201.578125
+            }
+          },
+          {
+            "operation": "tap",
+            "rect": {
+              "x": 283,
+              "y": 1201.578125,
+              "width": 714,
+              "height": 129,
+              "right": 997,
+              "bottom": 1330.578125
+            }
+          },
+          {
+            "operation": "target",
+            "rect": {
+              "x": 283,
+              "y": 1330.578125,
+              "width": 714,
+              "height": 118,
+              "right": 997,
+              "bottom": 1448.578125
+            }
+          }
+        ],
+        "horizontalOverflow": []
+      }
+    },
+    {
+      "profile": {
+        "id": "phone",
+        "width": 390,
+        "height": 844,
+        "touch": true,
+        "rootSize": 16
+      },
+      "quotaFailure": false,
+      "screenshots": [
+        {
+          "filename": "phone-help.png",
+          "metrics": {
+            "viewport": {
+              "width": 390,
+              "height": 844
+            },
+            "rootFont": "16px",
+            "dialog": {
+              "x": 12,
+              "y": 52,
+              "width": 366,
+              "height": 740,
+              "right": 378,
+              "bottom": 792
+            },
+            "pane": {
+              "x": 25,
+              "y": 113,
+              "width": 340,
+              "height": 662,
+              "right": 365,
+              "bottom": 775,
+              "scrollTop": 0,
+              "scrollHeight": 3093,
+              "clientHeight": 662,
+              "clientWidth": 340,
+              "scrollWidth": 340
+            },
+            "title": "ヘルプ",
+            "wallet": "所持金 0 Value",
+            "save": {
+              "phase": "dirty",
+              "text": "未保存の変更があります。自動保存を待っています。",
+              "role": "status",
+              "live": "polite"
+            },
+            "focus": {
+              "id": "collection-title",
+              "view": ""
+            },
+            "horizontalOverflow": [],
+            "controls": [
+              {
+                "id": "collection-back",
+                "rect": {
+                  "x": 25,
+                  "y": 69,
+                  "width": 44,
+                  "height": 44,
+                  "right": 69,
+                  "bottom": 113
+                },
+                "hit": true
+              },
+              {
+                "id": "collection-close",
+                "rect": {
+                  "x": 321,
+                  "y": 69,
+                  "width": 44,
+                  "height": 44,
+                  "right": 365,
+                  "bottom": 113
+                },
+                "hit": true
+              }
+            ],
+            "cards": [],
+            "rows": [],
+            "liveQte": [
+              {
+                "hidden": true,
+                "displayed": false,
+                "operation": null
+              }
+            ],
+            "renderedEnvironment": {
+              "first": {
+                "skyDaylight": 0.8017492711370262,
+                "fogStrength": 0,
+                "fogDensity": 0.0018,
+                "mistVisible": false,
+                "mistAmount": 0
+              },
+              "last": {
+                "skyDaylight": 1,
+                "fogStrength": 0,
+                "fogDensity": 0.0018,
+                "mistVisible": false,
+                "mistAmount": 0
+              },
+              "renders": 18
+            }
+          }
+        }
+      ],
+      "cardsReached": [
+        {
+          "view": "encyclopedia",
+          "name": "図鑑",
+          "description": "発見した魚と捕獲記録",
+          "rect": {
+            "x": 32,
+            "y": 232.96875,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 326.96875
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "storage",
+          "name": "生けす",
+          "description": "保管した魚の確認・売却",
+          "rect": {
+            "x": 32,
+            "y": 338.96875,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 432.96875
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "equipment",
+          "name": "ギア／アップグレード",
+          "description": "ロッドとリールの強化",
+          "rect": {
+            "x": 32,
+            "y": 444.96875,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 538.96875
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "achievements",
+          "name": "実績",
+          "description": "達成条件と進捗",
+          "rect": {
+            "x": 32,
+            "y": 550.96875,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 644.96875
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "sound",
+          "name": "サウンド設定",
+          "description": "BGM・自然音の設定",
+          "rect": {
+            "x": 32,
+            "y": 656.96875,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 750.96875
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)",
+          "scrollTop": 0
+        },
+        {
+          "view": "help",
+          "name": "ヘルプ",
+          "description": "プレイと操作の基本",
+          "rect": {
+            "x": 32,
+            "y": 680.96875,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 774.96875
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)",
+          "scrollTop": 82
+        }
+      ],
+      "sectionsReached": [
+        {
+          "id": "help-play",
+          "top": 118.71875,
+          "bottom": 147.515625,
+          "paneTop": 113,
+          "paneBottom": 775,
+          "focus": {
+            "id": "help-play",
+            "view": ""
+          },
+          "scrollTop": 230,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-qte",
+          "top": 118.515625,
+          "bottom": 147.3125,
+          "paneTop": 113,
+          "paneBottom": 775,
+          "focus": {
+            "id": "help-qte",
+            "view": ""
+          },
+          "scrollTop": 1447,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-menu",
+          "top": 119.3125,
+          "bottom": 148.109375,
+          "paneTop": 113,
+          "paneBottom": 775,
+          "focus": {
+            "id": "help-menu",
+            "view": ""
+          },
+          "scrollTop": 2397,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-save",
+          "top": 570.609375,
+          "bottom": 599.40625,
+          "paneTop": 113,
+          "paneBottom": 775,
+          "focus": {
+            "id": "help-save",
+            "view": ""
+          },
+          "scrollTop": 2431,
+          "horizontalOverflow": []
+        }
+      ],
+      "rowsReached": [
+        {
+          "operation": "flick",
+          "label": "短く素早くフリック",
+          "explanation": "矢印の方向へ、短く素早く動かします。",
+          "rect": {
+            "x": 49,
+            "y": 119.3125,
+            "width": 292,
+            "height": 161.5,
+            "right": 341,
+            "bottom": 280.8125
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 49,
+            "y": 119.3125,
+            "width": 292,
+            "height": 82,
+            "right": 341,
+            "bottom": 201.3125
+          },
+          "figureAriaHidden": "true",
+          "paths": [
+            "M12 36H53V18L86 50 53 82V64H12Z",
+            "M12 36H53V18L86 50 53 82V64H12Z"
+          ],
+          "visibleSvg": [
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 49,
+                "y": 120.3125,
+                "width": 80,
+                "height": 80,
+                "right": 129,
+                "bottom": 200.3125
+              }
+            }
+          ],
+          "target": null,
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none",
+            "none",
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1601
+        },
+        {
+          "operation": "swipe",
+          "label": "長くスワイプ",
+          "explanation": "矢印の方向へ、大きく動かします。",
+          "rect": {
+            "x": 49,
+            "y": 118.8125,
+            "width": 292,
+            "height": 178.5,
+            "right": 341,
+            "bottom": 297.3125
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 49,
+            "y": 135.8125,
+            "width": 292,
+            "height": 82,
+            "right": 341,
+            "bottom": 217.8125
+          },
+          "figureAriaHidden": "true",
+          "paths": [
+            "M12 36H53V18L86 50 53 82V64H12Z",
+            "M12 36H53V18L86 50 53 82V64H12Z"
+          ],
+          "visibleSvg": [
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 49,
+                "y": 149.8125,
+                "width": 54,
+                "height": 54,
+                "right": 103,
+                "bottom": 203.8125
+              }
+            },
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 113,
+                "y": 149.8125,
+                "width": 54,
+                "height": 54,
+                "right": 167,
+                "bottom": 203.8125
+              }
+            }
+          ],
+          "target": null,
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none",
+            "none",
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1763
+        },
+        {
+          "operation": "tap",
+          "label": "3回タップ",
+          "explanation": "すばやく3回タップします。",
+          "rect": {
+            "x": 49,
+            "y": 119.3125,
+            "width": 292,
+            "height": 178.5,
+            "right": 341,
+            "bottom": 297.8125
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 49,
+            "y": 136.3125,
+            "width": 292,
+            "height": 82,
+            "right": 341,
+            "bottom": 218.3125
+          },
+          "figureAriaHidden": "true",
+          "paths": [],
+          "visibleSvg": [],
+          "target": null,
+          "taps": "0/3 ○○○",
+          "pointerEvents": [
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1941
+        },
+        {
+          "operation": "target",
+          "label": "ターゲットを選択",
+          "explanation": "表示された円の中をタップします。",
+          "rect": {
+            "x": 49,
+            "y": 118.8125,
+            "width": 292,
+            "height": 162.5,
+            "right": 341,
+            "bottom": 281.3125
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 49,
+            "y": 135.8125,
+            "width": 292,
+            "height": 82,
+            "right": 341,
+            "bottom": 217.8125
+          },
+          "figureAriaHidden": "true",
+          "paths": [],
+          "visibleSvg": [],
+          "target": {
+            "x": 49,
+            "y": 136.8125,
+            "width": 80,
+            "height": 80,
+            "right": 129,
+            "bottom": 216.8125
+          },
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 2120
+        }
+      ],
+      "errors": [],
+      "requestFailures": [],
+      "environment": {
+        "name": "new-session-day",
+        "seededTestContext": false,
+        "fixture": null,
+        "fixtureBaseSHA": null,
+        "note": "Empty browser context; production creates ordinary new session",
+        "saveDerived": {
+          "elapsedSeconds": 0,
+          "timeOfDay": "day",
+          "skyDaylight": 0.8017492711370262,
+          "mistVisible": false,
+          "effectiveFogAmount": 0
+        },
+        "observedAtBoot": {
+          "first": {
+            "skyDaylight": 0.8017492711370262,
+            "fogStrength": 0,
+            "fogDensity": 0.0018,
+            "mistVisible": false,
+            "mistAmount": 0
+          },
+          "last": {
+            "skyDaylight": 1,
+            "fogStrength": 0,
+            "fogDensity": 0.0018,
+            "mistVisible": false,
+            "mistAmount": 0
+          },
+          "renders": 10
+        }
+      },
+      "helpOrigin": {
+        "scrollTop": 82,
+        "card": {
+          "view": "help",
+          "name": "ヘルプ",
+          "description": "プレイと操作の基本",
+          "rect": {
+            "x": 32,
+            "y": 680.96875,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 774.96875
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)"
+        }
+      },
+      "restored": {
+        "title": "湖の記録",
+        "pane": {
+          "x": 25,
+          "y": 113,
+          "width": 340,
+          "height": 662,
+          "right": 365,
+          "bottom": 775,
+          "scrollTop": 82,
+          "scrollHeight": 758,
+          "clientHeight": 662,
+          "clientWidth": 340,
+          "scrollWidth": 340
+        },
+        "focus": {
+          "id": "",
+          "view": "help"
+        },
+        "wallet": "所持金 0 Value",
+        "save": {
+          "phase": "dirty",
+          "text": "未保存の変更があります。自動保存を待っています。",
+          "role": "status",
+          "live": "polite"
+        },
+        "controls": [
+          {
+            "id": "collection-close",
+            "rect": {
+              "x": 321,
+              "y": 69,
+              "width": 44,
+              "height": 44,
+              "right": 365,
+              "bottom": 113
+            },
+            "hit": true
+          }
+        ],
+        "horizontalOverflow": []
+      },
+      "closedFocus": {
+        "id": "scene",
+        "view": ""
+      },
+      "reopened": {
+        "title": "湖の記録",
+        "pane": {
+          "x": 25,
+          "y": 113,
+          "width": 340,
+          "height": 662,
+          "right": 365,
+          "bottom": 775,
+          "scrollTop": 0,
+          "scrollHeight": 758,
+          "clientHeight": 662,
+          "clientWidth": 340,
+          "scrollWidth": 340
+        },
+        "focus": {
+          "id": "collection-close",
+          "view": ""
+        },
+        "wallet": "所持金 0 Value",
+        "save": {
+          "phase": "dirty",
+          "text": "未保存の変更があります。自動保存を待っています。",
+          "role": "status",
+          "live": "polite"
+        },
+        "controls": [
+          {
+            "id": "collection-close",
+            "rect": {
+              "x": 321,
+              "y": 69,
+              "width": 44,
+              "height": 44,
+              "right": 365,
+              "bottom": 113
+            },
+            "hit": true
+          }
+        ],
+        "horizontalOverflow": []
+      },
+      "escapedFocus": {
+        "id": "scene",
+        "view": ""
+      },
+      "helpLayout": {
+        "rootFont": "16px",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "pane": {
+          "x": 25,
+          "y": 113,
+          "width": 340,
+          "height": 662,
+          "right": 365,
+          "bottom": 775,
+          "scrollTop": 230,
+          "scrollHeight": 3093,
+          "clientHeight": 662,
+          "clientWidth": 340,
+          "scrollWidth": 340
+        },
+        "sections": [
+          {
+            "heading": "プレイ",
+            "rect": {
+              "x": 32,
+              "y": 101.71875,
+              "width": 326,
+              "height": 1200.796875,
+              "right": 358,
+              "bottom": 1302.515625
+            },
+            "columns": "326px"
+          },
+          {
+            "heading": "QTE",
+            "rect": {
+              "x": 32,
+              "y": 1318.515625,
+              "width": 326,
+              "height": 934.796875,
+              "right": 358,
+              "bottom": 2253.3125
+            },
+            "columns": "326px"
+          },
+          {
+            "heading": "メニュー",
+            "rect": {
+              "x": 32,
+              "y": 2269.3125,
+              "width": 326,
+              "height": 469.296875,
+              "right": 358,
+              "bottom": 2738.609375
+            },
+            "columns": "326px"
+          },
+          {
+            "heading": "セーブ",
+            "rect": {
+              "x": 32,
+              "y": 2754.609375,
+              "width": 326,
+              "height": 207.296875,
+              "right": 358,
+              "bottom": 2961.90625
+            },
+            "columns": "326px"
+          }
+        ],
+        "rows": [
+          {
+            "operation": "flick",
+            "rect": {
+              "x": 49,
+              "y": 1490.3125,
+              "width": 292,
+              "height": 161.5,
+              "right": 341,
+              "bottom": 1651.8125
+            }
+          },
+          {
+            "operation": "swipe",
+            "rect": {
+              "x": 49,
+              "y": 1651.8125,
+              "width": 292,
+              "height": 178.5,
+              "right": 341,
+              "bottom": 1830.3125
+            }
+          },
+          {
+            "operation": "tap",
+            "rect": {
+              "x": 49,
+              "y": 1830.3125,
+              "width": 292,
+              "height": 178.5,
+              "right": 341,
+              "bottom": 2008.8125
+            }
+          },
+          {
+            "operation": "target",
+            "rect": {
+              "x": 49,
+              "y": 2008.8125,
+              "width": 292,
+              "height": 162.5,
+              "right": 341,
+              "bottom": 2171.3125
+            }
+          }
+        ],
+        "horizontalOverflow": []
+      }
+    },
+    {
+      "profile": {
+        "id": "short",
+        "width": 568,
+        "height": 320,
+        "touch": true,
+        "rootSize": 20,
+        "seedSeconds": 1429830,
+        "environment": "fog-night"
+      },
+      "quotaFailure": false,
+      "screenshots": [
+        {
+          "filename": "short-menu-help.png",
+          "metrics": {
+            "viewport": {
+              "width": 568,
+              "height": 320
+            },
+            "rootFont": "20px",
+            "dialog": {
+              "x": 24,
+              "y": 20,
+              "width": 520,
+              "height": 280,
+              "right": 544,
+              "bottom": 300
+            },
+            "pane": {
+              "x": 39,
+              "y": 75,
+              "width": 490,
+              "height": 214,
+              "right": 529,
+              "bottom": 289,
+              "scrollTop": 544,
+              "scrollHeight": 758,
+              "clientHeight": 214,
+              "clientWidth": 490,
+              "scrollWidth": 490
+            },
+            "title": "湖の記録",
+            "wallet": "所持金 0 Value",
+            "save": {
+              "phase": "dirty",
+              "text": "未保存の変更があります。自動保存を待っています。 最終保存 10/23 00:00:00",
+              "role": "status",
+              "live": "polite"
+            },
+            "focus": {
+              "id": "collection-close",
+              "view": ""
+            },
+            "horizontalOverflow": [],
+            "controls": [
+              {
+                "id": "collection-close",
+                "rect": {
+                  "x": 485,
+                  "y": 31,
+                  "width": 44,
+                  "height": 44,
+                  "right": 529,
+                  "bottom": 75
+                },
+                "hit": true
+              }
+            ],
+            "cards": [
+              {
+                "view": "sound",
+                "name": "サウンド設定",
+                "description": "BGM・自然音の設定",
+                "rect": {
+                  "x": 46,
+                  "y": 87,
+                  "width": 476,
+                  "height": 88,
+                  "right": 522,
+                  "bottom": 175
+                },
+                "inPane": true,
+                "hit": true,
+                "background": "rgb(48, 71, 77)"
+              },
+              {
+                "view": "help",
+                "name": "ヘルプ",
+                "description": "プレイと操作の基本",
+                "rect": {
+                  "x": 46,
+                  "y": 187,
+                  "width": 476,
+                  "height": 88,
+                  "right": 522,
+                  "bottom": 275
+                },
+                "inPane": true,
+                "hit": true,
+                "background": "rgb(48, 71, 77)"
+              }
+            ],
+            "rows": [],
+            "liveQte": [
+              {
+                "hidden": true,
+                "displayed": false,
+                "operation": null
+              }
+            ],
+            "renderedEnvironment": {
+              "first": {
+                "skyDaylight": 0,
+                "fogStrength": 0.4999069510959089,
+                "fogDensity": 0.02780641612741387,
+                "mistVisible": true,
+                "mistAmount": 0.4999069510959089
+              },
+              "last": {
+                "skyDaylight": 0,
+                "fogStrength": 0.4999069510959089,
+                "fogDensity": 0.02780641612741387,
+                "mistVisible": true,
+                "mistAmount": 0.4999069510959089
+              },
+              "renders": 21
+            }
+          }
+        },
+        {
+          "filename": "short-help-top.png",
+          "metrics": {
+            "viewport": {
+              "width": 568,
+              "height": 320
+            },
+            "rootFont": "20px",
+            "dialog": {
+              "x": 24,
+              "y": 20,
+              "width": 520,
+              "height": 280,
+              "right": 544,
+              "bottom": 300
+            },
+            "pane": {
+              "x": 39,
+              "y": 75,
+              "width": 490,
+              "height": 214,
+              "right": 529,
+              "bottom": 289,
+              "scrollTop": 0,
+              "scrollHeight": 3037,
+              "clientHeight": 214,
+              "clientWidth": 490,
+              "scrollWidth": 490
+            },
+            "title": "ヘルプ",
+            "wallet": "所持金 0 Value",
+            "save": {
+              "phase": "dirty",
+              "text": "未保存の変更があります。自動保存を待っています。 最終保存 10/23 00:00:00",
+              "role": "status",
+              "live": "polite"
+            },
+            "focus": {
+              "id": "collection-title",
+              "view": ""
+            },
+            "horizontalOverflow": [],
+            "controls": [
+              {
+                "id": "collection-back",
+                "rect": {
+                  "x": 39,
+                  "y": 31,
+                  "width": 44,
+                  "height": 44,
+                  "right": 83,
+                  "bottom": 75
+                },
+                "hit": true
+              },
+              {
+                "id": "collection-close",
+                "rect": {
+                  "x": 485,
+                  "y": 31,
+                  "width": 44,
+                  "height": 44,
+                  "right": 529,
+                  "bottom": 75
+                },
+                "hit": true
+              }
+            ],
+            "cards": [],
+            "rows": [],
+            "liveQte": [
+              {
+                "hidden": true,
+                "displayed": false,
+                "operation": null
+              }
+            ],
+            "renderedEnvironment": {
+              "first": {
+                "skyDaylight": 0,
+                "fogStrength": 0.4999069510959089,
+                "fogDensity": 0.02780641612741387,
+                "mistVisible": true,
+                "mistAmount": 0.4999069510959089
+              },
+              "last": {
+                "skyDaylight": 0,
+                "fogStrength": 0.4999069510959089,
+                "fogDensity": 0.02780641612741387,
+                "mistVisible": true,
+                "mistAmount": 0.4999069510959089
+              },
+              "renders": 21
+            }
+          }
+        },
+        {
+          "filename": "short-qte-target.png",
+          "metrics": {
+            "viewport": {
+              "width": 568,
+              "height": 320
+            },
+            "rootFont": "20px",
+            "dialog": {
+              "x": 24,
+              "y": 20,
+              "width": 520,
+              "height": 280,
+              "right": 544,
+              "bottom": 300
+            },
+            "pane": {
+              "x": 39,
+              "y": 75,
+              "width": 490,
+              "height": 214,
+              "right": 529,
+              "bottom": 289,
+              "scrollTop": 2026,
+              "scrollHeight": 3037,
+              "clientHeight": 214,
+              "clientWidth": 490,
+              "scrollWidth": 490
+            },
+            "title": "ヘルプ",
+            "wallet": "所持金 0 Value",
+            "save": {
+              "phase": "dirty",
+              "text": "未保存の変更があります。自動保存を待っています。 最終保存 10/23 00:00:00",
+              "role": "status",
+              "live": "polite"
+            },
+            "focus": {
+              "id": "help-save",
+              "view": ""
+            },
+            "horizontalOverflow": [],
+            "controls": [
+              {
+                "id": "collection-back",
+                "rect": {
+                  "x": 39,
+                  "y": 31,
+                  "width": 44,
+                  "height": 44,
+                  "right": 83,
+                  "bottom": 75
+                },
+                "hit": true
+              },
+              {
+                "id": "collection-close",
+                "rect": {
+                  "x": 485,
+                  "y": 31,
+                  "width": 44,
+                  "height": 44,
+                  "right": 529,
+                  "bottom": 75
+                },
+                "hit": true
+              }
+            ],
+            "cards": [],
+            "rows": [
+              {
+                "operation": "target",
+                "label": "ターゲットを選択",
+                "rect": {
+                  "x": 61,
+                  "y": 81.375,
+                  "width": 446,
+                  "height": 116,
+                  "right": 507,
+                  "bottom": 197.375
+                },
+                "inPane": true,
+                "visibleSvgCount": 0,
+                "target": {
+                  "x": 77,
+                  "y": 106.875,
+                  "width": 80,
+                  "height": 80,
+                  "right": 157,
+                  "bottom": 186.875
+                },
+                "taps": null
+              }
+            ],
+            "liveQte": [
+              {
+                "hidden": true,
+                "displayed": false,
+                "operation": null
+              }
+            ],
+            "renderedEnvironment": {
+              "first": {
+                "skyDaylight": 0,
+                "fogStrength": 0.4999069510959089,
+                "fogDensity": 0.02780641612741387,
+                "mistVisible": true,
+                "mistAmount": 0.4999069510959089
+              },
+              "last": {
+                "skyDaylight": 0,
+                "fogStrength": 0.4999069510959089,
+                "fogDensity": 0.02780641612741387,
+                "mistVisible": true,
+                "mistAmount": 0.4999069510959089
+              },
+              "renders": 21
+            }
+          }
+        }
+      ],
+      "cardsReached": [
+        {
+          "view": "encyclopedia",
+          "name": "図鑑",
+          "description": "発見した魚と捕獲記録",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 289
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 30
+        },
+        {
+          "view": "storage",
+          "name": "生けす",
+          "description": "保管した魚の確認・売却",
+          "rect": {
+            "x": 46,
+            "y": 138,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 226
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 193
+        },
+        {
+          "view": "equipment",
+          "name": "ギア／アップグレード",
+          "description": "ロッドとリールの強化",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 289
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 230
+        },
+        {
+          "view": "achievements",
+          "name": "実績",
+          "description": "達成条件と進捗",
+          "rect": {
+            "x": 46,
+            "y": 138,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 226
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 393
+        },
+        {
+          "view": "sound",
+          "name": "サウンド設定",
+          "description": "BGM・自然音の設定",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 289
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)",
+          "scrollTop": 430
+        },
+        {
+          "view": "help",
+          "name": "ヘルプ",
+          "description": "プレイと操作の基本",
+          "rect": {
+            "x": 46,
+            "y": 187,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 275
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)",
+          "scrollTop": 544
+        }
+      ],
+      "sectionsReached": [
+        {
+          "id": "help-play",
+          "top": 80.875,
+          "bottom": 116.875,
+          "paneTop": 75,
+          "paneBottom": 289,
+          "focus": {
+            "id": "help-play",
+            "view": ""
+          },
+          "scrollTop": 272,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-qte",
+          "top": 80.5,
+          "bottom": 116.5,
+          "paneTop": 75,
+          "paneBottom": 289,
+          "focus": {
+            "id": "help-qte",
+            "view": ""
+          },
+          "scrollTop": 1523,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-menu",
+          "top": 80.625,
+          "bottom": 116.625,
+          "paneTop": 75,
+          "paneBottom": 289,
+          "focus": {
+            "id": "help-menu",
+            "view": ""
+          },
+          "scrollTop": 2266,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-save",
+          "top": 80.5,
+          "bottom": 116.5,
+          "paneTop": 75,
+          "paneBottom": 289,
+          "focus": {
+            "id": "help-save",
+            "view": ""
+          },
+          "scrollTop": 2822,
+          "horizontalOverflow": []
+        }
+      ],
+      "rowsReached": [
+        {
+          "operation": "flick",
+          "label": "短く素早くフリック",
+          "explanation": "矢印の方向へ、短く素早く動かします。",
+          "rect": {
+            "x": 61,
+            "y": 81.375,
+            "width": 446,
+            "height": 116,
+            "right": 507,
+            "bottom": 197.375
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 61,
+            "y": 91.375,
+            "width": 112,
+            "height": 82,
+            "right": 173,
+            "bottom": 173.375
+          },
+          "figureAriaHidden": "true",
+          "paths": [
+            "M12 36H53V18L86 50 53 82V64H12Z",
+            "M12 36H53V18L86 50 53 82V64H12Z"
+          ],
+          "visibleSvg": [
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 81,
+                "y": 96.375,
+                "width": 72,
+                "height": 72,
+                "right": 153,
+                "bottom": 168.375
+              }
+            }
+          ],
+          "target": null,
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none",
+            "none",
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1678
+        },
+        {
+          "operation": "swipe",
+          "label": "長くスワイプ",
+          "explanation": "矢印の方向へ、大きく動かします。",
+          "rect": {
+            "x": 61,
+            "y": 81.375,
+            "width": 446,
+            "height": 116,
+            "right": 507,
+            "bottom": 197.375
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 61,
+            "y": 98.875,
+            "width": 112,
+            "height": 82,
+            "right": 173,
+            "bottom": 180.875
+          },
+          "figureAriaHidden": "true",
+          "paths": [
+            "M12 36H53V18L86 50 53 82V64H12Z",
+            "M12 36H53V18L86 50 53 82V64H12Z"
+          ],
+          "visibleSvg": [
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 66,
+                "y": 116.875,
+                "width": 46,
+                "height": 46,
+                "right": 112,
+                "bottom": 162.875
+              }
+            },
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 122,
+                "y": 116.875,
+                "width": 46,
+                "height": 46,
+                "right": 168,
+                "bottom": 162.875
+              }
+            }
+          ],
+          "target": null,
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none",
+            "none",
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1794
+        },
+        {
+          "operation": "tap",
+          "label": "3回タップ",
+          "explanation": "すばやく3回タップします。",
+          "rect": {
+            "x": 61,
+            "y": 81.375,
+            "width": 446,
+            "height": 116,
+            "right": 507,
+            "bottom": 197.375
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 61,
+            "y": 98.875,
+            "width": 112,
+            "height": 82,
+            "right": 173,
+            "bottom": 180.875
+          },
+          "figureAriaHidden": "true",
+          "paths": [],
+          "visibleSvg": [],
+          "target": null,
+          "taps": "0/3 ○○○",
+          "pointerEvents": [
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1910
+        },
+        {
+          "operation": "target",
+          "label": "ターゲットを選択",
+          "explanation": "表示された円の中をタップします。",
+          "rect": {
+            "x": 61,
+            "y": 81.375,
+            "width": 446,
+            "height": 116,
+            "right": 507,
+            "bottom": 197.375
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 61,
+            "y": 105.875,
+            "width": 112,
+            "height": 82,
+            "right": 173,
+            "bottom": 187.875
+          },
+          "figureAriaHidden": "true",
+          "paths": [],
+          "visibleSvg": [],
+          "target": {
+            "x": 77,
+            "y": 106.875,
+            "width": 80,
+            "height": 80,
+            "right": 157,
+            "bottom": 186.875
+          },
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 2026
+        }
+      ],
+      "errors": [],
+      "requestFailures": [],
+      "environment": {
+        "name": "fog-night",
+        "seededTestContext": true,
+        "fixture": "tests/helpers/lighting-save.js / createLightingSave",
+        "fixtureBaseSHA": "ae8c44678aea374b03755b182e722406e542e53a",
+        "note": "Validated ordinary save fixture seeded before production boot, not player data or forced live state",
+        "saveDerived": {
+          "elapsedSeconds": 1429830,
+          "timeOfDay": "night",
+          "skyDaylight": 0,
+          "mistVisible": true,
+          "effectiveFogAmount": 0.4999069510959089
+        },
+        "observedAtBoot": {
+          "first": {
+            "skyDaylight": 0,
+            "fogStrength": 0.4999069510959089,
+            "fogDensity": 0.02780641612741387,
+            "mistVisible": true,
+            "mistAmount": 0.4999069510959089
+          },
+          "last": {
+            "skyDaylight": 0,
+            "fogStrength": 0.4999069510959089,
+            "fogDensity": 0.02780641612741387,
+            "mistVisible": true,
+            "mistAmount": 0.4999069510959089
+          },
+          "renders": 10
+        }
+      },
+      "helpOrigin": {
+        "scrollTop": 544,
+        "card": {
+          "view": "help",
+          "name": "ヘルプ",
+          "description": "プレイと操作の基本",
+          "rect": {
+            "x": 46,
+            "y": 187,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 275
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)"
+        }
+      },
+      "restored": {
+        "title": "湖の記録",
+        "pane": {
+          "x": 39,
+          "y": 75,
+          "width": 490,
+          "height": 214,
+          "right": 529,
+          "bottom": 289,
+          "scrollTop": 544,
+          "scrollHeight": 758,
+          "clientHeight": 214,
+          "clientWidth": 490,
+          "scrollWidth": 490
+        },
+        "focus": {
+          "id": "",
+          "view": "help"
+        },
+        "wallet": "所持金 0 Value",
+        "save": {
+          "phase": "dirty",
+          "text": "未保存の変更があります。自動保存を待っています。 最終保存 10/23 00:00:00",
+          "role": "status",
+          "live": "polite"
+        },
+        "controls": [
+          {
+            "id": "collection-close",
+            "rect": {
+              "x": 485,
+              "y": 31,
+              "width": 44,
+              "height": 44,
+              "right": 529,
+              "bottom": 75
+            },
+            "hit": true
+          }
+        ],
+        "horizontalOverflow": []
+      },
+      "closedFocus": {
+        "id": "scene",
+        "view": ""
+      },
+      "reopened": {
+        "title": "湖の記録",
+        "pane": {
+          "x": 39,
+          "y": 75,
+          "width": 490,
+          "height": 214,
+          "right": 529,
+          "bottom": 289,
+          "scrollTop": 0,
+          "scrollHeight": 732,
+          "clientHeight": 214,
+          "clientWidth": 490,
+          "scrollWidth": 490
+        },
+        "focus": {
+          "id": "collection-close",
+          "view": ""
+        },
+        "wallet": "所持金 0 Value",
+        "save": {
+          "phase": "saved",
+          "text": "このブラウザに保存済みです。 最終保存 11/9 15:35:09",
+          "role": "status",
+          "live": "polite"
+        },
+        "controls": [
+          {
+            "id": "collection-close",
+            "rect": {
+              "x": 485,
+              "y": 31,
+              "width": 44,
+              "height": 44,
+              "right": 529,
+              "bottom": 75
+            },
+            "hit": true
+          }
+        ],
+        "horizontalOverflow": []
+      },
+      "escapedFocus": {
+        "id": "scene",
+        "view": ""
+      },
+      "helpLayout": {
+        "rootFont": "20px",
+        "viewport": {
+          "width": 568,
+          "height": 320
+        },
+        "pane": {
+          "x": 39,
+          "y": 75,
+          "width": 490,
+          "height": 214,
+          "right": 529,
+          "bottom": 289,
+          "scrollTop": 272,
+          "scrollHeight": 3037,
+          "clientHeight": 214,
+          "clientWidth": 490,
+          "scrollWidth": 490
+        },
+        "sections": [
+          {
+            "heading": "プレイ",
+            "rect": {
+              "x": 46,
+              "y": 65.875,
+              "width": 476,
+              "height": 1234.625,
+              "right": 522,
+              "bottom": 1300.5
+            },
+            "columns": "476px"
+          },
+          {
+            "heading": "QTE",
+            "rect": {
+              "x": 46,
+              "y": 1316.5,
+              "width": 476,
+              "height": 727.125,
+              "right": 522,
+              "bottom": 2043.625
+            },
+            "columns": "476px"
+          },
+          {
+            "heading": "メニュー",
+            "rect": {
+              "x": 46,
+              "y": 2059.625,
+              "width": 476,
+              "height": 539.875,
+              "right": 522,
+              "bottom": 2599.5
+            },
+            "columns": "476px"
+          },
+          {
+            "heading": "セーブ",
+            "rect": {
+              "x": 46,
+              "y": 2615.5,
+              "width": 476,
+              "height": 210.5,
+              "right": 522,
+              "bottom": 2826
+            },
+            "columns": "476px"
+          }
+        ],
+        "rows": [
+          {
+            "operation": "flick",
+            "rect": {
+              "x": 61,
+              "y": 1487.375,
+              "width": 446,
+              "height": 116,
+              "right": 507,
+              "bottom": 1603.375
+            }
+          },
+          {
+            "operation": "swipe",
+            "rect": {
+              "x": 61,
+              "y": 1603.375,
+              "width": 446,
+              "height": 116,
+              "right": 507,
+              "bottom": 1719.375
+            }
+          },
+          {
+            "operation": "tap",
+            "rect": {
+              "x": 61,
+              "y": 1719.375,
+              "width": 446,
+              "height": 116,
+              "right": 507,
+              "bottom": 1835.375
+            }
+          },
+          {
+            "operation": "target",
+            "rect": {
+              "x": 61,
+              "y": 1835.375,
+              "width": 446,
+              "height": 116,
+              "right": 507,
+              "bottom": 1951.375
+            }
+          }
+        ],
+        "horizontalOverflow": []
+      }
+    },
+    {
+      "profile": {
+        "id": "clear-night",
+        "width": 390,
+        "height": 844,
+        "touch": true,
+        "rootSize": 16,
+        "seedSeconds": 270,
+        "environment": "clear-night"
+      },
+      "quotaFailure": false,
+      "screenshots": [],
+      "cardsReached": [
+        {
+          "view": "encyclopedia",
+          "name": "図鑑",
+          "description": "発見した魚と捕獲記録",
+          "rect": {
+            "x": 32,
+            "y": 253.765625,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 347.765625
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "storage",
+          "name": "生けす",
+          "description": "保管した魚の確認・売却",
+          "rect": {
+            "x": 32,
+            "y": 359.765625,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 453.765625
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "equipment",
+          "name": "ギア／アップグレード",
+          "description": "ロッドとリールの強化",
+          "rect": {
+            "x": 32,
+            "y": 465.765625,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 559.765625
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "achievements",
+          "name": "実績",
+          "description": "達成条件と進捗",
+          "rect": {
+            "x": 32,
+            "y": 571.765625,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 665.765625
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 0
+        },
+        {
+          "view": "sound",
+          "name": "サウンド設定",
+          "description": "BGM・自然音の設定",
+          "rect": {
+            "x": 32,
+            "y": 677.765625,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 771.765625
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)",
+          "scrollTop": 0
+        },
+        {
+          "view": "help",
+          "name": "ヘルプ",
+          "description": "プレイと操作の基本",
+          "rect": {
+            "x": 32,
+            "y": 666.765625,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 760.765625
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)",
+          "scrollTop": 117
+        }
+      ],
+      "sectionsReached": [
+        {
+          "id": "help-play",
+          "top": 118.515625,
+          "bottom": 147.3125,
+          "paneTop": 113,
+          "paneBottom": 775,
+          "focus": {
+            "id": "help-play",
+            "view": ""
+          },
+          "scrollTop": 251,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-qte",
+          "top": 119.3125,
+          "bottom": 148.109375,
+          "paneTop": 113,
+          "paneBottom": 775,
+          "focus": {
+            "id": "help-qte",
+            "view": ""
+          },
+          "scrollTop": 1467,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-menu",
+          "top": 119.109375,
+          "bottom": 147.90625,
+          "paneTop": 113,
+          "paneBottom": 775,
+          "focus": {
+            "id": "help-menu",
+            "view": ""
+          },
+          "scrollTop": 2418,
+          "horizontalOverflow": []
+        },
+        {
+          "id": "help-save",
+          "top": 570.40625,
+          "bottom": 599.203125,
+          "paneTop": 113,
+          "paneBottom": 775,
+          "focus": {
+            "id": "help-save",
+            "view": ""
+          },
+          "scrollTop": 2452,
+          "horizontalOverflow": []
+        }
+      ],
+      "rowsReached": [
+        {
+          "operation": "flick",
+          "label": "短く素早くフリック",
+          "explanation": "矢印の方向へ、短く素早く動かします。",
+          "rect": {
+            "x": 49,
+            "y": 119.109375,
+            "width": 292,
+            "height": 161.5,
+            "right": 341,
+            "bottom": 280.609375
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 49,
+            "y": 119.109375,
+            "width": 292,
+            "height": 82,
+            "right": 341,
+            "bottom": 201.109375
+          },
+          "figureAriaHidden": "true",
+          "paths": [
+            "M12 36H53V18L86 50 53 82V64H12Z",
+            "M12 36H53V18L86 50 53 82V64H12Z"
+          ],
+          "visibleSvg": [
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 49,
+                "y": 120.109375,
+                "width": 80,
+                "height": 80,
+                "right": 129,
+                "bottom": 200.109375
+              }
+            }
+          ],
+          "target": null,
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none",
+            "none",
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1622
+        },
+        {
+          "operation": "swipe",
+          "label": "長くスワイプ",
+          "explanation": "矢印の方向へ、大きく動かします。",
+          "rect": {
+            "x": 49,
+            "y": 118.609375,
+            "width": 292,
+            "height": 178.5,
+            "right": 341,
+            "bottom": 297.109375
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 49,
+            "y": 135.609375,
+            "width": 292,
+            "height": 82,
+            "right": 341,
+            "bottom": 217.609375
+          },
+          "figureAriaHidden": "true",
+          "paths": [
+            "M12 36H53V18L86 50 53 82V64H12Z",
+            "M12 36H53V18L86 50 53 82V64H12Z"
+          ],
+          "visibleSvg": [
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 49,
+                "y": 149.609375,
+                "width": 54,
+                "height": 54,
+                "right": 103,
+                "bottom": 203.609375
+              }
+            },
+            {
+              "viewBox": "0 0 100 100",
+              "rect": {
+                "x": 113,
+                "y": 149.609375,
+                "width": 54,
+                "height": 54,
+                "right": 167,
+                "bottom": 203.609375
+              }
+            }
+          ],
+          "target": null,
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none",
+            "none",
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1784
+        },
+        {
+          "operation": "tap",
+          "label": "3回タップ",
+          "explanation": "すばやく3回タップします。",
+          "rect": {
+            "x": 49,
+            "y": 119.109375,
+            "width": 292,
+            "height": 178.5,
+            "right": 341,
+            "bottom": 297.609375
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 49,
+            "y": 136.109375,
+            "width": 292,
+            "height": 82,
+            "right": 341,
+            "bottom": 218.109375
+          },
+          "figureAriaHidden": "true",
+          "paths": [],
+          "visibleSvg": [],
+          "target": null,
+          "taps": "0/3 ○○○",
+          "pointerEvents": [
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 1962
+        },
+        {
+          "operation": "target",
+          "label": "ターゲットを選択",
+          "explanation": "表示された円の中をタップします。",
+          "rect": {
+            "x": 49,
+            "y": 118.609375,
+            "width": 292,
+            "height": 162.5,
+            "right": 341,
+            "bottom": 281.109375
+          },
+          "inPane": true,
+          "hit": true,
+          "figure": {
+            "x": 49,
+            "y": 135.609375,
+            "width": 292,
+            "height": 82,
+            "right": 341,
+            "bottom": 217.609375
+          },
+          "figureAriaHidden": "true",
+          "paths": [],
+          "visibleSvg": [],
+          "target": {
+            "x": 49,
+            "y": 136.609375,
+            "width": 80,
+            "height": 80,
+            "right": 129,
+            "bottom": 216.609375
+          },
+          "taps": null,
+          "pointerEvents": [
+            "none",
+            "none"
+          ],
+          "interactiveCount": 0,
+          "scrollTop": 2141
+        }
+      ],
+      "errors": [],
+      "requestFailures": [],
+      "environment": {
+        "name": "clear-night",
+        "seededTestContext": true,
+        "fixture": "tests/helpers/lighting-save.js / createLightingSave",
+        "fixtureBaseSHA": "ae8c44678aea374b03755b182e722406e542e53a",
+        "note": "Validated ordinary save fixture seeded before production boot, not player data or forced live state",
+        "saveDerived": {
+          "elapsedSeconds": 270,
+          "timeOfDay": "night",
+          "skyDaylight": 0,
+          "mistVisible": false,
+          "effectiveFogAmount": 0
+        },
+        "observedAtBoot": {
+          "first": {
+            "skyDaylight": 0,
+            "fogStrength": 0,
+            "fogDensity": 0.0018,
+            "mistVisible": false,
+            "mistAmount": 0
+          },
+          "last": {
+            "skyDaylight": 0,
+            "fogStrength": 0,
+            "fogDensity": 0.0018,
+            "mistVisible": false,
+            "mistAmount": 0
+          },
+          "renders": 10
+        }
+      },
+      "helpOrigin": {
+        "scrollTop": 117,
+        "card": {
+          "view": "help",
+          "name": "ヘルプ",
+          "description": "プレイと操作の基本",
+          "rect": {
+            "x": 32,
+            "y": 666.765625,
+            "width": 326,
+            "height": 94,
+            "right": 358,
+            "bottom": 760.765625
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)"
+        }
+      },
+      "restored": {
+        "title": "湖の記録",
+        "pane": {
+          "x": 25,
+          "y": 113,
+          "width": 340,
+          "height": 662,
+          "right": 365,
+          "bottom": 775,
+          "scrollTop": 117,
+          "scrollHeight": 779,
+          "clientHeight": 662,
+          "clientWidth": 340,
+          "scrollWidth": 340
+        },
+        "focus": {
+          "id": "",
+          "view": "help"
+        },
+        "wallet": "所持金 0 Value",
+        "save": {
+          "phase": "dirty",
+          "text": "未保存の変更があります。自動保存を待っています。 最終保存 10/23 00:00:00",
+          "role": "status",
+          "live": "polite"
+        },
+        "controls": [
+          {
+            "id": "collection-close",
+            "rect": {
+              "x": 321,
+              "y": 69,
+              "width": 44,
+              "height": 44,
+              "right": 365,
+              "bottom": 113
+            },
+            "hit": true
+          }
+        ],
+        "horizontalOverflow": []
+      },
+      "closedFocus": {
+        "id": "scene",
+        "view": ""
+      },
+      "reopened": {
+        "title": "湖の記録",
+        "pane": {
+          "x": 25,
+          "y": 113,
+          "width": 340,
+          "height": 662,
+          "right": 365,
+          "bottom": 775,
+          "scrollTop": 0,
+          "scrollHeight": 779,
+          "clientHeight": 662,
+          "clientWidth": 340,
+          "scrollWidth": 340
+        },
+        "focus": {
+          "id": "collection-close",
+          "view": ""
+        },
+        "wallet": "所持金 0 Value",
+        "save": {
+          "phase": "dirty",
+          "text": "未保存の変更があります。自動保存を待っています。 最終保存 10/23 00:00:00",
+          "role": "status",
+          "live": "polite"
+        },
+        "controls": [
+          {
+            "id": "collection-close",
+            "rect": {
+              "x": 321,
+              "y": 69,
+              "width": 44,
+              "height": 44,
+              "right": 365,
+              "bottom": 113
+            },
+            "hit": true
+          }
+        ],
+        "horizontalOverflow": []
+      },
+      "escapedFocus": {
+        "id": "scene",
+        "view": ""
+      },
+      "helpLayout": {
+        "rootFont": "16px",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "pane": {
+          "x": 25,
+          "y": 113,
+          "width": 340,
+          "height": 662,
+          "right": 365,
+          "bottom": 775,
+          "scrollTop": 251,
+          "scrollHeight": 3114,
+          "clientHeight": 662,
+          "clientWidth": 340,
+          "scrollWidth": 340
+        },
+        "sections": [
+          {
+            "heading": "プレイ",
+            "rect": {
+              "x": 32,
+              "y": 101.515625,
+              "width": 326,
+              "height": 1200.796875,
+              "right": 358,
+              "bottom": 1302.3125
+            },
+            "columns": "326px"
+          },
+          {
+            "heading": "QTE",
+            "rect": {
+              "x": 32,
+              "y": 1318.3125,
+              "width": 326,
+              "height": 934.796875,
+              "right": 358,
+              "bottom": 2253.109375
+            },
+            "columns": "326px"
+          },
+          {
+            "heading": "メニュー",
+            "rect": {
+              "x": 32,
+              "y": 2269.109375,
+              "width": 326,
+              "height": 469.296875,
+              "right": 358,
+              "bottom": 2738.40625
+            },
+            "columns": "326px"
+          },
+          {
+            "heading": "セーブ",
+            "rect": {
+              "x": 32,
+              "y": 2754.40625,
+              "width": 326,
+              "height": 207.296875,
+              "right": 358,
+              "bottom": 2961.703125
+            },
+            "columns": "326px"
+          }
+        ],
+        "rows": [
+          {
+            "operation": "flick",
+            "rect": {
+              "x": 49,
+              "y": 1490.109375,
+              "width": 292,
+              "height": 161.5,
+              "right": 341,
+              "bottom": 1651.609375
+            }
+          },
+          {
+            "operation": "swipe",
+            "rect": {
+              "x": 49,
+              "y": 1651.609375,
+              "width": 292,
+              "height": 178.5,
+              "right": 341,
+              "bottom": 1830.109375
+            }
+          },
+          {
+            "operation": "tap",
+            "rect": {
+              "x": 49,
+              "y": 1830.109375,
+              "width": 292,
+              "height": 178.5,
+              "right": 341,
+              "bottom": 2008.609375
+            }
+          },
+          {
+            "operation": "target",
+            "rect": {
+              "x": 49,
+              "y": 2008.609375,
+              "width": 292,
+              "height": 162.5,
+              "right": 341,
+              "bottom": 2171.109375
+            }
+          }
+        ],
+        "horizontalOverflow": []
+      }
+    },
+    {
+      "profile": {
+        "id": "short",
+        "width": 568,
+        "height": 320,
+        "touch": true,
+        "rootSize": 20,
+        "environment": "quota-failure-new-session-day"
+      },
+      "quotaFailure": true,
+      "screenshots": [
+        {
+          "filename": "short-warning-help.png",
+          "metrics": {
+            "viewport": {
+              "width": 568,
+              "height": 320
+            },
+            "rootFont": "20px",
+            "dialog": {
+              "x": 24,
+              "y": 20,
+              "width": 520,
+              "height": 280,
+              "right": 544,
+              "bottom": 300
+            },
+            "pane": {
+              "x": 39,
+              "y": 75,
+              "width": 490,
+              "height": 214,
+              "right": 529,
+              "bottom": 289,
+              "scrollTop": 88,
+              "scrollHeight": 3037,
+              "clientHeight": 214,
+              "clientWidth": 490,
+              "scrollWidth": 490
+            },
+            "title": "ヘルプ",
+            "wallet": "所持金 0 Value",
+            "save": {
+              "phase": "failed",
+              "text": "保存容量が不足しています。今回の進行は保存できていません。以前の保存は保持し、再試行します。",
+              "role": "status",
+              "live": "polite"
+            },
+            "focus": {
+              "id": "collection-title",
+              "view": ""
+            },
+            "horizontalOverflow": [],
+            "controls": [
+              {
+                "id": "collection-back",
+                "rect": {
+                  "x": 39,
+                  "y": 31,
+                  "width": 44,
+                  "height": 44,
+                  "right": 83,
+                  "bottom": 75
+                },
+                "hit": true
+              },
+              {
+                "id": "collection-close",
+                "rect": {
+                  "x": 485,
+                  "y": 31,
+                  "width": 44,
+                  "height": 44,
+                  "right": 529,
+                  "bottom": 75
+                },
+                "hit": true
+              }
+            ],
+            "cards": [],
+            "rows": [],
+            "liveQte": [
+              {
+                "hidden": true,
+                "displayed": false,
+                "operation": null
+              }
+            ],
+            "renderedEnvironment": {
+              "first": {
+                "skyDaylight": 0.8017492711370262,
+                "fogStrength": 0,
+                "fogDensity": 0.0018,
+                "mistVisible": false,
+                "mistAmount": 0
+              },
+              "last": {
+                "skyDaylight": 1,
+                "fogStrength": 0,
+                "fogDensity": 0.0018,
+                "mistVisible": false,
+                "mistAmount": 0
+              },
+              "renders": 25
+            }
+          }
+        }
+      ],
+      "cardsReached": [
+        {
+          "view": "encyclopedia",
+          "name": "図鑑",
+          "description": "発見した魚と捕獲記録",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 289
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 30
+        },
+        {
+          "view": "storage",
+          "name": "生けす",
+          "description": "保管した魚の確認・売却",
+          "rect": {
+            "x": 46,
+            "y": 138,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 226
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 193
+        },
+        {
+          "view": "equipment",
+          "name": "ギア／アップグレード",
+          "description": "ロッドとリールの強化",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 289
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 230
+        },
+        {
+          "view": "achievements",
+          "name": "実績",
+          "description": "達成条件と進捗",
+          "rect": {
+            "x": 46,
+            "y": 138,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 226
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(33, 74, 64)",
+          "scrollTop": 393
+        },
+        {
+          "view": "sound",
+          "name": "サウンド設定",
+          "description": "BGM・自然音の設定",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 289
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)",
+          "scrollTop": 430
+        },
+        {
+          "view": "help",
+          "name": "ヘルプ",
+          "description": "プレイと操作の基本",
+          "rect": {
+            "x": 46,
+            "y": 187,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 275
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)",
+          "scrollTop": 544
+        }
+      ],
+      "sectionsReached": [],
+      "rowsReached": [],
+      "errors": [],
+      "requestFailures": [],
+      "environment": {
+        "name": "quota-failure-new-session-day",
+        "seededTestContext": false,
+        "fixture": null,
+        "fixtureBaseSHA": null,
+        "note": "Empty browser context; production creates ordinary new session",
+        "saveDerived": {
+          "elapsedSeconds": 0,
+          "timeOfDay": "day",
+          "skyDaylight": 0.8017492711370262,
+          "mistVisible": false,
+          "effectiveFogAmount": 0
+        },
+        "observedAtBoot": {
+          "first": {
+            "skyDaylight": 0.8017492711370262,
+            "fogStrength": 0,
+            "fogDensity": 0.0018,
+            "mistVisible": false,
+            "mistAmount": 0
+          },
+          "last": {
+            "skyDaylight": 1,
+            "fogStrength": 0,
+            "fogDensity": 0.0018,
+            "mistVisible": false,
+            "mistAmount": 0
+          },
+          "renders": 10
+        }
+      },
+      "quotaFault": {
+        "mechanism": "Storage.setItem throws QuotaExceededError for production save slots only",
+        "writes": [
+          {
+            "key": "barb.save.v1.slotA",
+            "name": "QuotaExceededError"
+          }
+        ]
+      },
+      "helpOrigin": {
+        "scrollTop": 544,
+        "card": {
+          "view": "help",
+          "name": "ヘルプ",
+          "description": "プレイと操作の基本",
+          "rect": {
+            "x": 46,
+            "y": 187,
+            "width": 476,
+            "height": 88,
+            "right": 522,
+            "bottom": 275
+          },
+          "inPane": true,
+          "hit": true,
+          "background": "rgb(48, 71, 77)"
+        }
+      },
+      "warning": {
+        "text": "保存容量が不足しています。今回の進行は保存できていません。以前の保存は保持し、再試行します。",
+        "top": 81,
+        "bottom": 133,
+        "paneTop": 75,
+        "paneBottom": 289
+      },
+      "restored": {
+        "title": "湖の記録",
+        "pane": {
+          "x": 39,
+          "y": 75,
+          "width": 490,
+          "height": 214,
+          "right": 529,
+          "bottom": 289,
+          "scrollTop": 544,
+          "scrollHeight": 758,
+          "clientHeight": 214,
+          "clientWidth": 490,
+          "scrollWidth": 490
+        },
+        "focus": {
+          "id": "",
+          "view": "help"
+        },
+        "wallet": "所持金 0 Value",
+        "save": {
+          "phase": "failed",
+          "text": "保存容量が不足しています。今回の進行は保存できていません。以前の保存は保持し、再試行します。",
+          "role": "status",
+          "live": "polite"
+        },
+        "controls": [
+          {
+            "id": "collection-close",
+            "rect": {
+              "x": 485,
+              "y": 31,
+              "width": 44,
+              "height": 44,
+              "right": 529,
+              "bottom": 75
+            },
+            "hit": true
+          }
+        ],
+        "horizontalOverflow": []
+      },
+      "closedFocus": {
+        "id": "scene",
+        "view": ""
+      },
+      "reopened": {
+        "title": "湖の記録",
+        "pane": {
+          "x": 39,
+          "y": 75,
+          "width": 490,
+          "height": 214,
+          "right": 529,
+          "bottom": 289,
+          "scrollTop": 0,
+          "scrollHeight": 758,
+          "clientHeight": 214,
+          "clientWidth": 490,
+          "scrollWidth": 490
+        },
+        "focus": {
+          "id": "collection-close",
+          "view": ""
+        },
+        "wallet": "所持金 0 Value",
+        "save": {
+          "phase": "failed",
+          "text": "保存容量が不足しています。今回の進行は保存できていません。以前の保存は保持し、再試行します。",
+          "role": "status",
+          "live": "polite"
+        },
+        "controls": [
+          {
+            "id": "collection-close",
+            "rect": {
+              "x": 485,
+              "y": 31,
+              "width": 44,
+              "height": 44,
+              "right": 529,
+              "bottom": 75
+            },
+            "hit": true
+          }
+        ],
+        "horizontalOverflow": []
+      },
+      "escapedFocus": {
+        "id": "scene",
+        "view": ""
+      }
+    }
+  ],
+  "success": true,
+  "measurementSummary": {
+    "note": "Repeated full-pane snapshots for section jumps are summarized as heading/focus/scroll witnesses; canonical full per-operation reached measurements are retained. Raw capture retained in execution workspace, no trace committed.",
+    "rawCaptureSha256": "f913f4bbb4dc70bf540093b30ff275e17af89961cd76afbf7054f0aded621056",
+    "rawCaptureBytes": 329255
+  }
+}

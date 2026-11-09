@@ -1,0 +1,185 @@
+{
+  "scope": "Local collection-only audit; no browser tests, CI execution, CI success, or validation merge created/verified.",
+  "sourceSha": "a1f9804643dc34fe29fd1ff5cfab1efe727cd642",
+  "baseSha": "fcdc51b2a8eb30c9556b77bf0a6275829b62c495",
+  "classification": {
+    "level": "L2",
+    "reasons": [
+      "高リスク・共有基盤・未知の変更: docs/ux-b2/README.md"
+    ],
+    "changes": [
+      {
+        "status": "A",
+        "paths": [
+          "docs/ux-b2/README.md"
+        ]
+      },
+      {
+        "status": "M",
+        "paths": [
+          "src/ui/collection-menu.js"
+        ]
+      },
+      {
+        "status": "A",
+        "paths": [
+          "src/ui/help-view.js"
+        ]
+      },
+      {
+        "status": "A",
+        "paths": [
+          "src/ui/qte-glyphs.js"
+        ]
+      },
+      {
+        "status": "M",
+        "paths": [
+          "src/ui/qte-hud.js"
+        ]
+      },
+      {
+        "status": "M",
+        "paths": [
+          "src/ui/style.css"
+        ]
+      },
+      {
+        "status": "M",
+        "paths": [
+          "tests/browser/achievements.spec.js"
+        ]
+      },
+      {
+        "status": "M",
+        "paths": [
+          "tests/browser/collection-menu.spec.js"
+        ]
+      },
+      {
+        "status": "A",
+        "paths": [
+          "tests/browser/help.spec.js"
+        ]
+      },
+      {
+        "status": "M",
+        "paths": [
+          "tests/browser/menu-navigation.spec.js"
+        ]
+      },
+      {
+        "status": "A",
+        "paths": [
+          "tests/qte-glyphs.test.js"
+        ]
+      }
+    ]
+  },
+  "sourceTree": "2ff6ac86a5649300509daa0f94590a135297b544",
+  "collectionEnvironment": {
+    "BARB_MOBILE_BASE_SHA": "fcdc51b2a8eb30c9556b77bf0a6275829b62c495",
+    "BARB_MOBILE_TARGET": "unset; main and pr variants"
+  },
+  "inventorySpecCount": 45,
+  "selectedSpecCount": 45,
+  "originalCollectedTests": 430,
+  "laneUnionCollectedTests": 430,
+  "exactCollectedIdentityUnion": true,
+  "duplicateTestIdentities": 0,
+  "lanes": {
+    "regular_a": {
+      "specCount": 13,
+      "collectedTests": 128,
+      "specs": [
+        "tests/browser/achievement-notice.spec.js",
+        "tests/browser/achievements.spec.js",
+        "tests/browser/audio-gain.spec.js",
+        "tests/browser/collection-menu.spec.js",
+        "tests/browser/final-stability.spec.js",
+        "tests/browser/fish-assets.spec.js",
+        "tests/browser/fish-image-loading.spec.js",
+        "tests/browser/fishing-effects.spec.js",
+        "tests/browser/fishing.spec.js",
+        "tests/browser/lake-scenery.spec.js",
+        "tests/browser/phase6a.spec.js",
+        "tests/browser/qte-operations.spec.js",
+        "tests/browser/species-discovery.spec.js"
+      ]
+    },
+    "regular_b": {
+      "specCount": 15,
+      "collectedTests": 125,
+      "specs": [
+        "tests/browser/audio.spec.js",
+        "tests/browser/autosave.spec.js",
+        "tests/browser/bio-audio-quality.spec.js",
+        "tests/browser/cast-motion.spec.js",
+        "tests/browser/equipment-game.spec.js",
+        "tests/browser/equipment-ui.spec.js",
+        "tests/browser/fishing-spots.spec.js",
+        "tests/browser/help.spec.js",
+        "tests/browser/phase6b.spec.js",
+        "tests/browser/phase6c.spec.js",
+        "tests/browser/qte-economy.spec.js",
+        "tests/browser/qte-production.spec.js",
+        "tests/browser/rod-reel.spec.js",
+        "tests/browser/save-data.spec.js",
+        "tests/browser/smoke-pc.spec.js"
+      ]
+    },
+    "regular_c": {
+      "specCount": 16,
+      "collectedTests": 119,
+      "specs": [
+        "tests/browser/bio-audio.spec.js",
+        "tests/browser/bio-sources.spec.js",
+        "tests/browser/cast-visibility.spec.js",
+        "tests/browser/day-night.spec.js",
+        "tests/browser/depth-time.spec.js",
+        "tests/browser/fish-sales.spec.js",
+        "tests/browser/game.spec.js",
+        "tests/browser/menu-navigation.spec.js",
+        "tests/browser/mobile-layout.spec.js",
+        "tests/browser/night-fog.spec.js",
+        "tests/browser/opening-title.spec.js",
+        "tests/browser/qte-public-on.spec.js",
+        "tests/browser/qte-ui-production.spec.js",
+        "tests/browser/sale-notice.spec.js",
+        "tests/browser/smoke-touch.spec.js",
+        "tests/browser/species-discovery-production.spec.js"
+      ]
+    },
+    "mobile": {
+      "specCount": 1,
+      "collectedTests": 58,
+      "specs": [
+        "tests/browser/mobile-performance.spec.js"
+      ]
+    }
+  },
+  "help": {
+    "spec": "tests/browser/help.spec.js",
+    "lane": "regular_b",
+    "collectedTests": 9
+  },
+  "mobile": {
+    "collectedTests": 58,
+    "requiredComparisonPairs": 34,
+    "requiredComparisonImages": 68,
+    "comparisonExecuted": false,
+    "note": "Collected Playwright cases are distinct from capture comparison pair/image counts."
+  },
+  "warnings": [
+    "Unprofiled regular specs require review: tests/browser/help.spec.js, tests/browser/menu-navigation.spec.js"
+  ],
+  "unprofiledSpecs": [
+    "tests/browser/help.spec.js",
+    "tests/browser/menu-navigation.spec.js"
+  ],
+  "limitations": [
+    "No actual L2 execution verified",
+    "No ci-required status checked",
+    "No actual validation merge or GitHub SHA/ref/run/attempt checked"
+  ]
+}
