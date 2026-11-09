@@ -20,7 +20,7 @@ for (const touch of [false, true]) {
     await expect(menuNote).toHaveCSS('color', 'rgb(184, 191, 192)');
     const views = [['encyclopedia', '図鑑'], ['storage', '生けす'], ['equipment', 'ギア／アップグレード'],
       ['achievements', '実績'], ['sound', 'サウンド設定']];
-    await expect(page.locator('#collection-content > button')).toHaveText(views.map(([, label]) => label));
+    await expect(page.locator('.menu-entry-title')).toHaveText(views.map(([, label]) => label));
     for (const [view, label] of views) {
       const button = page.getByRole('button', { name: label, exact: true });
       await expect(button).toHaveAttribute('data-view', view);

@@ -79,11 +79,15 @@
           </div>
           <button id="collection-close" type="button" aria-label="閉じてゲームに戻る">×</button>
         </header>
-        <p id="collection-notice" class="session-notice">ゲームは一時停止中です。変更はこのブラウザに自動保存を試みます。保存状態をご確認ください。</p>
-        <p id="collection-save-status" class="save-status" role="status" aria-live="polite"></p>
-        <p id="collection-wallet"></p>
-        <p id="collection-sale-notice" role="status" hidden></p>
-        <div id="collection-content"></div>
+        <div id="collection-content">
+          <div class="collection-context">
+            <p id="collection-notice" class="session-notice">ゲームは一時停止中です。変更はこのブラウザに自動保存を試みます。保存状態をご確認ください。</p>
+            <p id="collection-wallet"></p>
+            <p id="collection-save-status" class="save-status" role="status" aria-live="polite"></p>
+            <p id="collection-sale-notice" role="status" hidden></p>
+          </div>
+          <div id="collection-view"></div>
+        </div>
       </dialog>
       <div id="joystick" hidden aria-hidden="true"><span id="joystick-knob"></span></div>
       <div id="status" class="status" role="status">湖を準備しています…</div>
