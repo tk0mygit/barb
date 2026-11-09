@@ -202,16 +202,39 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .header-tools { display: flex; align-items: center; gap: 22px; }
 #menu-button { width: 48px; min-height: 48px; padding: 0; justify-content: center; font-size: 30px; line-height: 1; background: #163d38dc; color: #eee9d7; }
 .session-notice { font-size: 11px; line-height: 1.8; opacity: 0.8; }
-#collection-dialog { color: #f4f2e6; background: #173d38; border: 1px solid #e0d5a980; border-radius: 8px; padding: 24px; width: min(820px, 94vw); height: min(740px, 90dvh); max-height: 90dvh; overflow: hidden; }
+#collection-dialog { color: #f4f2e6; background: #173d38; border: 1px solid #91a59d; border-radius: 8px; padding: 24px; width: min(820px, 94vw); height: min(740px, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 48px)); overflow: hidden; }
 #collection-dialog[open] { display: flex; flex-direction: column; }
 #collection-dialog::backdrop { background: #071f22c9; }
 .collection-header { display: flex; gap: 14px; align-items: center; flex-shrink: 0; }
 .collection-heading { flex: 1; min-width: 0; }
 #collection-menu-note { margin: 0; font-size: 10px; line-height: 1.3; color: #b8bfc0; }
 .collection-header h2 { font-size: clamp(17px, 3vw, 24px); font-weight: 400; letter-spacing: 1px; margin: 0; flex: 1; }
-.collection-header button { width: 44px; min-height: 44px; padding: 0; justify-content: center; font-size: 23px; flex-shrink: 0; }
-#collection-content { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; min-height: 0; padding: 4px 6px 14px; }
-#collection-content > button { margin: 16px 0; }
+.collection-header button { width: 44px; height: 44px; min-height: 44px; padding: 0; justify-content: center; font-size: 23px; flex-shrink: 0; }
+#collection-dialog .collection-header button { transform: none; }
+#collection-dialog .collection-header button:focus-visible,
+#collection-dialog .menu-entry:focus-visible { outline: 3px solid #f2c96c; outline-offset: 3px; }
+/* Keep the established scroll/visible-image root. Full status text shares this
+   pane so a long warning cannot push content or the fixed close/back away. */
+#collection-content { flex: 1; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; min-height: 0; padding: 6px 7px 14px; container: collection-menu / inline-size; }
+#collection-dialog .collection-context { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 14px; }
+#collection-dialog #collection-notice { flex-basis: 100%; margin: 8px 0 0; font-size: .75rem; line-height: 1.6; }
+#collection-dialog #collection-wallet { flex-shrink: 0; margin: 0; font-size: .8125rem; line-height: 1.6; }
+#collection-dialog #collection-save-status { flex: 1 1 18rem; min-width: 0; margin: 0; font-size: .8125rem; line-height: 1.6; }
+#collection-dialog #collection-sale-notice { flex-basis: 100%; margin: 0; }
+#collection-view > button { margin: 16px 0; }
+#collection-dialog .menu-home { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+#collection-dialog .menu-entry { position: relative; min-width: 0; min-height: 108px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 20px 42px 20px 20px; border: 1px solid #91a59d; border-radius: 4px; background: #214a40; color: #f4f2e6; text-align: left; letter-spacing: .04em; transform: none; transition: background .15s; }
+#collection-dialog .menu-entry:hover { background: #294f45; transform: none; }
+#collection-dialog .menu-entry:active { background: #1b3e36; transform: none; }
+#collection-dialog .menu-entry--aux { background: #30474d; }
+#collection-dialog .menu-entry--aux:hover { background: #3a535a; }
+#collection-dialog .menu-entry--aux:active { background: #273c42; }
+#collection-dialog .menu-entry-title { font-size: 1rem; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
+#collection-dialog .menu-entry-description { margin-top: 7px; color: #cad4ca; font-size: .8125rem; line-height: 1.5; letter-spacing: 0; overflow-wrap: anywhere; }
+#collection-dialog .menu-entry-arrow { position: absolute; top: 50%; right: 18px; transform: translateY(-50%); color: #cad4ca; font-size: 24px; font-weight: 300; line-height: 1; }
+@container collection-menu (min-width: 34rem) {
+  #collection-dialog .menu-home { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .collection-summary { font-size: 12px; margin: 8px 0 18px; letter-spacing: 1px; }
 .collection-empty { padding: 30px 6px; line-height: 2; opacity: 0.8; }
 .fish-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -235,14 +258,18 @@ button.fish-card:hover { background: #335e4c; }
   .header-tools { gap: 12px; }
   .header-tools .location { display: none; }
   #collection-dialog { padding: 16px 12px; }
+  #collection-dialog .menu-entry { min-height: 94px; padding: 17px 38px 17px 16px; }
   .fish-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .fish-card { padding: 8px; }
   .stored-fish { gap: 10px; }
   .stored-fish h3, .stored-fish p { font-size: 13px; }
 }
 @media (max-height: 500px) {
-  #collection-dialog { padding: 12px 16px; height: 94dvh; max-height: 94dvh; }
-  #collection-notice { margin: 6px 0; }
+  #collection-dialog { padding: 10px 14px; height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 24px); }
+  #collection-dialog .menu-home { grid-template-columns: minmax(0, 1fr); }
+  #collection-dialog .menu-entry { min-height: 88px; padding-top: 12px; padding-bottom: 12px; }
+  #collection-dialog .collection-context { margin-bottom: 10px; gap: 4px 12px; }
+  #collection-dialog #collection-notice { margin-top: 6px; }
   #catch-dialog .session-notice { margin-bottom: 0; }
 }
 

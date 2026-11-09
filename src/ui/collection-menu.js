@@ -8,6 +8,13 @@ import { createVisibleFishImages } from './fish-image-loader.js';
 
 const silhouette = new URL('../assets/fish/unknown.svg', import.meta.url).href;
 const dates = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeStyle: 'medium' });
+const menuEntries = [
+  ['encyclopedia', '図鑑', '発見した魚と捕獲記録'],
+  ['storage', '生けす', '保管した魚の確認・売却'],
+  ['equipment', 'ギア／アップグレード', 'ロッドとリールの強化'],
+  ['achievements', '実績', '達成条件と進捗'],
+  ['sound', 'サウンド設定', 'BGM・自然音の設定', 'aux'],
+];
 function element(tag, text, className) {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
@@ -31,7 +38,8 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
   const dialog = document.querySelector('#collection-dialog');
   const title = document.querySelector('#collection-title');
   const menuNote = document.querySelector('#collection-menu-note');
-  const content = document.querySelector('#collection-content');
+  const scrollContent = document.querySelector('#collection-content');
+  const content = document.querySelector('#collection-view');
   const back = document.querySelector('#collection-back');
   const close = document.querySelector('#collection-close');
   let active = false, screen = 'menu', pendingSale = null, pendingUpgrade = null;
@@ -40,23 +48,70 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
   const purchaseAllowed = () => purchaseAllowedAtOpen && canPurchase();
   let disposeSoundSettings;
   let visibleImages;
-  function render(next = 'menu', speciesId) {
-    visibleImages?.dispose(); visibleImages = createVisibleFishImages(content);
+  // Only UI positions and stable control keys survive a child view. Fish DOM,
+  // decoded images, subscriptions and pending quotes keep their existing owners.
+  const parentPositions = new Map();
+  function controlKey(button) {
+    if (!button) return null;
+    if (button.id) return `id:${button.id}`;
+    if (button.dataset.view) return `view:${button.dataset.view}`;
+    if (button.dataset.slot !== undefined) return `slot:${button.dataset.slot}`;
+    if (button.dataset.upgrade) return `upgrade:${button.dataset.upgrade}`;
+    const catchId = button.closest('.stored-fish')?.dataset.catchId;
+    return catchId ? `catch:${catchId}` : null;
+  }
+  function capturePosition(origin = document.activeElement) {
+    const keys = [...content.querySelectorAll('button')].map(controlKey).filter(Boolean);
+    const key = content.contains(origin) ? controlKey(origin) : null;
+    return { scrollTop: scrollContent.scrollTop, key, keys, index: keys.indexOf(key) };
+  }
+  function restoreFocus(position) {
+    const buttons = new Map([...content.querySelectorAll('button')]
+      .filter(button => !button.disabled && button.getClientRects().length)
+      .map(button => [controlKey(button), button]).filter(([key]) => key));
+    const keys = position ? [position.key, ...position.keys.slice(position.index + 1),
+      ...position.keys.slice(0, Math.max(0, position.index)).reverse()] : [];
+    const target = keys.map(key => buttons.get(key)).find(Boolean);
+    if (!target) { title.focus({ preventScroll: true }); return; }
+    target.focus({ preventScroll: true });
+    // A removed row, changed balance or rotated viewport may put a fallback
+    // outside the restored pane. Reveal only that control when necessary.
+    const box = target.getBoundingClientRect(), pane = scrollContent.getBoundingClientRect();
+    if (box.top < pane.top || box.bottom > pane.bottom) target.scrollIntoView({ block: 'nearest' });
+  }
+  function openChild(next, origin, speciesId) {
+    parentPositions.set(screen, capturePosition(origin));
+    render(next, speciesId); title.focus({ preventScroll: true });
+  }
+  function returnTo(next) {
+    const position = parentPositions.get(next);
+    render(next, undefined, position?.scrollTop);
+    restoreFocus(position);
+  }
+  function render(next = 'menu', speciesId, scrollTop = 0) {
+    visibleImages?.dispose(); visibleImages = createVisibleFishImages(scrollContent);
     disposeSoundSettings?.(); disposeSoundSettings = null;
     if (next !== 'confirm-sale') pendingSale = null;
     if (next !== 'confirm-upgrade') pendingUpgrade = null;
     screen = next;
-    content.replaceChildren(); content.scrollTop = 0;
+    content.replaceChildren(); scrollContent.scrollTop = 0;
     back.hidden = next === 'menu';
     menuNote.hidden = next !== 'menu';
     if (next === 'menu') {
       title.textContent = '湖の記録';
-      const views = [['encyclopedia', '図鑑'], ['storage', '生けす'], ['equipment', 'ギア／アップグレード'], ['achievements', '実績']];
-      if (ambientAudio) views.push(['sound', 'サウンド設定']);
-      for (const [view, label] of views) {
-        const button = element('button', label); button.type = 'button'; button.dataset.view = view;
-        button.addEventListener('click', () => { render(view); title.focus(); }); content.append(button);
+      const home = element('div', undefined, 'menu-home');
+      for (const [view, label, description, role] of menuEntries) {
+        if (view === 'sound' && !ambientAudio) continue;
+        const button = element('button', undefined, `menu-entry${role === 'aux' ? ' menu-entry--aux' : ''}`);
+        button.type = 'button'; button.dataset.view = view;
+        const name = element('span', label, 'menu-entry-title'); name.id = `collection-${view}-label`;
+        const summary = element('span', description, 'menu-entry-description'); summary.id = `collection-${view}-description`;
+        const arrow = element('span', '›', 'menu-entry-arrow'); arrow.setAttribute('aria-hidden', 'true');
+        button.setAttribute('aria-labelledby', name.id); button.setAttribute('aria-describedby', summary.id);
+        button.append(name, summary, arrow);
+        button.addEventListener('click', () => openChild(view, button)); home.append(button);
       }
+      content.append(home);
     } else if (next === 'encyclopedia') {
       const entries = collection.encyclopedia;
       title.textContent = '図鑑';
@@ -70,7 +125,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
         if (discovered) {
           card.type = 'button';
           card.append(element('small', `${entry.count}匹 · 最大 ${entry.maxLengthCm.toFixed(1)} cm`));
-          card.addEventListener('click', () => { render('detail', entry.speciesId); title.focus(); });
+          card.addEventListener('click', () => openChild('detail', card, entry.speciesId));
         }
         grid.append(card);
       }
@@ -96,7 +151,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
       sellAll.type = 'button'; sellAll.id = 'sell-all'; sellAll.disabled = !quote;
       sellAll.addEventListener('click', () => {
         pendingSale = collection.quoteStored();
-        if (pendingSale) { render('confirm-sale'); title.focus(); }
+        if (pendingSale) openChild('confirm-sale', sellAll);
       });
       content.append(sellAll);
       if (!records.length) content.append(element('p', '現在生けすは虚です。', 'collection-empty'));
@@ -111,8 +166,9 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
         info.append(element('p', `売却価格 ${formatMoney(calculateSalePrice(record))}`, 'stored-price'));
         const sell = element('button', 'この個体を売却'); sell.type = 'button'; sell.className = 'sell-stored';
         sell.addEventListener('click', () => {
+          const position = capturePosition(sell);
           // A stale/detached button cannot sell another fish or re-sell this ID.
-          completeSale(collection.sellStored([record.id]));
+          completeSale(collection.sellStored([record.id]), position);
         });
         info.append(sell);
         row.append(fishImage(fish.image, fish.name, visibleImages), info); list.append(row);
@@ -131,7 +187,8 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
         const status = collection.getUpgradeStatus(kind);
         if (!status?.canPurchase) { completeUpgrade(null); return; }
         pendingUpgrade = status;
-        render('confirm-upgrade'); title.focus();
+        const origin = [...content.querySelectorAll('[data-upgrade]')].find(button => button.dataset.upgrade === kind);
+        openChild('confirm-upgrade', origin);
       });
     } else if (next === 'confirm-upgrade') {
       if (!pendingUpgrade) { render('equipment'); return; }
@@ -147,7 +204,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
         const receipt = allowed && latest?.canPurchase && latest.currentLevel === displayedQuote.currentLevel
           ? collection.purchaseUpgrade(displayedQuote.kind, displayedQuote.currentLevel) : null;
         completeUpgrade(receipt, allowed ? undefined : UPGRADE_GUIDANCE);
-      }, () => { render('equipment'); title.focus(); });
+      }, () => returnTo('equipment'));
     } else if (next === 'confirm-sale') {
       if (!pendingSale) { render('storage'); return; }
       title.textContent = '生けす内をすべて売却';
@@ -161,27 +218,32 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
         completeSale(collection.sellStored(displayedQuote.ids));
       });
       const cancel = element('button', 'キャンセル'); cancel.type = 'button'; cancel.id = 'cancel-sale';
-      cancel.addEventListener('click', () => { render('storage'); title.focus(); });
+      cancel.addEventListener('click', () => returnTo('storage'));
       content.append(confirm, cancel);
     }
+    scrollContent.scrollTop = scrollTop;
     visibleImages.refresh();
   }
   function completeUpgrade(receipt, error = '購入できませんでした。最新の所持金と装備をご確認ください。') {
+    const position = screen === 'equipment' ? capturePosition() : parentPositions.get('equipment');
     onUpgrade(); // The shared HUD owns both wallet displays, even on failure.
-    render('equipment'); title.focus();
+    render('equipment', undefined, position?.scrollTop);
     const message = element('p', receipt ? `${EQUIPMENT_NAMES[receipt.kind]}はLv.${receipt.level}と記憶しました。` : error, 'upgrade-message');
     message.setAttribute('role', receipt ? 'status' : 'alert'); content.prepend(message);
+    restoreFocus(position);
   }
-  function completeSale(receipt) {
-    render('storage'); title.focus();
+  function completeSale(receipt, position = parentPositions.get('storage')) {
+    render('storage', undefined, position?.scrollTop);
     if (receipt) onSale(receipt);
     else { const message = element('p', '売却できませんでした。生けすと所持金をご確認ください。'); message.setAttribute('role', 'alert'); content.prepend(message); }
+    restoreFocus(position);
   }
   function finishClose() {
     if (!active) return;
     visibleImages?.dispose();
     disposeSoundSettings?.(); disposeSoundSettings = null;
     active = false; pendingSale = null; pendingUpgrade = null; purchaseAllowedAtOpen = false;
+    parentPositions.clear();
     trigger.setAttribute('aria-expanded', 'false'); onOpenChange(false);
   }
   function dismiss() { dialog.close(); finishClose(); }
@@ -195,17 +257,21 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
     // Opening the menu cancels AIM through the existing input reset. Keep that
     // menu visit read-only if it originated in a prohibited phase.
     purchaseAllowedAtOpen = (allowedOnPress ?? true) && canPurchase();
+    parentPositions.clear();
     active = true; onOpenChange(true); render();
-    trigger.setAttribute('aria-expanded', 'true'); dialog.showModal(); close.focus();
+    trigger.setAttribute('aria-expanded', 'true'); dialog.showModal();
+    // A hidden native dialog can retain its previous scroll offset until open.
+    scrollContent.scrollTop = 0; close.focus({ preventScroll: true });
   });
-  back.addEventListener('click', () => { render(screen === 'detail' ? 'encyclopedia' : screen === 'confirm-sale' ? 'storage' : screen === 'confirm-upgrade' ? 'equipment' : 'menu'); title.focus(); });
+  back.addEventListener('click', () => returnTo(screen === 'detail' ? 'encyclopedia' : screen === 'confirm-sale' ? 'storage' : screen === 'confirm-upgrade' ? 'equipment' : 'menu'));
   close.addEventListener('click', dismiss);
   dialog.addEventListener('cancel', event => { event.preventDefault(); dismiss(); });
   dialog.addEventListener('close', () => { if (!dialog.open) finishClose(); });
   collection.subscribe(() => {
     if (!active || !dialog.open || screen !== 'achievements') return;
-    const scrollTop = content.scrollTop;
-    render('achievements'); content.scrollTop = scrollTop;
+    const position = capturePosition();
+    render('achievements', undefined, position.scrollTop);
+    if (position.key) restoreFocus(position);
   });
   return { get isOpen() { return active; }, update() { trigger.disabled = !canOpen(); } };
 }

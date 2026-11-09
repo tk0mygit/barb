@@ -1,0 +1,425 @@
+{
+  "baseSHA": "cdd81b44b78d4ecdedde44e35e7fb13d9e9343db",
+  "sourceHashes": {
+    "index.html": "6febe51bd94f2b882a4cd15beddf52895114206245ff5f0fae90ea251e840456",
+    "src/ui/collection-menu.js": "10f17fec1924fca8d519e6ed81276015919d4e7ee563632562433342eea7013a",
+    "src/ui/style.css": "c7bef42c595c307164247cc50f2b748a70310f7e4893e08764dad9de09c86daf"
+  },
+  "records": [
+    {
+      "profile": {
+        "id": "pc",
+        "width": 1280,
+        "height": 800,
+        "touch": false
+      },
+      "kind": "current UX-B1 production build; viewport/touch emulation, not physical-device acceptance",
+      "captureInput": "trusted mouse click; native touch verified separately by menu-navigation.spec.js",
+      "screenshots": [
+        "pc-menu.png"
+      ],
+      "errors": [],
+      "positions": [
+        {
+          "view": "encyclopedia",
+          "rect": {
+            "x": 262,
+            "y": 176.984375,
+            "width": 372,
+            "height": 108
+          },
+          "hit": true,
+          "scrollTop": 0,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "16px",
+          "descriptionSize": "13px"
+        },
+        {
+          "view": "storage",
+          "rect": {
+            "x": 646,
+            "y": 176.984375,
+            "width": 372,
+            "height": 108
+          },
+          "hit": true,
+          "scrollTop": 0,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "16px",
+          "descriptionSize": "13px"
+        },
+        {
+          "view": "equipment",
+          "rect": {
+            "x": 262,
+            "y": 296.984375,
+            "width": 372,
+            "height": 108
+          },
+          "hit": true,
+          "scrollTop": 0,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "16px",
+          "descriptionSize": "13px"
+        },
+        {
+          "view": "achievements",
+          "rect": {
+            "x": 646,
+            "y": 296.984375,
+            "width": 372,
+            "height": 108
+          },
+          "hit": true,
+          "scrollTop": 0,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "16px",
+          "descriptionSize": "13px"
+        },
+        {
+          "view": "sound",
+          "rect": {
+            "x": 262,
+            "y": 416.984375,
+            "width": 372,
+            "height": 108
+          },
+          "hit": true,
+          "scrollTop": 0,
+          "background": "rgb(48, 71, 77)",
+          "titleSize": "16px",
+          "descriptionSize": "13px"
+        }
+      ],
+      "layout": {
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "rootFont": "16px",
+        "clientHeight": 642,
+        "scrollHeight": 642,
+        "clientWidth": 770,
+        "scrollWidth": 770,
+        "columns": "372px 372px",
+        "save": "未保存の変更があります。自動保存を待っています。",
+        "wallet": "所持金 0 Value",
+        "closeFocus": "collection-close",
+        "dialogCount": 1
+      }
+    },
+    {
+      "profile": {
+        "id": "touch",
+        "width": 390,
+        "height": 844,
+        "touch": true
+      },
+      "kind": "current UX-B1 production build; viewport/touch emulation, not physical-device acceptance",
+      "captureInput": "trusted mouse click; native touch verified separately by menu-navigation.spec.js",
+      "screenshots": [
+        "touch-menu.png"
+      ],
+      "errors": [],
+      "positions": [
+        {
+          "view": "encyclopedia",
+          "rect": {
+            "x": 32,
+            "y": 232.96875,
+            "width": 326,
+            "height": 94
+          },
+          "hit": true,
+          "scrollTop": 0,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "16px",
+          "descriptionSize": "13px"
+        },
+        {
+          "view": "storage",
+          "rect": {
+            "x": 32,
+            "y": 338.96875,
+            "width": 326,
+            "height": 94
+          },
+          "hit": true,
+          "scrollTop": 0,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "16px",
+          "descriptionSize": "13px"
+        },
+        {
+          "view": "equipment",
+          "rect": {
+            "x": 32,
+            "y": 444.96875,
+            "width": 326,
+            "height": 94
+          },
+          "hit": true,
+          "scrollTop": 0,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "16px",
+          "descriptionSize": "13px"
+        },
+        {
+          "view": "achievements",
+          "rect": {
+            "x": 32,
+            "y": 550.96875,
+            "width": 326,
+            "height": 94
+          },
+          "hit": true,
+          "scrollTop": 0,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "16px",
+          "descriptionSize": "13px"
+        },
+        {
+          "view": "sound",
+          "rect": {
+            "x": 32,
+            "y": 656.96875,
+            "width": 326,
+            "height": 94
+          },
+          "hit": true,
+          "scrollTop": 0,
+          "background": "rgb(48, 71, 77)",
+          "titleSize": "16px",
+          "descriptionSize": "13px"
+        }
+      ],
+      "layout": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "rootFont": "16px",
+        "clientHeight": 662,
+        "scrollHeight": 662,
+        "clientWidth": 340,
+        "scrollWidth": 340,
+        "columns": "326px",
+        "save": "未保存の変更があります。自動保存を待っています。",
+        "wallet": "所持金 0 Value",
+        "closeFocus": "collection-close",
+        "dialogCount": 1
+      }
+    },
+    {
+      "profile": {
+        "id": "short",
+        "width": 568,
+        "height": 320,
+        "touch": true,
+        "large": true
+      },
+      "kind": "current UX-B1 production build; viewport/touch emulation, not physical-device acceptance",
+      "captureInput": "trusted mouse click; native touch verified separately by menu-navigation.spec.js",
+      "screenshots": [
+        "short-menu.png",
+        "short-equipment.png",
+        "short-sound.png"
+      ],
+      "errors": [],
+      "positions": [
+        {
+          "view": "encyclopedia",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88
+          },
+          "hit": true,
+          "scrollTop": 4,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "20px",
+          "descriptionSize": "16.25px"
+        },
+        {
+          "view": "storage",
+          "rect": {
+            "x": 46,
+            "y": 138,
+            "width": 476,
+            "height": 88
+          },
+          "hit": true,
+          "scrollTop": 167,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "20px",
+          "descriptionSize": "16.25px"
+        },
+        {
+          "view": "equipment",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88
+          },
+          "hit": true,
+          "scrollTop": 204,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "20px",
+          "descriptionSize": "16.25px"
+        },
+        {
+          "view": "achievements",
+          "rect": {
+            "x": 46,
+            "y": 138,
+            "width": 476,
+            "height": 88
+          },
+          "hit": true,
+          "scrollTop": 367,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "20px",
+          "descriptionSize": "16.25px"
+        },
+        {
+          "view": "sound",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88
+          },
+          "hit": true,
+          "scrollTop": 404,
+          "background": "rgb(48, 71, 77)",
+          "titleSize": "20px",
+          "descriptionSize": "16.25px"
+        }
+      ],
+      "layout": {
+        "viewport": {
+          "width": 568,
+          "height": 320
+        },
+        "rootFont": "20px",
+        "clientHeight": 214,
+        "scrollHeight": 632,
+        "clientWidth": 490,
+        "scrollWidth": 490,
+        "columns": "476px",
+        "save": "未保存の変更があります。自動保存を待っています。",
+        "wallet": "所持金 0 Value",
+        "closeFocus": "collection-close",
+        "dialogCount": 1
+      }
+    },
+    {
+      "profile": {
+        "id": "short-warning",
+        "width": 568,
+        "height": 320,
+        "touch": true,
+        "large": true,
+        "quota": true
+      },
+      "kind": "current UX-B1 production build; viewport/touch emulation, not physical-device acceptance",
+      "captureInput": "trusted mouse click; native touch verified separately by menu-navigation.spec.js",
+      "screenshots": [
+        "short-warning-menu.png",
+        "short-warning-equipment.png",
+        "short-warning-sound.png"
+      ],
+      "errors": [],
+      "positions": [
+        {
+          "view": "encyclopedia",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88
+          },
+          "hit": true,
+          "scrollTop": 30,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "20px",
+          "descriptionSize": "16.25px"
+        },
+        {
+          "view": "storage",
+          "rect": {
+            "x": 46,
+            "y": 138,
+            "width": 476,
+            "height": 88
+          },
+          "hit": true,
+          "scrollTop": 193,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "20px",
+          "descriptionSize": "16.25px"
+        },
+        {
+          "view": "equipment",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88
+          },
+          "hit": true,
+          "scrollTop": 230,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "20px",
+          "descriptionSize": "16.25px"
+        },
+        {
+          "view": "achievements",
+          "rect": {
+            "x": 46,
+            "y": 138,
+            "width": 476,
+            "height": 88
+          },
+          "hit": true,
+          "scrollTop": 393,
+          "background": "rgb(33, 74, 64)",
+          "titleSize": "20px",
+          "descriptionSize": "16.25px"
+        },
+        {
+          "view": "sound",
+          "rect": {
+            "x": 46,
+            "y": 201,
+            "width": 476,
+            "height": 88
+          },
+          "hit": true,
+          "scrollTop": 430,
+          "background": "rgb(48, 71, 77)",
+          "titleSize": "20px",
+          "descriptionSize": "16.25px"
+        }
+      ],
+      "layout": {
+        "viewport": {
+          "width": 568,
+          "height": 320
+        },
+        "rootFont": "20px",
+        "clientHeight": 214,
+        "scrollHeight": 658,
+        "clientWidth": 490,
+        "scrollWidth": 490,
+        "columns": "476px",
+        "save": "保存容量が不足しています。今回の進行は保存できていません。以前の保存は保持し、再試行します。",
+        "wallet": "所持金 0 Value",
+        "closeFocus": "collection-close",
+        "dialogCount": 1
+      }
+    }
+  ]
+}
