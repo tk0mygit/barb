@@ -238,7 +238,7 @@ button:disabled { opacity: 0.5; cursor: wait; }
 }
 #collection-dialog .help-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; font-size: .875rem; line-height: 1.8; overflow-wrap: anywhere; }
 #collection-dialog .help-jumps { display: flex; flex-wrap: wrap; gap: 8px; }
-#collection-dialog .help-jumps button { min-height: 44px; padding: 8px 14px; margin: 0; background: #30474d; transform: none; }
+#collection-dialog .help-jumps button { min-height: 44px; padding: 8px 14px; margin: 0; background: #30474d; color: #f4f2e6; font-size: .875rem; transform: none; }
 #collection-dialog .help-jumps button:hover { background: #3a535a; transform: none; }
 #collection-dialog .help-jumps button:active { background: #273c42; transform: none; }
 #collection-dialog .help-jumps button:focus-visible,
