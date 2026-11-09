@@ -4,7 +4,7 @@ import { appendFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync 
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createPlan, listBrowserSpecs, SMOKE_SPECS } from './ci-risk.js';
-import { hash, LANES, MOBILE_SPEC, planHash, readRecord, validationContext } from './lib/ci-artifacts.js';
+import { artifactName, hash, LANES, MOBILE_SPEC, planHash, readRecord, validationContext } from './lib/ci-artifacts.js';
 import { partitionSpecs } from './lib/ci-partition.js';
 
 export { LANES, MOBILE_SPEC };
@@ -104,12 +104,12 @@ export function revalidatePlan(plan, { cwd = process.cwd(), env = process.env } 
 export function executionPlan(plan, inventory, context) {
   // Validate the original selection before deriving a reproducible assignment.
   const lanes = splitSpecs(plan, inventory);
-  return { schemaVersion: 2, context, planHash: planHash(plan), inventory: [...inventory],
+  return { schemaVersion: 3, context, planHash: planHash(plan), inventory: [...inventory],
     selectedSpecs: [...plan.specs], ...partitionSpecs(inventory, plan.specs), lanes };
 }
 
 export function validateExecutionPlan(plan, execution, inventory, context) {
-  assert.equal(execution.schemaVersion, 2, 'Unknown execution plan schema');
+  assert.equal(execution.schemaVersion, 3, 'Unknown execution plan schema');
   assert.deepEqual(execution, executionPlan(plan, inventory, context), 'Inconsistent execution plan');
 }
 
@@ -175,7 +175,8 @@ export function validateLaneCollection(plan, execution, expectedReport, report, 
 }
 
 export function runE2E({ cwd = process.cwd(), env = process.env, lane,
-  input = path.join(cwd, '.ci-input') } = {}) {
+  input = path.join(cwd, '.ci-input', artifactName({ runId: env.GITHUB_RUN_ID,
+    runAttempt: env.GITHUB_RUN_ATTEMPT, validationSha: env.GITHUB_SHA }, 'build')) } = {}) {
   assert(LANES.includes(lane), 'Unknown E2E lane');
   const output = path.join(cwd, '.ci');
   mkdirSync(output, { recursive: true });
@@ -236,7 +237,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   try {
     if (process.argv[2] === 'prepare') prepareE2E();
     else if (process.argv[2] === 'run' && LANES.includes(process.argv[3])) runE2E({ lane: process.argv[3] });
-    else throw new Error('Usage: node scripts/ci-e2e.js prepare | run regular_a | run regular_b | run mobile');
+    else throw new Error('Usage: node scripts/ci-e2e.js prepare | run regular_a | run regular_b | run regular_c | run mobile');
   }
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }

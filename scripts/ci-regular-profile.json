@@ -1,279 +1,571 @@
 {
   "schemaVersion": 1,
-  "version": "regular-2026-11-01-v1",
-  "method": "Sum intervals from each [n/N] test start to the next start; final interval ends at the passed summary. Arithmetic mean of both runs; includes inter-test and failure overhead.",
+  "version": "regular-2026-11-09-1b3fcf89656e",
+  "method": "Each job allocates the interval from every [n/N] test-start timestamp to the next test start; the final interval ends at the N passed summary. Truncate timestamps to milliseconds before subtraction, then sum by spec. Weights are the arithmetic mean of the two successful runs. These are wall-time allocations including inter-test overhead, not pure test durations; the runs have different collected ID sets. logSha256 hashes the exact UTF-8 decoded job log returned by GitHub (including its BOM, if present).",
   "sources": [
     {
-      "runId": "41301076135",
-      "jobId": "124832086355",
-      "headSha": "e8561ffa7f2473d2ec79e8e34c2ed9dcce928bce",
+      "runId": "42496910978",
+      "headSha": "dfeff8c3b45fb9c8debe3035bdacbe6fd5985ebc",
+      "validationSha": "a86b5e3f0741502be159aec81046ec90f469b17a",
       "conclusion": "success",
-      "observedTotalMs": 2333830
+      "observedTotalMs": 5859219,
+      "jobs": [
+        {
+          "jobId": "128781493464",
+          "lane": "regular_a",
+          "testCount": 156,
+          "specCount": 20,
+          "startedAt": "2026-11-08T15:53:33.1951079Z",
+          "finishedAt": "2026-11-08T16:44:10.5210885Z",
+          "observedTotalMs": 3037326,
+          "logSha256": "b70d75ca13b3fa47d398a9b969c15002b142764b7b039220b03b08f9cf69847c"
+        },
+        {
+          "jobId": "128781493521",
+          "lane": "regular_b",
+          "testCount": 206,
+          "specCount": 22,
+          "startedAt": "2026-11-08T15:53:30.6851143Z",
+          "finishedAt": "2026-11-08T16:40:32.5782470Z",
+          "observedTotalMs": 2821893,
+          "logSha256": "754b124b049a0ceceda4e087e4ec98b6d0c5d4c79c3d5d0c803407b161d10f14"
+        }
+      ]
     },
     {
-      "runId": "41293561796",
-      "jobId": "124809848234",
-      "headSha": "4a8205fc1e799e9a3b0e80006ccdf48194ad0147",
-      "conclusion": "failure",
-      "observedTotalMs": 2538037
+      "runId": "42450140652",
+      "headSha": "b08b3a8e102eb6eff497b2dc8b697ed933ac13de",
+      "validationSha": "48d307e39e15ff8953b5fe8545b1aba7a5cc63b2",
+      "conclusion": "success",
+      "observedTotalMs": 5379619,
+      "jobs": [
+        {
+          "jobId": "128637716924",
+          "lane": "regular_a",
+          "testCount": 149,
+          "specCount": 20,
+          "startedAt": "2026-11-08T05:19:02.4372357Z",
+          "finishedAt": "2026-11-08T05:54:42.5606663Z",
+          "observedTotalMs": 2140123,
+          "logSha256": "1043b8afcf87b397a9365f21fd4824d2f1f79de4df971e08654e8b3cf1147801"
+        },
+        {
+          "jobId": "128637716977",
+          "lane": "regular_b",
+          "testCount": 206,
+          "specCount": 22,
+          "startedAt": "2026-11-08T05:19:02.6216846Z",
+          "finishedAt": "2026-11-08T06:13:02.1179252Z",
+          "observedTotalMs": 3239496,
+          "logSha256": "6b76a51a91d30b1dd2b71b1b7aa4fb797c46e9139871b2d571431d46e0b039fd"
+        }
+      ]
     }
   ],
   "fallbackEstimateMs": 60000,
   "specs": [
     {
       "spec": "tests/browser/achievement-notice.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_a",
       "observedMs": [
-        2012,
-        2163
+        7624,
+        9778
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/achievements.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_a",
       "observedMs": [
-        4433,
-        4601
+        5870,
+        6455
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/audio-gain.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_a",
       "observedMs": [
-        3571,
-        3687
+        5268,
+        6065
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/audio.spec.js",
-      "lane": "regular_a",
+      "lane": "regular_b",
       "observedMs": [
-        98732,
-        103412
+        185983,
+        137356
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/autosave.spec.js",
       "lane": "regular_b",
       "observedMs": [
-        123037,
-        132866
+        222002,
+        268901
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/bio-audio-quality.spec.js",
-      "lane": "regular_a",
+      "lane": "regular_b",
       "observedMs": [
-        25137,
-        27243
+        52525,
+        34833
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/bio-audio.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_c",
       "observedMs": [
-        38960,
-        40913
+        60143,
+        67335
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/bio-sources.spec.js",
-      "lane": "regular_a",
+      "lane": "regular_c",
       "observedMs": [
-        3548,
-        3925
+        7724,
+        5565
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
+      ]
+    },
+    {
+      "spec": "tests/browser/cast-motion.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        77401,
+        83791
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/cast-visibility.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_c",
       "observedMs": [
-        259973,
-        275016
+        390384,
+        442266
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/collection-menu.spec.js",
       "lane": "regular_a",
       "observedMs": [
-        22029,
-        24966
+        52864,
+        35392
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/day-night.spec.js",
-      "lane": "regular_a",
+      "lane": "regular_c",
       "observedMs": [
-        118272,
-        128501
+        282624,
+        189766
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/depth-time.spec.js",
-      "lane": "regular_a",
+      "lane": "regular_c",
       "observedMs": [
-        16585,
-        18349
+        38285,
+        26298
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/equipment-game.spec.js",
       "lane": "regular_b",
       "observedMs": [
-        63073,
-        78624
+        97271,
+        121614
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/equipment-ui.spec.js",
       "lane": "regular_b",
       "observedMs": [
-        17581,
-        21308
+        22315,
+        24471
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/final-stability.spec.js",
       "lane": "regular_a",
       "observedMs": [
-        55843,
-        60593
+        99895,
+        68181
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/fish-assets.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_a",
       "observedMs": [
-        35859,
-        38042
+        145911,
+        158282
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/fish-image-loading.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_a",
       "observedMs": [
-        10079,
-        10780
+        41336,
+        40382
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/fish-sales.spec.js",
+      "lane": "regular_c",
+      "observedMs": [
+        221183,
+        154544
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
+      ]
+    },
+    {
+      "spec": "tests/browser/fishing-effects.spec.js",
       "lane": "regular_a",
       "observedMs": [
-        83379,
-        88868
+        102447,
+        72599
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/fishing-spots.spec.js",
-      "lane": "regular_a",
+      "lane": "regular_b",
       "observedMs": [
-        65061,
-        71168
+        139888,
+        96227
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/fishing.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_a",
       "observedMs": [
-        297622,
-        341009
+        1139029,
+        1346695
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/game.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_c",
       "observedMs": [
-        66357,
-        69586
+        110261,
+        116084
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/lake-scenery.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_a",
       "observedMs": [
-        101931,
-        111863
+        172741,
+        181656
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/mobile-layout.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_c",
       "observedMs": [
-        19472,
-        20791
+        29589,
+        35119
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/night-fog.spec.js",
+      "lane": "regular_c",
+      "observedMs": [
+        144398,
+        163936
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
+      ]
+    },
+    {
+      "spec": "tests/browser/opening-title.spec.js",
+      "lane": "regular_c",
+      "observedMs": [
+        8305,
+        9068
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
+      ]
+    },
+    {
+      "spec": "tests/browser/phase6a.spec.js",
+      "lane": "regular_a",
+      "observedMs": [
+        31867,
+        23435
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
+      ]
+    },
+    {
+      "spec": "tests/browser/phase6b.spec.js",
       "lane": "regular_b",
       "observedMs": [
-        91847,
-        97927
+        24206,
+        27739
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
+      ]
+    },
+    {
+      "spec": "tests/browser/phase6c.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        31663,
+        22600
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/qte-economy.spec.js",
-      "lane": "regular_a",
+      "lane": "regular_b",
       "observedMs": [
-        37682,
-        39385
+        58599,
+        47798
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/qte-operations.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_a",
       "observedMs": [
-        20258,
-        20561
+        25503,
+        26541
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/qte-production.spec.js",
-      "lane": "regular_a",
+      "lane": "regular_b",
       "observedMs": [
-        354486,
-        379602
+        756666,
+        533223
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/qte-public-on.spec.js",
-      "lane": "regular_a",
+      "lane": "regular_c",
       "observedMs": [
-        267867,
-        291215
+        575862,
+        405787
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
+      ]
+    },
+    {
+      "spec": "tests/browser/qte-ui-production.spec.js",
+      "lane": "regular_c",
+      "observedMs": [
+        22538,
+        25884
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
+      ]
+    },
+    {
+      "spec": "tests/browser/rod-reel.spec.js",
+      "lane": "regular_b",
+      "observedMs": [
+        318857,
+        235685
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/sale-notice.spec.js",
-      "lane": "regular_b",
+      "lane": "regular_c",
       "observedMs": [
-        1207,
-        1491
+        3557,
+        3807
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
       ]
     },
     {
       "spec": "tests/browser/save-data.spec.js",
-      "lane": "regular_a",
+      "lane": "regular_b",
       "observedMs": [
-        843,
-        928
+        1890,
+        1442
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/smoke-pc.spec.js",
-      "lane": "regular_a",
+      "lane": "regular_b",
       "observedMs": [
-        13905,
-        14617
+        20264,
+        15042
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     },
     {
       "spec": "tests/browser/smoke-touch.spec.js",
+      "lane": "regular_c",
+      "observedMs": [
+        28840,
+        19847
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
+      ]
+    },
+    {
+      "spec": "tests/browser/species-discovery-production.spec.js",
+      "lane": "regular_c",
+      "observedMs": [
+        66241,
+        73627
+      ],
+      "sourceJobs": [
+        "128781493521",
+        "128637716977"
+      ]
+    },
+    {
+      "spec": "tests/browser/species-discovery.spec.js",
       "lane": "regular_a",
       "observedMs": [
-        13189,
-        14037
+        29400,
+        14503
+      ],
+      "sourceJobs": [
+        "128781493464",
+        "128637716924"
       ]
     }
   ]

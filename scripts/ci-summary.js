@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { appendFileSync, existsSync, readFileSync, readdirSync } from 'node:fs';
+import { appendFileSync, existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { identities, revalidatePlan, reportTests, validateCollection, validateExecutionPlan,
@@ -35,9 +35,71 @@ export function planSummary(plan) {
 export const BUILD_STEPS = ['checkout', 'node', 'classify', 'plan', 'install', 'unit', 'build', 'prepare'];
 export const E2E_STEPS = ['checkout', 'node', 'install', 'download', 'chromium', 'e2e'];
 
+function validateNeeds(needs) {
+  assert.deepEqual(Object.keys(needs).sort(), ['build', ...LANES.map(lane => `e2e_${lane}`)].sort(), 'Missing or unexpected required job');
+}
+
+// Each singleton download uses this output ID as its parent directory and
+// keeps the artifact service's actual name as the child directory.
+export function uploadedArtifactId(needs, job) {
+  const key = job === 'build' ? job : `e2e_${job}`;
+  const id = needs[key]?.outputs?.artifact_id;
+  assert(id, `Missing uploaded artifact ID: ${key}`);
+  assert(typeof id === 'string' && /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id)),
+    `Invalid uploaded artifact ID: ${key}`);
+  return id;
+}
+
+export function artifactDownloadRoot(directory, needs, context, job) {
+  const parent = path.join(directory, uploadedArtifactId(needs, job));
+  assert(existsSync(parent) && lstatSync(parent).isDirectory(), `Missing downloaded artifact ID directory: ${job}`);
+  const name = artifactName(context, job);
+  assert.deepEqual(readdirSync(parent).sort(), [name], `Downloaded artifact name differs for output ID: ${job}`);
+  const root = path.join(parent, name);
+  assert(lstatSync(root).isDirectory(), `Invalid downloaded artifact directory: ${job}`);
+  return root;
+}
+
+export function validateDownloadSteps(steps, active) {
+  assert.equal(steps.download_discovery?.outcome, 'success', 'Required gate download: discovery');
+  for (const job of ['build', ...LANES]) {
+    const expected = job === 'build' || active.includes(job) ? 'success' : 'skipped';
+    assert.equal(steps[`download_${job}`]?.outcome, expected,
+      `${expected === 'success' ? 'Required' : 'Unplanned'} gate download: ${job}`);
+  }
+}
+
+export function validateArtifactDownloads({ directory, needs, context, active }) {
+  validateNeeds(needs);
+  const jobs = ['build', ...active];
+  const ids = jobs.map(job => uploadedArtifactId(needs, job));
+  assert.equal(new Set(ids).size, ids.length, 'Duplicate artifact IDs');
+  assert(lstatSync(directory).isDirectory(), 'Invalid validation artifact directory');
+  assert.deepEqual(readdirSync(directory).sort(), ids.sort(), 'Missing, unexpected or colliding validation artifacts');
+  for (const job of jobs) artifactDownloadRoot(directory, needs, context, job);
+}
+
+// Retain the original pattern-based inventory as an independent observation.
+// ID-only requests would otherwise hide unexpected ci-* artifacts in the run.
+export function validateArtifactDiscovery({ directory, discoveryDirectory, needs, context, active }) {
+  const jobs = ['build', ...active];
+  assert(lstatSync(discoveryDirectory).isDirectory(), 'Invalid discovered validation artifact directory');
+  assert.deepEqual(readdirSync(discoveryDirectory).sort(), jobs.map(job => artifactName(context, job)).sort(),
+    'Missing, unexpected or colliding discovered validation artifacts');
+  for (const job of jobs) {
+    const root = path.join(discoveryDirectory, artifactName(context, job));
+    assert(lstatSync(root).isDirectory(), `Invalid discovered artifact directory: ${job}`);
+    readRecord(root, job, context);
+    const byId = artifactDownloadRoot(directory, needs, context, job);
+    assert.equal(hash(readFileSync(path.join(root, '.ci/job-record.json'))),
+      hash(readFileSync(path.join(byId, '.ci/job-record.json'))),
+      `Discovered artifact differs from output-ID download: ${job}`);
+  }
+}
+
 function validateJob(payload, job, context, requiredSteps) {
   assert(payload, `Missing ${job} validation artifact`);
-  assert.equal(payload.record.schemaVersion, 2, 'Unknown record schema');
+  assert.equal(payload.record.schemaVersion, 3, 'Unknown record schema');
   assert.equal(payload.record.job, job, 'Artifact job differs');
   assert.deepEqual(payload.record.context, context, 'Artifact SHA/ref/run provenance differs');
   assert.equal(payload.record.jobStatus, 'success', `Job failed or was cancelled: ${job}`);
@@ -70,16 +132,14 @@ export async function validateMobileEvidence(payload, plan) {
 // This validates the raw collection/execution reports again at the final gate.
 // Counts in result.json are evidence to check, never the coverage oracle.
 export async function validateAggregate({ plan, execution, inventory, context, needs, build, lanes }) {
-  assert.deepEqual(Object.keys(needs).sort(), ['build', ...LANES.map(lane => `e2e_${lane}`)].sort(), 'Missing or unexpected required job');
+  validateNeeds(needs);
   assert(Object.keys(lanes).every(lane => LANES.includes(lane)), 'Unknown E2E artifact lane');
   validateExecutionPlan(plan, execution, inventory, context);
   assert.equal(needs.build.result, 'success', 'Required job incomplete: build');
   const active = LANES.filter(lane => execution.lanes[lane]?.length > 0);
   const artifactIds = ['build', ...active.map(lane => `e2e_${lane}`)].map(job => {
     assert.equal(needs[job]?.result, 'success', `Required job incomplete: ${job}`);
-    const id = needs[job].outputs?.artifact_id;
-    assert(id, `Missing uploaded artifact ID: ${job}`);
-    return id;
+    return uploadedArtifactId(needs, job === 'build' ? job : job.slice(4));
   });
   assert.equal(new Set(artifactIds).size, artifactIds.length, 'Duplicate artifact IDs');
   validateJob(build, 'build', context, [...BUILD_STEPS, ...(plan.deploy ? ['pages'] : [])]);
@@ -143,14 +203,17 @@ export async function validateAggregate({ plan, execution, inventory, context, n
 }
 
 export async function verifyArtifacts({ cwd = process.cwd(), env = process.env,
-  directory = path.join(cwd, '.ci-artifacts') } = {}) {
+  directory = path.join(cwd, '.ci-artifacts'), discoveryDirectory = path.join(cwd, '.ci-discovered') } = {}) {
+  const needs = JSON.parse(env.CI_NEEDS);
+  validateNeeds(needs);
+  assert.equal(needs.build.result, 'success', 'Required job incomplete: build');
   // The final checkout/event, not a downloaded result, anchors all provenance.
-  const localPlan = JSON.parse(readFileSync(path.join(directory,
-    artifactName({ runId: env.GITHUB_RUN_ID, runAttempt: env.GITHUB_RUN_ATTEMPT,
-      validationSha: env.GITHUB_SHA }, 'build'), '.ci/plan.json'), 'utf8'));
+  const buildRoot = artifactDownloadRoot(directory, needs, { runId: env.GITHUB_RUN_ID,
+    runAttempt: env.GITHUB_RUN_ATTEMPT, validationSha: env.GITHUB_SHA }, 'build');
+  const localPlan = JSON.parse(readFileSync(path.join(buildRoot, '.ci/plan.json'), 'utf8'));
   const context = revalidatePlan(localPlan, { cwd, env });
   const readPayload = job => {
-    const root = path.join(directory, artifactName(context, job));
+    const root = artifactDownloadRoot(directory, needs, context, job);
     const read = name => JSON.parse(readFileSync(path.join(root, '.ci', name), 'utf8'));
     const record = readRecord(root, job, context);
     return { record, recordHash: hash(readFileSync(path.join(root, '.ci/job-record.json'))),
@@ -160,9 +223,11 @@ export async function verifyArtifacts({ cwd = process.cwd(), env = process.env,
   };
   const build = readPayload('build');
   const lanes = {};
+  validateExecutionPlan(localPlan, build.execution, listBrowserSpecs(cwd), context);
   const active = LANES.filter(lane => build.execution.lanes[lane]?.length > 0);
-  assert.deepEqual(readdirSync(directory).sort(), ['build', ...active].map(job => artifactName(context, job)).sort(),
-    'Missing, unexpected or colliding validation artifacts');
+  validateArtifactDownloads({ directory, needs, context, active });
+  validateArtifactDiscovery({ directory, discoveryDirectory, needs, context, active });
+  if (env.CI_STEPS) validateDownloadSteps(JSON.parse(env.CI_STEPS), active);
   for (const lane of active) {
     const payload = lanes[lane] = readPayload(lane);
     if (lane === 'mobile' && localPlan.eventName === 'pull_request') {
@@ -180,7 +245,7 @@ export async function verifyArtifacts({ cwd = process.cwd(), env = process.env,
     }
   }
   const result = await validateAggregate({ plan: localPlan, execution: build.execution, context,
-    inventory: listBrowserSpecs(cwd), needs: JSON.parse(env.CI_NEEDS), build, lanes });
+    inventory: listBrowserSpecs(cwd), needs, build, lanes });
   return { plan: localPlan, result };
 }
 
@@ -211,7 +276,7 @@ export async function writeSummary(mode, env = process.env) {
     else {
       assert.equal(mode, 'result', 'Unknown summary mode');
       const steps = JSON.parse(env.CI_STEPS);
-      for (const name of ['checkout', 'node', 'install', 'download']) {
+      for (const name of ['checkout', 'node', 'install', 'download_build', 'download_discovery']) {
         assert.equal(steps[name]?.outcome, 'success', `Required gate step incomplete: ${name}`);
       }
       assert.equal(env.CI_JOB_STATUS, 'success', 'Final job failed or was cancelled');

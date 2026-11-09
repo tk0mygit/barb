@@ -411,6 +411,9 @@ test('missing history, stale HEAD, wrong base and head-only checkout return fail
     const diff = readChangedFiles({ ...input, ...overrides });
     assert.equal(diff.ok, false); assert.deepEqual(diff.changes, []);
   }
+  const reversed = readChangedFiles({ ...input, baseSha: input.headSha, headSha: input.baseSha });
+  assert.equal(reversed.ok, false); assert.deepEqual(reversed.changes, []);
+  assert.match(reversed.error, /not the merge of the recorded base and HEAD/);
   git(cwd, 'checkout', input.headSha);
   const diff = readChangedFiles({ ...input, validationSha: input.headSha });
   assert.equal(diff.ok, false); assert.match(diff.error, /merge/);
