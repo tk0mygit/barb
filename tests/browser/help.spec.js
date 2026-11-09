@@ -9,6 +9,7 @@ const labels = ['短く素早くフリック', '長くスワイプ', '3回タッ
 const arrowPath = 'M12 36H53V18L86 50 53 82V64H12Z';
 const profiles = [
   { name: 'PC', viewport: { width: 1280, height: 800 }, touch: false },
+  { name: 'PC 200% text enlarged safe', viewport: { width: 1280, height: 800 }, touch: false, rootSize: 32 },
   { name: 'touch portrait', viewport: { width: 390, height: 844 }, touch: true },
   { name: 'touch narrow', viewport: { width: 320, height: 568 }, touch: true },
   { name: 'touch short enlarged safe', viewport: { width: 568, height: 320 }, touch: true, enlarged: true },
@@ -16,8 +17,8 @@ const profiles = [
 ];
 const activate = (locator, touch) => touch ? locator.tap() : locator.click();
 
-async function enlarge(page) {
-  await page.addStyleTag({ content: ':root { font-size:20px; --safe-top:8px; --safe-right:12px; --safe-bottom:8px; --safe-left:12px; }' });
+async function enlarge(page, rootSize = 20) {
+  await page.addStyleTag({ content: `:root { font-size:${rootSize}px; --safe-top:8px; --safe-right:12px; --safe-bottom:8px; --safe-left:12px; }` });
 }
 
 async function reachable(locator) {
@@ -93,7 +94,17 @@ for (const profile of profiles) {
     await page.goto('./');
     await expect(page.locator('#status')).toBeHidden();
     if (profile.enlarged) await enlarge(page);
+    if (profile.rootSize) await enlarge(page, profile.rootSize);
     await activate(page.locator('#menu-button'), profile.touch);
+    if (profile.rootSize === 32) {
+      await expect(page.locator('html')).toHaveCSS('font-size', '32px');
+      await expect(page.locator('.menu-entry')).toHaveCount(6);
+      const cards = await page.locator('.menu-entry').evaluateAll(nodes => nodes.map(node => {
+        const r = node.getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height };
+      }));
+      assertOneColumn(cards);
+    }
     const help = page.getByRole('button', { name: 'ヘルプ', exact: true });
     await expect(help).toHaveAccessibleDescription('プレイと操作の基本');
     await reachable(help);
