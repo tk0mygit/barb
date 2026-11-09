@@ -240,6 +240,8 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .fish-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .fish-card { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: start; gap: 9px; padding: 12px; border: 1px solid #eee9d745; border-radius: 4px; text-align: center; color: #f4f2e6; background: #214a40; font-size: 12px; letter-spacing: 0; }
 button.fish-card:hover { background: #335e4c; }
+/* Keep artwork geometry fixed when navigation leaves the pointer over a card. */
+#collection-dialog button.fish-card { transform: none; transition: background-color 0.2s; }
 .fish-card .fish-image-frame, .fish-detail .fish-image-frame, .stored-fish .fish-image-frame { border-radius: 3px; flex-shrink: 0; }
 .fish-card small { font-size: 10px; opacity: 0.8; }
 .fish-detail { max-width: 580px; margin: auto; }
