@@ -41,14 +41,14 @@ export function renderHelp(content, menuEntries) {
     jumps.append(jump); sections.set(id, section);
   }
   const play = sections.get('play');
-  play.append(element('p', '画面の表示を目印に、次の操作へ進みます。PCのマウス左クリック・長押しと、指1本のタップ・長押しは共通です。'));
   const steps = element('dl', undefined, 'help-play-steps');
   for (const [label, action] of playSteps) {
     const row = element('div'); row.append(element('dt', label), element('dd', action)); steps.append(row);
   }
   play.append(steps,
-    element('p', '「離して緩める！」は押している指やマウスを離す合図、「長押しで巻く！」は押し続けて巻く合図です。キャスト中・回収中は、そのまま待ちます。'),
-    element('p', 'PCの操船にはWASD・方向キーも使えます（W／↑で前進、A・D／←・→で操舵）。'));
+    element('p', '「離して緩める！」は押している指やマウスを離す合図、「長押しで巻く！」は押し続けて巻く合図です。キャスト中・回収中は、そのまま待ちます。', 'help-extra'),
+    element('p', 'PCのタップは短い左クリック、長押しは左ボタンを押し続ける操作です。フリック・スワイプは押して動かし、離します。スマートフォンは指1本で同じ操作をします。', 'help-extra'),
+    element('p', 'PCの操船にはWASD・方向キーも使えます（W／↑で前進、A・D／←・→で操舵）。', 'help-extra'));
 
   const qte = sections.get('qte');
   qte.append(element('p', '「入力受付中」と表示されたら、残り時間内に画面の指示に従います。図は説明用の静止した見本です。実際の矢印の方向を優先してください。'));
@@ -75,5 +75,5 @@ export function renderHelp(content, menuEntries) {
   menu.append(roles);
   sections.get('save').append(element('p', '進行はこのブラウザに自動保存を試みます。メニューなどに表示される実際の保存状態を確認してください。'),
     element('p', 'ブラウザのサイトデータを削除した場合などは、記録が失われることがあります。'));
-  page.append(jumps, ...sections.values()); content.append(page);
+  page.append(element('p', '画面の表示から、次の操作を確認できます。', 'help-intro'), jumps, ...sections.values()); content.append(page);
 }
