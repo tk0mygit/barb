@@ -16,7 +16,8 @@
 .qte-arrow[data-direction="up"] .qte-arrow-shape { transform: rotate(-90deg); }
 .qte-arrow[data-direction="down"] .qte-arrow-shape { transform: rotate(90deg); }
 .qte-arrow[data-direction="left"] .qte-arrow-shape { transform: rotate(180deg); }
-.qte-target { position: absolute; width: 64px; height: 64px; transform: translate(-50%, -50%); border: 1px solid #dce3dfb3; border-radius: 50%; background: transparent; }
+.qte-target, #collection-dialog .help-qte-target { border: 1px solid #dce3dfb3; border-radius: 50%; background: transparent; }
+.qte-target { position: absolute; width: 64px; height: 64px; transform: translate(-50%, -50%); }
 @media (pointer: coarse) { .qte-target { width: 80px; height: 80px; } }
 .qte-taps { position: absolute; inset: 0; display: grid; place-items: center; font-size: 24px; font-weight: 400; letter-spacing: .12em; font-variant-numeric: tabular-nums; color: #dce2decc; }
 .qte-timer { position: absolute; bottom: max(0px, calc(50% - 128px)); left: 50%; width: min(100%, 360px); transform: translateX(-50%); display: flex; gap: 10px; align-items: center; font-size: 11px; font-variant-numeric: tabular-nums; }
@@ -235,6 +236,32 @@ button:disabled { opacity: 0.5; cursor: wait; }
 @container collection-menu (min-width: 34rem) {
   #collection-dialog .menu-home { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+#collection-dialog .help-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; font-size: .875rem; line-height: 1.8; overflow-wrap: anywhere; }
+#collection-dialog .help-jumps { display: flex; flex-wrap: wrap; gap: 8px; }
+#collection-dialog .help-jumps button { min-height: 44px; padding: 8px 14px; margin: 0; background: #30474d; transform: none; }
+#collection-dialog .help-jumps button:hover { background: #3a535a; transform: none; }
+#collection-dialog .help-jumps button:active { background: #273c42; transform: none; }
+#collection-dialog .help-jumps button:focus-visible,
+#collection-dialog .help-section h3:focus { outline: 3px solid #f2c96c; outline-offset: 3px; }
+#collection-dialog .help-section { min-width: 0; padding: 16px; border: 1px solid #91a59d; border-radius: 4px; background: #1c413c; }
+#collection-dialog .help-section h3 { margin: 0 0 12px; font-size: 1.125rem; line-height: 1.6; scroll-margin-top: 6px; }
+#collection-dialog .help-section p { margin: 10px 0; }
+#collection-dialog .help-section p:last-child { margin-bottom: 0; }
+#collection-dialog .help-play-steps, #collection-dialog .help-menu-roles { margin: 0; }
+#collection-dialog .help-play-steps > div, #collection-dialog .help-menu-roles > div { margin: 12px 0; }
+#collection-dialog .help-section dt { font-weight: 600; color: #e5d8b2; }
+#collection-dialog .help-section dd { margin: 2px 0 0; }
+#collection-dialog .help-qte-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 0; margin: 16px 0; list-style: none; }
+#collection-dialog .help-qte-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; min-width: 0; padding: 12px 0; border-bottom: 1px solid #91a59d66; }
+#collection-dialog .help-qte-figure, #collection-dialog .help-qte-figure * { pointer-events: none; }
+#collection-dialog .help-qte-figure { display: flex; flex: 0 0 9rem; max-width: 100%; min-height: 4.5rem; align-items: center; justify-content: center; gap: 8px; color: #e1e5e1; }
+#collection-dialog .help-qte-arrow-shape { display: block; flex: none; width: 3.5rem; height: 3.5rem; fill: currentColor; }
+#collection-dialog .help-qte-row[data-operation="flick"] .help-qte-arrow-secondary { display: none; }
+#collection-dialog .help-qte-target { display: block; width: 3.5rem; height: 3.5rem; }
+#collection-dialog .help-qte-taps { font-size: 1.3rem; white-space: nowrap; font-variant-numeric: tabular-nums; letter-spacing: .05em; }
+#collection-dialog .help-qte-description { flex: 1 1 12rem; min-width: 0; }
+#collection-dialog .help-qte-description h4 { margin: 0; font-size: 1rem; line-height: 1.6; }
+#collection-dialog .help-qte-description p { margin: 4px 0 0; }
 .collection-summary { font-size: 12px; margin: 8px 0 18px; letter-spacing: 1px; }
 .collection-empty { padding: 30px 6px; line-height: 2; opacity: 0.8; }
 .fish-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
