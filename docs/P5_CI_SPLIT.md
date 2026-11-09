@@ -1,5 +1,132 @@
 # P5 Regular E2E 分割の設計・検証記録
 
+## P-5-B2 G0 / 実装前設計（2026-11-09 JST）
+
+- 本チャットで独立PRを実装する。推奨モデル/思考: Codex / 高。対象はP-5-B2のみ。
+- 指定SHA、開始HEAD、`git ls-remote origin refs/heads/main`、fetch後の`origin/main`はすべて
+  `741baf51fdf286fd1999de1808db5d67b721d746`。開始時`origin/main`だけは
+  `0a336ef674d6d5f637f7c35ffcd467fadbe3625a`だったためfetchで更新した。
+- fetch/push remoteはいずれも`https://github.com/tk0mygit/barb.git`。開始ブランチ`work`、
+  porcelain v1（全未追跡含む）は空、open PRは0件。既存ブランチを保持し、既存checkoutに
+  `codex/p5-b2-regular3`を作成。worktree追加なし。
+- 指定5文書/workflowを読み、承認範囲との矛盾なし。CI変更なのでL2。分類器方針、ゲーム、
+  browser spec/fixture、Mobile比較/source replay、依存/lock、Actionsの権限・versionは変更しない。
+- 編集前の未分割Playwright JSON収集（`CI=true`、PR名と模擬event pathあり）は
+  **43 spec / 420 ID**、現行A20 spec/156 ID、B22 spec/206 ID、Mobile1 spec/58 ID。
+  event pathなしの予備収集383 IDはPR条件を満たさず、比較基準には使用しない。
+  これは収集のみで、実validation mergeや実E2E成功の証明ではない。
+- 推奨A13/B14/C15割当は現Regular全42 specとexact一致（欠落/余剰/重複0）。
+  `fishing.spec.js`全体はA、`mobile-performance.spec.js`全体はMobileへ固定。
+- 性能の変更前実測はPR #74 Run 42496910978の壁時計53分09秒、Runner合計122分46秒。
+  PR #73 Run 42450140652とは収集集合が異なる。B2の35〜40分、Runner増加10%以内は
+  未検証の目標であり、履歴配賦による35.8〜36.0分（保守37.4分）は机上推定。
+
+### B2変更影響行列・参照経路（編集前）
+
+| 層 | 直接変更 | 間接観測・維持する証明 |
+| --- | --- | --- |
+| ゲーム状態/確率/時計・入力・保存/売価 | なし | 同一specの意味・serial継承を維持 |
+| カメラ/描画・HUD/DOM・素材 | なし | runner条件による差は既存契約で検証 |
+| E2E撮影→比較器→source replay | なし | 34 capture ID×main/PR、68 PNG、実sourceから独立再計算 |
+| `ci-risk.js`→prepare/run/required | Unitの親順序負例のみ | risk schema 1、L0/L1/L2と両smokeを維持 |
+| profile→`ci-partition.js`→`ci-e2e.js` | 42全specの重みと出典更新、C、三者fallback | 原本inventory/IDを正本とし、全laneの収集・実行両unionをexact照合 |
+| `ci-artifacts.js`→seal/read→summary | C、record schema 3 | build/dist、全byte hash、run/attempt/ref/二親/HEADを維持 |
+| `ci-summary.js`→verifyArtifacts→writeSummary→CLI | 5 needs、execution schema 3、ID結合 | 全job成功、active/inactive、失敗summary、最終exit 1 |
+| workflow→download→required→deploy | C独立job、jobごとのID指定取得 | workers 1/retry 0、always、診断保持、check名・Pages条件・権限維持 |
+| Unit/検証文書 | lane/schema/負例と説明 | 合成成功・収集確認・実CI成功を区別 |
+
+旧: `build → A/B/Mobile → ci-required`。
+新: `build → A/B/C/Mobile → ci-required`（4 E2E jobs、全てbuildのみに依存）。
+`LANES`、schema、artifactName、partition/collection/execution、record/read、aggregate、
+verifyArtifacts、await、CLI、workflow、全Unit/文書の参照を検索して更新する。
+execution plan/job recordは3へ移行し、1/2を拒否。risk plan/profile schemaは別契約として維持する。
+
+### B2 failure matrix（編集前の期待error）
+
+| 正常/故障注入 | 期待結果・主なerror |
+| --- | --- |
+| 全5 needs成功、全収集/実行exact一致 | PASS。Cを含む全active laneを検証 |
+| build/A/B/C/Mobileのfailure/cancelled/意図外skip | `Required job incomplete` / `Job failed or was cancelled` |
+| L0/main pushのinactive lane起動/証跡 | `Unplanned E2E job` / `Unplanned E2E artifact` |
+| needs不足/余剰/旧A/B/Mobile、旧schema | `Missing or unexpected required job` / `Unknown execution plan schema` / `Unknown record schema` |
+| 差分不備/親順序違い/別HEAD/ref/run/attempt | L2 fallback、根拠不全は`Cannot verify PR base/head/validation SHA relationship` / `provenance differs` |
+| profile/inventory/C空/所属/Mobile横取り | `Inconsistent execution plan` / `Incomplete spec partition` / profile validator error |
+| 原本・lane収集/実行の欠落/余剰/重複/同件数別ID/file | `Lane collection differs` / `Collected and executed tests differ` / `Duplicate test identities` / `union differs` |
+| 非0終了/signal/skip/expected-fail/retry/flaky/0件 | `did not exit successfully` / `interrupted` / `Non-passing test expectation` / `exactly once` / `Retried test` / `zero tests` |
+| artifact ID/name/directory/record/hash/build不整合 | `Missing uploaded artifact ID` / `Duplicate artifact IDs` / directory exact-set error / `Artifact files missing, added or corrupted` / `different build artifact` |
+| Mobile 67/69 PNG/ID差替/source不一致/非同期reject | `Missing mobile artifact` / `Unexpected mobile image set` / source検証error、失敗summaryとCLI exit 1 |
+| 取得/upload/認証失敗・診断欠落 | 必須download step、job success、ID、directory検証でFAIL。403を迂回しない |
+
+既存Unitの正常/負例を活用し、Cと旧schema 2、inactive全lane、親順序、末端CLIを追加確認する。
+編集前の局所実reporter fixtureでは、正しいname取得のままbuild/A/B/Mobile各output IDのみを
+別の非空unique IDへ替えた4例すべてでgate PASS / CLI exit 0を再現した（各5 probe ID）。
+この再現を根拠に、`download-artifact@v4`の現在run内`artifact-ids`指定をjob別に使い、
+取得ID→実artifact名→既存record/context/hashを追加結合する。APIや権限追加は使わない。
+一括ID指定はjob間ID交換を検出できないため採用しない。
+
+### B2 profile・取得契約・局所検証
+
+profileは`regular-2026-11-09-1b3fcf89656e`、JSON内容SHA-256は
+`2f517a430aaf0db53af60afc424af02f1b95b7f1989c8194ca9dfe322d5eebd6`。
+versionはversion自身を除いた実内容のhashから生成し、execution-planはprofile全内容をhashする。
+42行すべてに2Runの新しい配賦値とsource job IDを記録し、各job→runの和・spec数を検証する。
+出典は成功Run #74のRegular jobs 128781493464/128781493521、#73の
+128637716924/128637716977。ログ全文は追加せず、decoded UTF-8のSHA-256と区間端点を保持する。
+配賦方法は旧P5同様の開始間隔であり、純粋なtest durationではない。
+
+| 配賦の机上推定 | A | B | C |
+| --- | ---: | ---: | ---: |
+| 2Run平均（分、setup/build/gate除外） | 32.081 | 30.502 | 31.074 |
+| specごとの2Run最大値の和（分、同上） | 34.888 | 34.881 | 34.861 |
+
+ID補修は各jobのsingleton ID取得→`.ci-artifacts/<実ID>/<serviceの実名>`を厳格照合する。
+従来のpattern取得も`.ci-discovered/<serviceの実名>`に残し、未申告の余剰artifactを拒否する。
+discovery側も全byte manifestを独立検証し、ID側のjob record hashと完全一致を要求する。
+これにより、名前取得だけでoutput ID差替が通る再現を塞ぎ、既存のunknown拒否も維持する。
+laneのBuild取得もsingleton IDと`merge-multiple: false`を使い、期待build名の子directoryから読む。
+追加downloadの時間・転送量は未実測。REST、`github-token`、`actions: read`は追加していない。
+実装根拠は公式[download-artifact v4の処理](https://github.com/actions/download-artifact/blob/v4/src/download-artifact.ts)と
+[入力定義](https://github.com/actions/download-artifact/blob/v4/action.yml)。
+archive digest警告へ既存の厳格なseal/hashを置き換えていない。
+
+| 局所検証 | 結果 |
+| --- | --- |
+| `npm ci --cache /tmp/barb-p5-b2-npm-cache` | PASS、lockfile差分なし |
+| `npm test` 最終全件 | 1184件PASS、FAIL/skip 0 |
+| `npm run build` | PASS、既存500kB chunk警告あり |
+| PR相当の未分割原本とA/B/C/Mobile独立`--list` | 43spec/420 ID＝136+116+110+58、ID/project/file exact一致、欠落/余剰/重複0 |
+| L1独立収集（sound / equipment / spot HUD） | 34 / 11 / 48 ID、それぞれ原本とlane unionがexact一致。spotはA空、Mobile空 |
+| L0文書 / L2 CI・未知 / main push / dispatch | 既存分類と選択を維持。L0/main全lane空、mainのみdeploy、dispatchは43spec/383 IDのexact union、Pagesなし |
+| A/B/Cの実ブラウザ局所probe | audio-gain 4件(A)、PC smoke 1件(B)、Touch smoke 1件(C)、6/6 PASS。system Chromium、workers 1、retry 0、約73.5秒 |
+| 実reporter→seal→2取得経路→gate→CLI | ブラウザ不要の合成6 ID（A1/B2/C2/Mobile1）で正常exit 0。実製品E2E成功とは区別 |
+| ID/取得の故障注入 | 5 jobのID単独差替5例・交換5例、6 download step失敗、未知ID/name、余剰discovery、byte/別sealを拒否しCLI exit 1 |
+| Mobile/source/asyncの負例 | 既存34組/68 PNG fixtureのsource再計算と67/69画像拒否を維持。実sourceを欠くreporter probeは失敗summary/CLI exit 1 |
+| YAML/DAG/actions/permissions/Pages/concurrency/diff | PASS。action集合・権限・Pages・イベント・concurrencyは旧mainと一致 |
+
+初回全Unitは移行途中の旧lane/schema期待値と既存比較テスト用commit未取得により
+1176件中1145 PASS/31 FAIL。`eb10aa13ec302a7a4c9b4a421a596f447c8f6e7c`を同repoから
+fetchし、移行を完了後に全1183件PASSを確認した。discovery追加後の対象Unitではschema負例が
+先にrecord hash不一致で拒否され、23件中22 PASS/1 FAILとなった。両取得コピーを同時に
+旧schemaへ替えるfixtureに修正してschema拒否そのものを確認し、最終全件も再実行した。
+収集用補助スクリプトの初回L1呼出しはinventory引数形が不正だったため、正しいoptions形式と
+期待level assertionに直し、L0/L1/L2・push/dispatchを再確認した。製品コード/期待値の緩和なし。
+
+| PMが比較する指標 | #74 Run 42496910978（実測） | #73 Run 42450140652（実測） | 新B2 Run |
+| --- | --- | --- | --- |
+| Run開始→gate完了 | 53分09秒 | 56分39秒 | PM記入（目標35〜40分） |
+| build / A / B / C / Mobile / gate秒 | 90 / 3075 / 2859 / — / 1325 / 17 | 97 / 2183 / 3281 / — / 1002 / 13 | PM記入 |
+| Runner合計 | 7366秒（122分46秒） | 6576秒（109分36秒） | PM記入（#74比+10%以内） |
+| 上記jobのsetup秒（Post除外） | 5 / 26 / 24 / — / 24 / 12 | 7 / 28 / 28 / — / 26 / 7 | PM記入（ID＋discovery取得も含む） |
+| Playwright原本ID | 420 | 413 | 原本JSONと4laneの動的exact set |
+| Mobile比較 | 34組 / 68 PNG | 34組 / 68 PNG | PMが実artifact/source/gate確認 |
+
+実Regular全件、Mobile実撮影34組/68画像、新PRの実validation merge二親・L2 gate、
+新構成の壁時計/Runnerコスト、実機は未確認。35〜40分と+10%以内を達成済みとはしない。
+新PRではL2全件を要求し、最新HEADの`ci-required`と実mergeをPMが別途確認する。
+ユーザーPMのみmerge/Pages公開を判断し、CodexはPR提出後に監視・rerun・次工程へ進まない。
+
+以下の2026-11-01記録は旧P5の履歴であり、B2の実績ではない。
+
 ## G0 / G1（実装前、2026-11-01）
 
 - 対象は既存の本Codexチャット、新規P5独立PR。推奨モデル/思考: Codex / 高。

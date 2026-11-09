@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { executionPlan, playwrightArgs, splitSpecs, validateExecutionPlan, validateLaneCollection } from '../scripts/ci-e2e.js';
 import { listBrowserSpecs, SMOKE_SPECS } from '../scripts/ci-risk.js';
-import { LANES, MOBILE_SPEC } from '../scripts/lib/ci-artifacts.js';
+import { hash, LANES, MOBILE_SPEC } from '../scripts/lib/ci-artifacts.js';
 import { partitionSpecs, REGULAR_PROFILE, validateProfile } from '../scripts/lib/ci-partition.js';
 
 const inventory = listBrowserSpecs();
 const profiledInventory = [...REGULAR_PROFILE.specs.map(row => row.spec), MOBILE_SPEC].sort();
 const full = { level: 'L2', runE2E: true, specs: inventory };
 const clone = value => structuredClone(value);
+const regularLanes = ['regular_a', 'regular_b', 'regular_c'];
 
 test('runner filters are anchored and escaped, with one worker and forbid-only', () => {
   const spec = 'tests/browser/audio+[x].spec.js';
@@ -21,14 +22,16 @@ test('runner filters are anchored and escaped, with one worker and forbid-only',
   }
 });
 
-test('reviewed 32-spec profile preserves A/B membership, measured totals and initial balance', () => {
+test('reviewed 42-spec profile preserves all three assignments and both runs source totals', () => {
   validateProfile(REGULAR_PROFILE);
   const partition = partitionSpecs(profiledInventory, profiledInventory);
-  assert.equal(REGULAR_PROFILE.specs.filter(row => row.lane === 'regular_a').length, 15);
-  assert.equal(REGULAR_PROFILE.specs.filter(row => row.lane === 'regular_b').length, 17);
-  for (const row of REGULAR_PROFILE.specs) {
-    assert(partition.lanes[row.lane].includes(row.spec), row.spec);
-    assert(!partition.lanes[row.lane === 'regular_a' ? 'regular_b' : 'regular_a'].includes(row.spec));
+  const reviewed = {
+    regular_a: 'achievement-notice achievements audio-gain collection-menu final-stability fish-assets fish-image-loading fishing-effects fishing lake-scenery phase6a qte-operations species-discovery',
+    regular_b: 'audio autosave bio-audio-quality cast-motion equipment-game equipment-ui fishing-spots phase6b phase6c qte-economy qte-production rod-reel save-data smoke-pc',
+    regular_c: 'bio-audio bio-sources cast-visibility day-night depth-time fish-sales game mobile-layout night-fog opening-title qte-public-on qte-ui-production sale-notice smoke-touch species-discovery-production',
+  };
+  for (const [lane, names] of Object.entries(reviewed)) {
+    assert.deepEqual(partition.lanes[lane], names.split(' ').map(name => `tests/browser/${name}.spec.js`).sort());
   }
   assert.deepEqual(partition.lanes.mobile, [MOBILE_SPEC]);
   assert.deepEqual(Object.values(partition.lanes).flat().sort(), profiledInventory);
@@ -36,11 +39,13 @@ test('reviewed 32-spec profile preserves A/B membership, measured totals and ini
   assert.deepEqual(partition.unprofiledSpecs, []);
   assert.deepEqual(partition.staleProfileSpecs, []);
   const loads = partition.estimatedMs;
-  assert(loads.regular_a > 20 * 60000 && loads.regular_a < 21 * 60000);
-  assert(loads.regular_b > 20 * 60000 && loads.regular_b < 21 * 60000);
-  assert(Math.abs(loads.regular_a - loads.regular_b) < .13 * 60000);
-  assert.equal(loads.regular_a + loads.regular_b,
+  assert.deepEqual(loads, { regular_a: 1924859.5, regular_b: 1830126, regular_c: 1864433.5 });
+  assert.equal(Object.values(loads).reduce((sum, ms) => sum + ms, 0),
     REGULAR_PROFILE.sources.reduce((sum, source) => sum + source.observedTotalMs, 0) / REGULAR_PROFILE.sources.length);
+  assert.deepEqual(REGULAR_PROFILE.sources.map(source => source.runId), ['42496910978', '42450140652']);
+  assert.deepEqual(REGULAR_PROFILE.sources.map(source => source.observedTotalMs), [5859219, 5379619]);
+  const { version, ...content } = REGULAR_PROFILE;
+  assert.equal(version, `regular-2026-11-09-${hash(JSON.stringify(content)).slice(0, 12)}`);
   // A future unprofiled file must also pass this baseline test and reach the
   // runner through the warning/fallback contract, rather than block npm test.
   const current = partitionSpecs(inventory, inventory);
@@ -56,9 +61,9 @@ test('new specs use deterministic fallback, retain coverage and record review wa
   assert.deepEqual(partition.unprofiledSpecs, additions);
   assert.match(partition.warnings.join('\n'), /Unprofiled.*require review/);
   assert.deepEqual(Object.values(partition.lanes).flat().sort(), expanded);
-  // The baseline has B slightly lighter; after one fallback estimate A is lighter.
+  // All three full-inventory loads participate, before filtering L1 selection.
   assert(partition.lanes.regular_b.includes(additions[0]));
-  assert(partition.lanes.regular_a.includes(additions[1]));
+  assert(partition.lanes.regular_c.includes(additions[1]));
   const l1 = [...SMOKE_SPECS, additions[0]].sort();
   const selected = partitionSpecs(expanded, l1);
   for (const spec of l1) assert.equal(selected.assignments[spec], partition.assignments[spec]);
@@ -68,14 +73,15 @@ test('new specs use deterministic fallback, retain coverage and record review wa
   assert.throws(() => validateExecutionPlan({ ...full, specs: expanded }, incomplete, expanded, {}), /Inconsistent execution plan/);
 });
 
-test('fallback tie goes to A and profile removals warn without inventing selected specs', () => {
+test('fallback ties go to A then B then C and profile removals retain full coverage warnings', () => {
   const profile = clone(REGULAR_PROFILE);
   const kept = profile.specs[0].spec;
-  const added = ['tests/browser/new-a.spec.js', 'tests/browser/new-b.spec.js'];
-  // No profiled files exist in this inventory: both lanes start at zero.
+  const added = ['a', 'b', 'c', 'd'].map(name => `tests/browser/new-${name}.spec.js`);
+  // No profiled files exist in this inventory: all three lanes start at zero.
   const fallback = partitionSpecs(added, added, profile);
-  assert.deepEqual(fallback.lanes.regular_a, [added[0]]);
+  assert.deepEqual(fallback.lanes.regular_a, [added[0], added[3]]);
   assert.deepEqual(fallback.lanes.regular_b, [added[1]]);
+  assert.deepEqual(fallback.lanes.regular_c, [added[2]]);
   assert.equal(fallback.staleProfileSpecs.length, profile.specs.length);
   const removed = inventory.filter(spec => spec !== kept);
   const partition = partitionSpecs(removed, removed, profile);
@@ -95,6 +101,14 @@ test('invalid profile schema, lanes, duplicate files, sources and nonpositive/no
     p => p.specs[0].observedMs[0] = Infinity, p => p.specs[0].observedMs[0] = '100',
     p => p.specs[0].observedMs[0] += 1, p => p.sources = [],
     p => p.sources[0].headSha = 'stale', p => p.sources[0].observedTotalMs -= 1,
+    p => p.sources[0].validationSha = 'stale', p => p.sources[0].jobs = [],
+    p => p.sources.push(clone(p.sources[0])),
+    p => p.sources[0].jobs.push(clone(p.sources[0].jobs[0])),
+    p => p.sources[0].jobs[0].jobId = 'invalid', p => p.sources[0].jobs[0].lane = 'mobile',
+    p => p.sources[0].jobs[0].logSha256 = 'invalid', p => p.sources[0].jobs[0].testCount = 0,
+    p => p.sources[0].jobs[0].specCount += 1, p => p.sources[0].jobs[0].finishedAt = 'invalid',
+    p => p.specs[0].sourceJobs = [], p => p.specs[0].sourceJobs[0] = 'unknown-job',
+    p => { p.specs[0].observedMs[0] += 1; p.specs.find(row => row.sourceJobs[0] !== p.specs[0].sourceJobs[0]).observedMs[0] -= 1; },
   ]) {
     const profile = clone(REGULAR_PROFILE); mutate(profile);
     assert.throws(() => partitionSpecs(inventory, inventory, profile));
@@ -114,18 +128,20 @@ test('unknown selection, inventory duplicates, missing full specs and invalid pa
 test('schema, hash, context, inputs and assignment changes cannot reuse a prepared plan', () => {
   const context = { validationSha: 'a'.repeat(40) };
   const original = executionPlan(full, inventory, context);
-  assert.equal(original.schemaVersion, 2);
+  assert.equal(original.schemaVersion, 3);
   assert.deepEqual(original.selectedSpecs, full.specs);
   assert.match(original.profile.hash, /^[a-f0-9]{64}$/);
   assert.match(original.inputHash, /^[a-f0-9]{64}$/);
   for (const mutate of [
-    p => p.schemaVersion = 1, p => p.planHash = 'forged',
+    p => p.schemaVersion = 1, p => p.schemaVersion = 2, p => p.planHash = 'forged',
     p => p.profile.version = 'future', p => p.profile.hash = 'forged',
     p => p.rule = 'random', p => p.context.validationSha = 'b'.repeat(40),
     p => p.inventory.pop(), p => p.selectedSpecs.pop(),
     p => p.assignments[original.lanes.regular_b[0]] = 'regular_a',
     p => p.lanes.regular_a.push(p.lanes.regular_b[0]),
     p => p.lanes.regular_b.pop(), p => p.lanes.mobile.push(p.lanes.regular_a[0]),
+    p => p.lanes.regular_c = [], p => delete p.lanes.regular_c,
+    p => p.assignments[original.lanes.regular_c[0]] = 'regular_b',
     p => p.estimatedMs.regular_a += 1,
   ]) {
     const changed = clone(original); mutate(changed);
@@ -139,23 +155,36 @@ function report(specs) {
   })) }] };
 }
 
-test('L1 smoke selection is validated on the original; either empty regular lane can stay inactive', () => {
+test('L1 smoke selection is validated on the original; any empty regular lane can stay inactive', () => {
   const selected = [...SMOKE_SPECS, 'tests/browser/audio-gain.spec.js'].sort();
   const profile = clone(REGULAR_PROFILE);
-  // A future reviewed assignment may put a smoke on either runner.
-  profile.specs.find(row => row.spec === SMOKE_SPECS[1]).lane = 'regular_b';
   const plan = { level: 'L1', runE2E: true, specs: selected };
   const split = partitionSpecs(inventory, selected, profile);
   for (const lane of LANES.filter(lane => split.lanes[lane].length)) {
     assert.equal(validateLaneCollection(plan, split, report(selected), report(split.lanes[lane]), lane).length,
       split.lanes[lane].length);
   }
-  profile.specs.find(row => row.spec === SMOKE_SPECS[0]).lane = 'regular_b';
-  const onlyB = partitionSpecs(inventory, selected, profile);
-  assert.deepEqual(onlyB.lanes.regular_a, []);
-  assert.deepEqual(onlyB.lanes.regular_b, selected);
+  for (const active of regularLanes) {
+    // A future reviewed assignment can move the whole spec, including smoke.
+    for (const row of profile.specs.filter(row => selected.includes(row.spec))) row.lane = active;
+    const only = partitionSpecs(inventory, selected, profile);
+    assert.deepEqual(only.lanes[active], selected);
+    for (const inactive of regularLanes.filter(lane => lane !== active)) assert.deepEqual(only.lanes[inactive], []);
+  }
   for (const missing of SMOKE_SPECS) {
     const specs = selected.filter(spec => spec !== missing);
     assert.throws(() => splitSpecs({ ...plan, specs }, inventory), /Missing smoke/);
   }
+});
+
+test('continuous fishing remains a whole file on A and Mobile stays dedicated', () => {
+  const partition = partitionSpecs(inventory, inventory);
+  const fishing = 'tests/browser/fishing.spec.js';
+  assert.equal(partition.assignments[fishing], 'regular_a');
+  assert.equal(Object.values(partition.lanes).flat().filter(spec => spec === fishing).length, 1);
+  assert.deepEqual(partition.lanes.mobile, [MOBILE_SPEC]);
+  assert(regularLanes.every(lane => !partition.lanes[lane].includes(MOBILE_SPEC)));
+  const args = playwrightArgs([fishing]);
+  assert.equal(args.length, 4);
+  assert.doesNotMatch(args.join(' '), /--shard|--grep|fullyParallel/);
 });

@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { BUILD_STEPS, E2E_STEPS, planSummary, resultSummary, validateAggregate, writeSummary } from '../scripts/ci-summary.js';
+import { BUILD_STEPS, E2E_STEPS, planSummary, resultSummary, validateAggregate, validateArtifactDiscovery, validateArtifactDownloads, validateDownloadSteps, uploadedArtifactId, writeSummary } from '../scripts/ci-summary.js';
 import { executionPlan, MOBILE_SPEC, splitSpecs } from '../scripts/ci-e2e.js';
 import { classifyChanges, L1_GROUPS, listBrowserSpecs, SMOKE_SPECS } from '../scripts/ci-risk.js';
 import { artifactName, fileManifest, LANES, readRecord, recordJob, validationContext } from '../scripts/lib/ci-artifacts.js';
@@ -35,22 +35,22 @@ function fixture({ level = 'L2', eventName = 'workflow_dispatch', specs = invent
   const execution = executionPlan(plan, inventory, context);
   const expected = plan.runE2E ? report(plan.specs) : undefined;
   const build = { plan: clone(plan), execution: clone(execution), expected,
-    recordHash: 'build-record-hash', record: { schemaVersion: 2, job: 'build', context: clone(context), jobStatus: 'success',
+    recordHash: 'build-record-hash', record: { schemaVersion: 3, job: 'build', context: clone(context), jobStatus: 'success',
       steps: { ...steps(BUILD_STEPS), pages: { outcome: plan.deploy ? 'success' : 'skipped' } },
       files: { 'dist/index.html': 'build-hash' } },
     result: { context: clone(context), executed: false, status: plan.runE2E ? 'prepared' : 'not-run',
       passedTests: 0, ...(plan.runE2E ? { collectedTests: plan.specs.length } : {}) } };
-  const needs = { build: { result: 'success', outputs: { artifact_id: 'build-id',
+  const needs = { build: { result: 'success', outputs: { artifact_id: '100',
     ...(plan.deploy ? { pages_artifact_id: 'pages-id' } : {}) } } };
   const lanes = {};
   for (const lane of LANES) {
     const selected = execution.lanes[lane];
     needs[`e2e_${lane}`] = { result: selected.length ? 'success' : 'skipped',
-      outputs: selected.length ? { artifact_id: `${lane}-id` } : {} };
+      outputs: selected.length ? { artifact_id: String(101 + LANES.indexOf(lane)) } : {} };
     if (!selected.length) continue;
     lanes[lane] = { plan: clone(plan), execution: clone(execution), expected: clone(expected),
       collection: report(selected), report: report(selected),
-      record: { schemaVersion: 2, job: lane, context: clone(context), jobStatus: 'success', steps: steps(E2E_STEPS), files: {} },
+      record: { schemaVersion: 3, job: lane, context: clone(context), jobStatus: 'success', steps: steps(E2E_STEPS), files: {} },
       result: { lane, context: clone(context), specs: clone(selected), executed: true, status: 'passed',
         passedTests: selected.length, collectedTests: selected.length, exitCode: 0, signal: null,
         buildRecordHash: build.recordHash, executionMs: 1250, collectionMs: 100 } };
@@ -65,12 +65,12 @@ function fixture({ level = 'L2', eventName = 'workflow_dispatch', specs = invent
 test('the complete inventory is partitioned exactly, and unprofiled specs cannot disappear', () => {
   assert(inventory.length >= 25, 'Baseline specs must remain in the full inventory');
   const input = fixture();
-  assert.equal(input.execution.lanes.regular_a.length + input.execution.lanes.regular_b.length, inventory.length - 1);
+  assert.equal(LANES.filter(lane => lane !== 'mobile').reduce((sum, lane) => sum + input.execution.lanes[lane].length, 0), inventory.length - 1);
   assert.deepEqual(input.execution.lanes.mobile, [MOBILE_SPEC]);
   assert.deepEqual(Object.values(input.execution.lanes).flat().sort(), inventory);
   const expanded = [...inventory, 'tests/browser/new.spec.js'].sort();
   const lanes = splitSpecs({ ...input.plan, specs: expanded }, expanded);
-  assert.equal([...lanes.regular_a, ...lanes.regular_b].filter(spec => spec === 'tests/browser/new.spec.js').length, 1);
+  assert.equal(LANES.filter(lane => lane !== 'mobile').flatMap(lane => lanes[lane]).filter(spec => spec === 'tests/browser/new.spec.js').length, 1);
   assert.deepEqual(lanes.mobile, [MOBILE_SPEC]);
 });
 
@@ -89,7 +89,7 @@ test('both collection and execution ID unions match the original selection exact
   const input = fixture(), result = await validateAggregate(input);
   assert.equal(result.passedTests, inventory.length);
   for (const lane of LANES) assert.equal(result.laneResults[lane].passedTests, input.execution.lanes[lane].length);
-  assert.equal(result.laneResults.regular_a.passedTests + result.laneResults.regular_b.passedTests, inventory.length - 1);
+  assert.equal(LANES.filter(lane => lane !== 'mobile').reduce((sum, lane) => sum + result.laneResults[lane].passedTests, 0), inventory.length - 1);
   assert.equal(result.laneResults.mobile.passedTests, 1);
   assert(resultSummary({ plan: input.plan, result }).includes(`${inventory.length} tests、収集・実行ID`));
 });
@@ -210,6 +210,132 @@ test('all required install/unit/build/setup steps and diagnostic uploads must su
   await assert.rejects(() => validateAggregate(duplicate), /Duplicate artifact IDs/);
 });
 
+test('uploaded IDs must be canonical positive integer strings before they can select a path', async () => {
+  for (const job of ['build', ...LANES]) {
+    const key = job === 'build' ? job : `e2e_${job}`;
+    for (const id of ['0', '-1', '01', '123suffix', '1,2', '../100', '1/../../100', '1e2', '9007199254740992', 100, true]) {
+      const input = fixture(); input.needs[key].outputs.artifact_id = id;
+      assert.throws(() => uploadedArtifactId(input.needs, job), /Invalid uploaded artifact ID/);
+      await assert.rejects(validateAggregate(input), /Invalid uploaded artifact ID/);
+    }
+  }
+});
+
+test('singleton service downloads bind each output ID to its actual name and reject substitution or swapping', t => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'barb-artifact-ids-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const input = fixture();
+  const jobs = ['build', ...LANES];
+  // This service map is independent of needs: selectors cannot rename an
+  // artifact or substitute the name-selected payload for an unknown ID.
+  const service = new Map(jobs.map((job, index) => [String(100 + index), artifactName(input.context, job)]));
+  const download = needs => {
+    for (const job of jobs) {
+      const id = uploadedArtifactId(needs, job), actualName = service.get(id);
+      assert(actualName, 'Artifact service: ID not found');
+      mkdirSync(path.join(directory, id, actualName), { recursive: true });
+    }
+  };
+  download(input.needs);
+  const check = needs => validateArtifactDownloads({ directory, needs, context: input.context, active: LANES });
+  assert.doesNotThrow(() => check(input.needs));
+  for (const job of jobs) {
+    const key = job === 'build' ? job : `e2e_${job}`;
+    const changed = clone(input.needs); changed[key].outputs.artifact_id = '999999';
+    assert.throws(() => check(changed), /Missing, unexpected or colliding validation artifacts/);
+    assert.throws(() => download(changed), /Artifact service: ID not found/);
+  }
+  const swapped = clone(input.needs);
+  [swapped.e2e_regular_a.outputs.artifact_id, swapped.e2e_regular_c.outputs.artifact_id] =
+    [swapped.e2e_regular_c.outputs.artifact_id, swapped.e2e_regular_a.outputs.artifact_id];
+  // The requested ID set is unchanged; the service's actual names expose the swap.
+  assert.throws(() => check(swapped), /Downloaded artifact name differs for output ID/);
+  const reused = clone(input.needs); reused.e2e_regular_c.outputs.artifact_id = reused.e2e_regular_a.outputs.artifact_id;
+  assert.throws(() => check(reused), /Duplicate artifact IDs/);
+  const id = uploadedArtifactId(input.needs, 'regular_c');
+  const actual = path.join(directory, id, artifactName(input.context, 'regular_c'));
+  // A correct service name under another actual ID cannot stand in for the
+  // ID declared by this job, even when the name set is otherwise unchanged.
+  renameSync(path.join(directory, id), path.join(directory, '888888'));
+  assert.throws(() => check(input.needs), /Missing, unexpected or colliding validation artifacts/);
+  renameSync(path.join(directory, '888888'), path.join(directory, id));
+  for (const changedContext of [{ runId: '43' }, { runAttempt: '2' }, { validationSha: 'b'.repeat(40) }]) {
+    const wrongName = path.join(directory, id, artifactName({ ...input.context, ...changedContext }, 'regular_c'));
+    renameSync(actual, wrongName);
+    assert.throws(() => check(input.needs), /Downloaded artifact name differs for output ID/);
+    renameSync(wrongName, actual);
+  }
+  mkdirSync(path.join(directory, id, 'unexpected-name'));
+  assert.throws(() => check(input.needs), /Downloaded artifact name differs for output ID/);
+  rmSync(path.join(directory, id, 'unexpected-name'), { recursive: true });
+  mkdirSync(path.join(directory, '777777'));
+  assert.throws(() => check(input.needs), /Missing, unexpected or colliding validation artifacts/);
+  rmSync(path.join(directory, '777777'), { recursive: true });
+  const held = path.join(directory, 'held');
+  renameSync(actual, held); symlinkSync(held, actual, 'dir');
+  assert.throws(() => check(input.needs), /Missing, unexpected or colliding validation artifacts/);
+  // Remove the extra top-level path so the child symlink itself is inspected.
+  const outside = path.join(tmpdir(), path.basename(directory) + '-held');
+  renameSync(held, outside); rmSync(actual); symlinkSync(outside, actual, 'dir');
+  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  assert.throws(() => check(input.needs), /Invalid downloaded artifact directory/);
+});
+
+test('all active gate downloads must succeed and every inactive download must be skipped', () => {
+  for (const active of [LANES, [], ['regular_b', 'regular_c'], ['mobile']]) {
+    const complete = Object.fromEntries(['build', ...LANES].map(job => [`download_${job}`,
+      { outcome: job === 'build' || active.includes(job) ? 'success' : 'skipped' }]));
+    complete.download_discovery = { outcome: 'success' };
+    assert.doesNotThrow(() => validateDownloadSteps(complete, active));
+    for (const outcome of ['failure', 'cancelled', 'skipped', undefined]) {
+      const changed = clone(complete); changed.download_discovery.outcome = outcome;
+      assert.throws(() => validateDownloadSteps(changed, active), /Required gate download: discovery/);
+    }
+    for (const job of ['build', ...LANES]) {
+      const required = job === 'build' || active.includes(job);
+      for (const outcome of required ? ['failure', 'cancelled', 'skipped', undefined] : ['success', 'failure', undefined]) {
+        const changed = clone(complete); changed[`download_${job}`].outcome = outcome;
+        assert.throws(() => validateDownloadSteps(changed, active), required ? /Required gate download/ : /Unplanned gate download/);
+      }
+    }
+  }
+});
+
+test('pattern discovery retains exact remote names and must match the ID-fetched sealed bytes', t => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'barb-artifact-discovery-'));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  const directory = path.join(cwd, '.ci-artifacts'), discoveryDirectory = path.join(cwd, '.ci-discovered');
+  mkdirSync(discoveryDirectory);
+  const input = fixture(), jobs = ['build', ...LANES];
+  for (const job of jobs) {
+    const byId = path.join(directory, uploadedArtifactId(input.needs, job), artifactName(input.context, job));
+    mkdirSync(path.join(byId, '.ci'), { recursive: true });
+    writeFileSync(path.join(byId, '.ci/plan.json'), JSON.stringify(input.plan));
+    const payload = job === 'build' ? 'dist' : 'test-results';
+    mkdirSync(path.join(byId, payload)); writeFileSync(path.join(byId, payload, 'probe.txt'), `${job} bytes`);
+    recordJob(job, { cwd: byId, env: { ...env, CI_STEPS: '{}', CI_JOB_STATUS: 'success' } });
+    cpSync(byId, path.join(discoveryDirectory, artifactName(input.context, job)), { recursive: true });
+  }
+  const check = () => validateArtifactDiscovery({ directory, discoveryDirectory, needs: input.needs,
+    context: input.context, active: LANES });
+  assert.doesNotThrow(check);
+  mkdirSync(path.join(discoveryDirectory, 'ci-unexpected'));
+  assert.throws(check, /Missing, unexpected or colliding discovered validation artifacts/);
+  rmSync(path.join(discoveryDirectory, 'ci-unexpected'), { recursive: true });
+  const root = path.join(discoveryDirectory, artifactName(input.context, 'regular_c'));
+  const held = path.join(cwd, 'held');
+  renameSync(root, held);
+  assert.throws(check, /Missing, unexpected or colliding discovered validation artifacts/);
+  symlinkSync(held, root, 'dir');
+  assert.throws(check, /Invalid discovered artifact directory/);
+  rmSync(root); renameSync(held, root);
+  writeFileSync(path.join(root, 'test-results/probe.txt'), 'different bytes');
+  assert.throws(check, /Artifact files missing, added or corrupted/);
+  // Even a valid but different sealed payload cannot replace the ID download.
+  recordJob('regular_c', { cwd: root, env: { ...env, CI_STEPS: '{}', CI_JOB_STATUS: 'success' } });
+  assert.throws(check, /Discovered artifact differs from output-ID download: regular_c/);
+});
+
 test('base/head/validation SHA, ref, run and attempt mismatches are rejected for every lane', async () => {
   for (const job of ['build', ...LANES]) for (const kind of ['record', 'result']) {
     for (const key of ['baseSha', 'headSha', 'validationSha', 'validationRef', 'eventName', 'prNumber', 'runId', 'runAttempt']) {
@@ -231,7 +357,7 @@ test('L1 preserves both smoke specs and related selection, with no unnecessary m
   await assert.rejects(() => validateAggregate(unexpected), /Unplanned E2E job/);
   const future = [...input.plan.specs, MOBILE_SPEC].sort();
   const lanes = splitSpecs({ ...input.plan, specs: future }, inventory);
-  assert.deepEqual(lanes.mobile, [MOBILE_SPEC]); assert.deepEqual(lanes.regular_a, input.plan.specs);
+  assert.deepEqual(lanes.mobile, [MOBILE_SPEC]); assert.deepEqual(LANES.filter(lane => lane !== 'mobile').flatMap(lane => lanes[lane]).sort(), input.plan.specs);
   const futurePlan = classifyChanges([{ status: 'M', paths: ['src/audio/ambient-player.js'] }], {
     availableSpecs: inventory, groups: { ...L1_GROUPS, 'ambient-output': { specs: ['tests/browser/audio.spec.js', MOBILE_SPEC] } },
   });
@@ -241,15 +367,15 @@ test('L1 preserves both smoke specs and related selection, with no unnecessary m
     specs: future.filter(file => file !== missing) }, inventory), /Missing smoke/);
 });
 
-test('L1 skips empty Regular B and keeps original smoke coverage across the split', async () => {
+test('L1 skips empty Regular A and keeps original smoke coverage across B/C', async () => {
   const aOnly = fixture({ eventName: 'pull_request', level: 'L1', specs: [...SMOKE_SPECS, 'tests/browser/audio.spec.js'].sort() });
-  assert.deepEqual(aOnly.execution.lanes.regular_b, []);
-  assert.equal(aOnly.needs.e2e_regular_b.result, 'skipped');
+  assert.deepEqual(aOnly.execution.lanes.regular_a, []);
+  assert.equal(aOnly.needs.e2e_regular_a.result, 'skipped');
   assert.equal((await validateAggregate(aOnly)).passedTests, aOnly.plan.specs.length);
-  // Regular B has only the related spec; its own report needs no smoke tests.
+  // Related specs stay with their complete-file assignment; smokes remain in B/C.
   const split = fixture({ eventName: 'pull_request', level: 'L1', specs: [...SMOKE_SPECS, 'tests/browser/audio-gain.spec.js'].sort() });
   assert.equal((await validateAggregate(split)).passedTests, split.plan.specs.length);
-  for (const lane of ['regular_b', 'mobile']) {
+  for (const lane of ['regular_a', 'mobile']) {
     const unexpectedJob = clone(aOnly); unexpectedJob.needs[`e2e_${lane}`].result = 'success';
     await assert.rejects(validateAggregate(unexpectedJob), /Unplanned E2E job/);
     const unexpectedArtifact = clone(aOnly); unexpectedArtifact.needs[`e2e_${lane}`].outputs.artifact_id = 'unplanned';
@@ -263,15 +389,17 @@ test('a future L1 Mobile selection still awaits all 34 source-backed comparisons
   const result = await validateAggregate(input);
   assert.equal(result.passedTests, input.plan.specs.length);
   assert.equal(result.mobilePairs, 34);
-  assert.equal(input.needs.e2e_regular_b.result, 'skipped');
+  assert.equal(input.needs.e2e_regular_a.result, 'skipped');
   assert.equal(input.needs.e2e_mobile.result, 'success');
 });
 
-test('old regular keys/records, surplus needs/lanes and tampered three-lane execution plans fail closed', async () => {
+test('old regular keys/records, surplus needs/lanes and tampered four-lane execution plans fail closed', async () => {
   for (const mutate of [
     input => input.needs.e2e_regular = input.needs.e2e_regular_a,
     input => { input.needs.e2e_regular = input.needs.e2e_regular_a; delete input.needs.e2e_regular_a; },
+    input => delete input.needs.e2e_regular_c,
     input => input.execution.schemaVersion = 1,
+    input => input.execution.schemaVersion = 2,
     input => input.execution.profile.hash = 'forged',
     input => input.execution.inputHash = 'forged',
     input => input.execution.selectedSpecs.pop(),
@@ -279,14 +407,21 @@ test('old regular keys/records, surplus needs/lanes and tampered three-lane exec
     input => input.execution.lanes.regular_a.push(MOBILE_SPEC),
     input => input.execution.lanes.regular = input.execution.lanes.regular_a,
     input => input.execution.lanes.regular_b.push('tests/browser/unselected.spec.js'),
+    input => input.execution.lanes.regular_c = [],
     input => input.lanes.regular = input.lanes.regular_a,
     input => input.lanes.regular_a.record.job = 'regular',
     input => input.lanes.regular_b.record.schemaVersion = 1,
+    input => input.lanes.regular_c.record.schemaVersion = 2,
     input => input.lanes.regular_a.collection = clone(input.lanes.regular_b.collection),
     input => input.lanes.regular_b.report = clone(input.lanes.regular_a.report),
   ]) {
     const input = fixture(); mutate(input);
     await assert.rejects(validateAggregate(input));
+  }
+  for (const job of ['build', ...LANES]) for (const schemaVersion of [1, 2]) {
+    const input = fixture();
+    (job === 'build' ? input.build : input.lanes[job]).record.schemaVersion = schemaVersion;
+    await assert.rejects(validateAggregate(input), /Unknown record schema/);
   }
 });
 
@@ -300,6 +435,12 @@ test('L0 and main push require explicit non-execution and reject unintended E2E'
     await assert.rejects(() => validateAggregate(missing), /Missing explicit E2E non-execution/);
     const unexpected = clone(input); unexpected.build.result.executed = true;
     await assert.rejects(() => validateAggregate(unexpected), /unexpectedly executed E2E/);
+    for (const lane of LANES) {
+      const running = clone(input); running.needs[`e2e_${lane}`].result = 'success';
+      await assert.rejects(validateAggregate(running), /Unplanned E2E job/);
+      const artifact = clone(input); artifact.needs[`e2e_${lane}`].outputs.artifact_id = '9999';
+      await assert.rejects(validateAggregate(artifact), /Unplanned E2E artifact/);
+    }
   }
 });
 
@@ -370,7 +511,8 @@ test('summary CLI awaits result rejection, exits nonzero and preserves plan/reco
   const script = fileURLToPath(new URL('../scripts/ci-summary.js', import.meta.url));
   const summary = path.join(cwd, 'summary.md');
   const environment = { ...process.env, GITHUB_RUN_ID: '42', GITHUB_RUN_ATTEMPT: '1', GITHUB_SHA: SHA,
-    CI_STEPS: JSON.stringify(steps(['checkout', 'node', 'install', 'download'])), CI_JOB_STATUS: 'success',
+    CI_STEPS: JSON.stringify(steps(['checkout', 'node', 'install', 'download_build', 'download_discovery'])), CI_JOB_STATUS: 'success',
+    CI_NEEDS: JSON.stringify(fixture().needs),
     CI_RECORD_JOB: 'build', GITHUB_STEP_SUMMARY: summary };
   for (const mode of ['plan', 'record']) {
     const child = spawnSync(process.execPath, [script, mode], { cwd, env: environment, encoding: 'utf8' });
@@ -379,26 +521,40 @@ test('summary CLI awaits result rejection, exits nonzero and preserves plan/reco
   }
   assert.equal(JSON.parse(readFileSync(path.join(cwd, '.ci/job-record.json'), 'utf8')).job, 'build');
   const child = spawnSync(process.execPath, [script, 'result'], { cwd, env: environment, encoding: 'utf8' });
-  assert.equal(child.status, 1, child.stderr); assert.match(child.stderr, /ENOENT/);
+  assert.equal(child.status, 1, child.stderr); assert.match(child.stderr, /Missing downloaded artifact ID directory/);
   assert.match(child.stdout, /失敗・未完了/); assert.match(readFileSync(summary, 'utf8'), /E2E成功は確認できません/);
   assert.doesNotMatch(child.stdout, /検証: 成功|E2E: 実行成功/);
   assert.doesNotMatch(child.stderr, /UnhandledPromiseRejection|unhandledRejection/);
 });
 
 const workflow = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8').replace(/^\s*#.*$/gm, '');
-test('workflow final ci-required always runs with all four direct dependencies and read-only permissions', () => {
+test('workflow final ci-required always runs with all five direct dependencies and read-only permissions', () => {
   assert.match(workflow, /^permissions:\n  contents: read\n/m);
   assert.equal((workflow.match(/name: ci-required/g) ?? []).length, 1);
   const gate = workflow.slice(workflow.indexOf('\n  required:'), workflow.indexOf('\n  deploy:'));
   assert.match(gate, /if: always\(\)/);
-  assert.match(gate, /needs: \[build, e2e_regular_a, e2e_regular_b, e2e_mobile\]/);
+  assert.match(gate, /needs: \[build, e2e_regular_a, e2e_regular_b, e2e_regular_c, e2e_mobile\]/);
   assert.match(gate, /CI_NEEDS: \$\{\{ toJSON\(needs\) \}\}/);
   assert.match(gate, /merge-multiple: false/);
+  for (const job of ['build', ...LANES]) {
+    const key = job === 'build' ? job : `e2e_${job}`;
+    const section = gate.slice(gate.indexOf(`id: download_${job}\n`)).split(/\n      - name:/)[0];
+    assert(section.includes(`if: always() && needs.${key}.result == 'success' && needs.${key}.outputs.artifact_id != ''`));
+    assert(section.includes(`artifact-ids: \u0024{{ needs.${key}.outputs.artifact_id }}`));
+    assert(section.includes(`path: .ci-artifacts/\u0024{{ needs.${key}.outputs.artifact_id }}`));
+    assert.match(section, /merge-multiple: false/);
+    assert.doesNotMatch(section, /^\s+(?:name|pattern|github-token|run-id):/m);
+  }
+  const discovery = gate.slice(gate.indexOf('id: download_discovery\n')).split(/\n      - name:/)[0];
+  assert.match(discovery, /if: always\(\)/);
+  assert(discovery.includes('pattern: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-*'));
+  assert.match(discovery, /path: \.ci-discovered\n/);
+  assert.match(discovery, /merge-multiple: false/);
   assert.match(gate, /node scripts\/ci-summary\.js result/);
   assert.doesNotMatch(workflow, /continue-on-error:|permissions: write-all|^\s+paths(?:-ignore)?:/m);
 });
 
-test('all three E2E lanes depend only on build and preserve failure diagnostics for fourteen days', () => {
+test('all four E2E lanes depend only on build and preserve failure diagnostics for fourteen days', () => {
   assert.equal((workflow.match(/^  e2e_[a-z_]+:/gm) ?? []).length, LANES.length);
   assert.doesNotMatch(workflow, /^  e2e_regular:|run_regular:/m);
   for (const [job, lane] of LANES.map(lane => [`e2e_${lane}`, lane])) {
@@ -414,6 +570,11 @@ test('all three E2E lanes depend only on build and preserve failure diagnostics 
     assert.match(section, /if: always\(\)/); assert.match(section, /retention-days: 14/);
     assert.match(section, /include-hidden-files: true/); assert.match(section, /if-no-files-found: error/);
     assert.match(section, /test-results\//);
+    const download = section.slice(section.indexOf('- uses: actions/download-artifact@v4')).split(/\n      - name:/)[0];
+    assert(download.includes('artifact-ids: ${{ needs.build.outputs.artifact_id }}'));
+    assert.match(download, /path: \.ci-input\n/);
+    assert.match(download, /merge-multiple: false/);
+    assert.doesNotMatch(download, /^\s+(?:name|pattern|github-token|run-id):/m);
   }
 });
 

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-export const LANES = Object.freeze(['regular_a', 'regular_b', 'mobile']);
+export const LANES = Object.freeze(['regular_a', 'regular_b', 'regular_c', 'mobile']);
 export const MOBILE_SPEC = 'tests/browser/mobile-performance.spec.js';
 export const hash = value => createHash('sha256').update(value).digest('hex');
 export const planHash = plan => hash(JSON.stringify(plan));
@@ -47,7 +47,7 @@ export function fileManifest(cwd, job) {
 export function recordJob(job, { cwd = process.cwd(), env = process.env } = {}) {
   assert(['build', ...LANES].includes(job), 'Unknown record job');
   const plan = JSON.parse(readFileSync(path.join(cwd, '.ci/plan.json'), 'utf8'));
-  const record = { schemaVersion: 2, job, context: validationContext(plan, env),
+  const record = { schemaVersion: 3, job, context: validationContext(plan, env),
     jobStatus: env.CI_JOB_STATUS, steps: JSON.parse(env.CI_STEPS),
     recordedAt: new Date().toISOString(), files: fileManifest(cwd, job) };
   writeFileSync(path.join(cwd, '.ci/job-record.json'), JSON.stringify(record, null, 2));
@@ -56,7 +56,7 @@ export function recordJob(job, { cwd = process.cwd(), env = process.env } = {}) 
 
 export function readRecord(cwd, job, context) {
   const record = JSON.parse(readFileSync(path.join(cwd, '.ci/job-record.json'), 'utf8'));
-  assert.equal(record.schemaVersion, 2, 'Unknown record schema');
+  assert.equal(record.schemaVersion, 3, 'Unknown record schema');
   assert.equal(record.job, job, 'Artifact job differs');
   assert.deepEqual(record.context, context, 'Artifact SHA/ref/run provenance differs');
   assert.deepEqual(record.files, fileManifest(cwd, job), 'Artifact files missing, added or corrupted');
