@@ -302,8 +302,9 @@ for (const hudText of ['normal', 'root20', 'computed20']) for (const rodLevel of
     for (const direction of [0, -1, 1]) {
       const prediction = await aim(page, click, input, direction, maximum, profile);
       await save(page, info, `${lure.id}-${maximum}m-${direction}`, prediction);
-      if (hudText === 'computed20' && lure.id === 'spinnerbait' && direction === 1) {
-        await castAndReturn(page, input, prediction, info, `${maximum}m-right-release`);
+      if (lure.id === 'spinnerbait' && ((hudText === 'computed20' && direction === 1) || (hudText === 'root20' && direction === 0))) {
+        await castAndReturn(page, input, prediction, info, `${maximum}m-${direction === 0 ? 'center' : 'right'}-release`);
+        await expect(page.locator('#fishing-note')).toHaveText('応答が遅れ、個体を見失った。');
       } else { await input.cancel(); await input.up(); await tick(page); }
       await expect(panel(page)).toHaveAttribute('data-phase', 'ready');
     }
