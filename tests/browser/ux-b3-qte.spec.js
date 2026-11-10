@@ -64,10 +64,20 @@ for (const viewport of [{ width: 568, height: 320 }, { width: 844, height: 390 }
       expect(measured.geometry.target).toEqual({ x: circle.left + circle.width / 2, y: circle.top + circle.height / 2 });
     } else expect(measured.geometry.target).toEqual(expected.target);
     expect(measured.grid.filter(point => point.hit !== 'scene')).toEqual([]);
+    const edgeHits = await page.evaluate(r => {
+      const points = [];
+      for (let row = 0; row <= 4; row++) for (let col = 0; col <= 8; col++) {
+        const x = r.left + .1 + (r.right - r.left - .2) * col / 8;
+        const y = r.top + .1 + (r.bottom - r.top - .2) * row / 4;
+        points.push({ x, y, hit: document.elementFromPoint(x, y)?.id });
+      }
+      return points;
+    }, measured.geometry.region);
+    expect(edgeHits.filter(point => point.hit !== 'scene'), JSON.stringify(edgeHits)).toEqual([]);
     expect(evidence.before.snapshot.deadline - evidence.before.snapshot.active).toBe(approvedSeconds(evidence.before.fight.difficulty, operation) * 1000);
     const native = await page.evaluate(() => window.productNativeEvidence);
     expect(native.some(event => event.trusted && event.pointerType === 'touch' && event.type === 'pointerdown')).toBe(true);
     const audit = await auditProductionQte({ ...evidence, native });
-    await captureQteUI(page, info, 'short20-qte', { base, operation, evidence, audit, measured, expected, paint });
+    await captureQteUI(page, info, 'short20-qte', { base, operation, evidence, audit, measured, expected, paint, edgeHits });
   });
 }

@@ -782,7 +782,7 @@ button.fish-card:hover { background: #335e4c; }
     position: fixed; left: var(--hud-left); top: max(16px, calc(var(--safe-top) + 8px));
     width: 176px; display: block;
   }
-  #app[data-fishing-phase="fight"] #return-button { min-height: 48px; }
+  #app[data-fishing-phase="fight"] #return-button { min-height: 48px; margin: 0; }
   #app[data-fishing-phase="fight"] #fishing-panel {
     top: auto; bottom: max(56px, calc((100vh - var(--safe-top) + var(--safe-bottom)) / 2 - 104px), calc(var(--safe-bottom) + 48px));
     grid-template-columns: auto minmax(90px, max-content) minmax(0, 1fr); grid-template-rows: auto auto;
