@@ -96,7 +96,10 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
     // Do not compress seconds between native gestures with a mocked JS clock.
     // Start early enough that the entire real-time operation test stays at
     // night, including slow software WebGL runs (the test budget is 120s).
-    await setup(page, 210, { freeze: false });
+    // Night 4 stays CLEAR in both base and Sky-1, preserving the existing
+    // clear-night draw budget. Saved/boundary cases still exercise night 0 FOG.
+    const nightIndex = 4;
+    await setup(page, nightIndex * 360 + 210, { freeze: false });
     await observeControls(page);
     // Landscape controls occupy the right half; start gestures on clear canvas.
     const cdp = await context.newCDPSession(page), x = width * (width > height && touch ? 0.35 : 0.6), y = height * 0.55;
@@ -167,7 +170,7 @@ for (const viewport of [{ width: 1000, height: 700, touch: false }, { width: 320
     await expect(page.locator('#reel-state')).toHaveText('待機中');
     const { lighting, cycleProgress } = await page.evaluate(() => ({ lighting: window.lightingProbe.last,
       cycleProgress: Number(document.querySelector('#fishing-conditions').dataset.cycleProgress) }));
-    assertEnvironment(lighting, cycleProgress * 360);
+    assertEnvironment(lighting, nightIndex * 360 + cycleProgress * 360);
     const duringLure = await resources();
     const counts = testInfo.outputPath('render-counts.json');
     await writeFile(counts, JSON.stringify({ beforeCast: memoryBefore, duringLure }, null, 2));
