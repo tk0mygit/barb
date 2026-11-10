@@ -720,7 +720,6 @@ button.fish-card:hover { background: #335e4c; }
   #app[data-fishing-phase] > #spot-status :is(#spot-name, #spot-effect) { display: inline; line-height: 1.1; margin: 0; }
   #app[data-fishing-phase] > #spot-status #spot-name { margin-right: .5em; }
   #app[data-fishing-phase] > #achievement-notice { width: 176px; max-width: 176px; line-height: 1.2; gap: 2px; }
-  #app[data-fishing-phase="ready"] { --hud-left: max(12px, var(--safe-left)); --hud-right: max(12px, var(--safe-right)); }
   #app[data-fishing-phase="ready"] .masthead,
   #app[data-fishing-phase="ready"] .bottom-bar { left: var(--hud-left); right: var(--hud-right); }
   #app[data-fishing-phase="ready"] #fishing-panel {
@@ -763,6 +762,10 @@ button.fish-card:hover { background: #335e4c; }
   #app[data-fishing-phase]:is([data-cast-view="true"], [data-cast-preparing="true"]) > #sale-notice {
     left: auto; right: var(--hud-right); top: max(166px, calc(var(--safe-top) + 158px)); width: 176px;
   }
+}
+
+@media (max-height: 420px) and (max-width: 640px) {
+  #app[data-fishing-phase="ready"] { --hud-left: max(12px, var(--safe-left)); --hud-right: max(12px, var(--safe-right)); }
 }
 
 /* Short landscape FIGHT keeps the unchanged centered QTE timer clear,

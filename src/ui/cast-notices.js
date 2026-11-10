@@ -86,7 +86,7 @@ export function createCastNotices(root = document) {
       if (narrow && visible(achievement)) notices.push(achievement);
       if (!notices.length) return true;
       if (active && (!bounds || bounds.clipped)) return false;
-      // READY can use the empty middle of the header for point text. All
+      // READY/FIGHT can use the empty middle of the header for notice text. All
       // actual header children still exclude notices; cast visibility itself
       // continues to measure the entire masthead in unchanged main.js.
       const header = narrow && !active && ['ready', 'fight'].includes(app.dataset.fishingPhase) ? '.wordmark, .header-tools' : '.masthead';
