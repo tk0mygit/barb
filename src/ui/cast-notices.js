@@ -88,7 +88,7 @@ export function createCastNotices(root = document) {
       // READY can use the empty middle of the header for point text. All
       // actual header children still exclude notices; cast visibility itself
       // continues to measure the entire masthead in unchanged main.js.
-      const header = narrow && !active && app.dataset.fishingPhase === 'ready' ? '.wordmark, .header-tools' : '.masthead';
+      const header = narrow && !active && ['ready', 'fight'].includes(app.dataset.fishingPhase) ? '.wordmark, .header-tools' : '.masthead';
       const blocked = [...root.querySelectorAll(`${header}, .action-panel, #fishing-panel, .telemetry, .edition, .compass, #reticle,
         #fishing-conditions, .qte-target, .qte-state, .qte-instruction, .qte-timer, .qte-arrow-shape`)]
         .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden')

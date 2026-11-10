@@ -770,6 +770,14 @@ button.fish-card:hover { background: #335e4c; }
   #app[data-fishing-phase="ready"] .bottom-bar > .action-panel { gap: 4px 16px; }
   #app[data-fishing-phase="ready"] #lure-picker { gap: 4px 8px; }
   #app[data-fishing-phase="ready"] :is(#lure-picker button, #cast-button, #return-button) { min-height: 44px; padding-block: 2px; }
+  #app[data-fishing-phase="fight"] > #achievement-notice { left: calc(var(--hud-left) + 272px); top: 40px; }
+  #app[data-fishing-phase="fight"] > #sale-notice {
+    left: var(--hud-left); right: auto; top: max(114px, calc(var(--safe-top) + 106px));
+    width: 244px; padding: 0; transform: none;
+  }
+  #app[data-fishing-phase="fight"] > #spot-status {
+    right: var(--hud-right); top: max(114px, calc(var(--safe-top) + 106px));
+  }
   #app[data-fishing-phase]:is([data-cast-view="true"], [data-cast-preparing="true"]) > #achievement-notice {
     left: calc(var(--hud-left) + 88px); top: max(189px, calc(var(--safe-top) + 181px));
   }

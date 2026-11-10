@@ -201,7 +201,8 @@ async function aim(page, click, input, direction, distance, profile) {
   await click('#cast-button'); await tick(page);
   await expect(panel(page)).toHaveAttribute('data-phase', 'aim');
   const width = page.viewportSize().width, height = page.viewportSize().height;
-  const x = direction < 0 ? width - 90 : direction > 0 ? 90 : width / 2, y = height * 0.48;
+  const x = direction < 0 ? width - 90 : direction > 0 ? 90 : width / 2, y = height * (profile.inputY ?? .48);
+  if (profile.inputY) expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.id, { x, y })).toBe('scene');
   await input.down(x, y);
   // Commit pending capture even for the zero-length 8m cast, so cancellation
   // exercises the native lost-capture path on mouse as well as touch.
@@ -285,7 +286,7 @@ for (const profile of profiles) {
 
 for (const hudText of ['normal', 'root20', 'computed20']) for (const rodLevel of [1, 5]) {
   test(`UX-B3 short ${hudText} rod Lv${rodLevel}: native targets, four lures and exact cast ranges`, async ({ createContext }, info) => {
-    const profile = { width: 568, height: 320, touch: true };
+    const profile = { width: 568, height: 320, touch: true, inputY: .6 };
     const { page, click, input } = await setup(createContext, profile, rodLevel, undefined, 0, { hudText });
     const targets = await page.locator('#menu-button, #lure-picker button, #cast-button, #return-button').evaluateAll(elements =>
       elements.map(element => { const r = element.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
@@ -302,10 +303,17 @@ for (const hudText of ['normal', 'root20', 'computed20']) for (const rodLevel of
       for (const direction of [0, -1, 1]) {
         const prediction = await aim(page, click, input, direction, maximum, profile);
         await save(page, info, `${lure.id}-${maximum}m-${direction}`, prediction);
-        await input.cancel(); await input.up(); await tick(page);
+        if (hudText === 'computed20' && lure.id === 'spinnerbait' && direction === 1) {
+          await castAndReturn(page, input, prediction, info, `${maximum}m-right-release`);
+        } else { await input.cancel(); await input.up(); await tick(page); }
         await expect(panel(page)).toHaveAttribute('data-phase', 'ready');
       }
     }
+    await click('#cast-button'); await tick(page);
+    const x = profile.width / 2, y = profile.height * profile.inputY;
+    await input.down(x, y); await input.move(x, y - 180 * (28 - 8) / ((rodLevel === 5 ? 40 : 32) - 8)); await tick(page);
+    await expect(page.locator('#line-distance')).toHaveText('着水予測 28.0 m'); assertSafe(await read(page));
+    await save(page, info, '28m-center', await read(page)); await input.cancel(); await input.up(); await tick(page);
     const near = await aim(page, click, input, 0, 8, profile);
     await castAndReturn(page, input, near, info, '8m-native-release-and-retrieve');
   });

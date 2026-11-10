@@ -21,13 +21,66 @@ async function readNoticeLayout(page) {
     const notices = [...document.querySelectorAll('#spot-status, #sale-notice, #achievement-notice')].filter(visible)
       .map(e => ({ ...rect(e), text: e.textContent, scrollWidth: e.scrollWidth, clientWidth: e.clientWidth,
         scrollHeight: e.scrollHeight, clientHeight: e.clientHeight, pointerEvents: getComputedStyle(e).pointerEvents }));
-    const paint = [...document.querySelectorAll('.wordmark, .header-tools, #fishing-state, #fishing-conditions, #fishing-note, #hint')]
+    const paint = [...document.querySelectorAll('.wordmark, .header-tools, #fishing-state, #fishing-conditions, #line-distance, #tension-warning, #fishing-note, #hint')]
       .filter(visible).map(rect);
     const buttons = [...document.querySelectorAll('#menu-button, .bottom-bar button')].filter(visible).map(e => {
       const r = e.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
       return { ...rect(e), lureId: e.dataset.lureId, hit: hit === e || e.contains(hit) };
     });
     return { width: innerWidth, height: innerHeight, notices, paint, buttons };
+  });
+}
+
+for (const phase of ['aim', 'bite', 'fight']) {
+  test(`UX-B3 short20 ${phase}: three full notices avoid world marker, controls and state paint`, async ({ createContext }, info) => {
+    const context = await createContext({ viewport: { width: 568, height: 320 }, hasTouch: true, isMobile: true });
+    const page = await context.newPage(); await installPausedClock(page);
+    const categoryIndex = NORMAL_BUYER_DIALOGUE.findIndex(category => category.lines.includes(longestBuyer));
+    const lines = NORMAL_BUYER_DIALOGUE[categoryIndex].lines;
+    await page.addInitScript(rolls => {
+      crypto.getRandomValues = a => { a[0] = Math.floor((rolls.shift() ?? 0) * 2 ** 32); return a; };
+    }, [categoryIndex ? .9 : 0, (lines.indexOf(longestBuyer) + .5) / lines.length]);
+    await openUIFixture(page);
+    await page.evaluate(async ({ phase, award }) => {
+      const { createHUD } = await import('./src/ui/hud.js');
+      const { createFishingSpotsHUD } = await import('./src/ui/fishing-spots-hud.js');
+      const { getFishingSpotStatus } = await import('./src/game/fishing-spots.js');
+      const { createCastNotices } = await import('./src/ui/cast-notices.js');
+      for (const [edge, v] of Object.entries({ top: 8, bottom: 8, left: 12, right: 12 })) document.documentElement.style.setProperty(`--safe-${edge}`, `${v}px`);
+      document.documentElement.style.fontSize = '20px';
+      for (const e of document.querySelectorAll('#fishing-panel p, #fight-gauge label, #tension-value, #hint, #fishing-note, .action-panel button, #spot-name, #spot-effect, #sale-notice')) e.style.setProperty('font-size', '20px', 'important');
+      createHUD({ onFish() {}, onReturn() {} }).update({ mode: 'fishing', speed: 0, heading: 0 });
+      const f = fixture.fishing;
+      f.prepare({ x: 0, z: -55 }, 0);
+      if (phase !== 'aim') {
+        f.cast();
+        for (let n = 0; n < 2000 && f.state.phase !== 'bite'; n++) f.step(.1);
+        if (f.state.phase !== 'bite') throw Error('Legal fixture did not reach BITE');
+        if (phase === 'fight') f.hook();
+      }
+      fixture.fishingHUD.update(f, true, { timeOfDay: 'day', cycleProgress: .25 });
+      createFishingSpotsHUD().update(getFishingSpotStatus({ x: 0, z: -55 }));
+      fixture.achievementNotice.notify([award]);
+      // UI-only composition; source sale module, real receipt and source dialogue.
+      fixture.salesHUD.notify(fixture.fund(300));
+      fixture.castNotices = createCastNotices();
+      window.uxB3World = { left: 274, top: 175, right: 294, bottom: 190 };
+      window.uxB3LayoutFits = fixture.castNotices.update(window.uxB3World, phase !== 'fight');
+    }, { phase, award: longestAward });
+    const layout = await readNoticeLayout(page);
+    await info.attach('compound-notice-layout', { body: JSON.stringify(layout, null, 2), contentType: 'application/json' });
+    await page.screenshot({ path: info.outputPath('compound.png') });
+    expect(await page.evaluate(() => window.uxB3LayoutFits), JSON.stringify(layout)).toBe(true);
+    expect(layout.notices).toHaveLength(3);
+    await expect(page.locator('#sale-notice')).toContainText(longestBuyer.text);
+    const marker = await page.evaluate(() => window.uxB3World);
+    for (const [i, notice] of layout.notices.entries()) {
+      expect(notice.scrollHeight).toBeLessThanOrEqual(notice.clientHeight);
+      expect(notice.scrollWidth).toBeLessThanOrEqual(notice.clientWidth);
+      for (const other of [...layout.notices.slice(0, i), ...layout.paint, ...layout.buttons, ...(phase === 'fight' ? [] : [marker])]) {
+        expect(separated(notice, other), `${notice.id}/${other.id ?? 'world marker'}`).toBe(true);
+      }
+    }
   });
 }
 
