@@ -30,9 +30,14 @@ async function attachCounts(page, testInfo, label) {
 
 // Fixed genuine night indices near each requested optical target. All views
 // use the same saved boat, camera, midnight phase and untouched production fog.
-for (const [index, label] of [[0, 'clear'], [8301, 'fog-30'], [3971, 'fog-50'], [5825, 'fog-70'], [1, 'dense-95']]) {
+// Sky-1: night 0 becomes FOG, and 8301/5825 become DENSE_FOG. These replacements
+// retain the named weather in both base and PR without overriding the selector.
+for (const [index, label, type, amount] of [[4, 'clear', 'CLEAR', 0], [7615, 'fog-30', 'FOG', 0.3],
+  [3971, 'fog-50', 'FOG', 0.5], [2859, 'fog-70', 'FOG', 0.7], [1, 'dense-95', 'DENSE_FOG', 0.95]]) {
   test(`matched night view ${label}: calibrated fog and bounded GPU cost`, async ({ createContext }, testInfo) => {
     const profile = getNightFogProfile(index), seconds = index * 360 + 270;
+    expect(profile.fogType).toBe(type);
+    expect(profile.targetFogAmount).toBeCloseTo(amount, 3);
     const context = await createContext({ viewport: { width: 1000, height: 700 }, deviceScaleFactor: 1 });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', e => errors.push(e.message));

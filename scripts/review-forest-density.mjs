@@ -28,7 +28,7 @@ const work = await mkdtemp(join(tmpdir(), 'barb-forest-review-'));
 const counts = [[850, 650, 200], [1000, 766, 234], [1100, 843, 257], [1200, 920, 280]];
 const views = [
   { id: 'day-tps', seconds: 90 }, { id: 'day-fps', seconds: 90, fishing: true },
-  { id: 'clear-night', seconds: 270 }, { id: 'fog-night', seconds: 3971 * 360 + 270 }, { id: 'dense-night', seconds: 630 },
+  { id: 'clear-night', seconds: 4 * 360 + 270 }, { id: 'fog-night', seconds: 3971 * 360 + 270 }, { id: 'dense-night', seconds: 630 },
   { id: 'touch-portrait', seconds: 90, width: 390, height: 844, dpr: 3, touch: true },
   { id: 'touch-landscape', seconds: 90, width: 844, height: 390, dpr: 3, touch: true },
   { id: 'near-shore', seconds: 90, boat: { x: 0, z: -120, heading: 0 } },

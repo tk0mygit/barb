@@ -544,7 +544,8 @@ for (const touch of [false, true]) for (const ambient of [false, true]) for (con
     });
 }
 
-for (const [seconds, mode, bgm, nature] of [[270, '夜のBGM', 1, NATURE_BASE_GAIN], [2790, '霧の夜のBGM', 1, NATURE_BASE_GAIN], [630, '濃霧の自然音', 0, 1]]) {
+for (const [seconds, mode, bgm, nature] of [[4 * 360 + 270, '夜のBGM', 1, NATURE_BASE_GAIN],
+  [270, '霧の夜のBGM', 1, NATURE_BASE_GAIN], [2790, '霧の夜のBGM', 1, NATURE_BASE_GAIN], [630, '濃霧の自然音', 0, 1]]) {
   test(`optical fog at ${seconds}s: ${mode}, independent settings and notification context`, async ({ page }) => {
     await prefs(page, enabled); await page.addInitScript(installAudioProbe, {}); await setup(page, seconds);
     expect((await audioSnapshot(page)).contexts).toBe(0);

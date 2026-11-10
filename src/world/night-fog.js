@@ -1,8 +1,8 @@
 import { GAME_CLOCK_CONFIG } from '../game/game-clock.js';
 
 export const FOG_TYPE = Object.freeze({ CLEAR: 'CLEAR', FOG: 'FOG', DENSE_FOG: 'DENSE_FOG' });
-export const NIGHT_FOG_CONFIG = Object.freeze({ clearProbability: 0.5, fogProbability: 0.35,
-  denseProbability: 0.15, minFogAmount: 0.3, maxFogAmount: 0.7, denseFogAmount: 0.95,
+export const NIGHT_FOG_CONFIG = Object.freeze({ clearProbability: 0.4, fogProbability: 0.3,
+  denseProbability: 0.3, minFogAmount: 0.3, maxFogAmount: 0.7, denseFogAmount: 0.95,
   fadeSeconds: 12, referenceDistance: 30, baseDensity: 0.0018 });
 const cycleSeconds = GAME_CLOCK_CONFIG.daySeconds + GAME_CLOCK_CONFIG.nightSeconds;
 const smoothstep = value => {
