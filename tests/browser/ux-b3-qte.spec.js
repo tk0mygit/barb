@@ -11,8 +11,9 @@ const { calculateQteLayout: approvedLayout } = await import(`data:text/javascrip
 const timingSource = execFileSync('git', ['show', `${base}:src/game/fight-qte.js`]).toString();
 const { qteSeconds: approvedSeconds } = await import(`data:text/javascript;base64,${Buffer.from(timingSource).toString('base64')}`);
 
-for (const viewport of [{ width: 568, height: 320 }, { width: 844, height: 390 }]) for (const operation of ['flick', 'swipe', 'tap', 'target']) {
-  test(`UX-B3 ${viewport.width} short20 rotation: native ${operation}, unchanged QTE geometry and time`, async ({ createContext }, info) => {
+for (const viewport of [{ width: 568, height: 320, text20: true }, { width: 844, height: 390, text20: true },
+  { width: 844, height: 390, text20: false, operations: ['swipe'] }]) for (const operation of viewport.operations ?? ['flick', 'swipe', 'tap', 'target']) {
+  test(`UX-B3 ${viewport.width} ${viewport.text20 ? 'computed20' : 'normal'} rotation: native ${operation}, unchanged QTE geometry and time`, async ({ createContext }, info) => {
     const context = await createContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: .5 });
     const page = await context.newPage(), save = structuredClone(createLightingSave(90));
     save.boat = { x: 0, z: -55, heading: 0 };
@@ -20,12 +21,13 @@ for (const viewport of [{ width: 568, height: 320 }, { width: 844, height: 390 }
     const input = await productInput(page, true);
     const direction = operation === 'swipe' ? 'down' : operation === 'flick' ? 'up' : undefined;
     await castAndHookProduct(page, input, { operation, direction });
-    await page.setViewportSize(viewport);
-    await page.evaluate(() => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.evaluate(text20 => {
+      if (!text20) return;
       for (const [edge, v] of Object.entries({ top: 8, bottom: 8, left: 12, right: 12 })) document.documentElement.style.setProperty(`--safe-${edge}`, `${v}px`);
       document.documentElement.style.fontSize = '20px';
       for (const e of document.querySelectorAll('#fishing-panel p, #fight-gauge label, #tension-value, #hint, #fishing-note, .action-panel button, #spot-name, #spot-effect, #sale-notice')) e.style.setProperty('font-size', '20px', 'important');
-    });
+    }, viewport.text20);
     await advanceToWarning(page, input, { x: viewport.width * .6, y: viewport.height * .6 }, 0);
     const evidence = await performProductOperation(page, input);
     await expect(page.locator('#spot-status')).toBeVisible();
