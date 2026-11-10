@@ -158,11 +158,12 @@ export async function productInput(page, touch) {
   };
 }
 
-export function individualFor(operation, speciesId = 'alligator-gar', fightId = 1) {
+export function individualFor(operation, speciesId = 'alligator-gar', fightId = 1, direction) {
   const species = getFishSpecies(speciesId);
   for (let n = species.maxLengthCm * 10; n >= species.minLengthCm * 10; n--) {
     const lengthCm = n / 10;
-    if (createQteOperationProvider({ fightId, speciesId, lengthCm }).getDescriptor(0).operation === operation) return { species, lengthCm };
+    const descriptor = createQteOperationProvider({ fightId, speciesId, lengthCm }).getDescriptor(0);
+    if (descriptor.operation === operation && (!direction || descriptor.direction === direction)) return { species, lengthCm };
   }
   throw new Error('No deterministic individual');
 }
@@ -178,8 +179,8 @@ export const productSnapshot = page => page.evaluate(() => {
     drawCount: window.productDrawCount, catch: state.fishing.state.catch };
 });
 
-export async function castAndHookProduct(page, input, { operation = 'tap', speciesId = 'alligator-gar', fightId = 1 } = {}) {
-  const individual = individualFor(operation, speciesId, fightId);
+export async function castAndHookProduct(page, input, { operation = 'tap', speciesId = 'alligator-gar', fightId = 1, direction } = {}) {
+  const individual = individualFor(operation, speciesId, fightId, direction);
   const drawsBefore = await page.evaluate(() => window.productDrawCount);
   if (await page.evaluate(() => window.qteProduct.state.boat.mode) !== 'fishing') {
     await input.click(page.locator('#fish-button'));

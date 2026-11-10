@@ -788,7 +788,7 @@ button.fish-card:hover { background: #335e4c; }
     grid-template-columns: auto minmax(90px, max-content) minmax(0, 1fr); grid-template-rows: auto auto;
     padding: 1px 6px; gap: 0 8px;
   }
-  #app[data-fishing-phase="fight"] #fishing-state { grid-column: 1; grid-row: 1; }
+  #app[data-fishing-phase="fight"] #fishing-state { grid-column: 1; grid-row: 1; line-height: 1.2; }
   #app[data-fishing-phase="fight"] #line-distance { grid-column: 2; grid-row: 1; line-height: 1.2; white-space: nowrap; }
   #app[data-fishing-phase="fight"] #fight-gauge { display: contents; }
   #app[data-fishing-phase="fight"] #fight-gauge label { grid-column: 3; grid-row: 1; font-size: .875rem; line-height: 1.2; }
