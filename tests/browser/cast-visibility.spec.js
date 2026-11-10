@@ -129,6 +129,18 @@ async function setup(createContext, profile, rodLevel = 1, boatPosition, randomV
     });
   }, { data: savedSession(rodLevel, boatPosition), randomValue, legacy: Boolean(options.legacy) });
   await installPausedClock(page);
+  if (options.hudText) await page.addInitScript(hudText => {
+    document.addEventListener('DOMContentLoaded', () => {
+      for (const [edge, value] of Object.entries({ top: 8, bottom: 8, left: 12, right: 12 })) {
+        document.documentElement.style.setProperty(`--safe-${edge}`, `${value}px`);
+      }
+      if (hudText !== 'normal') document.documentElement.style.fontSize = '20px';
+      if (hudText === 'computed20') for (const element of document.querySelectorAll(
+        '#fishing-panel p, #fight-gauge label, #tension-value, #hint, #fishing-note, .action-panel button, #spot-name, #spot-effect, #sale-notice')) {
+        element.style.setProperty('font-size', '20px', 'important');
+      }
+    });
+  }, options.hudText);
   await page.goto(options.baseURL ?? './'); await tick(page);
   await expect(page.locator('#status')).toBeHidden();
   await expect(page.locator('#error')).toBeHidden();
@@ -268,6 +280,34 @@ for (const profile of profiles) {
       if (direction === -1) await castAndReturn(page, input, prediction, info, '40m-left');
       else { await input.cancel(); await input.up(); await tick(page); await expect(panel(page)).toHaveAttribute('data-phase', 'ready'); }
     }
+  });
+}
+
+for (const hudText of ['normal', 'root20', 'computed20']) for (const rodLevel of [1, 5]) {
+  test(`UX-B3 short ${hudText} rod Lv${rodLevel}: native targets, four lures and exact cast ranges`, async ({ createContext }, info) => {
+    const profile = { width: 568, height: 320, touch: true };
+    const { page, click, input } = await setup(createContext, profile, rodLevel, undefined, 0, { hudText });
+    const targets = await page.locator('#menu-button, #lure-picker button, #cast-button, #return-button').evaluateAll(elements =>
+      elements.map(element => { const r = element.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        return { id: element.id || element.dataset.lureId, ...r.toJSON(), hit: element === hit || element.contains(hit), fontSize: getComputedStyle(element).fontSize }; }));
+    await info.attach('ready-native-targets', { body: JSON.stringify({ hudText, targets }), contentType: 'application/json' });
+    for (const target of targets) {
+      expect(target.width).toBeGreaterThanOrEqual(44); expect(target.height).toBeGreaterThanOrEqual(44); expect(target.hit).toBe(true);
+    }
+    await click('#menu-button'); await click('#collection-close');
+    for (const lure of LURES) {
+      await click(`[data-lure-id="${lure.id}"]`); await tick(page);
+      await expect(page.locator(`[data-lure-id="${lure.id}"]`)).toHaveAttribute('aria-pressed', 'true');
+      const maximum = rodLevel === 5 ? 40 : 32;
+      for (const direction of [0, -1, 1]) {
+        const prediction = await aim(page, click, input, direction, maximum, profile);
+        await save(page, info, `${lure.id}-${maximum}m-${direction}`, prediction);
+        await input.cancel(); await input.up(); await tick(page);
+        await expect(panel(page)).toHaveAttribute('data-phase', 'ready');
+      }
+    }
+    const near = await aim(page, click, input, 0, 8, profile);
+    await castAndReturn(page, input, near, info, '8m-native-release-and-retrieve');
   });
 }
 

@@ -1,4 +1,5 @@
-// The text-only achievement overlay keeps its viewport anchor in every mode.
+// Ordinary awards keep their viewport anchor. Only the constrained short
+// gameplay layout can include that same live node in position-only packing.
 const NOTICE_IDS = ['spot-status', 'sale-notice'];
 const OWNED_STYLES = ['left', 'right', 'top', 'bottom', 'transform', 'width'];
 const rect = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height });
@@ -67,7 +68,12 @@ export function createCastNotices(root = document) {
   return {
     reset,
     update(bounds, active) {
-      if (!active) { reset(); return true; }
+      const gameplay = app.hasAttribute('data-fishing-phase');
+      const narrow = gameplay && innerHeight <= 420 && innerWidth <= 740;
+      if (!active) {
+        reset();
+        if (!gameplay || root.querySelector('dialog[open]')) return true;
+      }
       const style = getComputedStyle(root.documentElement);
       const inset = edge => parseFloat(style.getPropertyValue(`--safe-${edge}`)) || 0;
       const insets = Object.fromEntries(['top', 'right', 'bottom', 'left'].map(edge => [edge, inset(edge)]));
@@ -76,17 +82,23 @@ export function createCastNotices(root = document) {
       const visible = element => element && element.parentElement === app && element.getClientRects().length
         && getComputedStyle(element).visibility !== 'hidden';
       const notices = elements.filter(visible);
+      if (narrow && visible(achievement)) notices.push(achievement);
       if (!notices.length) return true;
-      if (!bounds || bounds.clipped) return false;
-      const blocked = [...root.querySelectorAll('.masthead, .action-panel, #fishing-panel, .telemetry, .edition, .compass, #reticle')]
+      if (active && (!bounds || bounds.clipped)) return false;
+      // READY can use the empty middle of the header for point text. All
+      // actual header children still exclude notices; cast visibility itself
+      // continues to measure the entire masthead in unchanged main.js.
+      const header = narrow && !active && app.dataset.fishingPhase === 'ready' ? '.wordmark, .header-tools' : '.masthead';
+      const blocked = [...root.querySelectorAll(`${header}, .action-panel, #fishing-panel, .telemetry, .edition, .compass, #reticle,
+        #fishing-conditions, .qte-target, .qte-state, .qte-instruction, .qte-timer, .qte-arrow-shape`)]
         .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden')
         .map(element => ({ ...element.getBoundingClientRect().toJSON(), gap: 8 }));
-      blocked.push({ ...bounds, gap: 12 });
+      if (active) blocked.push({ ...bounds, gap: 12 });
       const options = { width: innerWidth, height: innerHeight, insets, blocked,
         notices: notices.map(element => ({ id: element.id, ...element.getBoundingClientRect().toJSON() })) };
       // Avoid the fixed text when space allows. It must never make an otherwise
       // valid cast fail: retain the ordinary notice/marker constraints as fallback.
-      const overlay = visible(achievement) ? { ...achievement.getBoundingClientRect().toJSON(), gap: 8 } : null;
+      const overlay = !narrow && visible(achievement) ? { ...achievement.getBoundingClientRect().toJSON(), gap: 8 } : null;
       const place = notices => (overlay && placeCastNotices({ ...options, notices, blocked: [...blocked, overlay] }))
         || placeCastNotices({ ...options, notices });
       let positions = place(options.notices);

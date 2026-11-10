@@ -607,3 +607,176 @@ button.fish-card:hover { background: #335e4c; }
   #app[data-fishing-phase="bite"] .action-panel #hint { grid-column: 1; grid-row: 1; }
   #app[data-fishing-phase="bite"] .action-panel #return-button { grid-column: 2; grid-row: 1; }
 }
+
+/* UX-B3 A: local contrast and stable native targets; no world/QTE transforms. */
+.masthead { background: #102f32ed; outline: 1px solid #e0d5a94d; border-radius: 4px; }
+.masthead .wordmark, .masthead .location { text-shadow: 0 1px 2px #071b1b; }
+.wallet .save-status { white-space: normal; overflow: visible; text-overflow: clip; }
+#menu-button:hover, .bottom-bar button:hover { transform: none; }
+#fishing-panel p { font-size: .875rem; line-height: 1.5; }
+#fishing-panel #fishing-state { font-size: 1.25rem; font-weight: 600; }
+#fight-gauge label { font-size: .875rem; }
+#tension-warning { font-size: 1rem; line-height: 1.5; }
+#lure-picker button { min-height: 66px; padding: 2px; gap: 0; font-size: .75rem; line-height: 1.5; }
+.fishing #return-button { min-height: 44px; min-width: 44px; padding-block: 8px; font-size: .875rem; line-height: 1.5; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel p { font-size: .875rem; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel #fishing-state { font-size: 1.25rem; }
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel.bite #fishing-state { font-size: 1.25rem; }
+
+/* The message keeps its ID/writer and remains an actual cast occlusion. A
+   separate static .action-panel prevents its long text inflating the controls'
+   full-width rectangle across the water. Both selectors are measured by main. */
+#fishing-message {
+  position: fixed; z-index: 2; pointer-events: none;
+  left: max(42px, calc(var(--safe-left) + 12px)); top: calc(25% + 170px);
+  width: min(300px, calc(100vw - var(--safe-left) - var(--safe-right) - 44px));
+  min-height: 0; display: block; text-align: left; justify-self: stretch;
+}
+#fishing-message:has(#fishing-note:empty), #fishing-message:has(#fishing-note[hidden]) { display: none; }
+#fishing-message #fishing-note {
+  margin: 0; padding: 6px; border: 1px solid #e0d5a980; border-radius: 4px;
+  background: #102f32f5; color: #f4f2e6; opacity: 1;
+  font-size: .875rem; line-height: 1.5; overflow-wrap: anywhere;
+}
+#app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-message {
+  left: auto; right: max(42px, calc(var(--safe-right) + 12px)); top: max(168px, calc(var(--safe-top) + 140px));
+  width: min(420px, calc(100vw - var(--safe-left) - var(--safe-right) - 44px));
+}
+@media (max-width: 640px) and (min-height: 501px) {
+  #fishing-panel p, #fight-gauge label { font-size: .875rem; }
+  #fishing-panel #fishing-state { font-size: 1.25rem; }
+  #fishing-message {
+    left: max(22px, calc(var(--safe-left) + 12px)); right: max(22px, calc(var(--safe-right) + 12px));
+    top: max(100px, calc(var(--safe-top) + 80px)); width: auto;
+  }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-message {
+    left: max(22px, calc(var(--safe-left) + 12px)); right: max(22px, calc(var(--safe-right) + 12px));
+    top: auto; bottom: max(24px, calc(var(--safe-bottom) + 12px)); width: auto;
+  }
+  #app[data-fishing-phase="ready"] #sale-notice { top: max(160px, calc(var(--safe-top) + 140px)); }
+}
+@media (max-height: 420px) and (max-width: 740px) {
+  #app { --hud-left: max(22px, calc(var(--safe-left) + 12px)); --hud-right: max(22px, calc(var(--safe-right) + 12px)); }
+  .fishing .bottom-bar { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .fishing .bottom-bar > .action-panel {
+    grid-column: 1; grid-row: 1; display: grid; width: 100%;
+    grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 8px 16px;
+  }
+  .fishing #lure-picker { grid-column: 1; grid-row: 1 / 3; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+  .fishing #lure-picker svg { display: none; }
+  .fishing #lure-picker button { min-height: 52px; padding: 2px; line-height: 1.2; }
+  .fishing #cast-button { grid-column: 2; grid-row: 1; min-height: 52px; padding: 8px; letter-spacing: 0; }
+  .fishing #return-button { grid-column: 2; grid-row: 2; min-height: 52px; padding: 8px; margin: 0; letter-spacing: 0; }
+  .fishing #fishing-panel {
+    position: fixed; left: var(--hud-left); right: var(--hud-right); top: max(76px, calc(var(--safe-top) + 68px));
+    width: auto; max-width: none; padding: 4px 6px; gap: 0 8px;
+  }
+  .fishing #fishing-panel #fishing-state { line-height: 1.2; }
+  .fishing #fishing-panel[data-phase="ready"] #fishing-conditions { line-height: 1.2; }
+  .fishing #fishing-message {
+    left: var(--hud-left); right: var(--hud-right); top: max(148px, calc(var(--safe-top) + 140px)); width: auto;
+  }
+  .fishing #fishing-message #fishing-note { padding: 4px; line-height: 1.2; }
+
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) .masthead {
+    top: max(12px, calc(var(--safe-top) + 4px)); min-height: 44px; height: 44px;
+  }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) .wordmark { font-size: 28px; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) .wordmark span { display: none; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #menu-button { width: 44px; min-height: 44px; height: 44px; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) .bottom-bar {
+    top: max(60px, calc(var(--safe-top) + 52px)); left: var(--hud-left); right: var(--hud-right);
+    grid-template-columns: minmax(0, 1fr); gap: 4px;
+  }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel {
+    position: static; grid-column: 1; grid-row: 1;
+    grid-template-columns: minmax(0, 1fr) auto auto; padding: 0 6px; gap: 0 8px;
+  }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel p { line-height: 1.2; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel #fishing-state { grid-column: 1; grid-row: 1; line-height: 1.2; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #line-distance { grid-column: 3; grid-row: 1; white-space: nowrap; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #reel-state { grid-column: 2; grid-row: 1; align-self: center; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-conditions { grid-column: 1 / -1; grid-row: 2; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel.bite #line-distance { grid-column: 3; grid-row: 1; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) .bottom-bar > .action-panel {
+    grid-column: 1; grid-row: 2; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 8px; width: 100%; min-height: 44px;
+  }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) :is(#cancel-cast, #return-button) {
+    grid-row: 1; min-height: 44px; padding: 6px; line-height: 1.2;
+  }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #cancel-cast { grid-column: 1; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #return-button { grid-column: 3; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #hint { grid-column: 2; grid-row: 1; align-self: center; padding: 4px; line-height: 1.2; }
+  #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-message {
+    left: var(--hud-left); right: auto; top: max(166px, calc(var(--safe-top) + 158px)); width: 176px;
+  }
+
+  #app[data-fishing-phase="fight"] .wordmark { display: none; }
+  #app[data-fishing-phase="fight"] .header-tools { margin-left: auto; }
+  #app[data-fishing-phase="fight"] .bottom-bar > .action-panel {
+    position: fixed; left: var(--hud-left); top: max(16px, calc(var(--safe-top) + 8px));
+    width: 176px; display: block;
+  }
+  #app[data-fishing-phase="fight"] #return-button { min-height: 48px; }
+  #app[data-fishing-phase="fight"] #fishing-panel {
+    top: auto; bottom: max(56px, calc(var(--safe-bottom) + 48px));
+    grid-template-columns: auto auto minmax(0, 1fr); grid-template-rows: auto auto;
+    padding: 1px 6px; gap: 0 8px;
+  }
+  #app[data-fishing-phase="fight"] #fishing-state { grid-column: 1; grid-row: 1; }
+  #app[data-fishing-phase="fight"] #line-distance { grid-column: 2; grid-row: 1; line-height: 1.2; white-space: nowrap; }
+  #app[data-fishing-phase="fight"] #fight-gauge { display: contents; }
+  #app[data-fishing-phase="fight"] #fight-gauge label { grid-column: 3; grid-row: 1; font-size: .875rem; line-height: 1.2; }
+  #app[data-fishing-phase="fight"] #tension-value { font-size: 1rem; line-height: 1.2; }
+  #app[data-fishing-phase="fight"] #line-tension { grid-column: 1 / 3; grid-row: 2; height: 22px; }
+  #app[data-fishing-phase="fight"] #tension-warning { grid-column: 3; grid-row: 2; font-size: 1rem; line-height: 1.2; }
+  #app[data-fishing-phase="fight"] #fishing-conditions {
+    position: fixed; left: var(--hud-left); right: var(--hud-right); top: max(76px, calc(var(--safe-top) + 68px));
+    margin: 0; padding: 2px 6px; background: #102f32ed; border: 1px solid #e0d5a980; border-radius: 4px; line-height: 1.2;
+  }
+
+  /* Defaults for the cramped notification layout. The existing position
+     solver may reflow/move these real boxes; their text and clocks are owned
+     by the unchanged notice modules. Dialog-hosted awards retain their anchor. */
+  #app[data-fishing-phase] > #sale-notice { padding: 3px 4px; line-height: 1.1; }
+  #app[data-fishing-phase] > #spot-status { padding: 3px 4px; width: 176px; }
+  #app[data-fishing-phase] > #spot-status :is(#spot-name, #spot-effect) { display: inline; line-height: 1.1; margin: 0; }
+  #app[data-fishing-phase] > #spot-status #spot-name { margin-right: .5em; }
+  #app[data-fishing-phase] > #achievement-notice { width: 176px; max-width: 176px; line-height: 1.2; gap: 2px; }
+  #app[data-fishing-phase="ready"] { --hud-left: max(12px, var(--safe-left)); --hud-right: max(12px, var(--safe-right)); }
+  #app[data-fishing-phase="ready"] .masthead,
+  #app[data-fishing-phase="ready"] .bottom-bar { left: var(--hud-left); right: var(--hud-right); }
+  #app[data-fishing-phase="ready"] #fishing-panel {
+    right: auto; width: 116px; grid-template-columns: minmax(0, 1fr); padding-block: 0;
+  }
+  #app[data-fishing-phase="ready"] #fishing-panel #fishing-conditions { grid-column: 1; grid-row: 2; text-align: left; }
+  #app[data-fishing-phase="ready"] > #achievement-notice {
+    left: calc(var(--hud-left) + 202px); top: max(43px, calc(var(--safe-top) + 35px)); width: 170px; max-width: 170px;
+  }
+  #app[data-fishing-phase="ready"] > #achievement-notice strong { letter-spacing: 0; }
+  #app[data-fishing-phase="ready"] > #spot-status {
+    left: calc(var(--hud-left) + 124px); right: auto;
+    top: max(76px, calc(var(--safe-top) + 68px)); width: 132px;
+  }
+  #app[data-fishing-phase="ready"] > #sale-notice {
+    left: auto; right: max(24px, calc(var(--safe-right) + 12px));
+    top: max(76px, calc(var(--safe-top) + 68px)); width: 244px; padding-inline: 0; transform: none;
+  }
+  /* Preserve the centered 20px glyph; remove only its unused line leading. */
+  #app[data-fishing-phase="ready"] #reticle { line-height: 1; }
+  #app[data-fishing-phase="ready"] #fishing-message { top: max(182px, calc(var(--safe-top) + 174px)); }
+  #app[data-fishing-phase="ready"] #fishing-message #fishing-note { padding: 1px 6px; line-height: 1.1; }
+  #app[data-fishing-phase="ready"] .bottom-bar > .action-panel { gap: 4px 16px; }
+  #app[data-fishing-phase="ready"] #lure-picker { gap: 4px 8px; }
+  #app[data-fishing-phase="ready"] :is(#lure-picker button, #cast-button, #return-button) { min-height: 44px; padding-block: 2px; }
+  #app[data-fishing-phase]:is([data-cast-view="true"], [data-cast-preparing="true"]) > #achievement-notice {
+    left: calc(var(--hud-left) + 88px); top: max(189px, calc(var(--safe-top) + 181px));
+  }
+  #app[data-fishing-phase]:is([data-cast-view="true"], [data-cast-preparing="true"]) > #spot-status {
+    left: var(--hud-left); top: max(220px, calc(var(--safe-top) + 212px));
+  }
+  #app[data-fishing-phase]:is([data-cast-view="true"], [data-cast-preparing="true"]) > #sale-notice {
+    left: auto; right: var(--hud-right); top: max(166px, calc(var(--safe-top) + 158px)); width: 176px;
+  }
+}
