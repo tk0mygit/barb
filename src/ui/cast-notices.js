@@ -69,7 +69,8 @@ export function createCastNotices(root = document) {
     reset,
     update(bounds, active) {
       const gameplay = app.hasAttribute('data-fishing-phase');
-      const narrow = gameplay && innerHeight <= 420 && innerWidth <= 740;
+      const narrow = gameplay && innerHeight <= 420 && (innerWidth <= 740
+        || (innerWidth <= 900 && app.dataset.fishingPhase === 'fight'));
       if (!active) {
         reset();
         if (!gameplay || root.querySelector('dialog[open]')) return true;
