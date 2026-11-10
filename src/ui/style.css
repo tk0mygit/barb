@@ -686,7 +686,7 @@ button.fish-card:hover { background: #335e4c; }
   #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #menu-button { width: 44px; min-height: 44px; height: 44px; }
   #app:is([data-cast-view="true"], [data-cast-preparing="true"]) .bottom-bar {
     top: max(60px, calc(var(--safe-top) + 52px)); left: var(--hud-left); right: var(--hud-right);
-    grid-template-columns: minmax(0, 1fr); gap: 4px;
+    grid-template-columns: minmax(0, 1fr); gap: 1px;
   }
   #app:is([data-cast-view="true"], [data-cast-preparing="true"]) #fishing-panel {
     position: static; grid-column: 1; grid-row: 1;
