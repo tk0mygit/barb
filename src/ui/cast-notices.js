@@ -94,6 +94,14 @@ export function createCastNotices(root = document) {
         #fishing-conditions, .qte-target, .qte-state, .qte-instruction, .qte-timer, .qte-arrow-shape`)]
         .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden')
         .map(element => ({ ...element.getBoundingClientRect().toJSON(), gap: 8 }));
+      // Tap progress is centered text inside the large, transparent gesture
+      // region. Protect its painted glyphs without turning that entire input
+      // region into an opaque obstacle for a noninteractive notice.
+      for (const text of root.querySelectorAll('.qte-taps')) {
+        if (!text.getClientRects().length || getComputedStyle(text).visibility === 'hidden') continue;
+        const range = document.createRange(); range.selectNodeContents(text);
+        blocked.push(...[...range.getClientRects()].map(box => ({ ...box.toJSON(), gap: 8 })));
+      }
       if (active) blocked.push({ ...bounds, gap: 12 });
       const options = { width: innerWidth, height: innerHeight, insets, blocked,
         notices: notices.map(element => ({ id: element.id, ...element.getBoundingClientRect().toJSON() })) };
