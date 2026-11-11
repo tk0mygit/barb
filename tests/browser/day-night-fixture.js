@@ -168,7 +168,19 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
           const withoutStars = renderer.domElement.toDataURL('image/png');
           if (stars) stars.visible = visible;
           render.call(renderer, scene, camera);
-          return { withStars, withoutStars };
+          const projected = [];
+          if (stars) {
+            const point = stars.position.clone(), positions = stars.geometry.attributes.position;
+            const sizes = stars.geometry.attributes.starSize;
+            for (let i = 0; i < positions.count; i++) {
+              point.fromBufferAttribute(positions, i).applyMatrix4(stars.matrixWorld).project(camera);
+              if (Math.abs(point.x) > 1 || Math.abs(point.y) > 1 || Math.abs(point.z) > 1) continue;
+              projected.push({ x: (point.x + 1) * renderer.domElement.width / 2,
+                y: (1 - point.y) * renderer.domElement.height / 2,
+                size: Math.max(1.5, Math.min(6, sizes.getX(i) * stars.material.uniforms.starPixelRatio.value)) });
+            }
+          }
+          return { withStars, withoutStars, projected, vertices: stars?.geometry.attributes.position.count ?? 0 };
         };
         // Test-only paired render proves that low wisps contribute pixels;
         // production code exposes no scene controls or capture endpoint.

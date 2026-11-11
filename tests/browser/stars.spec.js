@@ -31,18 +31,43 @@ async function pixelPair(page) {
     };
     const a = await pixels(pair.withStars), b = await pixels(pair.withoutStars);
     let changed = 0, distinguishable = 0, maximum = 0, lowerChanged = 0, clipped = 0, moonChanged = 0;
+    const changedPixels = new Set();
     const [mx, my, mz] = window.lightingProbe.moonScreen;
     const moonX = (mx + 1) * a.width / 2, moonY = (1 - my) * a.height / 2;
     for (let i = 0; i < a.data.length; i += 4) {
       const delta = Math.max(...[0, 1, 2].map(c => Math.abs(a.data[i + c] - b.data[i + c]))), p = i / 4;
       const x = p % a.width, y = Math.floor(p / a.width);
-      if (delta) { changed++; if (y > a.height * .25) lowerChanged++; }
+      if (delta) { changed++; changedPixels.add(p); if (y > a.height * .25) lowerChanged++; }
       if (delta >= 6) distinguishable++;
       maximum = Math.max(maximum, delta);
       if (delta && Math.max(...a.data.slice(i, i + 3)) >= 250) clipped++;
       if (mz > -1 && mz < 1 && Math.hypot(x - moonX, y - moonY) < a.height * .003) moonChanged += Number(delta > 0);
     }
-    return { ...pair, stats: { width: a.width, height: a.height, changed, distinguishable, maximum, lowerChanged, clipped, moonChanged } };
+    const visibleCenters = pair.projected.filter(point => {
+      const x = Math.floor(point.x), y = Math.floor(point.y);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (x + dx < 0 || x + dx >= a.width || y + dy < 0 || y + dy >= a.height) continue;
+        if (changedPixels.has((y + dy) * a.width + x + dx)) return true;
+      }
+      return false;
+    }).length;
+    let components = 0;
+    while (changedPixels.size) {
+      const stack = [changedPixels.values().next().value]; changedPixels.delete(stack[0]); components++;
+      while (stack.length) {
+        const pixel = stack.pop(), x = pixel % a.width, y = Math.floor(pixel / a.width);
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if (x + dx < 0 || x + dx >= a.width || y + dy < 0 || y + dy >= a.height) continue;
+          const next = (y + dy) * a.width + x + dx;
+          if (changedPixels.delete(next)) stack.push(next);
+        }
+      }
+    }
+    return { ...pair, stats: { width: a.width, height: a.height, vertices: pair.vertices,
+      projectedCandidates: pair.projected.length, visibleCenters, components,
+      occludedOrSubpixel: pair.projected.length - visibleCenters,
+      physicalPointSizes: { min: Math.min(...pair.projected.map(point => point.size)), max: Math.max(...pair.projected.map(point => point.size)) },
+      changed, distinguishable, maximum, lowerChanged, clipped, moonChanged } };
   });
 }
 async function savePair(page, info, label) {
