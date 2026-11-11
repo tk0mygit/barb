@@ -12,7 +12,7 @@ const views = [
   { id: 'day-tps', label: '昼・TPS', seconds: 90 },
   { id: 'day-fps', label: '昼・FPS', seconds: 90, fishing: true },
   { id: 'twilight', label: '夕暮れ', seconds: 176 },
-  { id: 'clear-night', label: '霧のない夜', seconds: 270 },
+  { id: 'clear-night', label: '霧のない夜', seconds: 4 * 360 + 270 },
   { id: 'fog-night', label: '通常霧の夜', seconds: 3971 * 360 + 270 },
   { id: 'dense-night', label: '濃霧の夜', seconds: 630 },
   { id: 'portrait', label: 'スマートフォン縦', seconds: 90, width: 390, height: 844, touch: true },

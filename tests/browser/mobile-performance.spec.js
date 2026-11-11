@@ -20,7 +20,8 @@ const profiles = [
 ];
 const scenes = [
   { id: 'day-tps', seconds: 90 }, { id: 'day-fps', seconds: 90, fishing: true },
-  { id: 'clear-night', seconds: 270 }, { id: 'fog-night', seconds: 3971 * 360 + 270 },
+  // Night 4 remains CLEAR under both distributions; night 0 becomes FOG in Sky-1.
+  { id: 'clear-night', seconds: 4 * 360 + 270 }, { id: 'fog-night', seconds: 3971 * 360 + 270 },
   { id: 'dense-night', seconds: 630 },
 ];
 const compare = capturePullRequestBase || Boolean(process.env.BARB_MOBILE_BASE_SHA);

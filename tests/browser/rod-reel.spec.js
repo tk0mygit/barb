@@ -40,7 +40,7 @@ for (const profile of GEAR_PROFILES) {
   test(`rod/reel static phases: ${profile.id} READY AIM CAST LURE BITE FIGHT`, async ({ createContext }, info) => {
     // The night and fog samples exercise the model's ordinary fog-aware
     // material without changing environment settings or the camera rig.
-    const seconds = profile.id === 'landscape' ? 3971 * 360 + 270 : profile.id === 'small' ? 270 : 90;
+    const seconds = profile.id === 'landscape' ? 3971 * 360 + 270 : profile.id === 'small' ? 4 * 360 + 270 : 90;
     const { page, click, input, errors } = await openGear(createContext, profile, { seconds });
     await click('#fish-button');
     for (let i = 0; i < 12; i++) await gearTick(page);

@@ -85,7 +85,7 @@ function waveforms() {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="660" viewBox="0 0 1200 660"><rect width="1200" height="660" fill="white"/><g font-family="sans-serif" font-size="12" fill="#253344"><text x="15" y="20">Raw 24s PCM: fixed ±0.15 waveform scale; 50ms RMS fixed 0–0.06. No normalization.</text>${rows.join('')}</g></svg>`;
 }
 
-for (const [name, start, seconds] of [['day', 60, 24], ['night-clear', 240, 24], ['night-fog', 2790, 24], ['night-dense-fog', 960, 24],
+for (const [name, start, seconds] of [['day', 60, 24], ['night-clear', 4 * 360 + 240, 24], ['night-fog', 2790, 24], ['night-dense-fog', 960, 24],
   ['sunset', 168, 24], ['sunrise', 348, 24], ['dense-fog-arrives', 896, 24], ['dense-fog-clears-at-dawn', 1064, 24],
   ['day-two-loops', 48, 48], ['night-two-loops', 240, 48]]) {
   const count = Math.round(rate * seconds), wav = Buffer.alloc(44 + count * 2), rendered = new Float32Array(count);

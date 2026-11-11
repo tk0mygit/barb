@@ -109,7 +109,7 @@ test('stopping during first decode discards the old call; OFF clears the bank an
   } finally { await attachAudioDiagnostics(page, info); }
 });
 
-for (const [cycle, factor] of [[0, 1], [1, .4], [7, 1]]) {
+for (const [cycle, factor] of [[0, 1], [4, 1], [1, .4], [7, 1]]) {
   test(`shared optical fog at cycle ${cycle}: cricket gain factor ${factor}`, async ({ page }, info) => {
     const event = createBioCyclePlan(cycle).events.find(e => e.timeOfDay === 'night' && e.scheduledSeconds > cycle * 360 + 200);
     try {

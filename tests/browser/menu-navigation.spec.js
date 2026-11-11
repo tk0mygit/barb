@@ -245,7 +245,7 @@ test('day, clear night and fog: restored production environments keep menu label
   // its renderer observer verifies the real scene, without a production hook.
   const samples = [
     { label: 'day', seconds: 90, viewport: { width: 1280, height: 800 }, touch: false },
-    { label: 'clear-night', seconds: 270, viewport: { width: 390, height: 844 }, touch: true },
+    { label: 'clear-night', seconds: 4 * 360 + 270, viewport: { width: 390, height: 844 }, touch: true },
     { label: 'fog-night', seconds: 3971 * 360 + 270, viewport: { width: 568, height: 320 }, touch: true },
   ];
   const observations = [];

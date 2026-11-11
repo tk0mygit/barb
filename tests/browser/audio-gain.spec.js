@@ -137,7 +137,7 @@ test('native production PCM bounds layered output and all twilight/dense transit
     const { sampleAudioMix } = await import('./src/audio/audio-mix.js');
     const { createGameClock } = await import('./src/game/game-clock.js');
     const results = [], duration = 24.24;
-    for (const rate of [22050, 44100, 48000]) for (const [name, start, transition] of [['day', 60, false], ['night-clear', 240, false],
+    for (const rate of [22050, 44100, 48000]) for (const [name, start, transition] of [['day', 60, false], ['night-clear', 4 * 360 + 240, false],
       ['night-fog', 2790, false], ['night-dense-fog', 960, false], ['sunset', 168, true],
       ['sunrise', 348, true], ['dense-fog-arrives', 896, true], ['dense-fog-clears', 1064, true]]) {
       const offline = new OfflineAudioContext(1, Math.round(rate * duration), rate);

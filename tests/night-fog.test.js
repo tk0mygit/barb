@@ -14,9 +14,11 @@ import { createSaveData, restoreSaveData } from '../src/game/save-data.js';
 const at = elapsedSeconds => createGameClock(undefined, { elapsedSeconds }).state;
 const near = (a, b, tolerance = 1e-10) => assert.ok(Math.abs(a - b) < tolerance, `${a} != ${b}`);
 
-test('salted stable profiles distribute 50/35/15 across separated ranges of 100000 nights', t => {
+test('salted stable profiles distribute 40/30/30 across separated ranges of 100000 nights', t => {
+  assert.deepEqual([NIGHT_FOG_CONFIG.clearProbability, NIGHT_FOG_CONFIG.fogProbability, NIGHT_FOG_CONFIG.denseProbability], [0.4, 0.3, 0.3]);
   assert.equal(NIGHT_FOG_CONFIG.clearProbability + NIGHT_FOG_CONFIG.fogProbability + NIGHT_FOG_CONFIG.denseProbability, 1);
-  for (const start of [0, 1_000_000, 2 ** 32, 2 ** 40]) {
+  for (const [start, expectedCounts] of [[0, [39786, 30138, 30076]], [1_000_000, [40186, 29809, 30005]],
+    [2 ** 32, [39865, 30192, 29943]], [2 ** 40, [39853, 29835, 30312]]]) {
     const counts = { CLEAR: 0, FOG: 0, DENSE_FOG: 0 }, bins = [0, 0, 0, 0];
     let sum = 0, square = 0;
     for (let index = start; index < start + 100000; index++) {
@@ -30,15 +32,37 @@ test('salted stable profiles distribute 50/35/15 across separated ranges of 1000
         bins[Math.min(3, Math.floor((profile.targetFogAmount - 0.3) * 10))]++;
       } else assert.equal(profile.targetFogAmount, profile.fogType === FOG_TYPE.CLEAR ? 0 : 0.95);
     }
-    for (const [type, expected] of Object.entries({ CLEAR: 0.5, FOG: 0.35, DENSE_FOG: 0.15 })) near(counts[type] / 100000, expected, 0.01);
+    assert.deepEqual([counts.CLEAR, counts.FOG, counts.DENSE_FOG], expectedCounts);
+    let chiSquare = 0;
+    for (const [type, expected] of Object.entries({ CLEAR: 0.4, FOG: 0.3, DENSE_FOG: 0.3 })) {
+      near(counts[type] / 100000, expected, 0.01);
+      chiSquare += (counts[type] - 100000 * expected) ** 2 / (100000 * expected);
+    }
+    // Pearson goodness of fit, two degrees of freedom; reject at p < 0.001.
+    const pValue = Math.exp(-chiSquare / 2);
+    assert.ok(pValue >= 0.001, `${start}: chi-square ${chiSquare}, p=${pValue}`);
     near(sum / counts.FOG, 0.5, 0.003);
     near(square / counts.FOG - (sum / counts.FOG) ** 2, 0.4 ** 2 / 12, 0.001);
     for (const count of bins) near(count / counts.FOG, 0.25, 0.015);
-    t.diagnostic(`${start}: ${JSON.stringify(counts)}, FOG mean ${sum / counts.FOG}`);
+    t.diagnostic(`${start}: ${JSON.stringify(counts)}, FOG mean ${sum / counts.FOG}, chi-square ${chiSquare}, p=${pValue}`);
   }
   assert.deepEqual(Array.from({ length: 12 }, (_, i) => getNightFogProfile(i).fogType),
-    ['CLEAR', 'DENSE_FOG', 'DENSE_FOG', 'CLEAR', 'CLEAR', 'CLEAR', 'CLEAR', 'FOG', 'FOG', 'FOG', 'FOG', 'DENSE_FOG']);
+    ['FOG', 'DENSE_FOG', 'DENSE_FOG', 'FOG', 'CLEAR', 'FOG', 'CLEAR', 'FOG', 'DENSE_FOG', 'DENSE_FOG', 'FOG', 'DENSE_FOG']);
   for (const invalid of [-1, 0.5, NaN, Infinity, undefined]) assert.equal(getNightFogProfile(invalid).fogType, FOG_TYPE.CLEAR);
+});
+
+test('profiles keep their amounts after cache eviction and never consume shared Math.random', t => {
+  t.mock.method(Math, 'random', () => assert.fail('weather must not consume the fishing random stream'));
+  for (const [index, type, amount] of [[0, 'FOG', 0.3396991244517267], [4, 'CLEAR', 0],
+    [7615, 'FOG', 0.3000874656252563], [3971, 'FOG', 0.4999069510959089], [2859, 'FOG', 0.6997745639644563],
+    [8301, 'DENSE_FOG', 0.95], [5825, 'DENSE_FOG', 0.95], [1, 'DENSE_FOG', 0.95]]) {
+    const profile = getNightFogProfile(index);
+    assert.equal(profile.fogType, type); near(profile.targetFogAmount, amount);
+    assert.equal(getNightFogProfile(index), profile); assert.ok(Object.isFrozen(profile));
+    getNightFogProfile(2 ** 40 + index);
+    assert.deepEqual(getNightFogProfile(index), profile);
+    assert.equal(sampleNightFog(at(index * 360 + 270)).targetFogAmount, amount);
+  }
 });
 
 test('day is clear, night classification and amount stay fixed, and 12s envelopes are continuous', () => {

@@ -254,13 +254,19 @@ const artworkViewports = [
 // Observe real dispose() calls without changing loading, input or cancellation.
 // Match a disposal to the exact in-flight Request, never a URL-wide exception.
 async function observeCollectionImageRequests(page) {
-  const requests = new Map(), pending = new Set(), disposals = new Map();
-  let transitionRequests = new Map();
+  const requests = new Map(), pending = new Set(), disposals = new Map(), sources = new Map(), startedAt = new Map();
   const events = [];
   const recordEvent = (type, request) => events.push({ sequence: events.length + 1,
     type, requestId: requests.get(request)?.id ?? null, observedAt: Date.now() });
   page.on('request', request => {
     if (request.resourceType() !== 'image') return;
+    // Failed Requests have no Response, so public timing().startTime remains
+    // zero. The pinned in-process Playwright bridge gives this exact Request's
+    // browser start time (also used by its HAR/trace), never receipt Date.now().
+    const native = request._connection.toImpl(request);
+    const start = native.wallTimeMs();
+    if (native.guid !== request._guid || !Number.isFinite(start) || start <= 0) throw new Error('Exact native image Request timing unavailable');
+    startedAt.set(request, start);
     requests.set(request, { id: requests.size + 1, url: request.url(), outcome: 'pending' });
     pending.add(request);
     recordEvent('request', request);
@@ -276,18 +282,23 @@ async function observeCollectionImageRequests(page) {
     if (requests.has(request)) recordEvent('requestfailed', request);
   });
   await page.exposeBinding('recordFishImageDisposal', (_, { phase, key, ...sample }) => {
+    if (phase === 'source' || phase === 'settled') {
+      const source = sources.get(key) ?? {};
+      sources.set(key, source); source[phase] = sample;
+      events.push({ sequence: events.length + 1, type: `source-${phase}`, key, observedAt: Date.now() });
+      return;
+    }
     const disposal = disposals.get(key) ?? {};
     disposals.set(key, disposal);
     if (phase === 'before') {
       disposal.before = sample;
-      disposal.request = transitionRequests.get(sample.imageKey) ?? null;
     } else disposal.after = sample;
     events.push({ sequence: events.length + 1, type: `dispose-${phase}`, key,
       requestId: requests.get(disposal.request)?.id ?? null, observedAt: Date.now() });
   });
   await page.addInitScript(() => {
-    let transition, serial = 0, imageSerial = 0;
-    const images = new WeakMap(), bindings = [];
+    let transition, serial = 0, imageSerial = 0, sourceSerial = 0;
+    const images = new WeakMap(), sourceKeys = new WeakMap(), cleanups = new WeakMap(), bindings = [];
     const imageKey = image => {
       if (!images.has(image)) images.set(image, `${performance.timeOrigin}:image-${++imageSerial}`);
       return images.get(image);
@@ -298,6 +309,31 @@ async function observeCollectionImageRequests(page) {
       })),
       flush: () => Promise.all(bindings.splice(0)),
     };
+    const observeSource = (image, value) => {
+      const url = new URL(value, document.baseURI).href;
+      const key = `${performance.timeOrigin}:source-${++sourceSerial}`;
+      const previousKey = sourceKeys.get(image) ?? null;
+      cleanups.get(image)?.(); sourceKeys.set(image, key);
+      bindings.push(window.recordFishImageDisposal({ phase: 'source', key, imageKey: imageKey(image), previousKey,
+        url, at: performance.timeOrigin + performance.now() }));
+      const cleanup = () => { image.removeEventListener('load', settle); image.removeEventListener('error', settle); };
+      const settle = () => {
+        if (sourceKeys.get(image) !== key || !image.complete) return;
+        bindings.push(window.recordFishImageDisposal({ phase: 'settled', key, at: performance.timeOrigin + performance.now() }));
+        cleanup();
+      };
+      cleanups.set(image, cleanup);
+      image.addEventListener('load', settle); image.addEventListener('error', settle);
+    };
+    const src = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+    Object.defineProperty(HTMLImageElement.prototype, 'src', { ...src, set(value) {
+      observeSource(this, value); return src.set.call(this, value);
+    } });
+    const set = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function(name, value) {
+      if (this instanceof HTMLImageElement && name === 'src') observeSource(this, value);
+      return set.apply(this, arguments);
+    };
     document.addEventListener('click', event => {
       const button = event.target.closest?.('button');
       if (!event.isTrusted || !button?.matches('button.fish-card, #collection-back, #collection-close, [data-view]')) return;
@@ -307,7 +343,9 @@ async function observeCollectionImageRequests(page) {
     Element.prototype.removeAttribute = function(name) {
       if (name !== 'src' || !(this instanceof HTMLImageElement) || !transition?.event.eventPhase || !this.closest('#collection-content')) return remove.apply(this, arguments);
       const key = `${performance.timeOrigin}:${++serial}`;
-      const before = { imageKey: imageKey(this), url: this.src, complete: this.complete, connected: this.isConnected,
+      const before = { imageKey: imageKey(this), sourceKey: sourceKeys.get(this) ?? null,
+        owners: [...document.images].filter(image => image.src === this.src && !image.complete).map(image => imageKey(image)),
+        url: this.src, complete: this.complete, connected: this.isConnected,
         at: performance.timeOrigin + performance.now(),
         transition: { trigger: transition.trigger, trusted: transition.event.isTrusted },
         title: document.querySelector('#collection-title').textContent, stack: new Error().stack };
@@ -323,6 +361,26 @@ async function observeCollectionImageRequests(page) {
   const audit = async () => {
     await expect.poll(() => pending.size).toBe(0);
     await page.evaluate(() => window.fishImageAudit.flush());
+    // Resolve after all channels have delivered. Both directions must be
+    // unique: one DOM source generation -> one actual Request, and no other
+    // source generation may share that in-flight interval (including coalesced
+    // or parallel same-URL images). Missing/ambiguous evidence stays a failure.
+    const ranges = [...sources].filter(([, value]) => value.source).map(([key, value]) => ({ key, ...value.source,
+      end: Math.min(value.settled?.at ?? Infinity,
+        ...[...sources.values()].filter(next => next.source?.previousKey === key).map(next => next.source.at),
+        ...[...disposals.values()].filter(d => d.before?.sourceKey === key).map(d => d.before.at)) }));
+    for (const disposal of disposals.values()) {
+      const before = disposal.before, source = ranges.find(value => value.key === before?.sourceKey);
+      disposal.request = null;
+      if (!source || source.imageKey !== before.imageKey || source.url !== before.url
+        || before.owners.length !== 1 || before.owners[0] !== before.imageKey) continue;
+      const candidates = [...requests.keys()].filter(request => request.frame() === page.mainFrame() && request.url() === source.url
+        && startedAt.get(request) >= source.at && startedAt.get(request) <= source.end);
+      if (candidates.length !== 1) continue;
+      const request = candidates[0];
+      const owners = ranges.filter(value => value.url === source.url && value.at <= before.at && value.end >= startedAt.get(request));
+      if (owners.length === 1 && owners[0].key === source.key) disposal.request = request;
+    }
     const expectedCancellations = [], unexpectedFailures = [];
     for (const [request, record] of requests) {
       if (record.outcome !== 'failed') continue;
@@ -340,28 +398,23 @@ async function observeCollectionImageRequests(page) {
       if (matches.length === 1) expectedCancellations.push({ ...record, disposalKey: matches[0][0] });
       else unexpectedFailures.push(record);
     }
-    return { requests: [...requests.values()], expectedCancellations, unexpectedFailures, events,
+    return { requests: [...requests.values()], requestTimings: [...requests].map(([request, record]) => ({ id: record.id, startedAt: startedAt.get(request) })),
+      sources: ranges, expectedCancellations, unexpectedFailures, events,
       disposals: [...disposals].map(([key, { request, ...record }]) => ({ key, requestId: requests.get(request)?.id ?? null, ...record })) };
   };
   audit.click = async (locator, { touch = false } = {}) => {
-    // Finish native actionability/scrolling first. Freeze Request identities for
-    // these exact DOM images before the click can cancel them or start a new
-    // request for the same URL. Binding delivery order is not network order.
+    // Preserve native actionability and input. Identity no longer depends on
+    // a snapshot taken before scrolling/lazy loads or late protocol delivery.
     if (touch) await locator.tap({ trial: true }); else await locator.click({ trial: true });
-    const images = await page.evaluate(() => window.fishImageAudit.snapshot());
-    transitionRequests = new Map(images.filter(image => image.connected && !image.complete).map(image => {
-      const candidates = [...pending].filter(request => request.url() === image.url);
-      return [image.imageKey, candidates.length === 1 ? candidates[0] : null];
-    }));
     recordEvent('action-start');
     try {
       if (touch) await locator.tap(); else await locator.click();
     } finally {
       await page.evaluate(() => window.fishImageAudit.flush());
-      transitionRequests.clear();
       recordEvent('action-end');
     }
   };
+  audit.requestForDisposal = key => disposals.get(key)?.request;
   return audit;
 }
 
@@ -396,8 +449,8 @@ test('collection image audit identifies native dispose cancellation and subseque
   expect(report.expectedCancellations[0].url).toMatch(/\/black-bass\.png$/);
 });
 
-for (const nextOutcome of ['decode', 'aborted', 'failed']) {
-  test(`collection image audit pairs delayed disposal notifications before same-URL ${nextOutcome}`, async ({ page }, testInfo) => {
+for (const delayRequest of [false, true]) for (const nextOutcome of ['decode', 'aborted', 'failed']) {
+  test(`collection image audit pairs delayed ${delayRequest ? 'request and disposal' : 'disposal'} notifications before same-URL ${nextOutcome}`, async ({ page }, testInfo) => {
     let cancelled, releaseImage, releaseBefore, delayed = false;
     const deliveries = [];
     const imageGate = new Promise(resolve => { releaseImage = resolve; });
@@ -409,10 +462,23 @@ for (const nextOutcome of ['decode', 'aborted', 'failed']) {
     page.exposeBinding = (name, callback) => exposeBinding(name, async (...args) => {
       const sample = args[1];
       if (sample.phase === 'before' && !delayed) { delayed = true; await beforeGate; }
-      deliveries.push(sample.phase);
+      if (sample.phase === 'before' || sample.phase === 'after') deliveries.push(sample.phase);
       return callback(...args);
     });
+    // Delay only observer delivery, retaining the original Request object and
+    // native network/DOM behavior. This reproduces attempt 2 Request #52.
+    const on = page.on.bind(page);
+    let deferredRequest, deliverRequest;
+    if (delayRequest) page.on = (event, callback) => on(event, event === 'request' ? request => {
+      if (!deferredRequest && request.url().endsWith('/black-bass.png')) {
+        deferredRequest = request; deliverRequest = () => callback(request);
+      } else callback(request);
+    } : event === 'requestfailed' ? request => {
+      if (request === deferredRequest) deliverRequest();
+      callback(request);
+    } : callback);
     const audit = await observeCollectionImageRequests(page);
+    page.on = on;
     page.exposeBinding = exposeBinding;
     await openUIFixture(page, allSpeciesLegacySave());
     page.on('requestfailed', request => { if (request === cancelled) releaseBefore(); });
@@ -445,7 +511,10 @@ for (const nextOutcome of ['decode', 'aborted', 'failed']) {
       expect(sameURL).toHaveLength(2);
       expect(report.expectedCancellations).toEqual([{ ...sameURL[0], disposalKey: report.disposals[0].key }]);
       expect(report.disposals[0].requestId).toBe(sameURL[0].id);
-      expect(sameURL[0]).toEqual({ id: 1, url: cancelled.url(), outcome: 'failed', error: 'net::ERR_ABORTED' });
+      expect(audit.requestForDisposal(report.disposals[0].key)).toBe(cancelled);
+      // Original cases retain id=1. A deliberately late observer can assign a
+      // later diagnostic id; assert the held native Request object above.
+      expect(sameURL[0]).toEqual({ id: delayRequest ? sameURL[0].id : 1, url: cancelled.url(), outcome: 'failed', error: 'net::ERR_ABORTED' });
       if (nextOutcome === 'decode') {
         expect(sameURL[1].outcome).toBe('finished');
         expect(report.unexpectedFailures).toEqual([]);
@@ -474,6 +543,34 @@ for (const error of ['aborted', 'failed']) {
     expect(report.unexpectedFailures).toEqual([{ id: 1, url: request.url(), outcome: 'failed', error: request.failure().errorText }]);
   });
 }
+
+test('collection image audit rejects ambiguous same-URL owners even with a genuine disposal', async ({ page }, testInfo) => {
+  const audit = await observeCollectionImageRequests(page);
+  await openUIFixture(page, allSpeciesLegacySave());
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  await page.route('**/barb/src/assets/fish/black-bass.png', async route => { await gate; await route.abort('aborted'); });
+  try {
+    const started = page.waitForRequest('**/barb/src/assets/fish/black-bass.png');
+    await audit.click(page.locator('#menu-button'));
+    await audit.click(page.locator('[data-view="encyclopedia"]'));
+    const request = await started;
+    await page.evaluate(url => {
+      const image = new Image(); image.id = 'parallel-image';
+      document.body.append(image); image.src = url;
+    }, request.url());
+    await audit.click(page.locator('button.fish-card').nth(2));
+    release();
+    await checkProductionImage(page.locator('.fish-detail img'), FISH_SPECIES[2]);
+    const report = await audit();
+    await testInfo.attach('ambiguous-request-audit', { body: JSON.stringify(report, null, 2), contentType: 'application/json' });
+    expect(report.disposals[0].before.owners).toHaveLength(2);
+    expect(report.disposals[0].requestId).toBeNull();
+    expect(report.expectedCancellations).toEqual([]);
+    expect(report.unexpectedFailures.length).toBeGreaterThanOrEqual(1);
+    expect(report.unexpectedFailures.every(value => value.url === request.url() && value.error === 'net::ERR_ABORTED')).toBe(true);
+  } finally { release(); }
+});
 
 for (const { label, viewport, touch } of artworkViewports) {
   test(`${label}: thirty-six production PNGs decode and agree in legacy grid, detail, storage and catches`, async ({ createContext }, testInfo) => {

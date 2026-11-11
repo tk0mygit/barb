@@ -159,7 +159,7 @@ for (const id of ['suzumushi-a', 'suzumushi-b', 'suzumushi-c']) {
   });
 }
 
-for (const rate of [48000, 44100]) for (const [name, gameStart] of [['day', 90], ['night-clear', 240], ['night-dense', 960]]) {
+for (const rate of [48000, 44100]) for (const [name, gameStart] of [['day', 90], ['night-clear', 4 * 360 + 240], ['night-dense', 960]]) {
   test('native real WAV/BGM/nature/bite mix peak and audition output: ' + name + ' ' + rate + 'Hz', async ({ page }, info) => {
     await modules(page);
     const result = await page.evaluate(async ({ gameStart, rate }) => {
