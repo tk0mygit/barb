@@ -270,6 +270,11 @@ for (const target of targets) {
       expect(after.renders - before.renders).toBe(6);
       expect(after.resources).toEqual(before.resources);
       expect(after.actualResources).toEqual(before.actualResources);
+      if (before.starDisplay.snapshot) {
+        for (const key of ['geometryId', 'materialId', 'attributes']) {
+          expect(after.starDisplay.snapshot[key]).toEqual(before.starDisplay.snapshot[key]);
+        }
+      }
       expect(before.resources.calls).toBeLessThan(40);
       expect(before.actualResources.calls).toBeLessThan(40);
       expect(before.dpr).toBe(profile.dpr);

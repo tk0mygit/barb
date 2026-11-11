@@ -46,9 +46,11 @@ export function assertColdFishingResources(snapshot) {
 // The historical matched-night counters included four unused marker geometries
 // and two marker shader variants uploaded by the old first BOAT render. Remove
 // that identified initialization history, retaining the exact draw/texture cost.
-export function expectedColdNightResources({ fogType, starInitialized = fogType === 'CLEAR' }) {
+export function expectedColdNightResources({ timeOfDay = 'night', fogType,
+  starInitialized = timeOfDay === 'night' && fogType === 'CLEAR' }) {
+  assert(['day', 'night'].includes(timeOfDay), 'Expected an explicit phase');
   assert(['CLEAR', 'FOG', 'DENSE_FOG'].includes(fogType), 'Expected an explicit night weather');
-  const fog = fogType !== 'CLEAR', stars = fogType === 'CLEAR';
+  const fog = timeOfDay === 'night' && fogType !== 'CLEAR', stars = timeOfDay === 'night' && fogType === 'CLEAR';
   // G-2.5: fixed 1100 trees, only the approved 250 * 216 triangle delta.
   return { calls: 31 + (fog ? 3 : 0) + Number(stars), triangles: 275444 + (fog ? 6144 : 0),
     geometries: 24 - FISHING_GEOMETRY_TYPES.length + (fog ? 1 : 0) + Number(starInitialized),

@@ -6,7 +6,7 @@ import { starSnapshot } from '../../tests/helpers/star-snapshot.js';
 
 export const SKY2_BASE = '242bcac5d3e4c65d14ca7b525c8b37929091b07a';
 export const SKY2_STARS_BLOB = '1578014b0afeb0024b5eefdc4ea775df37ed16c8';
-export const SKY2_CAPTURE_BLOB = '4514560390e1da5922602c587b11d923cb91a26d';
+export const SKY2_CAPTURE_BLOB = 'ed27af6491b6617dce0dda9463a2c2f518f93ed1';
 export const SKY2_SNAPSHOT_BLOB = '1f22de436d34987e4db8015cb9fc984c799f2649';
 const STARS = 'src/world/stars.js', LAKE = 'src/world/lake.js';
 const text = (sha, path) => mobileGit('show', `${sha}:${path}`);
@@ -47,6 +47,8 @@ export async function readSky2Transition(main, pr) {
     assert.equal(pr[key], main[key], `Sky-2: unrelated source ${key}`);
   }
   assert.deepEqual((await mobileGit('diff', '--name-only', main.sha, pr.sha, '--', 'src')).split('\n').sort(), [LAKE, STARS], 'Sky-2: unrelated runtime change');
+  assert.equal(await text(pr.sha, 'package.json'), await text(main.sha, 'package.json'), 'Sky-2: package metadata changed');
+  assert.equal(await mobileGit('diff', '--name-only', main.sha, pr.sha, '--', 'public'), '', 'Sky-2: delivery assets changed');
   for (const path of [LAKE, STARS, 'tests/browser/mobile-performance.spec.js', 'tests/helpers/star-snapshot.js']) {
     assert.match(await mobileGit('ls-tree', pr.sha, '--', path), /^100644 blob /, 'Sky-2: invalid file mode/type');
   }

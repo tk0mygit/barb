@@ -127,12 +127,13 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
     const sampleCpuEnd = await cdp.send('Performance.getMetrics');
     await page.evaluate(() => window.dispatchEvent(new Event('blur')));
     const after = await page.evaluate(() => ({ resources: window.lightingProbe.performance, camera: window.sceneryCamera,
-      cameraFrames: window.sceneryCameraFrames, renders: window.lightingProbe.renders }));
+      cameraFrames: window.sceneryCameraFrames, renders: window.lightingProbe.renders, stars: window.lightingProbe.starEvidence }));
     const implementation = implementations[target];
     const evidence = frames => ({ sha: implementation.sha, cameraBlob: implementation.cameraBlob, frames });
     for (const snapshot of [before, after]) verifySceneryCameraSource({ camera: snapshot.camera,
       cameraEvidence: evidence(snapshot.cameraFrames) }, implementation);
     for (const field of ['geometries', 'textures', 'programs']) expect(after.resources[field]).toBe(before.resources[field]);
+    if (before.stars) for (const field of ['geometryId', 'materialId', 'attributes']) expect(after.stars[field]).toEqual(before.stars[field]);
     expect(before.resources.calls).toBeLessThan(40);
     const sampledFrames = after.renders - before.renders;
     expect(sampledFrames).toBe(25);

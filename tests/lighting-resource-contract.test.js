@@ -24,6 +24,8 @@ test('cold and first-cast contracts distinguish allocation history from recreate
   assertLureInitialization(cold, lure);
   assertStableResourceIdentities(lure, structuredClone(lure));
   assert.deepEqual(expectedColdNightResources({ fogType: 'CLEAR' }), { calls: 32, triangles: 275444, geometries: 21, textures: 4, programs: 11 });
+  assert.deepEqual(expectedColdNightResources({ timeOfDay: 'day', fogType: 'CLEAR' }), { calls: 31, triangles: 275444, geometries: 20, textures: 4, programs: 10 });
+  assert.deepEqual(expectedColdNightResources({ timeOfDay: 'day', fogType: 'CLEAR', starInitialized: true }), { calls: 31, triangles: 275444, geometries: 21, textures: 4, programs: 11 });
   for (const fogType of ['FOG', 'DENSE_FOG']) {
     assert.deepEqual(expectedColdNightResources({ fogType }), { calls: 34, triangles: 281588, geometries: 21, textures: 4, programs: 11 });
     assert.deepEqual(expectedColdNightResources({ fogType, starInitialized: true }), { calls: 34, triangles: 281588, geometries: 22, textures: 4, programs: 12 });

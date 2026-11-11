@@ -1,7 +1,7 @@
 import { test, expect } from './diagnostics-fixture.js';
 import { writeFile } from 'node:fs/promises';
 import { tick, read, setup, assertEnvironment, observeControls, activateControl } from './day-night-fixture.js';
-import { assertColdFishingResources, assertLureInitialization, assertStableResourceIdentities } from './lighting-resource-contract.js';
+import { assertColdFishingResources, assertLureInitialization, assertStableResourceIdentities, expectedColdNightResources } from './lighting-resource-contract.js';
 
 test.use({ deviceScaleFactor: 0.5 });
 
@@ -15,6 +15,12 @@ for (const [seconds, label] of [[0, 'sunrise'], [90, 'day'], [175, 'dusk'], [180
     await setup(page, seconds);
     const first = await page.evaluate(() => window.lightingProbe.first);
     assertEnvironment(first, seconds);
+    if (label === 'day') {
+      const snapshot = await page.evaluate(() => ({ counts: window.lightingProbe.firstPerformance, catalog: window.lightingProbe.firstResourceCatalog }));
+      assertColdFishingResources(snapshot);
+      expect(snapshot.counts).toEqual(expectedColdNightResources({ timeOfDay: 'day', fogType: 'CLEAR' }));
+      expect(snapshot.catalog.stars.initialized).toBe(false);
+    }
     expect(first.waterTime).toBe(0); expect(first.boat).toEqual([10, 20]);
     if (['day', 'dusk', 'night', 'morning'].includes(label)) {
       const path = testInfo.outputPath(`${label}.png`);
