@@ -55,7 +55,7 @@ for (const [index, label, type, amount] of [[4, 'clear', 'CLEAR', 0], [7615, 'fo
     // identities as well as the exact matched-scene aggregate.
     const fog = profile.targetFogAmount > 0;
     assertColdFishingResources({ counts: actual, catalog: await page.evaluate(() => window.lightingProbe.resourceCatalog) });
-    expect(actual).toEqual(expectedColdNightResources(fog));
+    expect(actual).toEqual(expectedColdNightResources({ fogType: profile.fogType }));
     if (fog) {
       const pair = await page.evaluate(async () => {
         const pair = window.lightingProbe.captureMistPair();

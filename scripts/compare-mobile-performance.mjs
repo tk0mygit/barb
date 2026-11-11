@@ -10,6 +10,7 @@ import { readMobileRodReelTransition, readMobileCastDisplayTransition, expectedR
   readMobileFishingPhaseTransition, verifyFishingPhaseCapture, expectedFishingPhaseResources, FISHING_PHASE_IDS } from './lib/mobile-rod-reel-replay.js';
 import { readMobileWaterEffectsTransition, verifyWaterEffectsCapture, expectedWaterEffectsResources,
   WATER_EFFECTS_BASE, WATER_EFFECTS_BLOB } from './lib/mobile-water-effects-replay.js';
+import { readSky2Transition, verifyStarCapture, expectedStarResources } from './lib/sky2-source.js';
 
 export const MOBILE_COMPARISON_MODES = ['regression', 'historical-improvement'];
 // One reviewed product-source transition, not a per-PR resource allowance.
@@ -168,7 +169,8 @@ async function readComparisonSources(metadata) {
     readMobileFishingPhaseTransition(implementations.main, implementations.pr),
     readMobileWaterEffectsTransition(implementations.main, implementations.pr),
   ]);
-  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition, waterEffectsTransition };
+  const sky2Transition = await readSky2Transition(implementations.main, implementations.pr);
+  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition, waterEffectsTransition, sky2Transition };
 }
 
 async function verifyEntries(sources, target, entries) {
@@ -177,6 +179,7 @@ async function verifyEntries(sources, target, entries) {
     const verified = await verifyMobileSourceCapture(sources.implementations[target], entry);
     if (sources.fishingPhaseTransition) verified.fishingPhase = await verifyFishingPhaseCapture(sources.implementations[target], entry);
     if (sources.waterEffectsTransition) verified.waterEffects = await verifyWaterEffectsCapture(sources.implementations[target], entry);
+    if (sources.sky2Transition) verified.stars = await verifyStarCapture(sources.implementations[target], entry);
     sources.verified.set(entry, verified);
   }
 }
@@ -307,6 +310,16 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       : expectedMobileResources(b.metrics.resources, metadata);
     let fishingPhaseComparison;
     let waterEffectsComparison;
+    let starComparison;
+    if (sources?.sky2Transition) {
+      assert(!gearTransition && !castDisplay && !phaseDisplay && !waterEffects && !hintRemoval, 'Sky-2: cannot combine historical allowances');
+      assert(MOBILE_CAPTURE_IDS.includes(b.id), 'Sky-2: unsupported capture ID');
+      const beforeReplay = sources.verified.get(b)?.stars, afterReplay = sources.verified.get(a)?.stars;
+      expected = { resources: expectedStarResources(b.metrics.resources, a.metrics.resources, beforeReplay, afterReplay, 'fixed'),
+        transition: 'Sky-2: exact-source CLEAR-night batch; warmed geometry +1 / program +1 / textures exact' };
+      expectedStarResources(b.metrics.actualResources, a.metrics.actualResources, beforeReplay, afterReplay, 'actual');
+      starComparison = { proof: sources.sky2Transition, beforeDraws: beforeReplay.draws, afterDraws: afterReplay.draws };
+    }
     if (phaseDisplay) {
       assert(!gearTransition && !castDisplay, '5F-1A: cannot combine historical display transitions');
       assert(b.metrics.actualResources && a.metrics.actualResources, `${b.id}: missing production-view resources`);
@@ -391,6 +404,7 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       ...(castDisplay ? { castDisplayComparison: castDisplay } : {}),
       ...(fishingPhaseComparison ? { fishingPhaseComparison } : {}),
       ...(waterEffectsComparison ? { waterEffectsComparison } : {}),
+      ...(starComparison ? { starComparison } : {}),
       ...(hintRemoval && ['portrait-bite', 'landscape-bite', 'small-bite', 'pc-bite', 'portrait-fight', 'small-fight'].includes(b.id)
         ? { fishingHintRemoval: hintRemoval } : {}),
       pixelReduction,
