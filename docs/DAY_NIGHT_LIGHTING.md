@@ -57,6 +57,8 @@ transparent/renderOrder -1で、Skyの後・transparentの月/水/樹木の前�
 GPU資産は遅延初期化されます。一度星を描いた後の昼・霧では星のgeometry/programを各1保持し、drawは0です。
 Mobile比較の完全scene warmupは不可視Pointsも初期化するため、34条件すべてでgeometry/program各+1、
 実描画のCallsはCLEAR夜の5条件だけ+1です。`fixedResources`と`actualResources`を別々に検査します。
+高DPRの20標本p95はテスト側だけで各窓の前後に`gl.finish()`を行い、実render数が1であることを確認します。
+CDPと比較用2描画を含むソフトウェア診断値であり、実機GPUのFPSではありません。配信要求/bytesはCDP Networkで採録します。
 
 `scripts/lib/sky2-source.js`のtransitionは基準main `242bcac5d3e4c65d14ca7b525c8b37929091b07a`と
 星/撮影observer/snapshotの固定blob、lakeの完全な接続差分に限定します。両SHAの時計・天候・星factoryを独立再生し、

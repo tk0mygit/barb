@@ -255,6 +255,13 @@ for (const target of targets) {
     test(`mobile rendering: ${target} ${profile.id} ${scene.id}`, async ({ createContext }, info) => {
       const { context, page, errors } = await contextFor(createContext, target, profile);
       const cdp = await context.newCDPSession(page); await cdp.send('Performance.enable');
+      const network = new Map();
+      cdp.on('Network.responseReceived', ({ requestId, response, type }) => network.set(requestId,
+        { name: new URL(response.url).pathname, origin: new URL(response.url).origin, type, status: response.status, transferBytes: null }));
+      cdp.on('Network.loadingFinished', ({ requestId, encodedDataLength }) => {
+        if (network.has(requestId)) network.get(requestId).transferBytes = encodedDataLength;
+      });
+      await cdp.send('Network.enable');
       const initial = await cdp.send('Performance.getMetrics'), begin = performance.now();
       await startCapture(page, scene.seconds);
       const setupToReadyMs = performance.now() - begin, ready = await cdp.send('Performance.getMetrics');
@@ -286,20 +293,28 @@ for (const target of targets) {
         initial: { setupToReadyMs, rendererTaskMs: (metric(ready, 'TaskDuration') - metric(initial, 'TaskDuration')) * 1000 },
         continuing: { frames: 6, simulatedMs: 96, wallMs, rendererTaskMs: (metric(cpuEnd, 'TaskDuration') - metric(cpuStart, 'TaskDuration')) * 1000 }, errors };
       if (profile.id === 'pc-hidpi' && scene.id === 'clear-night') {
-        // Twenty fixed one-frame windows give a bounded p95 diagnostic on the
-        // same high-DPR production view. Includes CDP and the paired renders;
-        // this is software-browser cost, not a physical device GPU measurement.
+        // Complete queued GPU work at each boundary and count actual renders.
+        // Unfenced command submission produced near-zero/backlogged windows.
+        // CDP + paired renders remain included: this is a software diagnostic.
         const samples = [];
+        const finishFrame = () => page.evaluate(() => {
+          document.querySelector('#scene').getContext('webgl2').finish();
+          return window.lightingProbe.renders;
+        });
+        let previousRender = await finishFrame();
         for (let sample = 0; sample < 20; sample++) {
           const start = await cdp.send('Performance.getMetrics'), begin = performance.now();
           await page.clock.runFor(16);
+          const renders = await finishFrame();
           const wallMs = performance.now() - begin, end = await cdp.send('Performance.getMetrics');
-          samples.push({ wallMs, rendererTaskMs: (metric(end, 'TaskDuration') - metric(start, 'TaskDuration')) * 1000 });
+          expect(renders - previousRender).toBe(1);
+          samples.push({ frames: renders - previousRender, wallMs, rendererTaskMs: (metric(end, 'TaskDuration') - metric(start, 'TaskDuration')) * 1000 });
+          previousRender = renders;
         }
         const p95 = key => samples.map(row => row[key]).sort((a, b) => a - b)[Math.ceil(samples.length * .95) - 1];
-        metrics.starFrameSamples = { samples, p95WallMs: p95('wallMs'), p95RendererTaskMs: p95('rendererTaskMs') };
-        metrics.pageResources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => ({
-          name: new URL(entry.name).pathname, transferSize: entry.transferSize, encodedBodySize: entry.encodedBodySize })));
+        metrics.starFrameSamples = { synchronization: 'gl.finish before/after each window; one observed animation render',
+          samples, p95WallMs: p95('wallMs'), p95RendererTaskMs: p95('rendererTaskMs') };
+        metrics.pageResources = [...network.values()];
         const stable = await page.evaluate(() => window.mobileProbe);
         expect(stable.resources).toEqual(before.resources); expect(stable.actualResources).toEqual(before.actualResources);
         if (before.starDisplay.snapshot) {

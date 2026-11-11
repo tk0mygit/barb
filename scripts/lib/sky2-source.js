@@ -8,7 +8,7 @@ import { starSnapshot } from '../../tests/helpers/star-snapshot.js';
 
 export const SKY2_BASE = '242bcac5d3e4c65d14ca7b525c8b37929091b07a';
 export const SKY2_STARS_BLOB = '6368e510fb16f62185a2d45c9a98796122be9e9c';
-export const SKY2_CAPTURE_BLOB = '5b85b55adfdf842c63fec390467a86a4180d5457';
+export const SKY2_CAPTURE_BLOB = '9ebf09aa5f2806f9df537e5e6416a604d361be91';
 export const SKY2_SNAPSHOT_BLOB = '1f22de436d34987e4db8015cb9fc984c799f2649';
 const STARS = 'src/world/stars.js', LAKE = 'src/world/lake.js';
 const exec = promisify(execFile);
