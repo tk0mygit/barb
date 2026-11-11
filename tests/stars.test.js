@@ -107,6 +107,39 @@ test('all three constructor failures/thenables restore the exact RNG; missing/fa
   } finally { Math.random = original; }
 });
 
+test('UUID entropy is confined to constructors, replenishes safely, rejects constructor reentry, and keeps UUIDs unique', async () => {
+  const original = Math.random, spy = () => { throw new Error('shared random consumed'); };
+  const methods = [[THREE.BufferGeometry.prototype, 'setAttribute'], [THREE.BufferGeometry.prototype, 'computeBoundingSphere']];
+  const originals = methods.map(([object, key]) => object[key]);
+  const nativeCrypto = globalThis.crypto, uuids = new Set(); let refills = 0;
+  const module = await instrument({ Points: function(...args) {
+    for (let i = 0; i < 40; i++) assert(Math.random() >= 0);
+    return new THREE.Points(...args);
+  } });
+  let nested;
+  const recursive = await instrument({ Points: function() { return nested(); } });
+  nested = () => recursive.createStars();
+  Math.random = spy;
+  try {
+    methods.forEach(([object, key], i) => { object[key] = function(...args) { assert.equal(Math.random, spy); return originals[i].apply(this, args); }; });
+    for (let i = 0; i < 30; i++) {
+      const stars = createStars();
+      for (const object of [stars.points, stars.points.geometry, stars.points.material]) {
+        assert.match(object.uuid, /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/);
+        assert(!uuids.has(object.uuid)); uuids.add(object.uuid);
+      }
+      stars.dispose(); assert.equal(Math.random, spy);
+    }
+    withCrypto({ getRandomValues(words) { refills++; return nativeCrypto.getRandomValues(words); } }, () => module.createStars().dispose());
+    assert(refills >= 3);
+    let first = true;
+    withCrypto({ getRandomValues(words) { if (!first) throw new Error('refill failed'); first = false; return nativeCrypto.getRandomValues(words); } }, () => {
+      assert.throws(() => module.createStars(), /refill failed/); assert.equal(Math.random, spy);
+    });
+    for (let i = 0; i < 2; i++) { assert.throws(nested, /STOP: reentrant/); assert.equal(Math.random, spy); }
+  } finally { methods.forEach(([object, key], i) => { object[key] = originals[i]; }); Math.random = original; }
+});
+
 function domainRun(seed, withStars) {
   const original = Math.random, values = [], frames = [], bites = [];
   let rng = seed >>> 0, seconds = 0, stars;

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { PerspectiveCamera } from 'three';
 import { mobileGit } from './mobile-comparison-source.js';
 import { fishingDisplayDraws } from './mobile-rod-reel-replay.js';
@@ -6,10 +8,11 @@ import { starSnapshot } from '../../tests/helpers/star-snapshot.js';
 
 export const SKY2_BASE = '242bcac5d3e4c65d14ca7b525c8b37929091b07a';
 export const SKY2_STARS_BLOB = '1578014b0afeb0024b5eefdc4ea775df37ed16c8';
-export const SKY2_CAPTURE_BLOB = 'ed27af6491b6617dce0dda9463a2c2f518f93ed1';
+export const SKY2_CAPTURE_BLOB = '5b85b55adfdf842c63fec390467a86a4180d5457';
 export const SKY2_SNAPSHOT_BLOB = '1f22de436d34987e4db8015cb9fc984c799f2649';
 const STARS = 'src/world/stars.js', LAKE = 'src/world/lake.js';
-const text = (sha, path) => mobileGit('show', `${sha}:${path}`);
+const exec = promisify(execFile);
+const text = async (sha, path) => (await exec('git', ['show', `${sha}:${path}`])).stdout;
 const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 
 export function verifyStarConnection(before, after) {

@@ -285,6 +285,27 @@ for (const target of targets) {
       const metrics = { ...before, savedClockSeconds: scene.seconds,
         initial: { setupToReadyMs, rendererTaskMs: (metric(ready, 'TaskDuration') - metric(initial, 'TaskDuration')) * 1000 },
         continuing: { frames: 6, simulatedMs: 96, wallMs, rendererTaskMs: (metric(cpuEnd, 'TaskDuration') - metric(cpuStart, 'TaskDuration')) * 1000 }, errors };
+      if (profile.id === 'pc-hidpi' && scene.id === 'clear-night') {
+        // Twenty fixed one-frame windows give a bounded p95 diagnostic on the
+        // same high-DPR production view. Includes CDP and the paired renders;
+        // this is software-browser cost, not a physical device GPU measurement.
+        const samples = [];
+        for (let sample = 0; sample < 20; sample++) {
+          const start = await cdp.send('Performance.getMetrics'), begin = performance.now();
+          await page.clock.runFor(16);
+          const wallMs = performance.now() - begin, end = await cdp.send('Performance.getMetrics');
+          samples.push({ wallMs, rendererTaskMs: (metric(end, 'TaskDuration') - metric(start, 'TaskDuration')) * 1000 });
+        }
+        const p95 = key => samples.map(row => row[key]).sort((a, b) => a - b)[Math.ceil(samples.length * .95) - 1];
+        metrics.starFrameSamples = { samples, p95WallMs: p95('wallMs'), p95RendererTaskMs: p95('rendererTaskMs') };
+        metrics.pageResources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => ({
+          name: new URL(entry.name).pathname, transferSize: entry.transferSize, encodedBodySize: entry.encodedBodySize })));
+        const stable = await page.evaluate(() => window.mobileProbe);
+        expect(stable.resources).toEqual(before.resources); expect(stable.actualResources).toEqual(before.actualResources);
+        if (before.starDisplay.snapshot) {
+          for (const key of ['geometryId', 'materialId', 'attributes']) expect(stable.starDisplay.snapshot[key]).toEqual(before.starDisplay.snapshot[key]);
+        }
+      }
       if (profile.id === 'pc-hidpi' && scene.id === 'day-tps') {
         // Three fixed windows distinguish the noisy first sample from later
         // frames without retrying a failed assertion or changing scene quality.
