@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SKY2_BASE, readSky2Transition, verifyStarConnection, replayStarCapture } from '../scripts/lib/sky2-source.js';
+import { SKY2_BASE, readSky2Transition, verifyStarConnection, replayStarCapture, verifyStarCapture } from '../scripts/lib/sky2-source.js';
 import { readMobileImplementation, mobileGit, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
-import { compareMobileCapturePairWithSources } from '../scripts/compare-mobile-performance.mjs';
+import { compareMobileCapturePairWithSources, compareMobileCapturesWithSources } from '../scripts/compare-mobile-performance.mjs';
 import { writeComparison } from '../scripts/compare-lake-scenery.mjs';
 import { validateMobileEvidence } from '../scripts/ci-summary.js';
-import { sky2FixtureCommit, starGateFixture } from './helpers/sky2-fixture.js';
+import { sky2FixtureCommit, starGateFixture, starCapture } from './helpers/sky2-fixture.js';
 
 test('Sky-2 source transition reverses only the complete lake connection and pins the star/observer blobs', async () => {
   const main = await readMobileImplementation(SKY2_BASE), pr = await readMobileImplementation(sky2FixtureCommit());
@@ -43,14 +43,58 @@ test('all 34 synthetic pairs and final gate replay exact star visibility/geometr
   await assert.rejects(validateMobileEvidence(missing, p.metadata), /Missing mobile artifact/);
 });
 
+test('observed starTime roundoff passes capture, Mobile comparison and final-gate replay', async () => {
+  const p = await starGateFixture(), pr = await readMobileImplementation(p.metadata.headSha);
+  const entry = await starCapture(pr, 'pc-day-tps'), m = entry.metrics;
+  m.savedClockSeconds = m.starDisplay.clockSeconds = 97.76600000000008;
+  const replay = await replayStarCapture(pr, m);
+  m.starDisplay.snapshot = replay.snapshot; m.starDisplay.draws = replay.draws;
+  m.starDisplay.snapshot.uniforms.starTime = 97.766;
+  assert.equal((await verifyStarCapture(pr, entry)).snapshot.uniforms.starTime, 97.76600000000008);
+  p.after.find(entry => entry.id === 'pc-fight').metrics.starDisplay.clockSeconds += 8.5e-14;
+  p.comparison.rows = await compareMobileCapturesWithSources(p.before, p.after, p.metadata);
+  assert.equal(await validateMobileEvidence({ record: { files: p.files }, mobile: p }, p.metadata), 34);
+});
+
+test('starTime rejects missing/non-finite/out-of-range values and changes exceeding 1e-10 seconds', async () => {
+  const pr = await readMobileImplementation(sky2FixtureCommit()), entry = await starCapture(pr, 'pc-fight');
+  const time = entry.metrics.starDisplay.snapshot.uniforms.starTime;
+  for (const value of [NaN, Infinity, -Infinity, undefined, null, String(time), -1e-14, 2520, time - 2e-10, time + 2e-10, time + 1e-6]) {
+    const bad = structuredClone(entry); bad.metrics.starDisplay.snapshot.uniforms.starTime = value;
+    await assert.rejects(verifyStarCapture(pr, bad), /(?:invalid star time|star time differs from source)/);
+  }
+  const missing = structuredClone(entry); delete missing.metrics.starDisplay.snapshot.uniforms.starTime;
+  await assert.rejects(verifyStarCapture(pr, missing), /invalid star time/);
+  const clock = structuredClone(entry); clock.metrics.starDisplay.clockSeconds += 1e-6;
+  const replay = await replayStarCapture(pr, clock.metrics);
+  clock.metrics.starDisplay.snapshot = replay.snapshot; clock.metrics.starDisplay.draws = replay.draws;
+  await assert.rejects(verifyStarCapture(pr, clock), /star clock differs from native history/);
+});
+
+test('starTime roundoff cannot cross day/night, fade or cycle boundaries', async () => {
+  const pr = await readMobileImplementation(sky2FixtureCommit());
+  for (const boundary of [180, 192, 348, 360, 540, 552, 708, 720]) {
+    const entry = await starCapture(pr, 'pc-day-tps'), m = entry.metrics;
+    m.savedClockSeconds = m.starDisplay.clockSeconds = boundary;
+    const replay = await replayStarCapture(pr, m);
+    m.starDisplay.snapshot = replay.snapshot; m.starDisplay.draws = replay.draws;
+    m.starDisplay.snapshot.uniforms.starTime = boundary - 1e-12;
+    await assert.rejects(verifyStarCapture(pr, entry), /star time crosses a clock\/fade boundary/);
+  }
+});
+
 test('unrelated geometry/program/texture/calls, non-CLEAR submissions, HUD movement, missing/forged sources and star buffer churn fail', async () => {
   const p = await starGateFixture();
   for (const [id, mutate] of [
     ...['geometries', 'programs', 'textures', 'triangles', 'calls'].flatMap(key => ['resources', 'actualResources'].map(pass =>
       ['pc-clear-night', entry => { entry.metrics[pass][key]++; }])),
     ['pc-day-tps', entry => { entry.metrics.starDisplay.draws.fixed = 1; entry.metrics.resources.calls++; }],
+    ['pc-day-tps', entry => { entry.metrics.starDisplay.snapshot.visible = true; }],
     ['pc-fog-night', entry => { entry.metrics.starDisplay.snapshot.visible = true; entry.metrics.starDisplay.draws.actual = 1; }],
     ['pc-dense-night', entry => { entry.metrics.starDisplay.snapshot.uniforms.starOpacity = .01; }],
+    ['pc-clear-night', entry => { entry.metrics.starDisplay.snapshot.uniforms.starOpacity += 1e-14; }],
+    ['pc-clear-night', entry => { entry.metrics.starDisplay.snapshot.uniforms.starPixelRatio += 1e-14; }],
+    ['pc-fight', entry => { entry.metrics.starDisplay.snapshot.uniforms.starTime += 1e-6; }],
     ['pc-clear-night', entry => { entry.metrics.starDisplay.snapshot.attributes.position.array[0]++; }],
     ['pc-clear-night', entry => { entry.metrics.starDisplay.snapshot.attributes.position.version++; }],
     ['pc-clear-night', entry => { entry.metrics.starDisplay.clockSeconds += 1; }],

@@ -102,7 +102,27 @@ export async function verifyStarCapture(implementation, entry, options) {
   const m = entry.metrics;
   assert(m.starDisplay, `${entry.id}: missing Sky-2 evidence`);
   const replay = await replayStarCapture(implementation, m, options);
-  assert.deepEqual(starValues(m.starDisplay.snapshot), starValues(replay.snapshot), `${entry.id}: stars differ from source`);
+  const actual = starValues(m.starDisplay.snapshot), expected = starValues(replay.snapshot);
+  if (expected) {
+    const { starTime: actualTime, ...actualUniforms } = actual?.uniforms ?? {};
+    const { starTime: expectedTime, ...expectedUniforms } = expected.uniforms;
+    const { GAME_CLOCK_CONFIG: { daySeconds, nightSeconds }, STAR_CONFIG: { fadeSeconds, timeWrapSeconds } } = await readStarSource(implementation.sha);
+    // The compensated game clock and independent fog-clock reconstruction can
+    // differ by sub-picoseconds. Only this uniform admits bounded roundoff.
+    for (const time of [actualTime, expectedTime]) {
+      assert(Number.isFinite(time) && time >= 0 && time < timeWrapSeconds, `${entry.id}: invalid star time`);
+    }
+    assert(Math.abs(actualTime - expectedTime) <= 1e-10, `${entry.id}: star time differs from source`);
+    const timeBand = time => {
+      const cycle = daySeconds + nightSeconds, phase = time % cycle;
+      return [Math.floor(time / cycle), phase < daySeconds ? 'day' : phase < daySeconds + fadeSeconds ? 'fade-in'
+        : phase < cycle - fadeSeconds ? 'night' : 'fade-out'];
+    };
+    assert.deepEqual(timeBand(actualTime), timeBand(expectedTime), `${entry.id}: star time crosses a clock/fade boundary`);
+    assert.deepEqual({ ...actual, uniforms: actualUniforms }, { ...expected, uniforms: expectedUniforms }, `${entry.id}: stars differ from source`);
+  } else {
+    assert.deepEqual(actual, expected, `${entry.id}: stars differ from source`);
+  }
   assert.deepEqual(m.starDisplay.draws, replay.draws, `${entry.id}: star submissions differ from source`);
   if (m.fixedResources) assert.deepEqual(m.fixedResources, m.resources, `${entry.id}: fixed resources differ`);
   // Clock comes from independent surface-fog/HUD observation. Native capture
