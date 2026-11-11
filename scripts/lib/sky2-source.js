@@ -7,7 +7,7 @@ import { fishingDisplayDraws } from './mobile-rod-reel-replay.js';
 import { starSnapshot } from '../../tests/helpers/star-snapshot.js';
 
 export const SKY2_BASE = '242bcac5d3e4c65d14ca7b525c8b37929091b07a';
-export const SKY2_STARS_BLOB = '1578014b0afeb0024b5eefdc4ea775df37ed16c8';
+export const SKY2_STARS_BLOB = '6368e510fb16f62185a2d45c9a98796122be9e9c';
 export const SKY2_CAPTURE_BLOB = '5b85b55adfdf842c63fec390467a86a4180d5457';
 export const SKY2_SNAPSHOT_BLOB = '1f22de436d34987e4db8015cb9fc984c799f2649';
 const STARS = 'src/world/stars.js', LAKE = 'src/world/lake.js';
@@ -67,7 +67,7 @@ export async function readSky2Transition(main, pr) {
   return { kind: 'clear-night-stars-Sky2', baseSha: main.sha, validationSha: pr.sha,
     before: { lakeBlob: main.lakeBlob, starsBlob: null }, after: { lakeBlob: pr.lakeBlob, starsBlob: pr.starsBlob },
     captureBlob: SKY2_CAPTURE_BLOB, snapshotBlob: SKY2_SNAPSHOT_BLOB,
-    resources: { geometries: 1, programs: 1, textures: 0, maximumCalls: 1, vertices: 240 } };
+    resources: { geometries: 1, programs: 1, textures: 0, maximumCalls: 1, vertices: 960 } };
 }
 
 const cameraFor = pose => {

@@ -83,7 +83,7 @@ for (const viewport of [{ width: 1000, height: 700 }, { width: 390, height: 844,
     const fps = await savePair(page, info, 'fps-up');
     expect(fps.distinguishable).toBeGreaterThan(3); expect(fps.clipped).toBe(0); expect(fps.moonChanged).toBe(0);
     const evidence = await page.evaluate(() => window.lightingProbe.starEvidence);
-    expect(evidence.attributes.position.count).toBe(240);
+    expect(evidence.attributes.position.count).toBe(960);
     await context.close();
   });
 }

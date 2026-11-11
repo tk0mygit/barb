@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export const STAR_CONFIG = Object.freeze({ count: 240, radius: 1200, nightSeconds: 180,
+export const STAR_CONFIG = Object.freeze({ count: 960, radius: 1200, nightSeconds: 180,
   fadeSeconds: 12, timeWrapSeconds: 2520, amplitude: .075 });
 const smooth = value => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
 
@@ -26,9 +26,9 @@ export function createStarAttributes() {
     const radial = Math.sqrt(1 - y * y), offset = i * 3;
     positions.set([Math.cos(azimuth) * radial * STAR_CONFIG.radius, y * STAR_CONFIG.radius,
       Math.sin(azimuth) * radial * STAR_CONFIG.radius], offset);
-    const blue = random(), bright = i % 19 === 0;
+    const blue = random(), bright = i % 29 === 0;
     colors.set([.68 + .12 * blue, .77 + .10 * blue, .94], offset);
-    sizes[i] = bright ? 3.5 : 2.1 + random() * .7;
+    sizes[i] = bright ? 3.25 : 1.6 + random() * .75;
     phases[i] = random() * Math.PI * 2;
     periods[i] = 4 + Math.floor(random() * 6);
   }

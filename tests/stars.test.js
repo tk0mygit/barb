@@ -9,24 +9,27 @@ import { createFishing } from '../src/game/fishing.js';
 import { starSnapshot } from './helpers/star-snapshot.js';
 
 const clock = seconds => createGameClock(undefined, { elapsedSeconds: seconds }).state;
-test('240 deterministic directions, fixed hemisphere/radius, pale colors, bounded sizes and slow phases never use shared randomness', () => {
+test('960 deterministic directions, fixed hemisphere/radius, pale colors, bounded sizes and slow phases never use shared randomness', () => {
   const original = Math.random;
   Math.random = () => { throw new Error('shared random consumed'); };
   try {
     const a = createStarAttributes(); assert.deepEqual(createStarAttributes(), a);
-    assert.equal(STAR_CONFIG.count, 240); assert.equal(STAR_CONFIG.nightSeconds, GAME_CLOCK_CONFIG.nightSeconds);
-    assert.equal(a.positions.length, 720); assert.equal(a.colors.length, 720);
+    assert.equal(STAR_CONFIG.count, 960); assert.equal(STAR_CONFIG.nightSeconds, GAME_CLOCK_CONFIG.nightSeconds);
+    assert.equal(a.positions.length, 2880); assert.equal(a.colors.length, 2880);
+    assert.equal(Object.values(a).reduce((sum, array) => sum + array.byteLength, 0), 34560);
     const directions = new Set(); let bright = 0;
-    for (let i = 0; i < 240; i++) {
+    for (let i = 0; i < 960; i++) {
       const p = a.positions.slice(i * 3, i * 3 + 3), color = a.colors.slice(i * 3, i * 3 + 3);
       assert(Math.abs(Math.hypot(...p) - 1200) < .0001); assert(p[1] > 30 && p[1] < 1200);
       directions.add(p.join(','));
       assert(color[0] >= .68 && color[0] <= .8 && color[0] < color[1] && color[1] < color[2]);
-      assert(a.sizes[i] >= 2.1 && a.sizes[i] <= 3.5); if (a.sizes[i] === 3.5) bright++;
+      assert(a.sizes[i] >= 1.6 && a.sizes[i] <= 3.25); if (a.sizes[i] === 3.25) bright++;
+      else assert(a.sizes[i] < 2.35);
       assert(Number.isInteger(a.periods[i]) && a.periods[i] >= 4 && a.periods[i] <= 9);
       assert.equal(2520 % a.periods[i], 0); assert(a.phases[i] >= 0 && a.phases[i] < 2 * Math.PI);
     }
-    assert.equal(directions.size, 240); assert.equal(bright, 13);
+    assert.equal(directions.size, 960); assert.equal(bright, 34);
+    assert(bright / 960 >= .03 && bright / 960 <= .05);
   } finally { Math.random = original; }
 });
 
@@ -44,7 +47,7 @@ test('night AND CLEAR only; 12-second smooth fades have exact endpoints and pres
     assert.equal(s.visible, c.timeOfDay === 'night' && fog.fogType === 'CLEAR' && s.opacity > 0);
   }
   const attrs = createStarAttributes();
-  for (let i = 0; i < 240; i++) for (const seconds of [2519.99, 2520, 2520.01, 1e12 + .25]) {
+  for (let i = 0; i < 960; i++) for (const seconds of [2519.99, 2520, 2520.01, 1e12 + .25]) {
     const value = t => 1 + STAR_CONFIG.amplitude * Math.sin(t * 2 * Math.PI / attrs.periods[i] + attrs.phases[i]);
     const reduced = value(seconds % 2520);
     assert(reduced >= .925 && reduced <= 1.075);

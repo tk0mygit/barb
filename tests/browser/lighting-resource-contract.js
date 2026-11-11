@@ -26,7 +26,7 @@ export function assertResourceCatalog({ counts, catalog }) {
   }
   if (catalog.stars) {
     const s = catalog.stars;
-    assert.equal(s.name, 'clear-night-stars'); assert.equal(s.vertices, 240);
+    assert.equal(s.name, 'clear-night-stars'); assert.equal(s.vertices, 960);
     assert(catalog.cpuGeometryIds.includes(s.id), 'Star geometry lost its scene owner');
     assert.equal(s.initialized, catalog.initializedGeometryIds.includes(s.id), 'Star initialization differs');
     assert.equal(s.programKeys.length, s.initialized ? 1 : 0, 'Stars require one shader program');

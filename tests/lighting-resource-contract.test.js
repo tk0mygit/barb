@@ -127,10 +127,10 @@ test('5F-1B surface upload is exactly one owned geometry and one distinct RGBA s
   }
 });
 
-test('Sky-2 has one owned 240-point geometry and one shader identity; reuse never hides allocation churn', () => {
+test('Sky-2 has one owned 960-point geometry and one shader identity; reuse never hides allocation churn', () => {
   const { cold } = snapshots();
   cold.catalog.cpuGeometryIds.push(7);
-  cold.catalog.stars = { id: 7, name: 'clear-night-stars', vertices: 240, initialized: true, visible: true, programKeys: ['star-shader'] };
+  cold.catalog.stars = { id: 7, name: 'clear-night-stars', vertices: 960, initialized: true, visible: true, programKeys: ['star-shader'] };
   cold.catalog.initializedGeometryIds.push(7); cold.counts.geometries++;
   cold.catalog.programKeys.push('star-shader'); cold.counts.programs++;
   assertColdFishingResources(cold); assertStableResourceIdentities(cold, structuredClone(cold));
