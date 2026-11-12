@@ -12,6 +12,7 @@ import { readMobileWaterEffectsTransition, verifyWaterEffectsCapture, expectedWa
   WATER_EFFECTS_BASE, WATER_EFFECTS_BLOB } from './lib/mobile-water-effects-replay.js';
 import { readSky2Transition, verifyStarCapture, expectedStarResources } from './lib/sky2-source.js';
 import { readSky3Transition, verifyMeteorCapture, expectedMeteorResources } from './lib/sky3-source.js';
+import { readSky4Transition, verifyAuroraCapture, expectedAuroraResources } from './lib/sky4-source.js';
 
 export const MOBILE_COMPARISON_MODES = ['regression', 'historical-improvement'];
 // One reviewed product-source transition, not a per-PR resource allowance.
@@ -172,7 +173,8 @@ async function readComparisonSources(metadata) {
   ]);
   const sky2Transition = await readSky2Transition(implementations.main, implementations.pr);
   const sky3Transition = await readSky3Transition(implementations.main, implementations.pr);
-  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition, waterEffectsTransition, sky2Transition, sky3Transition };
+  const sky4Transition = await readSky4Transition(implementations.main, implementations.pr);
+  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition, waterEffectsTransition, sky2Transition, sky3Transition, sky4Transition };
 }
 
 async function verifyEntries(sources, target, entries) {
@@ -181,8 +183,9 @@ async function verifyEntries(sources, target, entries) {
     const verified = await verifyMobileSourceCapture(sources.implementations[target], entry);
     if (sources.fishingPhaseTransition) verified.fishingPhase = await verifyFishingPhaseCapture(sources.implementations[target], entry);
     if (sources.waterEffectsTransition) verified.waterEffects = await verifyWaterEffectsCapture(sources.implementations[target], entry);
-    if (sources.sky2Transition || sources.sky3Transition) verified.stars = await verifyStarCapture(sources.implementations[target], entry);
-    if (sources.sky3Transition) verified.meteor = await verifyMeteorCapture(sources.implementations[target], entry);
+    if (sources.sky2Transition || sources.sky3Transition || sources.sky4Transition) verified.stars = await verifyStarCapture(sources.implementations[target], entry);
+    if (sources.sky3Transition || sources.sky4Transition) verified.meteor = await verifyMeteorCapture(sources.implementations[target], entry);
+    if (sources.sky4Transition) verified.aurora = await verifyAuroraCapture(sources.implementations[target], entry);
     sources.verified.set(entry, verified);
   }
 }
@@ -315,6 +318,20 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
     let waterEffectsComparison;
     let starComparison;
     let meteorComparison;
+    let auroraComparison;
+    if (sources?.sky4Transition) {
+      assert.equal(metadata.mode, 'regression', 'Sky-4: regression mode required');
+      assert(!sources.sky2Transition && !sources.sky3Transition && !gearTransition && !castDisplay && !phaseDisplay && !waterEffects && !hintRemoval, 'Sky-4: cannot combine historical allowances');
+      assert(MOBILE_CAPTURE_IDS.includes(b.id), 'Sky-4: unsupported capture ID');
+      const beforeReplay = sources.verified.get(b)?.aurora, afterReplay = sources.verified.get(a)?.aurora;
+      for (const sky of ['stars', 'meteor']) assert.deepEqual(sources.verified.get(a)[sky].draws,
+        sources.verified.get(b)[sky].draws, `Sky-4: existing ${sky} submissions changed`);
+      expected = { resources: expectedAuroraResources(b.metrics.resources, a.metrics.resources, beforeReplay, afterReplay, 'fixed'),
+        transition: 'Sky-4: exact-source two curtain submissions; warmed geometry +1 / shared program +1 / textures exact' };
+      expectedAuroraResources(b.metrics.actualResources, a.metrics.actualResources, beforeReplay, afterReplay, 'actual');
+      auroraComparison = { proof: sources.sky4Transition, beforeState: beforeReplay.state, afterState: afterReplay.state,
+        beforeDraws: beforeReplay.draws, afterDraws: afterReplay.draws };
+    }
     if (sources?.sky3Transition) {
       assert.equal(metadata.mode, 'regression', 'Sky-3: regression mode required');
       assert(!sources.sky2Transition && !gearTransition && !castDisplay && !phaseDisplay && !waterEffects && !hintRemoval, 'Sky-3: cannot combine historical allowances');
@@ -421,6 +438,7 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       ...(waterEffectsComparison ? { waterEffectsComparison } : {}),
       ...(starComparison ? { starComparison } : {}),
       ...(meteorComparison ? { meteorComparison } : {}),
+      ...(auroraComparison ? { auroraComparison } : {}),
       ...(hintRemoval && ['portrait-bite', 'landscape-bite', 'small-bite', 'pc-bite', 'portrait-fight', 'small-fight'].includes(b.id)
         ? { fishingHintRemoval: hintRemoval } : {}),
       pixelReduction,
@@ -439,7 +457,7 @@ export async function writeMobileComparison(before, after, output, metadata = be
   }));
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output.replace(/\.html$/, '.json'), JSON.stringify({ metadata, rows }, null, 2));
-  const figures = rows.map((r, index) => `<article id="${r.id}"><h2>${r.id}</h2><p>buffer ${r.before.buffer.width}×${r.before.buffer.height} → ${r.after.buffer.width}×${r.after.buffer.height}; pixel reduction ${r.pixelReduction.toFixed(2)}%${r.beforeLayout ? `; HUD ${r.beforeLayout.occupancy.toFixed(2)}% → ${r.afterLayout.occupancy.toFixed(2)}%` : ''}</p><div>${images[index].map((image, i) => `<figure><figcaption>${i ? 'PR' : 'main'}</figcaption><img src="data:image/png;base64,${image.toString('base64')}"></figure>`).join('')}</div><details><summary>Metrics / layout</summary><pre>${JSON.stringify({ before: r.before, after: r.after, beforeLayout: r.beforeLayout, afterLayout: r.afterLayout, cameraComparison: r.cameraComparison, resourceTransition: r.resourceTransition, rodReelComparison: r.rodReelComparison, castDisplayComparison: r.castDisplayComparison, fishingPhaseComparison: r.fishingPhaseComparison, waterEffectsComparison: r.waterEffectsComparison, starComparison: r.starComparison, meteorComparison: r.meteorComparison }, null, 2)}</pre></details></article>`).join('');
+  const figures = rows.map((r, index) => `<article id="${r.id}"><h2>${r.id}</h2><p>buffer ${r.before.buffer.width}×${r.before.buffer.height} → ${r.after.buffer.width}×${r.after.buffer.height}; pixel reduction ${r.pixelReduction.toFixed(2)}%${r.beforeLayout ? `; HUD ${r.beforeLayout.occupancy.toFixed(2)}% → ${r.afterLayout.occupancy.toFixed(2)}%` : ''}</p><div>${images[index].map((image, i) => `<figure><figcaption>${i ? 'PR' : 'main'}</figcaption><img src="data:image/png;base64,${image.toString('base64')}"></figure>`).join('')}</div><details><summary>Metrics / layout</summary><pre>${JSON.stringify({ before: r.before, after: r.after, beforeLayout: r.beforeLayout, afterLayout: r.afterLayout, cameraComparison: r.cameraComparison, resourceTransition: r.resourceTransition, rodReelComparison: r.rodReelComparison, castDisplayComparison: r.castDisplayComparison, fishingPhaseComparison: r.fishingPhaseComparison, waterEffectsComparison: r.waterEffectsComparison, starComparison: r.starComparison, meteorComparison: r.meteorComparison, auroraComparison: r.auroraComparison }, null, 2)}</pre></details></article>`).join('');
   await writeFile(output, `<!doctype html><html lang="ja"><meta charset="utf-8"><title>BARB mobile comparison</title><style>body{background:#142329;color:#eee;font:15px system-ui;margin:24px}article{border-top:1px solid #789;padding:20px 0}article>div{display:flex;align-items:start;gap:12px}figure{margin:0;max-width:49%}img{max-width:100%;height:auto}pre{white-space:pre-wrap}</style><h1>BARB mobile comparison: ${metadata.mode}</h1><pre>${JSON.stringify(metadata, null, 2)}</pre><p>Production builds, boat (10,20), heading 0, saved clock, viewport / DPR and native fishing input fixed. Software Chromium / SwiftShader, single sample: setup→ready and 6 ordinary frames (96ms virtual time), Node monotonic wall clock and CDP TaskDuration. Includes automation overhead, paired diagnostic renders and waits; these are not device FPS or GPU timings. Screenshots and actualResources retain the production camera. Resources are compared strictly using the same fixed diagnostic camera; production camera poses are replayed from each recorded source SHA. Only rotated-fight can have a different quaternion with unchanged camera code: its tracking and HUD tension must independently match each source FIGHT engine, and both camera rigs must agree under each common tracking/time history. BITE's intentional upper HUD is checked against explicit geometry. Phase 5E-2B's exact-source hint removal permits only the BITE return button moving up 38px and portrait/small FIGHT panel and meter moving down 26px; sizes, other controls, other coordinates and all other captures retain exact comparison. Raw JSON accompanies this report. The approved rod/reel introduction independently loads both exact Git sources and reverses its additive main connection, then permits only two warmed geometries and the exact Lv1 draws/triangles in the 14 fishing captures; textures, shader programs, all other resources and the production-view counters remain exact. Phase 5D-2 grants no resource allowance: its approved-base origin/update-order changes must reverse exactly, both model sources are inspected, and all fixed-camera and production-view resources remain identical. Phase 5F-1A separately reverses its exact display patch against its approved base, replays each native game history and both source view factories, and checks the recorded per-mesh submissions against geometry, transparency and frustum culling for each camera. Only the four BITE, four FIGHT and rotated-fight captures can subtract the verified hidden meshes; all other counters and captures remain exact. Its independent source proof also preserves both-history rotated-FIGHT camera replay. Phase 5F-1B has a separate proof bound to base b562b3f4d9d39ed38b05049e2981923bac175cfc: its complete production wiring reverses exactly, its new effect module and capture observer are pinned, and each source independently replays the native phase/input history and seconds-based scheduler. Recorded effect vertex/color buffers, visibility, bounds and per-camera submissions must match. Only source-visible effects in the nine BITE/FIGHT IDs add one single-pass batch (at most 1152 triangles); all 34 complete-scene warmups add exactly one geometry and one built-in RGBA program, with zero new textures. Inactive effects submit zero draws. Constructor UUID entropy is isolated only during the four synchronous visual constructors, restored in finally, and independently checked with shared-RNG and multi-seed domain/state tests. Sky-3 is separately bound to the Sky-2 main eb3d77b310110aa49958292064774b4d35446c73: the complete meteor lake connection reverses exactly, the meteor and observers are pinned, existing stars and all other runtime/build/assets stay fixed, and the native clock, CLEAR weather, slot, immutable ribbon and submissions are independently replayed for each camera. All 34 warmups add exactly one geometry/program and zero textures; only an ordinary winning midpoint window can submit one two-triangle batch. Cold scenery tracks earlier uploads from its complete native render history. Historical transition rules remain separate. Regression mode otherwise expects unchanged resolution/resources and unchanged layouts outside the explicit cast HUD; historical-improvement requires the explicit pre-4C-2A SHA and the original ≥20% mobile pixel reduction and smaller fight HUD.</p>${figures}</html>`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

@@ -46,6 +46,31 @@ export function assertResourceCatalog({ counts, catalog }) {
     }
     assert.notEqual(m.id, catalog.stars?.id, 'Meteor reused the star geometry');
   }
+  if (catalog.aurora) {
+    const a = catalog.aurora;
+    assert.equal(a.objects, 2, 'Aurora requires exactly two layers');
+    assert.equal(a.layers.length, 2); assert.equal(new Set(a.layers.map(layer => layer.materialId)).size, 2);
+    assert(catalog.cpuGeometryIds.includes(a.id), 'Aurora lost geometry ownership');
+    assert.equal(a.initialized, catalog.initializedGeometryIds.includes(a.id));
+    assert.equal(a.programKeys.length, Number(a.initialized)); assert.equal(a.programInstances, Number(a.initialized));
+    assert.equal(new Set(a.layers.map(layer => layer.geometryId)).size, 1, 'Aurora geometry is not shared');
+    for (const layer of a.layers) {
+      assert.equal(layer.geometryId, a.id);
+      assert(layer.programKeys.length <= 1); for (const key of layer.programKeys) assert(a.programKeys.includes(key));
+    }
+    for (const key of a.programKeys) {
+      assert(catalog.programKeys.includes(key)); assert(!catalog.stars?.programKeys.includes(key)); assert(!catalog.meteor?.programKeys.includes(key));
+    }
+    assert.notEqual(a.id, catalog.stars?.id); assert.notEqual(a.id, catalog.meteor?.id);
+    assert.deepEqual(Object.keys(a.buffers).sort(), ['index', 'position', 'uv']);
+    const ids = [];
+    for (const [key, bytes] of [['position', 10692], ['uv', 7128], ['index', 9600]]) {
+      const buffer = a.buffers[key];
+      if (!a.initialized) assert.equal(buffer, null, 'Aurora uploaded before a real submission');
+      else { assert(buffer); assert.equal(buffer.bytes, bytes); assert.equal(buffer.uploads, 1); ids.push(buffer.id); }
+    }
+    assert.equal(new Set(ids).size, ids.length, 'Aurora GPU buffers alias');
+  }
 }
 
 export function assertColdFishingResources(snapshot) {
@@ -122,4 +147,5 @@ export function assertStableResourceIdentities(before, after) {
     for (const key of ['id', 'materialId', 'vertices', 'initialized', 'programKeys'])
       assert.deepEqual(after.catalog.meteor?.[key], before.catalog.meteor[key], `Repeated rendering changed meteor ${key}`);
   }
+  if (before.catalog.aurora) assert.deepEqual(after.catalog.aurora, before.catalog.aurora, 'Repeated rendering changed aurora GPU identities');
 }

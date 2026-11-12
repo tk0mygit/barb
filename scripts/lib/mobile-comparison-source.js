@@ -67,6 +67,7 @@ export async function readMobileImplementation(sha) {
     lakeBlob: await mobileGit('rev-parse', `${sha}:src/world/lake.js`),
     starsBlob: (await mobileGit('ls-tree', sha, '--', 'src/world/stars.js')).split(/\s+/)[2] ?? null,
     meteorBlob: (await mobileGit('ls-tree', sha, '--', 'src/world/meteor.js')).split(/\s+/)[2] ?? null,
+    auroraBlob: (await mobileGit('ls-tree', sha, '--', 'src/world/aurora.js')).split(/\s+/)[2] ?? null,
     cameraModel: castCamera ? 'prepared-horizontal-aft-1.25' : 'legacy-transition',
     hudModel: hudSource.includes('[data-cast-view="true"]') ? 'cast-upper-controls' : 'original',
     createCameraRig: cameraModule.createCameraRig };
@@ -91,6 +92,13 @@ export function mobileSourceMetadata({ calculate, createCameraRig, ...metadata }
 export async function assertMobileWorkingSource(implementation) {
   assert.equal(await mobileGit('rev-parse', 'HEAD:src'), implementation.sourceTree, 'Runtime source tree differs from recorded SHA');
   assert.equal(await mobileGit('status', '--porcelain=v1', '--untracked-files=all', '--', 'src'), '', 'Runtime working source differs from recorded SHA');
+  if (implementation.auroraBlob) {
+    const { SKY4_SOURCE_BLOBS } = await import('./sky4-source-pins.js');
+    for (const file of Object.keys(SKY4_SOURCE_BLOBS)) {
+      assert.equal(await mobileGit('hash-object', file), await mobileGit('rev-parse', `${implementation.sha}:${file}`),
+        `Sky-4: uncommitted observer/replay source ${file}`);
+    }
+  }
   for (const [file, expected] of [['src/main.js', implementation.mainBlob], ['src/ui/style.css', implementation.hudBlob],
     ['src/world/terrain.js', implementation.terrainBlob],
     ...(implementation.crownTextureBlob ? [['src/world/conifer-texture.js', implementation.crownTextureBlob]] : []),

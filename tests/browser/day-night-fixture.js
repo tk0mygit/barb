@@ -8,6 +8,7 @@ import { sampleDayNight } from '../../src/world/day-night.js';
 import { sampleStars } from '../../src/world/stars.js';
 import { starSnapshot } from '../helpers/star-snapshot.js';
 import { meteorSnapshot } from '../helpers/meteor-snapshot.js';
+import { auroraSnapshot, observeAuroraGPU } from '../helpers/aurora-snapshot.js';
 
 const now = new Date('2026-10-23T00:00:00Z');
 export const tick = page => page.clock.fastForward(250);
@@ -52,9 +53,11 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
   const data = createLightingSave(elapsedSeconds);
   // Observe the actual production renderer via Three.js's existing devtools
   // event. No production debug API, source rewrite or forced game state.
-  await page.addInitScript(({ data, randomValue, starSnapshotSource, meteorSnapshotSource }) => {
+  await page.addInitScript(({ data, randomValue, starSnapshotSource, meteorSnapshotSource, auroraSnapshotSource, auroraGPUSource }) => {
     const snapshotStars = (0, eval)(`(${starSnapshotSource})`);
     const snapshotMeteor = (0, eval)(`(${meteorSnapshotSource})`);
+    const snapshotAurora = (0, eval)(`(${auroraSnapshotSource})`);
+    const observeGPU = (0, eval)(`(${auroraGPUSource})`);
     if (!sessionStorage.getItem('lighting-seeded')) {
       localStorage.setItem('barb.save.v1.slotA', JSON.stringify({ storageVersion: 1, generation: 1, data }));
       sessionStorage.setItem('lighting-seeded', 'yes');
@@ -66,10 +69,17 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
       if (!renderer.isWebGLRenderer) return;
       const render = renderer.render;
       const direct = renderer.renderBufferDirect;
+      const auroraGPU = observeGPU(renderer);
+      let auroraDraws = [];
       let starCalls = 0, meteorCalls = 0, meteorTriangles = 0, recordingStars = false;
       renderer.renderBufferDirect = function(...args) {
         const before = renderer.info.render.calls, triangles = renderer.info.render.triangles, result = direct.apply(this, args);
         if (recordingStars && args[4]?.name === 'clear-night-stars') starCalls += renderer.info.render.calls - before;
+        if (recordingStars && args[4]?.name?.startsWith('clear-night-aurora-')) {
+          const layer = Number(args[4].name.at(-1));
+          auroraDraws[layer].calls += renderer.info.render.calls - before;
+          auroraDraws[layer].triangles += renderer.info.render.triangles - triangles;
+        }
         if (recordingStars && args[4]?.name === 'clear-night-meteor') {
           meteorCalls += renderer.info.render.calls - before;
           meteorTriangles += renderer.info.render.triangles - triangles;
@@ -105,6 +115,7 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
         const sky = scene.children.find(o => o.isSky), moon = scene.getObjectByName('moon');
         const stars = scene.getObjectByName('clear-night-stars');
         const meteor = scene.getObjectByName('clear-night-meteor');
+        const auroras = [0, 1].map(layer => scene.getObjectByName(`clear-night-aurora-${layer}`)).filter(Boolean);
         const water = scene.getObjectByName('lake-water').material.uniforms;
         const mist = scene.getObjectByName('surface-fog');
         const mistUniforms = mist.children[0].material.uniforms;
@@ -123,6 +134,7 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
           shadows: scene.children.filter(o => o.isLight && o.castShadow).length,
         };
         starCalls = 0; meteorCalls = 0; meteorTriangles = 0; recordingStars = true;
+        auroraDraws = auroras.map(() => ({ calls: 0, triangles: 0 }));
         let result;
         try { result = render.call(this, scene, camera); } finally { recordingStars = false; }
         snapshot.stars = stars ? { visible: stars.visible, opacity: stars.material.uniforms.starOpacity.value,
@@ -157,6 +169,8 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
               initialized: initializedGeometries.has(object.geometry.id), forceSinglePass: object.material.forceSinglePass,
               programKeys: [...(renderer.properties.get(object.material).programs?.values() ?? [])].map(program => program.cacheKey).sort() } : null;
           })(),
+          aurora: auroras.length ? { id: auroras[0].geometry.id, initialized: initializedGeometries.has(auroras[0].geometry.id),
+            ...auroraGPU(auroras) } : null,
           meteor: meteor ? { id: meteor.geometry.id, materialId: meteor.material.id, name: meteor.name,
             vertices: meteor.geometry.attributes.position.count, visible: meteor.visible,
             initialized: initializedGeometries.has(meteor.geometry.id),
@@ -173,6 +187,22 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
           programKeys: probe.resourceCatalog.meteor.programKeys,
           programInstances: renderer.info.programs.filter(p => probe.resourceCatalog.meteor.programKeys.includes(p.cacheKey)).length,
           objects: scene.getObjectsByProperty('name', 'clear-night-meteor').length } : null;
+        probe.auroraEvidence = snapshotAurora(auroras);
+        probe.auroraDraws = auroraDraws;
+        probe.auroraGPU = auroraGPU(auroras);
+        probe.firstAuroraEvidence ??= snapshotAurora(auroras);
+        probe.captureAuroraPair = () => {
+          const visibility = auroras.map(mesh => mesh.visible);
+          const capture = () => { render.call(renderer, scene, camera); return renderer.domElement.toDataURL('image/png'); };
+          const withAurora = capture();
+          for (const mesh of auroras) mesh.visible = false;
+          const withoutAurora = capture();
+          const layers = auroras.map((mesh, layer) => {
+            mesh.visible = visibility[layer]; const image = capture(); mesh.visible = false; return image;
+          });
+          auroras.forEach((mesh, layer) => { mesh.visible = visibility[layer]; }); capture();
+          return { withAurora, withoutAurora, layers, moonScreen: probe.moonScreen };
+        };
         probe.firstMeteorEvidence ??= snapshotMeteor(meteor);
         probe.firstResourceCatalog ??= structuredClone(probe.resourceCatalog);
         probe.firstPerformance ??= { ...probe.performance };
@@ -240,7 +270,8 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
         return result;
       };
     });
-  }, { data, randomValue, starSnapshotSource: starSnapshot.toString(), meteorSnapshotSource: meteorSnapshot.toString() });
+  }, { data, randomValue, starSnapshotSource: starSnapshot.toString(), meteorSnapshotSource: meteorSnapshot.toString(),
+    auroraSnapshotSource: auroraSnapshot.toString(), auroraGPUSource: observeAuroraGPU.toString() });
   if (freeze) {
     await installPausedClock(page, now);
   }
