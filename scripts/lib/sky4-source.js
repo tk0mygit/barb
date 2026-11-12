@@ -78,7 +78,7 @@ const cameraFor = pose => {
 export function auroraValues(snapshot) {
   if (!snapshot) return null;
   const { geometryId, layers, ...values } = snapshot;
-  return { ...values, layers: layers.map(({ geometryId, materialId, ...layer }) => layer) };
+  return { ...values, layers: layers.map(({ geometryId, materialId, ...layer }) => ({ ...layer, uniforms: { ...layer.uniforms } })) };
 }
 export async function replayAuroraCapture(implementation, metrics, { warmed = true } = {}) {
   const source = await readAuroraSource(implementation.sha), seconds = metrics.auroraDisplay?.clockSeconds;

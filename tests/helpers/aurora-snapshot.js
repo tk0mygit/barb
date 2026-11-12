@@ -10,7 +10,10 @@ export function auroraSnapshot(meshes) {
     drawRange: { ...geometry.drawRange },
     boundingSphere: { center: geometry.boundingSphere.center.toArray(), radius: geometry.boundingSphere.radius },
     layers: meshes.map(mesh => ({ name: mesh.name, visible: mesh.visible, geometryId: mesh.geometry.id,
-      materialId: mesh.material.id, position: mesh.position.toArray(), quaternion: mesh.quaternion.toArray(), scale: mesh.scale.toArray(),
+      materialId: mesh.material.id, position: mesh.position.toArray(),
+      // JSON has no signed zero. Canonicalize only exact quaternion zeroes at
+      // capture and replay, without granting any numeric/spatial tolerance.
+      quaternion: mesh.quaternion.toArray().map(value => value === 0 ? 0 : value), scale: mesh.scale.toArray(),
       uniforms: Object.fromEntries(Object.entries(mesh.material.uniforms).map(([key, u]) => [key, u.value])),
       material: { type: mesh.material.type, transparent: mesh.material.transparent, side: mesh.material.side,
         forceSinglePass: mesh.material.forceSinglePass, depthTest: mesh.material.depthTest,
