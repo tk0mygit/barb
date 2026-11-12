@@ -33,6 +33,19 @@ export function assertResourceCatalog({ counts, catalog }) {
     if (s.visible) assert(s.initialized, 'Visible stars were not initialized');
     for (const key of s.programKeys) assert(catalog.programKeys.includes(key), 'Star shader missing from GPU catalog');
   }
+  if (catalog.meteor) {
+    const m = catalog.meteor;
+    assert.equal(m.name, 'clear-night-meteor'); assert.equal(m.vertices, 6);
+    assert(catalog.cpuGeometryIds.includes(m.id), 'Meteor lost its scene owner');
+    assert.equal(m.initialized, catalog.initializedGeometryIds.includes(m.id), 'Meteor initialization differs');
+    assert.equal(m.programKeys.length, m.initialized ? 1 : 0, 'Meteor requires one shader program');
+    if (m.visible) assert(m.initialized, 'Visible meteor was not initialized');
+    for (const key of m.programKeys) {
+      assert(catalog.programKeys.includes(key), 'Meteor shader missing from GPU catalog');
+      assert(!catalog.stars?.programKeys.includes(key), 'Meteor reused the star shader');
+    }
+    assert.notEqual(m.id, catalog.stars?.id, 'Meteor reused the star geometry');
+  }
 }
 
 export function assertColdFishingResources(snapshot) {
@@ -105,4 +118,8 @@ export function assertStableResourceIdentities(before, after) {
   for (const key of ['cpuGeometryIds', 'initializedGeometryIds', 'programKeys']) assert.deepEqual(after.catalog[key], before.catalog[key], `Repeated rendering changed ${key}`);
   for (const key of ['geometries', 'textures', 'programs']) assert.equal(after.counts[key], before.counts[key], `Repeated rendering changed ${key}`);
   if (before.catalog.stars) assert.deepEqual(after.catalog.stars, before.catalog.stars, 'Repeated rendering recreated stars');
+  if (before.catalog.meteor) {
+    for (const key of ['id', 'materialId', 'vertices', 'initialized', 'programKeys'])
+      assert.deepEqual(after.catalog.meteor?.[key], before.catalog.meteor[key], `Repeated rendering changed meteor ${key}`);
+  }
 }

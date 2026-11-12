@@ -70,7 +70,8 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
           renderer.setAnimationLoop = function(callback) {
             let previous = performance.now();
             return animationLoop.call(this, callback && (now => {
-              frame = { dt: Math.min(0.25, Math.max(0, (now - previous) / 1000)) }; previous = now;
+              const clockDt = Math.max(0, (now - previous) / 1000);
+              frame = { dt: Math.min(0.25, clockDt), clockDt }; previous = now;
               try { callback(now); } finally { frame = null; }
             }));
           };
@@ -78,7 +79,7 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
           renderer.render = function(scene, camera) {
             const result = original.call(this, scene, camera);
             window.sceneryCamera = { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(), fov: camera.fov, aspect: camera.aspect };
-            window.sceneryCameraFrames.push({ update: Boolean(frame), dt: frame?.dt ?? 0, aspect: camera.aspect,
+            window.sceneryCameraFrames.push({ update: Boolean(frame), dt: frame?.dt ?? 0, clockDt: frame?.clockDt ?? 0, aspect: camera.aspect,
               mode: document.body.classList.contains('fishing') ? 'fishing' : 'sailing',
               phase: document.querySelector('#fishing-panel').dataset.phase, tracking: null });
             return result;
@@ -117,6 +118,10 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
     const before = await page.evaluate(() => ({ resources: window.lightingProbe.performance, lighting: window.lightingProbe.last, camera: window.sceneryCamera,
       cameraFrames: window.sceneryCameraFrames, renders: window.lightingProbe.renders,
       stars: window.lightingProbe.starEvidence, starCalls: window.lightingProbe.starCalls }));
+    const meteorDisplay = await page.evaluate(() => ({ snapshot: window.lightingProbe.meteorEvidence,
+      draws: { fixed: { calls: window.lightingProbe.meteorCalls, triangles: window.lightingProbe.meteorTriangles },
+        actual: { calls: window.lightingProbe.meteorCalls, triangles: window.lightingProbe.meteorTriangles } },
+      gpu: window.lightingProbe.meteorGPU }));
     // 25 ordinary rendered animation frames verify stable GPU allocations.
     // This is a bounded sampling window, not a sleep or retry of failed input.
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
@@ -143,6 +148,7 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
       resources: before.resources, afterResources: after.resources,
       starDisplay: { snapshot: before.stars, draws: { fixed: before.starCalls, actual: before.starCalls },
         clockSeconds: view.seconds + ((before.lighting.mistTime - view.seconds % 3600 + 3600) % 3600) },
+      meteorDisplay: { ...meteorDisplay, clockSeconds: view.seconds + ((before.lighting.mistTime - view.seconds % 3600 + 3600) % 3600) },
       initialLoad: { navigationToReadyMs, rendererTaskMs: (metric(readyCpu, 'TaskDuration') - metric(initialCpu, 'TaskDuration')) * 1000,
         jsHeapUsedBytes: metric(readyCpu, 'JSHeapUsedSize') },
       continuingFrames: { sampledFrames, simulatedMilliseconds: 400, sampleWallMs,
