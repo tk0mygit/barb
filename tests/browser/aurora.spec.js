@@ -188,7 +188,9 @@ test('ordinary simultaneous stars/meteor/aurora submit at most four Sky batches 
   await page.setViewportSize({ width: 1000, height: 700 }); await setup(page, n * 360 + 180 + slot * 10 + 5.55);
   const current = await read(page); assertResourceCatalog(current);
   expect(current.snapshot.layers.every(layer => layer.visible)).toBe(true);
-  expect(current.stars + current.meteor + current.draws.reduce((n, row) => n + row.calls, 0)).toBeLessThanOrEqual(4);
+  expect(current.stars).toBe(1); expect(current.meteor).toBe(1);
+  expect(current.draws).toEqual([{ calls: 1, triangles: 1600 }, { calls: 1, triangles: 1600 }]);
+  expect(current.stars + current.meteor + current.draws.reduce((n, row) => n + row.calls, 0)).toBe(4);
   expect(current.counts.textures).toBe(4);
   await info.attach('simultaneous-sky-resources', { body: JSON.stringify(current), contentType: 'application/json' });
   await pair(page, info, 'simultaneous');

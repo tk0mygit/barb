@@ -114,7 +114,7 @@ test('30 nights keep exactly one geometry, two material identities, immutable bu
       aurora.meshes.forEach((mesh, layer) => {
         assert.equal(mesh.geometry, geometry); assert.equal(mesh.material.uniforms, uniforms[layer]);
         assert.equal(mesh.material.id, initial.layers[layer].materialId);
-        assert.deepEqual(mesh.quaternion.toArray(), before.layers[layer].quaternion);
+        assert.deepEqual(mesh.quaternion.toArray().map(value => value === 0 ? 0 : value), before.layers[layer].quaternion);
         assert.deepEqual(mesh.position.toArray(), [boat.x + 100, 0, boat.z - 200]);
       });
     }
