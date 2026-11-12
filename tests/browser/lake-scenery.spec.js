@@ -33,6 +33,7 @@ const metric = (snapshot, name) => snapshot.metrics.find(entry => entry.name ===
 
 test.afterAll(async ({}, testInfo) => {
   await reference?.dispose(testInfo);
+  if (implementations.pr) await assertMobileWorkingSource(implementations.pr);
   if (!captures.length) return;
   const path = testInfo.outputPath('lake-scenery-gallery.html');
   const figures = await Promise.all(captures.map(async ({ target, view, image, metrics }) =>

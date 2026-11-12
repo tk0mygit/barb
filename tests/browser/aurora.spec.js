@@ -6,14 +6,22 @@ import { findAuroraNight } from '../helpers/aurora-event.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 import { sampleAurora } from '../../src/world/aurora.js';
 import { meteorRoll } from '../../src/world/meteor.js';
+import { mobileGit, readMobileImplementation, assertMobileWorkingSource, mobileSourceMetadata } from '../../scripts/lib/mobile-comparison-source.js';
 
 const night = findAuroraNight({ forward: true }), midnight = night * 360 + 270;
+let source;
+test.beforeAll(async () => {
+  source = await readMobileImplementation(await mobileGit('rev-parse', 'HEAD'));
+  await assertMobileWorkingSource(source);
+});
+test.afterAll(async () => { if (source) await assertMobileWorkingSource(source); });
 const read = page => page.evaluate(() => ({ snapshot: window.lightingProbe.auroraEvidence,
   gpu: window.lightingProbe.auroraGPU, draws: window.lightingProbe.auroraDraws,
   counts: window.lightingProbe.performance, catalog: window.lightingProbe.resourceCatalog,
   stars: window.lightingProbe.starCalls, meteor: window.lightingProbe.meteorCalls, camera: window.lightingProbe.camera }));
 async function attachJSON(info, name, value) {
-  const path = info.outputPath(`${name}.json`); await writeFile(path, JSON.stringify(value, null, 2));
+  const path = info.outputPath(`${name}.json`);
+  await writeFile(path, JSON.stringify({ source: mobileSourceMetadata(source), evidence: value }, null, 2));
   await info.attach(name, { path, contentType: 'application/json' });
 }
 async function pair(page, info, label) {

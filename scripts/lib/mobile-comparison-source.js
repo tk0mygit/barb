@@ -94,7 +94,11 @@ export async function assertMobileWorkingSource(implementation) {
   assert.equal(await mobileGit('status', '--porcelain=v1', '--untracked-files=all', '--', 'src'), '', 'Runtime working source differs from recorded SHA');
   if (implementation.auroraBlob) {
     const { SKY4_SOURCE_BLOBS } = await import('./sky4-source-pins.js');
-    for (const file of Object.keys(SKY4_SOURCE_BLOBS)) {
+    const files = [...Object.keys(SKY4_SOURCE_BLOBS), 'scripts/lib/sky4-source-pins.js',
+      'tests/helpers/star-snapshot.js', 'tests/helpers/meteor-snapshot.js'];
+    assert.equal(await mobileGit('status', '--porcelain=v1', '--untracked-files=all', '--', 'scripts/lib', ...files), '',
+      'Sky-4: uncommitted observer/replay/manifest source');
+    for (const file of files) {
       assert.equal(await mobileGit('hash-object', file), await mobileGit('rev-parse', `${implementation.sha}:${file}`),
         `Sky-4: uncommitted observer/replay source ${file}`);
     }

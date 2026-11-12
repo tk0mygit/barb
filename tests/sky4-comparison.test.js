@@ -18,6 +18,8 @@ test('Sky-4 accepts only the Sky-3 main, exact runtime/observer/replay blobs and
   for (const path of ['src/world/lake.js', 'src/world/aurora.js', 'src/world/stars.js', 'src/world/meteor.js',
     'src/world/night-fog.js', 'src/game/game-clock.js', 'src/game/save-data.js', 'src/game/fishing.js', 'src/main.js',
     'src/rendering/camera.js', 'src/ui/fishing-hud.js', 'package.json', 'package-lock.json', 'public/unrelated.txt',
+    'scripts/lib/sky4-source-pins.js', 'scripts/lib/sky2-source.js', 'scripts/lib/sky3-source.js',
+    'scripts/lib/mobile-rod-reel-replay.js', 'tests/helpers/star-snapshot.js', 'tests/helpers/meteor-snapshot.js',
     ...Object.keys(SKY4_SOURCE_BLOBS).filter(path => !path.startsWith('src/'))]) {
     const source = path.startsWith('public/') ? '' : await mobileGit('show', `${pr.sha}:${path}`);
     await assert.rejects(readSky4Transition(main, await readMobileImplementation(sky4FixtureCommit({ [path]: source + '\n// unrelated\n' }))), /Sky-4/);

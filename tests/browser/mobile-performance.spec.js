@@ -225,6 +225,7 @@ test.beforeAll(async ({}, info) => {
 });
 test.afterAll(async ({}, info) => {
   await reference?.dispose(info);
+  if (implementations.pr) await assertMobileWorkingSource(implementations.pr);
   for (const target of targets) {
     const path = resolve(destination, `${target}.json`);
     await writeFile(path, JSON.stringify(captures.filter(c => c.target === target), null, 2));
@@ -264,6 +265,7 @@ async function contextFor(createContext, target, profile) {
   return { context, page, errors };
 }
 async function saveCapture(target, id, page, metrics, info, withLayout = false) {
+  await assertMobileWorkingSource(implementations.pr);
   const cameraFrames = await page.evaluate(() => window.mobileCameraFrames);
   const cameraExpected = replayMobileCamera(implementations[target], cameraFrames);
   for (const key of ['position', 'quaternion']) for (let i = 0; i < cameraExpected[key].length; i++) {

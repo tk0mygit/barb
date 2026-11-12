@@ -49,6 +49,15 @@ export async function readSky4Transition(main, pr) {
   assert.deepEqual((await mobileGit('diff', '--name-only', main.sha, pr.sha, '--', 'src')).split('\n').sort(), [AURORA, LAKE], 'Sky-4: unrelated runtime change');
   assert.equal(await mobileGit('diff', '--name-only', main.sha, pr.sha, '--', 'public', 'package.json', 'package-lock.json',
     'index.html', 'vite.config.js', 'playwright.config.js', '.github', 'scripts/ci-risk.js', 'scripts/ci-e2e.js'), '', 'Sky-4: build/assets/CI selection changed');
+  assert.deepEqual((await mobileGit('diff', '--name-only', main.sha, pr.sha, '--', 'scripts/lib')).split('\n').sort(),
+    ['scripts/lib/mobile-comparison-source.js', 'scripts/lib/sky4-source-pins.js', 'scripts/lib/sky4-source.js'],
+    'Sky-4: legacy replay/helper changed');
+  assert.equal(await mobileGit('diff', '--name-only', main.sha, pr.sha, '--',
+    'tests/helpers/star-snapshot.js', 'tests/helpers/meteor-snapshot.js'), '', 'Sky-4: existing observer changed');
+  const manifest = await mobileGit('show', `${pr.sha}:scripts/lib/sky4-source-pins.js`);
+  const declaration = manifest.match(/^\/\/ Final reviewed Git blobs\. The separate manifest avoids a circular self-hash\.\nexport const SKY4_SOURCE_BLOBS = Object\.freeze\((\{[\s\S]*\})\);$/);
+  assert(declaration, 'Sky-4: nonliteral source manifest');
+  assert.deepEqual(JSON.parse(declaration[1]), SKY4_SOURCE_BLOBS, 'Sky-4: recorded manifest differs from replay');
   for (const [path, blob] of Object.entries(SKY4_SOURCE_BLOBS)) {
     assert.match(await mobileGit('ls-tree', pr.sha, '--', path), /^100644 blob /, 'Sky-4: invalid file mode/type');
     assert.equal(await mobileGit('rev-parse', `${pr.sha}:${path}`), blob, `Sky-4: unapproved source ${path}`);
