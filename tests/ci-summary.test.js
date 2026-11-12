@@ -12,6 +12,7 @@ import { artifactName, fileManifest, LANES, readRecord, recordJob, validationCon
 import { mobileGateFixture } from './helpers/mobile-gate-fixture.js';
 import { fishingPhaseGateFixture } from './helpers/fishing-phase-fixture.js';
 import { starGateFixture } from './helpers/sky2-fixture.js';
+import { meteorGateFixture } from './helpers/sky3-fixture.js';
 import { readMobileImplementation, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
 
 const SHA = 'a'.repeat(40);
@@ -126,6 +127,19 @@ test('Sky-2 reaches the unchanged aggregate; raw non-CLEAR draws and forged tran
   const report = clone(input);
   report.lanes.mobile.mobile.comparison.rows[0].starComparison.proof.resources.geometries = 2;
   await assert.rejects(validateAggregate(report), /report differs from captures/);
+});
+
+test('Sky-3 reaches the full aggregate; either camera resource regression, missing image or forged proof fails', async () => {
+  const mobile = await meteorGateFixture(), input = fixture({ eventName: 'pull_request', mobile });
+  assert.equal((await validateAggregate(input)).mobilePairs, 34);
+  for (const mutate of [
+    payload => { payload.mobile.after[0].metrics.actualResources.programs++; },
+    payload => { payload.mobile.after[0].metrics.resources.calls++; },
+    payload => { payload.mobile.comparison.rows[0].meteorComparison.proof.resources.maximumCalls++; },
+    payload => { delete payload.record.files['test-results/mobile-comparison/pr-pc-day-tps.png']; },
+  ]) {
+    const bad = clone(input); mutate(bad.lanes.mobile); await assert.rejects(validateAggregate(bad));
+  }
 });
 
 test('source-backed final gate rejects forged states, reports, provenance and incomplete lanes', async () => {

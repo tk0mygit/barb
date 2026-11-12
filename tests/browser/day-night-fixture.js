@@ -7,6 +7,7 @@ import { createGameClock } from '../../src/game/game-clock.js';
 import { sampleDayNight } from '../../src/world/day-night.js';
 import { sampleStars } from '../../src/world/stars.js';
 import { starSnapshot } from '../helpers/star-snapshot.js';
+import { meteorSnapshot } from '../helpers/meteor-snapshot.js';
 
 const now = new Date('2026-10-23T00:00:00Z');
 export const tick = page => page.clock.fastForward(250);
@@ -51,8 +52,9 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
   const data = createLightingSave(elapsedSeconds);
   // Observe the actual production renderer via Three.js's existing devtools
   // event. No production debug API, source rewrite or forced game state.
-  await page.addInitScript(({ data, randomValue, starSnapshotSource }) => {
+  await page.addInitScript(({ data, randomValue, starSnapshotSource, meteorSnapshotSource }) => {
     const snapshotStars = (0, eval)(`(${starSnapshotSource})`);
+    const snapshotMeteor = (0, eval)(`(${meteorSnapshotSource})`);
     if (!sessionStorage.getItem('lighting-seeded')) {
       localStorage.setItem('barb.save.v1.slotA', JSON.stringify({ storageVersion: 1, generation: 1, data }));
       sessionStorage.setItem('lighting-seeded', 'yes');
@@ -64,10 +66,14 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
       if (!renderer.isWebGLRenderer) return;
       const render = renderer.render;
       const direct = renderer.renderBufferDirect;
-      let starCalls = 0, recordingStars = false;
+      let starCalls = 0, meteorCalls = 0, meteorTriangles = 0, recordingStars = false;
       renderer.renderBufferDirect = function(...args) {
-        const before = renderer.info.render.calls, result = direct.apply(this, args);
+        const before = renderer.info.render.calls, triangles = renderer.info.render.triangles, result = direct.apply(this, args);
         if (recordingStars && args[4]?.name === 'clear-night-stars') starCalls += renderer.info.render.calls - before;
+        if (recordingStars && args[4]?.name === 'clear-night-meteor') {
+          meteorCalls += renderer.info.render.calls - before;
+          meteorTriangles += renderer.info.render.triangles - triangles;
+        }
         return result;
       };
       const hooked = new WeakSet(), initializedGeometries = new Set();
@@ -98,6 +104,7 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
         const [sun, moonlight] = scene.children.filter(o => o.isDirectionalLight);
         const sky = scene.children.find(o => o.isSky), moon = scene.getObjectByName('moon');
         const stars = scene.getObjectByName('clear-night-stars');
+        const meteor = scene.getObjectByName('clear-night-meteor');
         const water = scene.getObjectByName('lake-water').material.uniforms;
         const mist = scene.getObjectByName('surface-fog');
         const mistUniforms = mist.children[0].material.uniforms;
@@ -115,7 +122,7 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
           waterTime: water.time.value, boat: water.boatPosition.value.toArray(), boatSpeed: water.boatSpeed.value,
           shadows: scene.children.filter(o => o.isLight && o.castShadow).length,
         };
-        starCalls = 0; recordingStars = true;
+        starCalls = 0; meteorCalls = 0; meteorTriangles = 0; recordingStars = true;
         let result;
         try { result = render.call(this, scene, camera); } finally { recordingStars = false; }
         snapshot.stars = stars ? { visible: stars.visible, opacity: stars.material.uniforms.starOpacity.value,
@@ -150,13 +157,42 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
               initialized: initializedGeometries.has(object.geometry.id), forceSinglePass: object.material.forceSinglePass,
               programKeys: [...(renderer.properties.get(object.material).programs?.values() ?? [])].map(program => program.cacheKey).sort() } : null;
           })(),
+          meteor: meteor ? { id: meteor.geometry.id, materialId: meteor.material.id, name: meteor.name,
+            vertices: meteor.geometry.attributes.position.count, visible: meteor.visible,
+            initialized: initializedGeometries.has(meteor.geometry.id),
+            programKeys: [...(renderer.properties.get(meteor.material).programs?.values() ?? [])].map(program => program.cacheKey).sort() } : null,
           stars: stars ? { id: stars.geometry.id, name: stars.name, vertices: stars.geometry.attributes.position.count,
             initialized: initializedGeometries.has(stars.geometry.id), visible: stars.visible,
             programKeys: [...(renderer.properties.get(stars.material).programs?.values() ?? [])].map(program => program.cacheKey).sort() } : null };
         probe.starEvidence = snapshotStars(stars);
         probe.starCalls = starCalls;
+        probe.meteorEvidence = snapshotMeteor(meteor);
+        probe.meteorCalls = meteorCalls;
+        probe.meteorTriangles = meteorTriangles;
+        probe.meteorGPU = meteor ? { geometryId: meteor.geometry.id, materialId: meteor.material.id,
+          programKeys: probe.resourceCatalog.meteor.programKeys,
+          programInstances: renderer.info.programs.filter(p => probe.resourceCatalog.meteor.programKeys.includes(p.cacheKey)).length,
+          objects: scene.getObjectsByProperty('name', 'clear-night-meteor').length } : null;
+        probe.firstMeteorEvidence ??= snapshotMeteor(meteor);
         probe.firstResourceCatalog ??= structuredClone(probe.resourceCatalog);
         probe.firstPerformance ??= { ...probe.performance };
+        probe.captureMeteorPair = () => {
+          const visible = meteor?.visible;
+          render.call(renderer, scene, camera);
+          const withMeteor = renderer.domElement.toDataURL('image/png');
+          if (meteor) meteor.visible = false;
+          render.call(renderer, scene, camera);
+          const withoutMeteor = renderer.domElement.toDataURL('image/png');
+          if (meteor) meteor.visible = visible;
+          render.call(renderer, scene, camera);
+          const corners = [];
+          if (meteor) {
+            const point = meteor.position.clone(), positions = meteor.geometry.attributes.position;
+            for (let i = 0; i < positions.count; i++) corners.push(point.fromBufferAttribute(positions, i)
+              .applyMatrix4(meteor.matrixWorld).project(camera).toArray());
+          }
+          return { withMeteor, withoutMeteor, corners, moonScreen: probe.moonScreen };
+        };
         // Same camera/clock, only the star batch hidden. This is test-only
         // paired pixel evidence; restore visibility and the final framebuffer.
         probe.captureStarPair = () => {
@@ -204,7 +240,7 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
         return result;
       };
     });
-  }, { data, randomValue, starSnapshotSource: starSnapshot.toString() });
+  }, { data, randomValue, starSnapshotSource: starSnapshot.toString(), meteorSnapshotSource: meteorSnapshot.toString() });
   if (freeze) {
     await installPausedClock(page, now);
   }

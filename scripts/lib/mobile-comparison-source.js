@@ -66,6 +66,7 @@ export async function readMobileImplementation(sha) {
     fishingEffectsBlob: (await mobileGit('ls-tree', sha, '--', 'src/rendering/fishing-effects.js')).split(/\s+/)[2] ?? null,
     lakeBlob: await mobileGit('rev-parse', `${sha}:src/world/lake.js`),
     starsBlob: (await mobileGit('ls-tree', sha, '--', 'src/world/stars.js')).split(/\s+/)[2] ?? null,
+    meteorBlob: (await mobileGit('ls-tree', sha, '--', 'src/world/meteor.js')).split(/\s+/)[2] ?? null,
     cameraModel: castCamera ? 'prepared-horizontal-aft-1.25' : 'legacy-transition',
     hudModel: hudSource.includes('[data-cast-view="true"]') ? 'cast-upper-controls' : 'original',
     createCameraRig: cameraModule.createCameraRig };

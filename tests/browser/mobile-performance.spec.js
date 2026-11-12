@@ -12,6 +12,8 @@ import { mobileGit, readMobileImplementation, mobileSourceMetadata, assertMobile
 import { verifyWaterEffectsCapture, WATER_EFFECTS_BASE } from '../../scripts/lib/mobile-water-effects-replay.js';
 import { starSnapshot } from '../helpers/star-snapshot.js';
 import { verifyStarCapture } from '../../scripts/lib/sky2-source.js';
+import { meteorSnapshot } from '../helpers/meteor-snapshot.js';
+import { verifyMeteorCapture } from '../../scripts/lib/sky3-source.js';
 
 const profiles = [
   { id: 'portrait', width: 390, height: 844, dpr: 2, touch: true },
@@ -40,8 +42,9 @@ const metric = (s, name) => s.metrics.find(m => m.name === name).value;
 async function startCapture(page, seconds = 90) {
   // Keep this observer local: ordinary screenshots retain the real camera.
   // A separate fixed camera aligns culling when comparing rendering cost.
-  await page.addInitScript(({ seconds, starSnapshotSource }) => {
+  await page.addInitScript(({ seconds, starSnapshotSource, meteorSnapshotSource }) => {
     const snapshotStars = (0, eval)(`(${starSnapshotSource})`);
+    const snapshotMeteor = (0, eval)(`(${meteorSnapshotSource})`);
     let devtools;
     Object.defineProperty(window, '__THREE_DEVTOOLS__', { configurable: true,
       get: () => devtools,
@@ -69,12 +72,16 @@ async function startCapture(page, seconds = 90) {
           // production camera. Never change a mesh to manufacture a delta.
           const direct = renderer.renderBufferDirect;
           let submissions = null, fishingObjects;
-          let starDraws = null, stars;
+          let starDraws = null, stars, meteorDraws = null, meteor;
           renderer.renderBufferDirect = function(...args) {
             const object = args[4], key = fishingObjects && Object.keys(fishingObjects).find(key => fishingObjects[key] === object);
             const calls = this.info.render.calls, triangles = this.info.render.triangles;
             const result = direct.apply(this, args);
             if (starDraws && object === stars) starDraws.calls += this.info.render.calls - calls;
+            if (meteorDraws && object === meteor) {
+              meteorDraws.calls += this.info.render.calls - calls;
+              meteorDraws.triangles += this.info.render.triangles - triangles;
+            }
             if (submissions && key) {
               submissions[key].calls += this.info.render.calls - calls;
               submissions[key].triangles += this.info.render.triangles - triangles;
@@ -83,6 +90,7 @@ async function startCapture(page, seconds = 90) {
           };
           renderer.render = function(scene, camera) {
             stars = scene.getObjectByName('clear-night-stars');
+            meteor = scene.getObjectByName('clear-night-meteor');
             const panel = document.querySelector('#fishing-panel'), phase = panel.dataset.phase;
             const fishing = scene.children.find(o => o.isGroup && o.children.some(c => c.isLine)
               && o.children.some(c => c.geometry?.type === 'RingGeometry'));
@@ -95,12 +103,13 @@ async function startCapture(page, seconds = 90) {
             if (waterEffects) fishingObjects.waterEffects = waterEffects;
             const pass = view => {
               starDraws = { calls: 0 };
+              meteorDraws = { calls: 0, triangles: 0 };
               submissions = Object.fromEntries(Object.keys(fishingObjects).map(key => [key, { calls: 0, triangles: 0 }]));
               try {
                 const result = render.call(this, scene, view);
-                return { result, resources: resources(), draws: submissions, starDraws,
+                return { result, resources: resources(), draws: submissions, starDraws, meteorDraws,
                   camera: { position: view.position.toArray(), quaternion: view.quaternion.toArray(), aspect: view.aspect, fov: view.fov } };
-              } finally { submissions = null; starDraws = null; }
+              } finally { submissions = null; starDraws = null; meteorDraws = null; }
             };
             diagnosticCamera ??= camera.clone();
             diagnosticCamera.aspect = camera.aspect;
@@ -129,6 +138,7 @@ async function startCapture(page, seconds = 90) {
             }
             const fixed = pass(diagnosticCamera), actual = pass(camera);
             const fixedResources = fixed.resources, actualResources = actual.resources;
+            const meteorKeys = meteor ? [...(renderer.properties.get(meteor.material).programs?.values() ?? [])].map(p => p.cacheKey).sort() : [];
             const gl = this.getContext();
             const visible = object => Boolean(object?.visible && (!object.parent || visible(object.parent)));
             const meshes = Object.fromEntries(Object.entries(fishingObjects).map(([key, object]) => [key, object ? {
@@ -153,6 +163,12 @@ async function startCapture(page, seconds = 90) {
               starDisplay: { snapshot: snapshotStars(stars),
                 clockSeconds: seconds + ((scene.getObjectByName('surface-fog').children[0].material.uniforms.fogTime.value - seconds % 3600 + 3600) % 3600),
                 draws: { fixed: fixed.starDraws.calls, actual: actual.starDraws.calls } },
+              meteorDisplay: { snapshot: snapshotMeteor(meteor),
+                clockSeconds: seconds + ((scene.getObjectByName('surface-fog').children[0].material.uniforms.fogTime.value - seconds % 3600 + 3600) % 3600),
+                draws: { fixed: fixed.meteorDraws, actual: actual.meteorDraws },
+                gpu: meteor ? { geometryId: meteor.geometry.id, materialId: meteor.material.id, programKeys: meteorKeys,
+                  programInstances: renderer.info.programs.filter(p => meteorKeys.includes(p.cacheKey)).length,
+                  objects: scene.getObjectsByProperty('name', 'clear-night-meteor').length } : null },
               fishingDisplay: { version: 1, phase, elapsed: scene.getObjectByName('lake-water').material.uniforms.time.value,
                 meshes, line: Array.from(fishingObjects.line.geometry.attributes.position.array),
                 passes: { fixed: { resources: fixedResources, draws: fixed.draws, camera: fixed.camera },
@@ -165,7 +181,7 @@ async function startCapture(page, seconds = 90) {
         });
       },
     });
-  }, { seconds, starSnapshotSource: starSnapshot.toString() });
+  }, { seconds, starSnapshotSource: starSnapshot.toString(), meteorSnapshotSource: meteorSnapshot.toString() });
   await setup(page, seconds, { randomValue: .01 });
 }
 test.beforeAll(async ({}, info) => {
@@ -243,6 +259,7 @@ async function saveCapture(target, id, page, metrics, info, withLayout = false) 
     ...(withLayout ? { layout: await layout(page) } : {}) };
   await verifyMobileSourceCapture(implementations[target], entry);
   if (implementations[target].starsBlob) await verifyStarCapture(implementations[target], entry);
+  if (implementations[target].meteorBlob) await verifyMeteorCapture(implementations[target], entry);
   if (implementations[target].sha === WATER_EFFECTS_BASE || implementations[target].fishingEffectsBlob) {
     await verifyWaterEffectsCapture(implementations[target], entry);
   }

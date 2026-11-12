@@ -140,3 +140,17 @@ test('Sky-2 has one owned 960-point geometry and one shader identity; reuse neve
     const bad = structuredClone(cold); mutate(bad); assert.throws(() => assertStableResourceIdentities(cold, bad));
   }
 });
+
+test('Sky-3 owns one six-vertex geometry and unique shader; hidden allocation and repeated identity checks stay strict', () => {
+  const { cold } = snapshots();
+  cold.catalog.cpuGeometryIds.push(7); cold.catalog.initializedGeometryIds.push(7); cold.counts.geometries++;
+  cold.catalog.programKeys.push('meteor-shader'); cold.counts.programs++;
+  cold.catalog.meteor = { id: 7, materialId: 12, name: 'clear-night-meteor', vertices: 6,
+    initialized: true, visible: false, programKeys: ['meteor-shader'] };
+  assertColdFishingResources(cold); assertStableResourceIdentities(cold, structuredClone(cold));
+  for (const mutate of [s => { s.catalog.meteor.vertices++; }, s => { s.catalog.meteor.id++; },
+    s => { s.catalog.meteor.materialId++; }, s => { s.catalog.meteor.programKeys.push('extra'); },
+    s => { s.catalog.meteor.initialized = false; }, s => { s.counts.geometries++; }]) {
+    const bad = structuredClone(cold); mutate(bad); assert.throws(() => assertStableResourceIdentities(cold, bad));
+  }
+});
