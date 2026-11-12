@@ -155,3 +155,26 @@ for (const viewport of [{ width: 1000, height: 700 }, { width: 390, height: 844,
     await info.attach('motion-review', { path: html, contentType: 'text/html' });
   });
 }
+
+for (const elapsed of [90, findAuroraNight({ selected: false }) * 360 + 270,
+  findAuroraNight({ fogType: 'FOG' }) * 360 + 270, findAuroraNight({ fogType: 'DENSE_FOG' }) * 360 + 270]) {
+  test(`aurora motion inactive A/B has identical pixels and cold resources ${elapsed}`, async ({ createContext }, info) => {
+    const captures = [];
+    for (const target of ['main', 'pr']) {
+      const context = await createContext({ ...(target === 'main' ? { baseURL: reference.baseURL } : {}), viewport: { width: 640, height: 400 }, deviceScaleFactor: 1 });
+      const page = await context.newPage(); await setup(page, elapsed);
+      const capture = await page.evaluate(() => ({ image: window.lightingProbe.captureAuroraPair().withAurora,
+        snapshot: window.lightingProbe.auroraEvidence, gpu: window.lightingProbe.auroraGPU,
+        draws: window.lightingProbe.auroraDraws, counts: window.lightingProbe.performance, catalog: window.lightingProbe.resourceCatalog }));
+      assertResourceCatalog(capture); expect(capture.gpu.programInstances).toBe(0);
+      expect(Object.values(capture.gpu.buffers)).toEqual([null, null, null]);
+      expect(capture.draws).toEqual([{ calls: 0, triangles: 0 }, { calls: 0, triangles: 0 }]);
+      await writeFile(info.outputPath(`${target}-inactive.png`), Buffer.from(capture.image.split(',')[1], 'base64'));
+      captures.push(capture); await context.close();
+    }
+    expect(captures[1].image).toBe(captures[0].image); expect(captures[1].counts).toEqual(captures[0].counts);
+    const path = info.outputPath('inactive-evidence.json');
+    await writeFile(path, JSON.stringify({ proof, elapsed, evidence: captures.map(({ image, ...capture }) => capture) }, null, 2));
+    await info.attach('inactive-evidence', { path, contentType: 'application/json' });
+  });
+}
