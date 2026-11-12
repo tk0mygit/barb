@@ -154,3 +154,24 @@ test('Sky-3 owns one six-vertex geometry and unique shader; hidden allocation an
     const bad = structuredClone(cold); mutate(bad); assert.throws(() => assertStableResourceIdentities(cold, bad));
   }
 });
+
+test('Sky-4 cold and warm catalogs require one geometry, two materials, one shared program and exactly three immutable GPU buffers', () => {
+  const { cold } = snapshots(); cold.catalog.cpuGeometryIds.push(7);
+  cold.catalog.aurora = { id: 7, objects: 2, initialized: false, layers: [10, 11].map(materialId => ({ geometryId: 7, materialId, programKeys: [] })),
+    programKeys: [], programInstances: 0, buffers: { position: null, uv: null, index: null } };
+  assertColdFishingResources(cold);
+  const eager = structuredClone(cold); eager.catalog.aurora.buffers.uv = { id: 1, bytes: 7128, uploads: 1 };
+  assert.throws(() => assertColdFishingResources(eager), /uploaded before/);
+  const warm = structuredClone(cold); warm.catalog.initializedGeometryIds.push(7); warm.counts.geometries++;
+  warm.catalog.programKeys.push('aurora-shader'); warm.counts.programs++;
+  Object.assign(warm.catalog.aurora, { initialized: true, programKeys: ['aurora-shader'], programInstances: 1,
+    layers: [10, 11].map(materialId => ({ geometryId: 7, materialId, programKeys: ['aurora-shader'] })),
+    buffers: { position: { id: 1, bytes: 10692, uploads: 1 }, uv: { id: 2, bytes: 7128, uploads: 1 }, index: { id: 3, bytes: 9600, uploads: 1 } } });
+  assertColdFishingResources(warm); assertStableResourceIdentities(warm, structuredClone(warm));
+  for (const mutate of [s => { s.catalog.aurora.objects++; }, s => { s.catalog.aurora.layers[1].geometryId++; },
+    s => { s.catalog.aurora.layers[1].materialId = 10; }, s => { s.catalog.aurora.programInstances++; },
+    s => { s.catalog.aurora.buffers.uv.uploads++; }, s => { s.catalog.aurora.buffers.index.id = 2; },
+    s => { s.catalog.aurora.buffers.position.bytes++; }, s => { s.catalog.aurora.layers[1].programKeys = ['unrelated']; }]) {
+    const bad = structuredClone(warm); mutate(bad); assert.throws(() => assertStableResourceIdentities(warm, bad));
+  }
+});

@@ -10,5 +10,6 @@ export const SKY4_SOURCE_BLOBS = Object.freeze({
   "tests/browser/day-night-fixture.js": "db3cac5aaf1d92b00cec6526c24e7ec2e9a0931e",
   "tests/browser/mobile-performance.spec.js": "97844d2da1651425a11d2e49eadd1b72582e1523",
   "tests/browser/lake-scenery.spec.js": "a9169dd5b5c179adc970fa255265344957a14cc7",
-  "tests/browser/lighting-resource-contract.js": "eed46ce8ac00af2a7869374e070025aa6b1145d1"
+  "tests/browser/lighting-resource-contract.js": "eed46ce8ac00af2a7869374e070025aa6b1145d1",
+  "tests/browser/aurora.spec.js": "648ea3eb71daf89532994fc12b4a9f0ff2934c52"
 });

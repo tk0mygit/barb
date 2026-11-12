@@ -12,6 +12,10 @@ const read = page => page.evaluate(() => ({ snapshot: window.lightingProbe.auror
   gpu: window.lightingProbe.auroraGPU, draws: window.lightingProbe.auroraDraws,
   counts: window.lightingProbe.performance, catalog: window.lightingProbe.resourceCatalog,
   stars: window.lightingProbe.starCalls, meteor: window.lightingProbe.meteorCalls, camera: window.lightingProbe.camera }));
+async function attachJSON(info, name, value) {
+  const path = info.outputPath(`${name}.json`); await writeFile(path, JSON.stringify(value, null, 2));
+  await info.attach(name, { path, contentType: 'application/json' });
+}
 async function pair(page, info, label) {
   const result = await page.evaluate(async () => {
     const pair = window.lightingProbe.captureAuroraPair();
@@ -47,7 +51,7 @@ async function pair(page, info, label) {
     const path = info.outputPath(`${label}-${key}.png`); await writeFile(path, Buffer.from(data.split(',')[1], 'base64'));
     await info.attach(`${label}-${key}`, { path, contentType: 'image/png' });
   }
-  await info.attach(`${label}-pixels`, { body: JSON.stringify({ stats: result.stats, layers: result.layerStats }), contentType: 'application/json' });
+  await attachJSON(info, `${label}-pixels`, { stats: result.stats, layers: result.layerStats });
   return result;
 }
 async function look(page, context, viewport, dx, dy = 0) {
@@ -90,6 +94,8 @@ for (const viewport of [{ width: 1000, height: 700 }, { width: 390, height: 844,
       expect(current.snapshot.geometryId).toBe(initial.snapshot.geometryId);
       expect(current.snapshot.attributes).toEqual(initial.snapshot.attributes); expect(current.snapshot.indices).toEqual(initial.snapshot.indices);
       expect(current.gpu).toEqual(initial.gpu);
+      expect(current.draws).toEqual(initial.draws);
+      if (samples.length) expect(current.snapshot.layers[0].uniforms.auroraTime).toBeGreaterThan(samples.at(-1).time);
       frames.push((await page.evaluate(() => window.lightingProbe.captureAuroraPair())).withAurora);
       samples.push({ time: current.snapshot.layers[0].uniforms.auroraTime, draws: current.draws, counts: current.counts, gpu: current.gpu });
     }
@@ -97,7 +103,7 @@ for (const viewport of [{ width: 1000, height: 700 }, { width: 390, height: 844,
     const gallery = info.outputPath('aurora-review.html');
     await writeFile(gallery, `<!doctype html><meta charset="utf-8"><title>Sky-4 aurora review</title><style>body{background:#12212a;color:#eee;font:16px system-ui}img{max-width:100%}figure{display:inline-block;max-width:48%;margin:1%}</style><h1>Sky-4: ordinary CLEAR night ${night}</h1><p>Same clock/camera/viewport ON/OFF and individual layers; native TPS/FPS. Actual 200ms rendered sequence below. No device FPS claim.</p>${[['TPS ON',tps.withAurora],['TPS OFF',tps.withoutAurora],['FPS ON',fps.withAurora],['FPS OFF',fps.withoutAurora],...fps.layers.map((data,i)=>['Layer '+i,data])].map(([label,data])=>`<figure><figcaption>${label}</figcaption><img src="${data}"></figure>`).join('')}<h2>200ms actual frames</h2><img id="motion"><script>const frames=${JSON.stringify(frames)};let i=0;setInterval(()=>document.getElementById('motion').src=frames[i++%frames.length],200);</script>`);
     await info.attach('aurora-review', { path: gallery, contentType: 'text/html' });
-    await info.attach('aurora-motion-resources', { body: JSON.stringify(samples), contentType: 'application/json' });
+    await attachJSON(info, 'aurora-motion-resources', { savedClockSeconds: midnight, viewport, initial, samples });
     await context.close();
   });
 }
@@ -177,8 +183,12 @@ test('aurora menu/blur/hidden/resize, halfway save restore, 30-night reuse and e
     expect(current.snapshot.attributes).toEqual(initial.snapshot.attributes); expect(current.gpu.buffers).toEqual(restored.gpu.buffers);
     history.push({ night: n, counts: current.counts, gpu: current.gpu, draws: current.draws });
   }
-  await info.attach('aurora-31-night-GPU', { body: JSON.stringify(history), contentType: 'application/json' });
-  await page.locator('#scene').evaluate(canvas => canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true })));
+  await attachJSON(info, 'aurora-31-night-GPU', history);
+  await page.locator('#scene').evaluate(canvas => {
+    const extension = canvas.getContext('webgl2').getExtension('WEBGL_lose_context');
+    if (!extension) throw new Error('Actual context-loss extension unavailable');
+    extension.loseContext();
+  });
   await expect(page.locator('#error')).toContainText('ページを再読み込み');
 });
 
@@ -192,6 +202,6 @@ test('ordinary simultaneous stars/meteor/aurora submit at most four Sky batches 
   expect(current.draws).toEqual([{ calls: 1, triangles: 1600 }, { calls: 1, triangles: 1600 }]);
   expect(current.stars + current.meteor + current.draws.reduce((n, row) => n + row.calls, 0)).toBe(4);
   expect(current.counts.textures).toBe(4);
-  await info.attach('simultaneous-sky-resources', { body: JSON.stringify(current), contentType: 'application/json' });
+  await attachJSON(info, 'simultaneous-sky-resources', { savedClockSeconds: n * 360 + 180 + slot * 10 + 5.55, ...current });
   await pair(page, info, 'simultaneous');
 });

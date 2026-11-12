@@ -9,6 +9,7 @@ import { SKY4_SOURCE_BLOBS } from '../scripts/lib/sky4-source-pins.js';
 import { readMobileImplementation, mobileGit } from '../scripts/lib/mobile-comparison-source.js';
 import { compareMobileCapturePairWithSources } from '../scripts/compare-mobile-performance.mjs';
 import { validateMobileEvidence } from '../scripts/ci-summary.js';
+import { writeComparison } from '../scripts/compare-lake-scenery.mjs';
 import { sky4FixtureCommit, auroraGateFixture, auroraCapture, auroraGPUFixture } from './helpers/sky4-fixture.js';
 
 test('Sky-4 accepts only the Sky-3 main, exact runtime/observer/replay blobs and minimal reversible wiring', async () => {
@@ -105,5 +106,30 @@ test('comparison CLI awaits source replay and final aggregation rejects either c
     const result = spawnSync(process.execPath, ['scripts/compare-mobile-performance.mjs', before, after,
       join(directory, 'comparison.html'), 'regression', p.metadata.baseSha, p.metadata.headSha], { encoding: 'utf8' });
     assert.equal(result.status, 1); assert.match(result.stderr, /Sky-4: actual resource regression/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('cold scenery uses the same Sky-4 source proof with exact counters and no generic fallback', async () => {
+  const main = await readMobileImplementation(SKY4_BASE), pr = await readMobileImplementation(sky4FixtureCommit());
+  const views = async implementation => {
+    const rows = [];
+    for (const id of ['day-tps', 'day-fps', 'twilight', 'clear-night', 'fog-night', 'dense-night', 'portrait', 'landscape']) {
+      const entry = await auroraCapture(implementation, `pc-${['twilight', 'portrait', 'landscape'].includes(id) ? 'day-tps' : id}`, { warmed: false });
+      const metrics = entry.metrics;
+      metrics.camera = { ...metrics.camera, fov: 55 };
+      metrics.cameraEvidence = { sha: implementation.sha, cameraBlob: implementation.cameraBlob, frames: metrics.cameraFrames };
+      metrics.resources = metrics.actualResources; delete metrics.fixedResources;
+      metrics.deviceScaleFactor = 1; metrics.boat = [10, 20]; metrics.heading = 0; metrics.waterTime = .25; metrics.fogStrength = 0;
+      rows.push([id, { metrics, image: '' }]);
+    }
+    return new Map(rows);
+  };
+  const before = await views(main), after = await views(pr), directory = await mkdtemp(join(tmpdir(), 'barb-sky4-scenery-'));
+  try {
+    const output = join(directory, 'comparison.html'); assert.equal((await writeComparison(before, after, output)).length, 8);
+    for (const key of ['calls', 'triangles', 'geometries', 'programs', 'textures']) {
+      const bad = structuredClone(after); bad.get('clear-night').metrics.resources[key]++;
+      await assert.rejects(writeComparison(before, bad, output), /Sky-4: actual resource regression/);
+    }
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
