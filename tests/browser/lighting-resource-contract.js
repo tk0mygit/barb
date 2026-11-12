@@ -24,6 +24,15 @@ export function assertResourceCatalog({ counts, catalog }) {
     assert.equal(e.initialized, catalog.initializedGeometryIds.includes(e.id), 'Surface geometry initialization differs');
     assert.equal(e.programKeys.length, e.initialized ? 1 : 0, 'Surface must use exactly one built-in RGBA shader');
   }
+  if (catalog.stars) {
+    const s = catalog.stars;
+    assert.equal(s.name, 'clear-night-stars'); assert.equal(s.vertices, 960);
+    assert(catalog.cpuGeometryIds.includes(s.id), 'Star geometry lost its scene owner');
+    assert.equal(s.initialized, catalog.initializedGeometryIds.includes(s.id), 'Star initialization differs');
+    assert.equal(s.programKeys.length, s.initialized ? 1 : 0, 'Stars require one shader program');
+    if (s.visible) assert(s.initialized, 'Visible stars were not initialized');
+    for (const key of s.programKeys) assert(catalog.programKeys.includes(key), 'Star shader missing from GPU catalog');
+  }
 }
 
 export function assertColdFishingResources(snapshot) {
@@ -37,13 +46,17 @@ export function assertColdFishingResources(snapshot) {
 // The historical matched-night counters included four unused marker geometries
 // and two marker shader variants uploaded by the old first BOAT render. Remove
 // that identified initialization history, retaining the exact draw/texture cost.
-export function expectedColdNightResources(fog) {
+export function expectedColdNightResources({ timeOfDay = 'night', fogType,
+  starInitialized = timeOfDay === 'night' && fogType === 'CLEAR' }) {
+  assert(['day', 'night'].includes(timeOfDay), 'Expected an explicit phase');
+  assert(['CLEAR', 'FOG', 'DENSE_FOG'].includes(fogType), 'Expected an explicit night weather');
+  const fog = timeOfDay === 'night' && fogType !== 'CLEAR', stars = timeOfDay === 'night' && fogType === 'CLEAR';
   // G-2.5: fixed 1100 trees, only the approved 250 * 216 triangle delta.
-  return { calls: 31 + (fog ? 3 : 0), triangles: 275444 + (fog ? 6144 : 0),
-    geometries: 24 - FISHING_GEOMETRY_TYPES.length + (fog ? 1 : 0),
+  return { calls: 31 + (fog ? 3 : 0) + Number(stars), triangles: 275444 + (fog ? 6144 : 0),
+    geometries: 24 - FISHING_GEOMETRY_TYPES.length + (fog ? 1 : 0) + Number(starInitialized),
     // Shared B replaces the old untextured foliage program; it adds one map,
     // not a second material/program variant as the conifer-only preview did.
-    textures: 4, programs: 12 - 2 + (fog ? 1 : 0) };
+    textures: 4, programs: 12 - 2 + (fog ? 1 : 0) + Number(starInitialized) };
 }
 
 export function assertLureInitialization(before, after) {
@@ -91,4 +104,5 @@ export function assertStableResourceIdentities(before, after) {
   assertResourceCatalog(before); assertResourceCatalog(after);
   for (const key of ['cpuGeometryIds', 'initializedGeometryIds', 'programKeys']) assert.deepEqual(after.catalog[key], before.catalog[key], `Repeated rendering changed ${key}`);
   for (const key of ['geometries', 'textures', 'programs']) assert.equal(after.counts[key], before.counts[key], `Repeated rendering changed ${key}`);
+  if (before.catalog.stars) assert.deepEqual(after.catalog.stars, before.catalog.stars, 'Repeated rendering recreated stars');
 }

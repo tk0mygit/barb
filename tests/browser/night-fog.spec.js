@@ -55,7 +55,7 @@ for (const [index, label, type, amount] of [[4, 'clear', 'CLEAR', 0], [7615, 'fo
     // identities as well as the exact matched-scene aggregate.
     const fog = profile.targetFogAmount > 0;
     assertColdFishingResources({ counts: actual, catalog: await page.evaluate(() => window.lightingProbe.resourceCatalog) });
-    expect(actual).toEqual(expectedColdNightResources(fog));
+    expect(actual).toEqual(expectedColdNightResources({ fogType: profile.fogType }));
     if (fog) {
       const pair = await page.evaluate(async () => {
         const pair = window.lightingProbe.captureMistPair();
@@ -161,13 +161,23 @@ test('fog fades at both boundaries, freezes with menu/focus/visibility and resto
   await page.reload(); await tick(page);
   assertEnvironment(await page.evaluate(() => window.lightingProbe.first), saved.clock.elapsedSeconds);
   const countsBefore = await attachCounts(page, testInfo, 'before-jumps');
+  const catalogBefore = await page.evaluate(() => window.lightingProbe.resourceCatalog);
   for (const dt of [500, 4000, 360000 * 100 + 90000]) await page.clock.fastForward(dt);
   const seconds = saved.clock.elapsedSeconds + 0.25 + 0.5 + 4 + 360 * 100 + 90;
   assertEnvironment(await read(page), seconds);
   const after = await attachCounts(page, testInfo, 'after-jumps');
-  for (const field of ['geometries', 'textures', 'programs']) expect(after[field]).toBe(countsBefore[field]);
+  const catalogAfter = await page.evaluate(() => window.lightingProbe.resourceCatalog);
+  expect(catalogAfter.cpuGeometryIds).toEqual(catalogBefore.cpuGeometryIds);
+  expect(catalogAfter.stars.id).toBe(catalogBefore.stars.id);
+  const newStar = Number(catalogAfter.stars.initialized) - Number(catalogBefore.stars.initialized);
+  expect(catalogAfter.initializedGeometryIds.filter(id => !catalogBefore.initializedGeometryIds.includes(id)))
+    .toEqual(newStar ? [catalogAfter.stars.id] : []);
+  expect(catalogAfter.programKeys.filter(key => !catalogBefore.programKeys.includes(key)))
+    .toEqual(newStar ? catalogAfter.stars.programKeys : []);
+  for (const field of ['geometries', 'programs']) expect(after[field]).toBe(countsBefore[field] + newStar);
+  expect(after.textures).toBe(countsBefore.textures);
   const visible = (await read(page)).mistVisible;
-  expect(after.calls).toBe(countsBefore.calls - (visible ? 0 : 3));
+  expect(after.calls).toBe(countsBefore.calls - (visible ? 0 : 3) + Number(catalogAfter.stars.visible) - Number(catalogBefore.stars.visible));
   expect(after.triangles).toBe(countsBefore.triangles - (visible ? 0 : 6144));
 });
 

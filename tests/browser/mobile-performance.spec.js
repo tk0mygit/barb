@@ -10,6 +10,8 @@ import { MOBILE_COMPARISON_MODES, MOBILE_CAPTURE_IDS, compareMobileCapturePairWi
 import { mobileGit, readMobileImplementation, mobileSourceMetadata, assertMobileWorkingSource, readMobileFishingText,
   expectedMobileResolution, replayMobileCamera, HISTORICAL_MOBILE_BASE } from '../../scripts/lib/mobile-comparison-source.js';
 import { verifyWaterEffectsCapture, WATER_EFFECTS_BASE } from '../../scripts/lib/mobile-water-effects-replay.js';
+import { starSnapshot } from '../helpers/star-snapshot.js';
+import { verifyStarCapture } from '../../scripts/lib/sky2-source.js';
 
 const profiles = [
   { id: 'portrait', width: 390, height: 844, dpr: 2, touch: true },
@@ -38,7 +40,8 @@ const metric = (s, name) => s.metrics.find(m => m.name === name).value;
 async function startCapture(page, seconds = 90) {
   // Keep this observer local: ordinary screenshots retain the real camera.
   // A separate fixed camera aligns culling when comparing rendering cost.
-  await page.addInitScript(() => {
+  await page.addInitScript(({ seconds, starSnapshotSource }) => {
+    const snapshotStars = (0, eval)(`(${starSnapshotSource})`);
     let devtools;
     Object.defineProperty(window, '__THREE_DEVTOOLS__', { configurable: true,
       get: () => devtools,
@@ -53,7 +56,8 @@ async function startCapture(page, seconds = 90) {
           renderer.setAnimationLoop = function(callback) {
             let previous = performance.now();
             return setAnimationLoop.call(this, callback && (now => {
-              frame = { dt: Math.min(0.25, Math.max(0, (now - previous) / 1000)) };
+              const clockDt = Math.max(0, (now - previous) / 1000);
+              frame = { dt: Math.min(0.25, clockDt), clockDt };
               previous = now;
               try { callback(now); } finally { frame = null; }
             }));
@@ -65,10 +69,12 @@ async function startCapture(page, seconds = 90) {
           // production camera. Never change a mesh to manufacture a delta.
           const direct = renderer.renderBufferDirect;
           let submissions = null, fishingObjects;
+          let starDraws = null, stars;
           renderer.renderBufferDirect = function(...args) {
             const object = args[4], key = fishingObjects && Object.keys(fishingObjects).find(key => fishingObjects[key] === object);
             const calls = this.info.render.calls, triangles = this.info.render.triangles;
             const result = direct.apply(this, args);
+            if (starDraws && object === stars) starDraws.calls += this.info.render.calls - calls;
             if (submissions && key) {
               submissions[key].calls += this.info.render.calls - calls;
               submissions[key].triangles += this.info.render.triangles - triangles;
@@ -76,6 +82,7 @@ async function startCapture(page, seconds = 90) {
             return result;
           };
           renderer.render = function(scene, camera) {
+            stars = scene.getObjectByName('clear-night-stars');
             const panel = document.querySelector('#fishing-panel'), phase = panel.dataset.phase;
             const fishing = scene.children.find(o => o.isGroup && o.children.some(c => c.isLine)
               && o.children.some(c => c.geometry?.type === 'RingGeometry'));
@@ -87,12 +94,13 @@ async function startCapture(page, seconds = 90) {
             const waterEffects = scene.getObjectByName('fishing-water-effects');
             if (waterEffects) fishingObjects.waterEffects = waterEffects;
             const pass = view => {
+              starDraws = { calls: 0 };
               submissions = Object.fromEntries(Object.keys(fishingObjects).map(key => [key, { calls: 0, triangles: 0 }]));
               try {
                 const result = render.call(this, scene, view);
-                return { result, resources: resources(), draws: submissions,
+                return { result, resources: resources(), draws: submissions, starDraws,
                   camera: { position: view.position.toArray(), quaternion: view.quaternion.toArray(), aspect: view.aspect, fov: view.fov } };
-              } finally { submissions = null; }
+              } finally { submissions = null; starDraws = null; }
             };
             diagnosticCamera ??= camera.clone();
             diagnosticCamera.aspect = camera.aspect;
@@ -134,14 +142,17 @@ async function startCapture(page, seconds = 90) {
                   depthTest: object.material.depthTest, depthWrite: object.material.depthWrite, fog: object.material.fog },
               } : {}),
             } : null]));
-            window.mobileCameraFrames.push({ update: Boolean(frame), dt: frame?.dt ?? 0, aspect: camera.aspect,
+            window.mobileCameraFrames.push({ update: Boolean(frame), dt: frame?.dt ?? 0, clockDt: frame?.clockDt ?? 0, aspect: camera.aspect,
               mode: document.body.classList.contains('fishing') ? 'fishing' : 'sailing',
               phase, preparing: document.querySelector('#app').dataset.castPreparing === 'true',
               tracking: ['fight', 'landing'].includes(phase) ? { x: ring.position.x, z: ring.position.z } : null });
             window.mobileProbe = { viewport: { width: innerWidth, height: innerHeight }, dpr: devicePixelRatio,
               pixelRatio: this.getPixelRatio(), buffer: { width: gl.drawingBufferWidth, height: gl.drawingBufferHeight },
               pixels: gl.drawingBufferWidth * gl.drawingBufferHeight,
-              resources: fixedResources, actualResources,
+              resources: fixedResources, fixedResources, actualResources, savedClockSeconds: seconds,
+              starDisplay: { snapshot: snapshotStars(stars),
+                clockSeconds: seconds + ((scene.getObjectByName('surface-fog').children[0].material.uniforms.fogTime.value - seconds % 3600 + 3600) % 3600),
+                draws: { fixed: fixed.starDraws.calls, actual: actual.starDraws.calls } },
               fishingDisplay: { version: 1, phase, elapsed: scene.getObjectByName('lake-water').material.uniforms.time.value,
                 meshes, line: Array.from(fishingObjects.line.geometry.attributes.position.array),
                 passes: { fixed: { resources: fixedResources, draws: fixed.draws, camera: fixed.camera },
@@ -154,7 +165,7 @@ async function startCapture(page, seconds = 90) {
         });
       },
     });
-  });
+  }, { seconds, starSnapshotSource: starSnapshot.toString() });
   await setup(page, seconds, { randomValue: .01 });
 }
 test.beforeAll(async ({}, info) => {
@@ -231,6 +242,7 @@ async function saveCapture(target, id, page, metrics, info, withLayout = false) 
   const entry = { target, id, comparison, metrics: { ...metrics, fishingRandomValue: .01, cameraExpected, cameraFrames }, image,
     ...(withLayout ? { layout: await layout(page) } : {}) };
   await verifyMobileSourceCapture(implementations[target], entry);
+  if (implementations[target].starsBlob) await verifyStarCapture(implementations[target], entry);
   if (implementations[target].sha === WATER_EFFECTS_BASE || implementations[target].fishingEffectsBlob) {
     await verifyWaterEffectsCapture(implementations[target], entry);
   }
@@ -243,6 +255,13 @@ for (const target of targets) {
     test(`mobile rendering: ${target} ${profile.id} ${scene.id}`, async ({ createContext }, info) => {
       const { context, page, errors } = await contextFor(createContext, target, profile);
       const cdp = await context.newCDPSession(page); await cdp.send('Performance.enable');
+      const network = new Map();
+      cdp.on('Network.responseReceived', ({ requestId, response, type }) => network.set(requestId,
+        { name: new URL(response.url).pathname, origin: new URL(response.url).origin, type, status: response.status, transferBytes: null }));
+      cdp.on('Network.loadingFinished', ({ requestId, encodedDataLength }) => {
+        if (network.has(requestId)) network.get(requestId).transferBytes = encodedDataLength;
+      });
+      await cdp.send('Network.enable');
       const initial = await cdp.send('Performance.getMetrics'), begin = performance.now();
       await startCapture(page, scene.seconds);
       const setupToReadyMs = performance.now() - begin, ready = await cdp.send('Performance.getMetrics');
@@ -258,6 +277,11 @@ for (const target of targets) {
       expect(after.renders - before.renders).toBe(6);
       expect(after.resources).toEqual(before.resources);
       expect(after.actualResources).toEqual(before.actualResources);
+      if (before.starDisplay.snapshot) {
+        for (const key of ['geometryId', 'materialId', 'attributes']) {
+          expect(after.starDisplay.snapshot[key]).toEqual(before.starDisplay.snapshot[key]);
+        }
+      }
       expect(before.resources.calls).toBeLessThan(40);
       expect(before.actualResources.calls).toBeLessThan(40);
       expect(before.dpr).toBe(profile.dpr);
@@ -268,6 +292,35 @@ for (const target of targets) {
       const metrics = { ...before, savedClockSeconds: scene.seconds,
         initial: { setupToReadyMs, rendererTaskMs: (metric(ready, 'TaskDuration') - metric(initial, 'TaskDuration')) * 1000 },
         continuing: { frames: 6, simulatedMs: 96, wallMs, rendererTaskMs: (metric(cpuEnd, 'TaskDuration') - metric(cpuStart, 'TaskDuration')) * 1000 }, errors };
+      if (profile.id === 'pc-hidpi' && scene.id === 'clear-night') {
+        // Complete queued GPU work at each boundary and count actual renders.
+        // Unfenced command submission produced near-zero/backlogged windows.
+        // CDP + paired renders remain included: this is a software diagnostic.
+        const samples = [];
+        const finishFrame = () => page.evaluate(() => {
+          document.querySelector('#scene').getContext('webgl2').finish();
+          return window.lightingProbe.renders;
+        });
+        let previousRender = await finishFrame();
+        for (let sample = 0; sample < 20; sample++) {
+          const start = await cdp.send('Performance.getMetrics'), begin = performance.now();
+          await page.clock.runFor(16);
+          const renders = await finishFrame();
+          const wallMs = performance.now() - begin, end = await cdp.send('Performance.getMetrics');
+          expect(renders - previousRender).toBe(1);
+          samples.push({ frames: renders - previousRender, wallMs, rendererTaskMs: (metric(end, 'TaskDuration') - metric(start, 'TaskDuration')) * 1000 });
+          previousRender = renders;
+        }
+        const p95 = key => samples.map(row => row[key]).sort((a, b) => a - b)[Math.ceil(samples.length * .95) - 1];
+        metrics.starFrameSamples = { synchronization: 'gl.finish before/after each window; one observed animation render',
+          samples, p95WallMs: p95('wallMs'), p95RendererTaskMs: p95('rendererTaskMs') };
+        metrics.pageResources = [...network.values()];
+        const stable = await page.evaluate(() => window.mobileProbe);
+        expect(stable.resources).toEqual(before.resources); expect(stable.actualResources).toEqual(before.actualResources);
+        if (before.starDisplay.snapshot) {
+          for (const key of ['geometryId', 'materialId', 'attributes']) expect(stable.starDisplay.snapshot[key]).toEqual(before.starDisplay.snapshot[key]);
+        }
+      }
       if (profile.id === 'pc-hidpi' && scene.id === 'day-tps') {
         // Three fixed windows distinguish the noisy first sample from later
         // frames without retrying a failed assertion or changing scene quality.

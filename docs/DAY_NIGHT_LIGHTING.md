@@ -23,6 +23,49 @@
   Phase 4C-1Aでは水面法線を穏やかな波紋へ調整し、遠方の細部を減衰させます。
   頂点の波・航跡の式とアニメーション時間は維持し、夜は従来の`waterDetail`で細部の明るさを抑えます。
 
+## Sky-2：CLEAR夜の星空
+
+`src/world/stars.js`は960個の星を上半球・半径1200mへ固定配置します（2026-11-11の追加承認で240個から増量）。
+`clock.timeOfDay === 'night'`と既存の`sampleNightFog(clock).fogType === 'CLEAR'`を両方満たす間だけ表示し、
+夜の前後12秒をsmoothstepでfadeします。昼・FOG・DENSE_FOGはPointsを不可視にして追加drawを出しません。
+星の方向・白〜青白の色・サイズ・位相・4〜9秒の整数周期は起動時の専用固定seedで作り、毎夜更新しません。
+天球の中心だけが船のXZへ追従し、船やカメラの回転で配置は変わりません。
+明るい星は34個（約3.5%）・サイズ3.25、残りは1.6〜2.35未満です。元の240星より通常星を小さくし、
+輝点の割合を抑えて密度を増やします。発光上限・色温度・瞬き振幅・1パスのshaderは維持します。
+属性bufferは8640→34560 bytes（+25920 bytes）。1バッチ・1geometry・1materialのままですが、
+頂点処理と点像の描画量は増えるため、Draw Call不変を性能不変とは扱いません。
+
+1個の`THREE.Points`とテクスチャなしShaderMaterialを使い、`gl_PointCoord`から柔らかい小光点を描きます。
+微小変動は±7.5%、物理点サイズは1.5〜6pxに制限します。共有時計の絶対秒を全周期の公倍数2520秒で
+折り返してuniformへ渡すため、大きな保存時計でもfloat精度を保ち、折返しで位相が飛びません。
+hidden/menu/blur中は既存時計とともに停止します。別タイマー・保存フィールド・外部配信資産はありません。
+
+Three.js 0.186.1のgeometry/material/Object3DコンストラクタはUUIDごとに共有`Math.random()`を4回消費します。
+星の3個の同期コンストラクタの間だけcryptoのUUIDエントロピーへ隔離し、各呼出しの`finally`で元の関数を復元します。
+再入・crypto失敗・非同期の戻り値を拒否します。配置・更新・scene接続は隔離の外側で行い、ゲーム乱数を消費しません。
+
+既存Skyはscale 2000のBoxGeometry・opaque/depthWrite OFFです。星はdepthTest ON・depthWrite OFF、
+transparent/renderOrder -1で、Skyの後・transparentの月/水/樹木の前に描きます。
+月は既存の約900m、地形は既存depthを保持します。初回`lake.update(0, boat, restoredClock)`の順序は変更しません。
+
+| 同一のcold真夜中・船(10,20)・既存TPS | Calls | triangles | geometry | program | texture |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 昼 / Sky-2前のCLEAR夜 | 31 | 275444 | 20 | 10 | 4 |
+| Sky-2のCLEAR夜 | 32 | 275444 | 21 | 11 | 4 |
+| cold FOG / DENSE_FOG夜 | 34 | 281588 | 21 | 11 | 4 |
+
+GPU資産は遅延初期化されます。一度星を描いた後の昼・霧では星のgeometry/programを各1保持し、drawは0です。
+Mobile比較の完全scene warmupは不可視Pointsも初期化するため、34条件すべてでgeometry/program各+1、
+実描画のCallsはCLEAR夜の5条件だけ+1です。`fixedResources`と`actualResources`を別々に検査します。
+高DPRの20標本p95はテスト側だけで各窓の前後に`gl.finish()`を行い、実render数が1であることを確認します。
+CDPと比較用2描画を含むソフトウェア診断値であり、実機GPUのFPSではありません。配信要求/bytesはCDP Networkで採録します。
+
+`scripts/lib/sky2-source.js`のtransitionは基準main `242bcac5d3e4c65d14ca7b525c8b37929091b07a`と
+星/撮影observer/snapshotの固定blob、lakeの完全な接続差分に限定します。両SHAの時計・天候・星factoryを独立再生し、
+全属性・uniform・可視性・両カメラのsubmissionを照合します。その他のsrc/build入力・配信資産、
+画素寸法・カメラ・HUD・釣りの検査を保持し、最終`ci-required`も同じ比較を再実行します。
+新規Unitの34ペアは合成契約検査であり、PR CIの実画像34組/68枚の成功とは別です。
+
 ## 夜霧の3状態
 
 `src/world/night-fog.js`の`getNightFogProfile(nightIndex)`は、夜ごとに固定した分類・目標霧量を返します。

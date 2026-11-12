@@ -11,6 +11,7 @@ import { classifyChanges, L1_GROUPS, listBrowserSpecs, SMOKE_SPECS } from '../sc
 import { artifactName, fileManifest, LANES, readRecord, recordJob, validationContext } from '../scripts/lib/ci-artifacts.js';
 import { mobileGateFixture } from './helpers/mobile-gate-fixture.js';
 import { fishingPhaseGateFixture } from './helpers/fishing-phase-fixture.js';
+import { starGateFixture } from './helpers/sky2-fixture.js';
 import { readMobileImplementation, replayMobileCamera } from '../scripts/lib/mobile-comparison-source.js';
 
 const SHA = 'a'.repeat(40);
@@ -113,6 +114,18 @@ test('5F-1A passes through the existing aggregate and raw captures/report are re
   const capture = clone(input);
   capture.lanes.mobile.mobile.after.find(entry => entry.id === 'pc-bite').metrics.fishingDisplay.passes.actual.draws.lure.calls = 1;
   await assert.rejects(validateAggregate(capture), /submissions differ from source culling/);
+});
+
+test('Sky-2 reaches the unchanged aggregate; raw non-CLEAR draws and forged transition reports still fail', async () => {
+  const mobile = await starGateFixture(), input = fixture({ eventName: 'pull_request', mobile });
+  const result = await validateAggregate(input);
+  assert.equal(result.mobilePairs, 34); assert.equal(result.passedTests, inventory.length);
+  const capture = clone(input);
+  capture.lanes.mobile.mobile.after.find(entry => entry.id === 'pc-fog-night').metrics.starDisplay.draws.actual = 1;
+  await assert.rejects(validateAggregate(capture), /star submissions differ from source/);
+  const report = clone(input);
+  report.lanes.mobile.mobile.comparison.rows[0].starComparison.proof.resources.geometries = 2;
+  await assert.rejects(validateAggregate(report), /report differs from captures/);
 });
 
 test('source-backed final gate rejects forged states, reports, provenance and incomplete lanes', async () => {

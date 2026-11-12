@@ -115,7 +115,8 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
     await page.screenshot({ path: image });
     await testInfo.attach(view.id, { path: image, contentType: 'image/png' });
     const before = await page.evaluate(() => ({ resources: window.lightingProbe.performance, lighting: window.lightingProbe.last, camera: window.sceneryCamera,
-      cameraFrames: window.sceneryCameraFrames, renders: window.lightingProbe.renders }));
+      cameraFrames: window.sceneryCameraFrames, renders: window.lightingProbe.renders,
+      stars: window.lightingProbe.starEvidence, starCalls: window.lightingProbe.starCalls }));
     // 25 ordinary rendered animation frames verify stable GPU allocations.
     // This is a bounded sampling window, not a sleep or retry of failed input.
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
@@ -126,12 +127,13 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
     const sampleCpuEnd = await cdp.send('Performance.getMetrics');
     await page.evaluate(() => window.dispatchEvent(new Event('blur')));
     const after = await page.evaluate(() => ({ resources: window.lightingProbe.performance, camera: window.sceneryCamera,
-      cameraFrames: window.sceneryCameraFrames, renders: window.lightingProbe.renders }));
+      cameraFrames: window.sceneryCameraFrames, renders: window.lightingProbe.renders, stars: window.lightingProbe.starEvidence }));
     const implementation = implementations[target];
     const evidence = frames => ({ sha: implementation.sha, cameraBlob: implementation.cameraBlob, frames });
     for (const snapshot of [before, after]) verifySceneryCameraSource({ camera: snapshot.camera,
       cameraEvidence: evidence(snapshot.cameraFrames) }, implementation);
     for (const field of ['geometries', 'textures', 'programs']) expect(after.resources[field]).toBe(before.resources[field]);
+    if (before.stars) for (const field of ['geometryId', 'materialId', 'attributes']) expect(after.stars[field]).toEqual(before.stars[field]);
     expect(before.resources.calls).toBeLessThan(40);
     const sampledFrames = after.renders - before.renders;
     expect(sampledFrames).toBe(25);
@@ -139,6 +141,8 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
     const metrics = { viewport, deviceScaleFactor: 1, savedClockSeconds: view.seconds, boat: before.lighting.boat, heading: 0,
       camera: before.camera, cameraEvidence: evidence(before.cameraFrames), waterTime: before.lighting.waterTime, fogStrength: before.lighting.fogStrength,
       resources: before.resources, afterResources: after.resources,
+      starDisplay: { snapshot: before.stars, draws: { fixed: before.starCalls, actual: before.starCalls },
+        clockSeconds: view.seconds + ((before.lighting.mistTime - view.seconds % 3600 + 3600) % 3600) },
       initialLoad: { navigationToReadyMs, rendererTaskMs: (metric(readyCpu, 'TaskDuration') - metric(initialCpu, 'TaskDuration')) * 1000,
         jsHeapUsedBytes: metric(readyCpu, 'JSHeapUsedSize') },
       continuingFrames: { sampledFrames, simulatedMilliseconds: 400, sampleWallMs,

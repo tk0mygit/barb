@@ -23,8 +23,13 @@ test('cold and first-cast contracts distinguish allocation history from recreate
   assertColdFishingResources(cold);
   assertLureInitialization(cold, lure);
   assertStableResourceIdentities(lure, structuredClone(lure));
-  assert.deepEqual(expectedColdNightResources(false), { calls: 31, triangles: 275444, geometries: 20, textures: 4, programs: 10 });
-  assert.deepEqual(expectedColdNightResources(true), { calls: 34, triangles: 281588, geometries: 21, textures: 4, programs: 11 });
+  assert.deepEqual(expectedColdNightResources({ fogType: 'CLEAR' }), { calls: 32, triangles: 275444, geometries: 21, textures: 4, programs: 11 });
+  assert.deepEqual(expectedColdNightResources({ timeOfDay: 'day', fogType: 'CLEAR' }), { calls: 31, triangles: 275444, geometries: 20, textures: 4, programs: 10 });
+  assert.deepEqual(expectedColdNightResources({ timeOfDay: 'day', fogType: 'CLEAR', starInitialized: true }), { calls: 31, triangles: 275444, geometries: 21, textures: 4, programs: 11 });
+  for (const fogType of ['FOG', 'DENSE_FOG']) {
+    assert.deepEqual(expectedColdNightResources({ fogType }), { calls: 34, triangles: 281588, geometries: 21, textures: 4, programs: 11 });
+    assert.deepEqual(expectedColdNightResources({ fogType, starInitialized: true }), { calls: 34, triangles: 281588, geometries: 22, textures: 4, programs: 12 });
+  }
 });
 
 test('cold startup rejects a missing shared map or any second crown texture', () => {
@@ -119,5 +124,19 @@ test('5F-1B surface upload is exactly one owned geometry and one distinct RGBA s
     q => { q.lure.counts.programs--; }, q => { q.lure.catalog.surfaceEffects.id = 99; },
     q => { delete q.lure.catalog.surfaceEffects; }]) {
     const q = make(); mutate(q); assert.throws(() => assertLureInitialization(q.cold, q.lure));
+  }
+});
+
+test('Sky-2 has one owned 960-point geometry and one shader identity; reuse never hides allocation churn', () => {
+  const { cold } = snapshots();
+  cold.catalog.cpuGeometryIds.push(7);
+  cold.catalog.stars = { id: 7, name: 'clear-night-stars', vertices: 960, initialized: true, visible: true, programKeys: ['star-shader'] };
+  cold.catalog.initializedGeometryIds.push(7); cold.counts.geometries++;
+  cold.catalog.programKeys.push('star-shader'); cold.counts.programs++;
+  assertColdFishingResources(cold); assertStableResourceIdentities(cold, structuredClone(cold));
+  for (const mutate of [s => { s.catalog.stars.vertices--; }, s => { s.catalog.stars.id = 99; },
+    s => { s.catalog.stars.programKeys.push('extra'); }, s => { s.catalog.stars.initialized = false; },
+    s => { s.catalog.stars.id++; }, s => { s.counts.geometries++; }]) {
+    const bad = structuredClone(cold); mutate(bad); assert.throws(() => assertStableResourceIdentities(cold, bad));
   }
 });
