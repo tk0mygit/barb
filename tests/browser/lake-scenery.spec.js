@@ -4,6 +4,7 @@ import { performance as wallClock } from 'node:perf_hooks';
 import { setup, read, assertEnvironment } from './day-night-fixture.js';
 import { capturePullRequestBase, prepareSceneryReference } from './lake-scenery-reference.js';
 import { writeComparison, verifySceneryCameraSource } from '../../scripts/compare-lake-scenery.mjs';
+import { findAuroraNight } from '../helpers/aurora-event.js';
 import { mobileGit, readMobileImplementation, assertMobileWorkingSource } from '../../scripts/lib/mobile-comparison-source.js';
 
 // Capture the real production build. Saved coordinates, native UI input and
@@ -12,7 +13,7 @@ const views = [
   { id: 'day-tps', label: '昼・TPS', seconds: 90 },
   { id: 'day-fps', label: '昼・FPS', seconds: 90, fishing: true },
   { id: 'twilight', label: '夕暮れ', seconds: 176 },
-  { id: 'clear-night', label: '霧のない夜', seconds: 4 * 360 + 270 },
+  { id: 'clear-night', label: '霧のない夜', seconds: findAuroraNight({ forward: true }) * 360 + 270 },
   { id: 'fog-night', label: '通常霧の夜', seconds: 3971 * 360 + 270 },
   { id: 'dense-night', label: '濃霧の夜', seconds: 630 },
   { id: 'portrait', label: 'スマートフォン縦', seconds: 90, width: 390, height: 844, touch: true },
@@ -32,6 +33,7 @@ const metric = (snapshot, name) => snapshot.metrics.find(entry => entry.name ===
 
 test.afterAll(async ({}, testInfo) => {
   await reference?.dispose(testInfo);
+  if (implementations.pr) await assertMobileWorkingSource(implementations.pr);
   if (!captures.length) return;
   const path = testInfo.outputPath('lake-scenery-gallery.html');
   const figures = await Promise.all(captures.map(async ({ target, view, image, metrics }) =>
@@ -122,6 +124,9 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
       draws: { fixed: { calls: window.lightingProbe.meteorCalls, triangles: window.lightingProbe.meteorTriangles },
         actual: { calls: window.lightingProbe.meteorCalls, triangles: window.lightingProbe.meteorTriangles } },
       gpu: window.lightingProbe.meteorGPU }));
+    const auroraDisplay = await page.evaluate(() => ({ snapshot: window.lightingProbe.auroraEvidence,
+      draws: { fixed: window.lightingProbe.auroraDraws, actual: window.lightingProbe.auroraDraws },
+      gpu: window.lightingProbe.auroraGPU }));
     // 25 ordinary rendered animation frames verify stable GPU allocations.
     // This is a bounded sampling window, not a sleep or retry of failed input.
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
@@ -149,6 +154,7 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
       starDisplay: { snapshot: before.stars, draws: { fixed: before.starCalls, actual: before.starCalls },
         clockSeconds: view.seconds + ((before.lighting.mistTime - view.seconds % 3600 + 3600) % 3600) },
       meteorDisplay: { ...meteorDisplay, clockSeconds: view.seconds + ((before.lighting.mistTime - view.seconds % 3600 + 3600) % 3600) },
+      auroraDisplay: { ...auroraDisplay, clockSeconds: view.seconds + ((before.lighting.mistTime - view.seconds % 3600 + 3600) % 3600) },
       initialLoad: { navigationToReadyMs, rendererTaskMs: (metric(readyCpu, 'TaskDuration') - metric(initialCpu, 'TaskDuration')) * 1000,
         jsHeapUsedBytes: metric(readyCpu, 'JSHeapUsedSize') },
       continuingFrames: { sampledFrames, simulatedMilliseconds: 400, sampleWallMs,

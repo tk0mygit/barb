@@ -7,6 +7,7 @@ import { readMobileImplementation, replayMobileCamera, mobileSourceMetadata } fr
 import { expectedMobileResources } from './compare-mobile-performance.mjs';
 import { readSky2Transition, verifyStarCapture, expectedStarResources } from './lib/sky2-source.js';
 import { readSky3Transition, verifyMeteorCapture, expectedMeteorResources } from './lib/sky3-source.js';
+import { readSky4Transition, verifyAuroraCapture, expectedAuroraResources } from './lib/sky4-source.js';
 
 // The scenery capture uses the real camera, including its ordinary settling.
 // Verify that pose against its exact source before comparing the two views.
@@ -93,7 +94,20 @@ export async function writeComparison(main, pr, destination, mainLabel = 'main d
       implementations: { main: mobileSourceMetadata(main), pr: mobileSourceMetadata(candidate) } });
     const sky2 = await readSky2Transition(main, candidate);
     const sky3 = await readSky3Transition(main, candidate);
-    if (sky3) {
+    const sky4 = await readSky4Transition(main, candidate);
+    if (sky4) {
+      assert(['day-tps', 'day-fps', 'twilight', 'clear-night', 'fog-night', 'dense-night', 'portrait', 'landscape'].includes(id), 'Sky-4: unknown scenery view');
+      const preserved = [];
+      for (const [source, metrics] of [[main, before.metrics], [candidate, after.metrics]]) {
+        const stars = await verifyStarCapture(source, { id, metrics }, { warmed: false });
+        const meteor = await verifyMeteorCapture(source, { id, metrics }, { warmed: false });
+        preserved.push({ stars: stars.draws, meteor: meteor.draws });
+      }
+      assert.deepEqual(preserved[1], preserved[0], 'Sky-4: existing sky submissions changed');
+      const beforeAurora = await verifyAuroraCapture(main, { id, metrics: before.metrics }, { warmed: false });
+      const afterAurora = await verifyAuroraCapture(candidate, { id, metrics: after.metrics }, { warmed: false });
+      expectedAuroraResources(a, b, beforeAurora, afterAurora, 'actual');
+    } else if (sky3) {
       assert(['day-tps', 'day-fps', 'twilight', 'clear-night', 'fog-night', 'dense-night', 'portrait', 'landscape'].includes(id), 'Sky-3: unknown scenery view');
       for (const [source, metrics] of [[main, before.metrics], [candidate, after.metrics]]) {
         await verifyStarCapture(source, { id, metrics }, { warmed: false });
@@ -115,6 +129,7 @@ export async function writeComparison(main, pr, destination, mainLabel = 'main d
       ...(expected.transition?.startsWith('forest-G2.5:') ? { resourceTransition: expected.transition } : {}),
       ...(sky2 ? { starComparison: sky2 } : {}),
       ...(sky3 ? { meteorComparison: sky3 } : {}),
+      ...(sky4 ? { auroraComparison: sky4 } : {}),
       triangleIncreasePercent: (b.triangles / a.triangles - 1) * 100 };
     comparisons.push(result);
     figures.push(`<section><h2>${id}</h2><p>Draw calls ${a.calls} → ${b.calls}; triangles ${a.triangles.toLocaleString('en-US')} → ${b.triangles.toLocaleString('en-US')} (${result.triangleIncreasePercent.toFixed(2)}%); geometries ${a.geometries} → ${b.geometries}; textures ${a.textures} → ${b.textures}; programs ${a.programs} → ${b.programs}.</p><div class="pair"><figure><figcaption>${mainLabel}</figcaption><img src="data:image/png;base64,${before.image}"></figure><figure><figcaption>Phase 4C-1A</figcaption><img src="data:image/png;base64,${after.image}"></figure></div><details><summary>Measurement JSON</summary><pre>${JSON.stringify(result, null, 2)}</pre></details></section>`);

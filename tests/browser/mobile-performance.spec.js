@@ -14,6 +14,9 @@ import { starSnapshot } from '../helpers/star-snapshot.js';
 import { verifyStarCapture } from '../../scripts/lib/sky2-source.js';
 import { meteorSnapshot } from '../helpers/meteor-snapshot.js';
 import { verifyMeteorCapture } from '../../scripts/lib/sky3-source.js';
+import { auroraSnapshot, observeAuroraGPU } from '../helpers/aurora-snapshot.js';
+import { verifyAuroraCapture } from '../../scripts/lib/sky4-source.js';
+import { findAuroraNight } from '../helpers/aurora-event.js';
 
 const profiles = [
   { id: 'portrait', width: 390, height: 844, dpr: 2, touch: true },
@@ -24,8 +27,8 @@ const profiles = [
 ];
 const scenes = [
   { id: 'day-tps', seconds: 90 }, { id: 'day-fps', seconds: 90, fishing: true },
-  // Night 4 remains CLEAR under both distributions; night 0 becomes FOG in Sky-1.
-  { id: 'clear-night', seconds: 4 * 360 + 270 }, { id: 'fog-night', seconds: 3971 * 360 + 270 },
+  // Search the dedicated hash for an ordinary winning saved CLEAR night.
+  { id: 'clear-night', seconds: findAuroraNight({ forward: true }) * 360 + 270 }, { id: 'fog-night', seconds: 3971 * 360 + 270 },
   { id: 'dense-night', seconds: 630 },
 ];
 const compare = capturePullRequestBase || Boolean(process.env.BARB_MOBILE_BASE_SHA);
@@ -42,9 +45,11 @@ const metric = (s, name) => s.metrics.find(m => m.name === name).value;
 async function startCapture(page, seconds = 90) {
   // Keep this observer local: ordinary screenshots retain the real camera.
   // A separate fixed camera aligns culling when comparing rendering cost.
-  await page.addInitScript(({ seconds, starSnapshotSource, meteorSnapshotSource }) => {
+  await page.addInitScript(({ seconds, starSnapshotSource, meteorSnapshotSource, auroraSnapshotSource, auroraGPUSource }) => {
     const snapshotStars = (0, eval)(`(${starSnapshotSource})`);
     const snapshotMeteor = (0, eval)(`(${meteorSnapshotSource})`);
+    const snapshotAurora = (0, eval)(`(${auroraSnapshotSource})`);
+    const observeGPU = (0, eval)(`(${auroraGPUSource})`);
     let devtools;
     Object.defineProperty(window, '__THREE_DEVTOOLS__', { configurable: true,
       get: () => devtools,
@@ -66,6 +71,8 @@ async function startCapture(page, seconds = 90) {
             }));
           };
           const render = renderer.render;
+          const auroraGPU = observeGPU(renderer);
+          let auroras = [], auroraDraws = null;
           const resources = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
             geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs.length });
           // Observe actual submissions, separately for the diagnostic and
@@ -78,6 +85,11 @@ async function startCapture(page, seconds = 90) {
             const calls = this.info.render.calls, triangles = this.info.render.triangles;
             const result = direct.apply(this, args);
             if (starDraws && object === stars) starDraws.calls += this.info.render.calls - calls;
+            const layer = auroras.indexOf(object);
+            if (auroraDraws && layer >= 0) {
+              auroraDraws[layer].calls += this.info.render.calls - calls;
+              auroraDraws[layer].triangles += this.info.render.triangles - triangles;
+            }
             if (meteorDraws && object === meteor) {
               meteorDraws.calls += this.info.render.calls - calls;
               meteorDraws.triangles += this.info.render.triangles - triangles;
@@ -91,6 +103,7 @@ async function startCapture(page, seconds = 90) {
           renderer.render = function(scene, camera) {
             stars = scene.getObjectByName('clear-night-stars');
             meteor = scene.getObjectByName('clear-night-meteor');
+            auroras = [0, 1].map(layer => scene.getObjectByName(`clear-night-aurora-${layer}`)).filter(Boolean);
             const panel = document.querySelector('#fishing-panel'), phase = panel.dataset.phase;
             const fishing = scene.children.find(o => o.isGroup && o.children.some(c => c.isLine)
               && o.children.some(c => c.geometry?.type === 'RingGeometry'));
@@ -104,12 +117,13 @@ async function startCapture(page, seconds = 90) {
             const pass = view => {
               starDraws = { calls: 0 };
               meteorDraws = { calls: 0, triangles: 0 };
+              auroraDraws = auroras.map(() => ({ calls: 0, triangles: 0 }));
               submissions = Object.fromEntries(Object.keys(fishingObjects).map(key => [key, { calls: 0, triangles: 0 }]));
               try {
                 const result = render.call(this, scene, view);
-                return { result, resources: resources(), draws: submissions, starDraws, meteorDraws,
+                return { result, resources: resources(), draws: submissions, starDraws, meteorDraws, auroraDraws,
                   camera: { position: view.position.toArray(), quaternion: view.quaternion.toArray(), aspect: view.aspect, fov: view.fov } };
-              } finally { submissions = null; starDraws = null; meteorDraws = null; }
+              } finally { submissions = null; starDraws = null; meteorDraws = null; auroraDraws = null; }
             };
             diagnosticCamera ??= camera.clone();
             diagnosticCamera.aspect = camera.aspect;
@@ -163,6 +177,9 @@ async function startCapture(page, seconds = 90) {
               starDisplay: { snapshot: snapshotStars(stars),
                 clockSeconds: seconds + ((scene.getObjectByName('surface-fog').children[0].material.uniforms.fogTime.value - seconds % 3600 + 3600) % 3600),
                 draws: { fixed: fixed.starDraws.calls, actual: actual.starDraws.calls } },
+              auroraDisplay: { snapshot: snapshotAurora(auroras), gpu: auroraGPU(auroras),
+                clockSeconds: seconds + ((scene.getObjectByName('surface-fog').children[0].material.uniforms.fogTime.value - seconds % 3600 + 3600) % 3600),
+                draws: { fixed: fixed.auroraDraws, actual: actual.auroraDraws } },
               meteorDisplay: { snapshot: snapshotMeteor(meteor),
                 clockSeconds: seconds + ((scene.getObjectByName('surface-fog').children[0].material.uniforms.fogTime.value - seconds % 3600 + 3600) % 3600),
                 draws: { fixed: fixed.meteorDraws, actual: actual.meteorDraws },
@@ -181,7 +198,8 @@ async function startCapture(page, seconds = 90) {
         });
       },
     });
-  }, { seconds, starSnapshotSource: starSnapshot.toString(), meteorSnapshotSource: meteorSnapshot.toString() });
+  }, { seconds, starSnapshotSource: starSnapshot.toString(), meteorSnapshotSource: meteorSnapshot.toString(),
+    auroraSnapshotSource: auroraSnapshot.toString(), auroraGPUSource: observeAuroraGPU.toString() });
   await setup(page, seconds, { randomValue: .01 });
 }
 test.beforeAll(async ({}, info) => {
@@ -207,6 +225,7 @@ test.beforeAll(async ({}, info) => {
 });
 test.afterAll(async ({}, info) => {
   await reference?.dispose(info);
+  if (implementations.pr) await assertMobileWorkingSource(implementations.pr);
   for (const target of targets) {
     const path = resolve(destination, `${target}.json`);
     await writeFile(path, JSON.stringify(captures.filter(c => c.target === target), null, 2));
@@ -246,6 +265,7 @@ async function contextFor(createContext, target, profile) {
   return { context, page, errors };
 }
 async function saveCapture(target, id, page, metrics, info, withLayout = false) {
+  await assertMobileWorkingSource(implementations.pr);
   const cameraFrames = await page.evaluate(() => window.mobileCameraFrames);
   const cameraExpected = replayMobileCamera(implementations[target], cameraFrames);
   for (const key of ['position', 'quaternion']) for (let i = 0; i < cameraExpected[key].length; i++) {
@@ -260,6 +280,7 @@ async function saveCapture(target, id, page, metrics, info, withLayout = false) 
   await verifyMobileSourceCapture(implementations[target], entry);
   if (implementations[target].starsBlob) await verifyStarCapture(implementations[target], entry);
   if (implementations[target].meteorBlob) await verifyMeteorCapture(implementations[target], entry);
+  if (implementations[target].auroraBlob) await verifyAuroraCapture(implementations[target], entry);
   if (implementations[target].sha === WATER_EFFECTS_BASE || implementations[target].fishingEffectsBlob) {
     await verifyWaterEffectsCapture(implementations[target], entry);
   }

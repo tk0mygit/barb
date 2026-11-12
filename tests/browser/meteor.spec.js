@@ -2,6 +2,7 @@ import { test, expect } from './diagnostics-fixture.js';
 import { writeFile } from 'node:fs/promises';
 import { setup, tick } from './day-night-fixture.js';
 import { assertResourceCatalog } from './lighting-resource-contract.js';
+import { assertMeteorNightResources } from '../helpers/meteor-night-resources.js';
 import { findMeteorEvent } from '../helpers/meteor-event.js';
 import { sampleMeteor } from '../../src/world/meteor.js';
 import { createGameClock } from '../../src/game/game-clock.js';
@@ -146,10 +147,11 @@ test('meteor 30 nights retain GPU identities; day/fog/nonwinning clocks submit z
     await page.clock.fastForward(360000); const current = await readMeteor(page); assertResourceCatalog(current);
     expect(current.snapshot.geometryId).toBe(initial.snapshot.geometryId); expect(current.snapshot.materialId).toBe(initial.snapshot.materialId);
     expect(current.snapshot.attributes).toEqual(initial.snapshot.attributes);
-    if (n > 5) for (const key of ['geometries', 'programs', 'textures']) expect(current.counts[key]).toBe(history[5].counts[key]);
+    assertMeteorNightResources(history.at(-1) ?? initial, current, n > 5 ? history[5] : undefined);
     history.push(current); await page.setViewportSize(n % 2 ? { width: 640, height: 400 } : { width: 400, height: 640 });
   }
-  await info.attach('31-night-resources', { body: JSON.stringify(history), contentType: 'application/json' });
+  const path = info.outputPath('31-night-resources.json'); await writeFile(path, JSON.stringify(history, null, 2));
+  await info.attach('31-night-resources', { path, contentType: 'application/json' });
   await page.locator('#scene').evaluate(canvas => canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true })));
   await expect(page.locator('#error')).toContainText('ページを再読み込み');
 });

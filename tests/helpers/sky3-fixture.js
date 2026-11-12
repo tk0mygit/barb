@@ -1,5 +1,4 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { SKY3_BASE, SKY3_OBSERVER_BLOBS, replayMeteorCapture } from '../../scripts/lib/sky3-source.js';
 import { starCapture } from './sky2-fixture.js';
 import { readMobileImplementation, mobileSourceMetadata } from '../../scripts/lib/mobile-comparison-source.js';
@@ -16,7 +15,7 @@ function replace(tree, parts, blob) {
 export function sky3FixtureCommit(changes = {}) {
   let tree = git(['rev-parse', `${SKY3_BASE}^{tree}`]);
   for (const path of ['src/world/lake.js', 'src/world/meteor.js', ...Object.keys(SKY3_OBSERVER_BLOBS)]) {
-    tree = replace(tree, path.split('/'), git(['hash-object', '-w', '--stdin'], readFileSync(path)));
+    tree = replace(tree, path.split('/'), git(['rev-parse', `9277dbef6d7a2ab39c9f257041d519384c704635:${path}`]));
   }
   for (const [path, source] of Object.entries(changes)) tree = replace(tree, path.split('/'), git(['hash-object', '-w', '--stdin'], source));
   return git(['-c', 'user.name=Sky-3 unit fixture', '-c', 'user.email=unit@example.invalid', 'commit-tree', tree, '-p', SKY3_BASE], 'Synthetic Sky-3 source contract fixture\n');

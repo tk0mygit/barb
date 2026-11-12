@@ -7,6 +7,7 @@ import { sampleNightFog, getNightFogDensity, NIGHT_FOG_CONFIG } from './night-fo
 import { createSurfaceFog } from './surface-fog.js';
 import { createStars } from './stars.js';
 import { createMeteor } from './meteor.js';
+import { createAurora } from './aurora.js';
 
 const hazeDensity = NIGHT_FOG_CONFIG.baseDensity;
 
@@ -66,6 +67,8 @@ export function createLake(scene) {
   scene.add(stars.points);
   const meteor = createMeteor();
   scene.add(meteor.mesh);
+  const aurora = createAurora();
+  scene.add(...aurora.meshes);
   const environment = createEnvironmentParameters();
   const nightFog = {};
   const sunDirection = new THREE.Vector3(), moonDirection = new THREE.Vector3();
@@ -75,6 +78,7 @@ export function createLake(scene) {
       sampleNightFog(clock, nightFog);
       stars.update(clock, boat, nightFog.fogType);
       meteor.update(clock, boat, nightFog.fogType);
+      aurora.update(clock, boat, nightFog.fogType);
       ambient.color.fromArray(environment.ambientSky);
       ambient.groundColor.fromArray(environment.ambientGround);
       ambient.intensity = environment.ambientIntensity;
