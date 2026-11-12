@@ -5,5 +5,5 @@ export const SKY4_MOTION_BLOBS = Object.freeze({
   "scripts/lib/mobile-comparison-source.js": "165537be969c1718fadc4c9677196561fd5669ed",
   "scripts/compare-mobile-performance.mjs": "e7478839e22a1b883bd152884c4e74fdcd73a1da",
   "scripts/compare-lake-scenery.mjs": "5338454805609c4d854874bbef5428b39821c3a6",
-  "tests/browser/aurora-motion.spec.js": "41f00aaf1afca81a70e359b7adfa278ac5de8c05"
+  "tests/browser/aurora-motion.spec.js": "2fdd39b783a963ab9d7cce592d488ea2dc3b2f8a"
 });
