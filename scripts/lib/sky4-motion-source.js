@@ -31,8 +31,13 @@ export async function readSky4MotionTransition(main, pr, headSha = pr.sha) {
   assert.equal(main.sha, SKY4_MOTION_BASE, 'Sky-4 motion: unapproved base SHA');
   assert.match(headSha, /^[a-f0-9]{40}$/, 'Sky-4 motion: full HEAD required');
   assert.equal(await mobileGit('rev-parse', `${headSha}^{commit}`), headSha);
-  if (headSha !== pr.sha) assert.deepEqual((await mobileGit('show', '-s', '--format=%P', pr.sha)).split(' '),
-    [main.sha, headSha], 'Sky-4 motion: validation merge parents differ');
+  if (headSha !== pr.sha) {
+    assert.deepEqual((await mobileGit('show', '-s', '--format=%P', pr.sha)).split(' '),
+      [main.sha, headSha], 'Sky-4 motion: validation merge parents differ');
+    assert.equal(await mobileGit('diff', '--name-only', headSha, pr.sha, '--', 'src', 'public', 'package.json',
+      'package-lock.json', 'index.html', 'vite.config.js', 'playwright.config.js', 'scripts/lib',
+      ...Object.keys(SKY4_MOTION_BLOBS), MANIFEST), '', 'Sky-4 motion: HEAD/validation source differs');
+  }
   assert.equal(await mobileGit('merge-base', main.sha, pr.sha), main.sha, 'Sky-4 motion: base is not ancestor');
   assert.equal(main.auroraBlob, SKY4_SOURCE_BLOBS[AURORA], 'Sky-4 motion: initial aurora source differs');
   assert.equal(pr.auroraBlob, SKY4_MOTION_BLOBS[AURORA], 'Sky-4 motion: unapproved tuned aurora');

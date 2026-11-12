@@ -20,6 +20,10 @@ test('motion transition binds the exact merged base, tuned blobs, literal manife
   const merge = await readMobileImplementation(motionFixtureCommit({}, main.sha, pr.sha));
   await readSky4MotionTransition(main, merge, pr.sha);
   await assert.rejects(readSky4MotionTransition(main, merge, main.sha), /merge parents/);
+  const stars = await mobileGit('show', `${main.sha}:src/world/stars.js`);
+  const badHead = motionFixtureCommit({ 'src/world/stars.js': stars + '\n// must not disappear in the merge' });
+  await assert.rejects(readSky4MotionTransition(main,
+    await readMobileImplementation(motionFixtureCommit({}, main.sha, badHead)), badHead), /HEAD\/validation source differs/);
   const old = await mobileGit('show', `${main.sha}:src/world/aurora.js`), tuned = await mobileGit('show', `${pr.sha}:src/world/aurora.js`);
   verifyAuroraMotionEdit(old, tuned);
   for (const change of [old, tuned.replace('probability: .20', 'probability: .19'), tuned.replace('fadeSeconds: 15', 'fadeSeconds: 12'),
