@@ -12,7 +12,8 @@ import { readMobileWaterEffectsTransition, verifyWaterEffectsCapture, expectedWa
   WATER_EFFECTS_BASE, WATER_EFFECTS_BLOB } from './lib/mobile-water-effects-replay.js';
 import { readSky2Transition, verifyStarCapture, expectedStarResources } from './lib/sky2-source.js';
 import { readSky3Transition, verifyMeteorCapture, expectedMeteorResources } from './lib/sky3-source.js';
-import { readSky4Transition, verifyAuroraCapture, expectedAuroraResources } from './lib/sky4-source.js';
+import { verifyAuroraCapture, expectedAuroraResources } from './lib/sky4-source.js';
+import { readAuroraTransition } from './lib/sky4-motion-source.js';
 
 export const MOBILE_COMPARISON_MODES = ['regression', 'historical-improvement'];
 // One reviewed product-source transition, not a per-PR resource allowance.
@@ -173,7 +174,7 @@ async function readComparisonSources(metadata) {
   ]);
   const sky2Transition = await readSky2Transition(implementations.main, implementations.pr);
   const sky3Transition = await readSky3Transition(implementations.main, implementations.pr);
-  const sky4Transition = await readSky4Transition(implementations.main, implementations.pr);
+  const sky4Transition = await readAuroraTransition(implementations.main, implementations.pr, metadata.headSha);
   return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition, waterEffectsTransition, sky2Transition, sky3Transition, sky4Transition };
 }
 
@@ -327,7 +328,9 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       for (const sky of ['stars', 'meteor']) assert.deepEqual(sources.verified.get(a)[sky].draws,
         sources.verified.get(b)[sky].draws, `Sky-4: existing ${sky} submissions changed`);
       expected = { resources: expectedAuroraResources(b.metrics.resources, a.metrics.resources, beforeReplay, afterReplay, 'fixed'),
-        transition: 'Sky-4: exact-source two curtain submissions; warmed geometry +1 / shared program +1 / textures exact' };
+        transition: sources.sky4Transition.kind === 'clear-night-aurora-motion-Sky4'
+          ? 'Sky-4 motion: independently replayed curtains/culling; existing shared geometry/program/buffers; textures exact'
+          : 'Sky-4: exact-source two curtain submissions; warmed geometry +1 / shared program +1 / textures exact' };
       expectedAuroraResources(b.metrics.actualResources, a.metrics.actualResources, beforeReplay, afterReplay, 'actual');
       auroraComparison = { proof: sources.sky4Transition, beforeState: beforeReplay.state, afterState: afterReplay.state,
         beforeDraws: beforeReplay.draws, afterDraws: afterReplay.draws };
