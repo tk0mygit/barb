@@ -127,8 +127,8 @@ export function createAurora() {
   let squaredRadius = 0;
   for (let i = 0; i < positions.length; i += 3) squaredRadius = Math.max(squaredRadius,
     (positions[i] - center.x) ** 2 + (positions[i + 1] - center.y) ** 2 + (positions[i + 2] - center.z) ** 2);
-  // The two bounded shader displacements are <= 47m in total.
-  geometry.boundingSphere.radius = Math.sqrt(squaredRadius) + 48;
+  // |dx| <= 45m, |dy| <= 29m: 80m exceeds even their 74m L1 bound.
+  geometry.boundingSphere.radius = Math.sqrt(squaredRadius) + 80;
   for (let layer = 0; layer < meshes.length; layer++) {
     const mesh = meshes[layer], material = materials[layer];
     Object.assign(material, { transparent: true, depthTest: true, depthWrite: false, fog: false,
@@ -142,11 +142,11 @@ export function createAurora() {
       varying vec2 curtain;
       void main() {
         curtain = uv;
-        float t = auroraTime * 0.00872664625997;
+        float t = auroraTime * 0.03490658503988;
         float p = auroraPhase + auroraLayer * 0.8;
         vec3 point = position;
-        point.x += 28.0 * sin(uv.x * 10.0 + t * 3.0 + p) * sin(uv.y * 2.4 + 0.2);
-        point.y += 18.0 * sin(uv.x * 15.0 - t * 2.0 + p);
+        point.x += 45.0 * sin(uv.x * 10.0 + t * 3.0 + p) * sin(uv.y * 2.4 + 0.2);
+        point.y += 29.0 * sin(uv.x * 15.0 - t * 2.0 + p);
         gl_Position = projectionMatrix * modelViewMatrix * vec4(point, 1.0);
       }`;
     material.fragmentShader = `uniform float auroraTime;
@@ -156,13 +156,13 @@ export function createAurora() {
       uniform float auroraLayer;
       varying vec2 curtain;
       void main() {
-        float t = auroraTime * 0.00872664625997;
+        float t = auroraTime * 0.03490658503988;
         float p = auroraPhase + auroraLayer * 0.8;
         float u = curtain.x;
-        float fold = u + 0.022 * sin(u * 14.0 + t * 3.0 + p)
-          + 0.009 * sin(u * 31.0 - t * 2.0 + p);
-        float hem = 0.15 + 0.055 * sin(u * 12.0 + t * 2.0 + p)
-          + 0.035 * sin(u * 23.0 - t * 3.0);
+        float fold = u + 0.031 * sin(u * 14.0 + t * 3.0 + p)
+          + 0.013 * sin(u * 31.0 - t * 2.0 + p);
+        float hem = 0.15 + 0.077 * sin(u * 12.0 + t * 2.0 + p)
+          + 0.049 * sin(u * 23.0 - t * 3.0);
         float height = curtain.y - hem;
         float edge = smoothstep(0.0, 0.10, u) * smoothstep(0.0, 0.10, 1.0 - u);
         float veil = smoothstep(-0.03, 0.08, height) * exp(-max(height, 0.0) * 4.0)

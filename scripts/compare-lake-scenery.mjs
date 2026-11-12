@@ -7,7 +7,8 @@ import { readMobileImplementation, replayMobileCamera, mobileSourceMetadata } fr
 import { expectedMobileResources } from './compare-mobile-performance.mjs';
 import { readSky2Transition, verifyStarCapture, expectedStarResources } from './lib/sky2-source.js';
 import { readSky3Transition, verifyMeteorCapture, expectedMeteorResources } from './lib/sky3-source.js';
-import { readSky4Transition, verifyAuroraCapture, expectedAuroraResources } from './lib/sky4-source.js';
+import { verifyAuroraCapture, expectedAuroraResources } from './lib/sky4-source.js';
+import { readAuroraTransition } from './lib/sky4-motion-source.js';
 
 // The scenery capture uses the real camera, including its ordinary settling.
 // Verify that pose against its exact source before comparing the two views.
@@ -94,7 +95,7 @@ export async function writeComparison(main, pr, destination, mainLabel = 'main d
       implementations: { main: mobileSourceMetadata(main), pr: mobileSourceMetadata(candidate) } });
     const sky2 = await readSky2Transition(main, candidate);
     const sky3 = await readSky3Transition(main, candidate);
-    const sky4 = await readSky4Transition(main, candidate);
+    const sky4 = await readAuroraTransition(main, candidate);
     if (sky4) {
       assert(['day-tps', 'day-fps', 'twilight', 'clear-night', 'fog-night', 'dense-night', 'portrait', 'landscape'].includes(id), 'Sky-4: unknown scenery view');
       const preserved = [];

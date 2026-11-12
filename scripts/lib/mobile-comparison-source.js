@@ -96,6 +96,10 @@ export async function assertMobileWorkingSource(implementation) {
     const { SKY4_SOURCE_BLOBS } = await import('./sky4-source-pins.js');
     const files = [...Object.keys(SKY4_SOURCE_BLOBS), 'scripts/lib/sky4-source-pins.js',
       'tests/helpers/star-snapshot.js', 'tests/helpers/meteor-snapshot.js'];
+    if (await mobileGit('ls-tree', implementation.sha, '--', 'scripts/lib/sky4-motion-pins.js')) {
+      const { SKY4_MOTION_BLOBS } = await import('./sky4-motion-pins.js');
+      files.push(...Object.keys(SKY4_MOTION_BLOBS), 'scripts/lib/sky4-motion-pins.js');
+    }
     assert.equal(await mobileGit('status', '--porcelain=v1', '--untracked-files=all', '--', 'scripts/lib', ...files), '',
       'Sky-4: uncommitted observer/replay/manifest source');
     for (const file of files) {
