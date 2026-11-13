@@ -8,7 +8,7 @@ function installDOM() {
   const elements = new Map();
   function element() {
     return { hidden: false, textContent: '', dataset: {}, style: {}, open: false,
-      classList: { toggle() {} }, addEventListener() {}, setAttribute() {}, removeAttribute() {}, append() {}, after() {}, focus() {},
+      classList: { toggle() {} }, addEventListener() {}, setAttribute() {}, removeAttribute() {}, toggleAttribute() {}, querySelector, append() {}, after() {}, focus() {},
       showModal() { this.open = true; }, close() { this.open = false; },
       replaceWith(next) { elements.set('#catch-image', next); } };
   }
