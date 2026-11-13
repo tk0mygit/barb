@@ -142,3 +142,26 @@ test('Sky-4R2 31 nights keep water/light/GPU identities and reset after a select
   expect(history.some(s => s.world.water.light.strength === 0)).toBe(true);
   await writeFile(info.outputPath('world-31-night.json'), JSON.stringify({ headSha: sources.pr.sha, history }, null, 2));
 });
+
+test('Sky-4R2 opposite native FPS culls both curtains and contributes zero directional water pixels', async ({ page, context }, info) => {
+  await page.setViewportSize({ width: 1000, height: 700 }); await setup(page, seconds);
+  await page.locator('#fish-button').click(); for (let i = 0; i < 12; i++) await tick(page);
+  const look = async (dx, dy) => {
+    await page.mouse.move(100, 385); await page.mouse.down(); await page.mouse.move(100 + dx, 385 + dy); await tick(page); await page.mouse.up();
+    for (let i = 0; i < 12; i++) await tick(page);
+  };
+  await look(0, -80); const front = await page.evaluate(() => window.lightingProbe.readWorldLight());
+  await look(Math.PI / .004, 0);
+  const state = await page.evaluate(() => ({ lighting: window.lightingProbe.last, world: window.lightingProbe.readWorldLight(),
+    draws: window.lightingProbe.auroraDraws }));
+  expect(state.draws.every(layer => layer.calls === 0)).toBe(true); expect(state.world.water.light.strength).toBe(.14);
+  expect(state.world.water.gpu).toEqual(front.water.gpu);
+  const at = seconds + ((state.lighting.mistTime - seconds % 3600 + 3600) % 3600);
+  const base = sampleDayNight(createGameClock(undefined, { elapsedSeconds: at }).state);
+  const parts = await page.evaluate(base => window.lightingProbe.captureWorldLightParts(base), base);
+  // Keep the global existing Hemi enabled on both sides; only directionally
+  // reflected water light is excluded, so this cannot hide ambient changes.
+  expect(parts.full.image).toBe(parts.waterOff.image);
+  for (const name of ['full', 'waterOff']) await writeFile(info.outputPath(`back-${name}.png`), Buffer.from(parts[name].image.split(',')[1], 'base64'));
+  await writeFile(info.outputPath('back.json'), JSON.stringify({ headSha: sources.pr.sha, at, state }, null, 2));
+});

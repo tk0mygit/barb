@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readMobileImplementation, mobileGit } from '../scripts/lib/mobile-comparison-source.js';
-import { SKY4R2_BASE, readSky4R2Transition, readAuroraEvolution, verifySky4R2Product } from '../scripts/lib/sky4r2-source.js';
+import { SKY4R2_BASE, readSky4R2Transition, readAuroraEvolution, verifySky4R2Product, readWorldLightSource } from '../scripts/lib/sky4r2-source.js';
 import { compareMobileCapturePairWithSources } from '../scripts/compare-mobile-performance.mjs';
 import { validateMobileEvidence } from '../scripts/ci-summary.js';
 import { writeComparison } from '../scripts/compare-lake-scenery.mjs';
@@ -102,3 +102,20 @@ test('cold scenery uses the world-light source transition and rejects every extr
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
+
+// Color/Vector2 additions must not consume UUID/shared game entropy.
+test('R2 water construction consumes exactly the baseline RNG sequence and update consumes none', async () => {
+  const main = await readWorldLightSource(SKY4R2_BASE), pr = await readWorldLightSource(worldFixtureCommit());
+  const saved = Math.random, counts = [];
+  try {
+    for (const source of [main, pr]) {
+      let count = 0; Math.random = () => { count++; return .5; };
+      const water = source.createWater(), before = count;
+      const clock = source.createGameClock(undefined, { elapsedSeconds: 18990 }).state, fog = source.sampleNightFog(clock);
+      const sample = source.sampleAurora(clock, fog.fogType), light = source.sampleAuroraLight?.(sample);
+      water.update(10, { x: 10, z: 20, speed: 0 }, source.sampleDayNight(clock), light);
+      assert.equal(count, before); counts.push(count); water.mesh.geometry.dispose(); water.mesh.material.dispose();
+    }
+  } finally { Math.random = saved; }
+  assert.equal(counts[1], counts[0]);
+});
