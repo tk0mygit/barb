@@ -310,7 +310,9 @@ export function assertEnvironment(actual, elapsedSeconds) {
     actual.worldLight.ambient.ground.forEach((value, i) => expect(value).toBeCloseTo(lit.ambientGround[i], 10));
     expect(actual.worldLight.water.light.strength).toBeCloseTo(light.lightStrength, 10);
     expect(actual.worldLight.water.light.color).toEqual(light.lightColor);
-    expect(actual.worldLight.water.light.direction).toEqual(light.lightDirection);
+    // GLSL vec2 uploads Float32. Node/Chromium cos can differ by one
+    // Float64 ULP at the identical angle; require identical GPU bits, no epsilon.
+    expect(actual.worldLight.water.light.direction.map(Math.fround)).toEqual(light.lightDirection.map(Math.fround));
   }
   expected.fogColor = new Color().fromArray(expected.horizon).lerp(new Color('#53646f'), night.effectiveFogAmount * 0.65).toArray();
   expected.moonOpacity *= (1 - night.effectiveFogAmount) ** 2;

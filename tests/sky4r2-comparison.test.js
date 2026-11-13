@@ -120,3 +120,18 @@ test('R2 water construction consumes exactly the baseline RNG sequence and updat
   } finally { Math.random = saved; }
   assert.equal(counts[1], counts[0]);
 });
+
+test('direction compares exact submitted Float32 bits: one observed CPU ULP is harmless, one GPU ULP fails', async () => {
+  const p = await worldGateFixture(), before = p.before.find(e => e.id === 'pc-clear-night'), good = p.after.find(e => e.id === before.id);
+  const raw = good.metrics.worldLight.water.light.direction[1], cpu = raw + Number.EPSILON;
+  assert.notEqual(cpu, raw); assert.equal(Math.fround(cpu), Math.fround(raw));
+  const equivalent = structuredClone(good); equivalent.metrics.worldLight.water.light.direction[1] = cpu;
+  await compareMobileCapturePairWithSources(before, equivalent, p.metadata);
+  assert.equal(equivalent.metrics.worldLight.water.light.direction[1], cpu, 'raw evidence was mutated');
+  const float = new Float32Array([raw]), bits = new Uint32Array(float.buffer); bits[0]++;
+  assert.notEqual(float[0], Math.fround(raw));
+  for (const field of ['light', 'gpuLight']) {
+    const bad = structuredClone(good); bad.metrics.worldLight.water[field].direction[1] = float[0];
+    await assert.rejects(compareMobileCapturePairWithSources(before, bad, p.metadata), /water (source|light)/);
+  }
+});

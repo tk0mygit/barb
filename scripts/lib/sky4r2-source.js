@@ -152,7 +152,11 @@ export async function verifyWorldLightCapture(implementation, entry, options) {
   assert.deepEqual(hemi.sky, expected.ambient.ambientSky.map(v => Math.fround(v * expected.ambient.ambientIntensity)), 'Sky-4R2: sky light not uploaded');
   assert.deepEqual(hemi.ground, expected.ambient.ambientGround.map(v => Math.fround(v * expected.ambient.ambientIntensity)), 'Sky-4R2: ground light not uploaded');
   const { geometryId, materialId, gpu, gpuLight, ...values } = actual.water;
-  assert.deepEqual(values, expected.water, 'Sky-4R2: water source/uniform/geometry differs');
+  // Preserve raw CPU evidence. Only the direction vec2 is compared in its
+  // actual GPU representation: identical Float32 bits, with no epsilon.
+  // Node/Chromium Math.cos at the same angle can differ by one Float64 ULP.
+  const submitted = value => ({ ...value, light: value.light ? { ...value.light, direction: value.light.direction.map(Math.fround) } : null });
+  assert.deepEqual(submitted(values), submitted(expected.water), 'Sky-4R2: water source/uniform/geometry differs');
   for (const id of [geometryId, materialId]) assert(Number.isSafeInteger(id) && id >= 0, 'Sky-4R2: invalid water identity');
   assert.notEqual(geometryId, m.auroraDisplay.snapshot.geometryId, 'Sky-4R2: foreign water geometry');
   const light = expected.water.light;

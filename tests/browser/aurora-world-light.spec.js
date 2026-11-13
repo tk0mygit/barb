@@ -5,7 +5,7 @@ import { prepareSceneryReference } from './lake-scenery-reference.js';
 import { findAuroraNight } from '../helpers/aurora-event.js';
 import { measureAuroraWorldLight } from '../helpers/aurora-world-light-pixels.js';
 import { readMobileImplementation, mobileGit, assertMobileWorkingSource, mobileSourceMetadata } from '../../scripts/lib/mobile-comparison-source.js';
-import { readSky4R2Transition } from '../../scripts/lib/sky4r2-source.js';
+import { readSky4R2Transition, readWorldLightSource } from '../../scripts/lib/sky4r2-source.js';
 import { sampleDayNight } from '../../src/world/day-night.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 
@@ -164,4 +164,53 @@ test('Sky-4R2 opposite native FPS culls both curtains and contributes zero direc
   expect(parts.full.image).toBe(parts.waterOff.image);
   for (const name of ['full', 'waterOff']) await writeFile(info.outputPath(`back-${name}.png`), Buffer.from(parts[name].image.split(',')[1], 'base64'));
   await writeFile(info.outputPath('back.json'), JSON.stringify({ headSha: sources.pr.sha, at, state }, null, 2));
+});
+
+
+for (const phase of [180, 360]) test(`Sky-4R2 exact first rendered fade=0 whole-frame A/B at ${phase}s`, async ({ createContext }, info) => {
+  const results = [];
+  for (const target of ['main', 'pr']) {
+    const context = await createContext({ ...(target === 'main' ? { baseURL: reference.baseURL } : {}),
+      viewport: { width: 640, height: 400 }, deviceScaleFactor: 1 });
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      let events;
+      Object.defineProperty(window, '__THREE_DEVTOOLS__', { configurable: true, get: () => events, set(value) {
+        events = value; value.addEventListener('observe', ({ detail: renderer }) => {
+          if (!renderer.isWebGLRenderer) return;
+          const render = renderer.render; let first = true;
+          renderer.render = function(scene, camera) {
+            const result = render.apply(this, arguments);
+            if (first) {
+              first = false; const ambient = scene.children.find(o => o.isHemisphereLight), u = scene.getObjectByName('lake-water').material.uniforms;
+              window.r2FirstFrame = { image: renderer.domElement.toDataURL('image/png'),
+                ambient: { color: ambient.color.toArray(), ground: ambient.groundColor.toArray(), intensity: ambient.intensity },
+                light: u.auroraStrength ? { color: u.auroraColor.value.toArray(), strength: u.auroraStrength.value, direction: u.auroraDirection.value.toArray() } : null,
+                counts: { geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs.length,
+                  calls: renderer.info.render.calls, triangles: renderer.info.render.triangles } };
+            }
+            return result;
+          };
+        });
+      } });
+    });
+    await setup(page, night * 360 + phase);
+    const result = await page.evaluate(() => window.r2FirstFrame); results.push(result);
+    await writeFile(info.outputPath(`${target}-first.png`), Buffer.from(result.image.split(',')[1], 'base64'));
+  }
+  expect(results[1].image).toBe(results[0].image); expect(results[1].counts).toEqual(results[0].counts);
+  expect(results[1].ambient).toEqual(results[0].ambient); expect(results[1].light).toEqual({ color: [0, 0, 0], strength: 0, direction: [0, 0] });
+  await writeFile(info.outputPath('first-frame.json'), JSON.stringify({ headSha: sources.pr.sha, phase, results: results.map(({ image, ...r }) => r) }, null, 2));
+});
+
+test('Sky-4R2 observed night4 direction matches every actual GPU bit after Float64 engine roundoff', async ({ page }, info) => {
+  await page.setViewportSize({ width: 640, height: 400 }); const at = 4 * 360 + 225; await setup(page, at);
+  const source = await readWorldLightSource(sources.pr.sha), state = source.createGameClock(undefined, { elapsedSeconds: at }).state;
+  const sample = source.sampleAurora(state, 'CLEAR'), light = source.sampleAuroraLight(sample);
+  const actual = await page.evaluate(() => window.lightingProbe.readWorldLight());
+  expect(actual.water.light.strength).toBe(.14);
+  expect(actual.water.light.direction.map(Math.fround)).toEqual(light.lightDirection.map(Math.fround));
+  expect(actual.water.gpuLight.direction).toEqual(light.lightDirection.map(Math.fround));
+  await writeFile(info.outputPath('direction-bits.json'), JSON.stringify({ headSha: sources.pr.sha, angle: sample.azimuth + .11,
+    node: light.lightDirection, chromium: actual.water.light.direction, gpu: actual.water.gpuLight.direction, world: actual }, null, 2));
 });
