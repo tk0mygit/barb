@@ -2,12 +2,15 @@ import * as THREE from 'three';
 import './ui/style.css';
 import { calculateRenderResolution } from './rendering/resolution.js';
 import { createLake } from './world/lake.js';
-import { stepBoat, enterFishing, leaveFishing } from './game/boat.js';
+import { stepBoat, enterFishing, leaveFishing, isStopped } from './game/boat.js';
+import { createTimeSkip } from './game/time-skip.js';
+import { createPlayPreferences } from './game/play-preferences.js';
 import { createBoatModel } from './rendering/boat-model.js';
 import { createCameraRig } from './rendering/camera.js';
 import { createCastVisibility } from './rendering/cast-visibility.js';
 import { nearRingExpansion } from './rendering/fishing-visuals.js';
 import { createControls } from './input/controls.js';
+import { createTimeSkipInputLock } from './input/time-skip-lock.js';
 import { createHUD } from './ui/hud.js';
 import { PHASE } from './game/fishing.js';
 import { createFishingInput } from './input/fishing.js';
@@ -48,8 +51,10 @@ function showError(message) {
   error.hidden = false;
   document.querySelector('#fish-button').disabled = true;
   document.querySelector('#menu-button').disabled = true;
+  document.querySelector('#day-night-skip').hidden = true;
 }
 let autosave, environmentAudio, audioSession, qteDelivery, qteHUD, rodReelView, fishingView, discoveryCoordinator;
+let disposeSkyCheck;
 try {
   // Choose one complete domain before anything subscribes or renders. Storage
   // remains read-only until the scene, controls and every HUD are ready.
@@ -65,6 +70,9 @@ try {
   if (loaded.status.code === 'restore-failed') throw new Error('Gameplay restoration failed');
   const state = loaded.state ?? gameplayFactory();
   const { boat, clock: gameClock, fishing, collection, achievements } = state;
+  const timeSkip = createTimeSkip(gameClock);
+  const playPreferences = createPlayPreferences();
+  disposeSkyCheck = () => playPreferences.dispose();
   autosave = createAutosave({ state, storage });
   const saveStatus = createSaveStatus();
   autosave.subscribe(saveStatus.update);
@@ -147,6 +155,8 @@ try {
   const rig = createCameraRig(camera, boat);
   const app = document.querySelector('#app');
   let preparation = null;
+  let focused = document.hasFocus(), pageActive = true, renderHealthy = true;
+  let focusRecovery = focused ? null : 'startup', touchContact;
   const fixedCastVisibility = createCastVisibility(camera, () => {
     const style = getComputedStyle(document.documentElement);
     const inset = edge => parseFloat(style.getPropertyValue(`--safe-${edge}`)) || 0;
@@ -196,9 +206,10 @@ try {
     preparation = null;
     app.dataset.castPreparing = 'false';
     controls.cancelPreparation();
-    controls.setEnabled(!collectionMenu.isOpen);
+    controls.setEnabled(!collectionMenu.isOpen && !timeSkip.active && renderHealthy);
   }
   function changeMode(mode) {
+    if (timeSkip.active || !renderHealthy) return;
     cancelPreparation();
     if (mode === 'fishing') { if (!enterFishing(boat)) return; }
     else {
@@ -209,13 +220,28 @@ try {
     controls.setMode(boat.mode);
     canvas.focus({ preventScroll: true });
   }
-  const hud = createHUD({ onFish: () => changeMode('fishing'), onReturn: () => changeMode('sailing') });
+  function safeToSkip() {
+    return playPreferences.state.dayNightSkip && !document.hidden && focused && pageActive && renderHealthy
+      && !collectionMenu.isOpen && !document.querySelector('#collection-dialog').open
+      && !document.querySelector('#catch-dialog').open && boat.mode === 'sailing' && isStopped(boat)
+      && !preparation && fishing.state.phase === PHASE.READY;
+  }
+  const hud = createHUD({ onFish: () => changeMode('fishing'), onReturn: () => changeMode('sailing'),
+    readTimeSkip: () => ({ enabled: playPreferences.state.dayNightSkip, active: timeSkip.active,
+      available: !timeSkip.active && safeToSkip(), timeOfDay: gameClock.state.timeOfDay }),
+    onTimeSkip: () => {
+      if (!timeSkip.start(safeToSkip())) return;
+      boat.speed = 0;
+      previous = performance.now();
+      syncTimeSkip();
+    },
+  });
   const fishingHUD = createFishingHUD({
     onResult: discoveryCoordinator.showResult,
     onResultClose: discoveryCoordinator.closeResult,
     onSelectLure: id => { fishing.selectLure(id); },
     onPrepare: () => {
-      if (preparation || boat.mode !== 'fishing' || fishing.state.phase !== PHASE.READY) return;
+      if (!renderHealthy || timeSkip.active || preparation || boat.mode !== 'fishing' || fishing.state.phase !== PHASE.READY) return;
       controls.beginPreparation();
       const fromPosition = camera.position.clone(), fromQuaternion = camera.quaternion.clone();
       const heading = rig.prepareCast();
@@ -235,25 +261,58 @@ try {
   });
   const collectionMenu = createCollectionMenu({
     ambientAudio,
+    playPreferences,
     collection,
     achievements,
     onSale: receipt => salesHUD.notify(receipt),
     onUpgrade: () => salesHUD.update(),
     canPurchase: () => boat.mode === 'sailing' || (boat.mode === 'fishing' && fishing.state.phase === PHASE.READY),
-    canOpen: () => fishing.state.phase !== PHASE.RESULT && !document.querySelector('#catch-dialog').open,
+    canOpen: () => !timeSkip.active && renderHealthy && fishing.state.phase !== PHASE.RESULT && !document.querySelector('#catch-dialog').open,
     onOpenChange: open => {
+      if (open) cancelTimeSkip();
       fishingInput.setSuspended('menu', open, performance.now());
       if (open) cancelPreparation();
       if (open) castNotices.update(null, false);
       ambientAudio.setPaused('menu', open);
       salesHUD.update();
       achievementNotice.update();
-      controls.setEnabled(!open);
+      controls.setEnabled(!open && !timeSkip.active && renderHealthy);
       if (open && fishing.state.phase === PHASE.READY) rodReelView.resetMotion();
       previous = performance.now();
       if (!open) canvas.focus({ preventScroll: true });
     },
   });
+  const skipInputLock = createTimeSkipInputLock({ isActive: () => timeSkip.active });
+  let skipLocked = false;
+  function syncTimeSkip() {
+    const locked = timeSkip.active;
+    if (locked !== skipLocked) {
+      skipLocked = locked;
+      if (locked) skipInputLock.discardHeldKeys();
+      controls.setEnabled(!locked && !collectionMenu.isOpen && renderHealthy);
+      canvas.inert = locked;
+      document.querySelector('.wordmark').inert = locked;
+      document.querySelector('.action-panel').inert = locked;
+      app.dataset.timeSkipping = String(locked);
+      app.setAttribute('aria-busy', String(locked));
+      if (!locked && focused && pageActive && !document.hidden && !collectionMenu.isOpen && renderHealthy) canvas.focus({ preventScroll: true });
+    }
+    if (renderHealthy) { hud.update(boat); collectionMenu.update(); }
+  }
+  function cancelTimeSkip() {
+    if (!timeSkip.active && !skipLocked) return;
+    timeSkip.cancel(); syncTimeSkip(); previous = performance.now();
+  }
+  const unsubscribePlay = playPreferences.subscribe(() => {
+    if (!playPreferences.state.dayNightSkip) cancelTimeSkip();
+    syncTimeSkip();
+  });
+  window.addEventListener('error', cancelTimeSkip);
+  window.addEventListener('unhandledrejection', cancelTimeSkip);
+  disposeSkyCheck = () => {
+    cancelTimeSkip(); unsubscribePlay(); skipInputLock.dispose(); playPreferences.dispose();
+    window.removeEventListener('error', cancelTimeSkip); window.removeEventListener('unhandledrejection', cancelTimeSkip);
+  };
   if (qteDelivery) qteHUD = createQteHUD({ fishing, delivery: qteDelivery,
     provider: { getDescriptor: index => state.qteProvider.getDescriptor(index) },
     manageGeometry: false, autoPresent: false });
@@ -268,7 +327,7 @@ try {
   // clock here too so a night restore never flashes the daytime environment.
   lake.update(0, boat, gameClock.state);
   window.addEventListener('keydown', event => {
-    if (collectionMenu.isOpen || event.defaultPrevented) return;
+    if (timeSkip.active || collectionMenu.isOpen || event.defaultPrevented) return;
     if (event.code !== 'Escape' || boat.mode !== 'fishing' || fishing.state.phase === PHASE.RESULT) return;
     if (preparation) cancelPreparation();
     else if (fishing.state.phase === PHASE.AIM) controls.reset();
@@ -308,8 +367,6 @@ try {
   window.addEventListener('orientationchange', () => fishingInput.geometryChanged(true, performance.now()));
   window.screen.orientation?.addEventListener('change', () => fishingInput.geometryChanged(true, performance.now()));
   resize();
-  let focused = document.hasFocus();
-  let focusRecovery = focused ? null : 'startup', touchContact;
   ambientAudio.setPaused('blur', !focused);
   ambientAudio.setPaused('hidden', document.hidden);
   fishingInput.setSuspended('blur', !focused, performance.now());
@@ -319,26 +376,32 @@ try {
     cancelPreparation();
     focused = false; focusRecovery = 'blurred'; cancelTouch(); ambientAudio.setPaused('blur', true);
     if (fishing.state.phase === PHASE.READY) rodReelView.resetMotion();
+    cancelTimeSkip(); syncTimeSkip();
   });
   window.addEventListener('focus', () => {
     fishingInput.setSuspended('blur', false, performance.now());
     focused = true; focusRecovery = null; cancelTouch();
     previous = performance.now(); ambientAudio.setPaused('blur', false);
+    syncTimeSkip();
   });
   document.addEventListener('visibilitychange', () => {
     fishingInput.setSuspended('hidden', document.hidden, performance.now());
     ambientAudio.setPaused('hidden', document.hidden);
     previous = performance.now();
+    if (document.hidden) cancelTimeSkip();
+    syncTimeSkip();
     if (document.hidden) { cancelTouch(); autosave.flush(); }
     if (document.hidden) cancelPreparation();
     if (document.hidden && fishing.state.phase === PHASE.READY) rodReelView.resetMotion();
   });
   window.addEventListener('pagehide', () => {
+    pageActive = false; cancelTimeSkip(); syncTimeSkip();
     fishingInput.setSuspended('page', true, performance.now());
     cancelTouch(); ambientAudio.setPaused('page', true); autosave.flush();
     if (fishing.state.phase === PHASE.READY) rodReelView.resetMotion();
   });
   window.addEventListener('pageshow', () => {
+    pageActive = true; syncTimeSkip();
     fishingInput.setSuspended('page', false, performance.now());
     previous = performance.now();
     ambientAudio.setPaused('page', false); autosave.checkForExternalChanges();
@@ -347,72 +410,85 @@ try {
     if (event.key === null || SAVE_STORAGE_KEYS.includes(event.key)) autosave.checkForExternalChanges();
   });
   renderer.setAnimationLoop(now => {
-    const frameSeconds = Math.max(0, (now - previous) / 1000);
-    const dt = Math.min(frameSeconds, 0.25);
-    previous = now;
-    if (document.hidden || !focused || collectionMenu.isOpen) return;
-    // Clock tracks all active time, even on slow frames. Movement retains its
-    // existing safety cap; hidden/unfocused time is not caught up on resume.
-    gameClock.step(frameSeconds);
-    const clockState = gameClock.state;
-    ambientAudio.update();
-    elapsed += dt;
-    // DOM events have already entered controls. The prior frame really
-    // rendered its prepared HUD; only a later rAF may present that geometry.
-    if (qteHUD) {
-      qteFrame++;
-      if (qteRenderedFrame === qteFrame - 1) qteHUD.present(qteFrame, performance.now());
-    }
-    const input = controls.read(dt, qteDelivery ? performance.now() : now);
-    const phaseBefore = fishing.state.phase;
-    // Input has polled/sealed and based its normal timestamps on this same
-    // accepted duration. The unresolved interval is never banked as physics.
-    const physicsDt = qteDelivery && phaseBefore === PHASE.FIGHT ? fishingInput.frameSeconds : dt;
-    if (boat.mode === 'fishing') fishing.step(physicsDt);
-    if (fishing.state.phase === PHASE.BITE && phaseBefore !== PHASE.BITE) audio.bite();
-    // Substeps preserve real-time braking on slow devices without large collision steps.
-    const steps = Math.max(1, Math.ceil(dt / 0.05));
-    for (let i = 0; i < steps; i++) stepBoat(boat, input, dt / steps);
-    autosave.markProgress();
-    const spotStatus = getFishingSpotStatus(boat);
-    spotsView.update(spotStatus.active?.id);
-    spotsHUD.update(spotStatus);
-    model.position.set(boat.x, Math.sin(elapsed * 1.5) * 0.045, boat.z);
-    model.rotation.set(Math.sin(elapsed * 1.3) * 0.008, -boat.heading, Math.cos(elapsed * 1.4) * 0.014);
-    // Three.js local -Z forward rotates with a negative yaw for our heading convention.
-    const tracking = [PHASE.FIGHT, PHASE.LANDING].includes(fishing.state.phase) ? {
-      x: fishing.state.origin.x + Math.sin(fishing.state.heading) * fishing.state.distance,
-      z: fishing.state.origin.z - Math.cos(fishing.state.heading) * fishing.state.distance,
-    } : null;
-    rig.update(dt, input, Boolean(preparation) || (boat.mode === 'fishing' && fishing.state.phase !== PHASE.READY), tracking);
-    if (preparation) {
-      preparation.time += dt;
-      const t = Math.min(1, preparation.time / 0.1), smooth = t * t * (3 - 2 * t);
-      camera.position.lerpVectors(preparation.fromPosition, preparation.position, smooth);
-      camera.quaternion.slerpQuaternions(preparation.fromQuaternion, preparation.quaternion, smooth);
-      camera.updateMatrixWorld();
-      if (t === 1) {
-        const heading = preparation.heading;
-        preparation = null; app.dataset.castPreparing = 'false';
-        // Lay out AIM before measuring its occlusions; a stale READY panel or
-        // rejection note must not become the constraint for the new gesture.
-        fishing.prepare(boat, heading, null);
-        hud.update(boat);
-        fishingHUD.update(fishing, true, clockState);
-        fishing.setCastVisibility(castVisibility);
-        controls.finishPreparation();
+    try {
+      if (!Number.isFinite(now)) { cancelTimeSkip(); previous = performance.now(); return; }
+      const frameSeconds = Math.max(0, (now - previous) / 1000);
+      const dt = Math.min(frameSeconds, 0.25);
+      previous = now;
+      if (timeSkip.active && !safeToSkip()) cancelTimeSkip();
+      // SkyCheck's pagehide latch must not pause the existing OFF path.
+      if (document.hidden || !focused || (!pageActive && playPreferences.state.dayNightSkip)
+        || collectionMenu.isOpen || document.querySelector('#collection-dialog').open) return;
+      // Clock tracks all active time, even on slow frames. Movement retains its
+      // existing safety cap; hidden/unfocused time is not caught up on resume.
+      const skippingFrame = timeSkip.step(frameSeconds);
+      const clockState = gameClock.state;
+      ambientAudio.update();
+      if (!skippingFrame) {
+        elapsed += dt;
+        // DOM events have already entered controls. The prior frame really
+        // rendered its prepared HUD; only a later rAF may present that geometry.
+        if (qteHUD) {
+          qteFrame++;
+          if (qteRenderedFrame === qteFrame - 1) qteHUD.present(qteFrame, performance.now());
+        }
+        const input = controls.read(dt, qteDelivery ? performance.now() : now);
+        const phaseBefore = fishing.state.phase;
+        // Input has polled/sealed and based its normal timestamps on this same
+        // accepted duration. The unresolved interval is never banked as physics.
+        const physicsDt = qteDelivery && phaseBefore === PHASE.FIGHT ? fishingInput.frameSeconds : dt;
+        if (boat.mode === 'fishing') fishing.step(physicsDt);
+        if (fishing.state.phase === PHASE.BITE && phaseBefore !== PHASE.BITE) audio.bite();
+        // Substeps preserve real-time braking on slow devices without large collision steps.
+        const steps = Math.max(1, Math.ceil(dt / 0.05));
+        for (let i = 0; i < steps; i++) stepBoat(boat, input, dt / steps);
+        const spotStatus = getFishingSpotStatus(boat);
+        spotsView.update(spotStatus.active?.id);
+        spotsHUD.update(spotStatus);
+        model.position.set(boat.x, Math.sin(elapsed * 1.5) * 0.045, boat.z);
+        model.rotation.set(Math.sin(elapsed * 1.3) * 0.008, -boat.heading, Math.cos(elapsed * 1.4) * 0.014);
+        // Three.js local -Z forward rotates with a negative yaw for our heading convention.
+        const tracking = [PHASE.FIGHT, PHASE.LANDING].includes(fishing.state.phase) ? {
+          x: fishing.state.origin.x + Math.sin(fishing.state.heading) * fishing.state.distance,
+          z: fishing.state.origin.z - Math.cos(fishing.state.heading) * fishing.state.distance,
+        } : null;
+        rig.update(dt, input, Boolean(preparation) || (boat.mode === 'fishing' && fishing.state.phase !== PHASE.READY), tracking);
+        if (preparation) {
+          preparation.time += dt;
+          const t = Math.min(1, preparation.time / 0.1), smooth = t * t * (3 - 2 * t);
+          camera.position.lerpVectors(preparation.fromPosition, preparation.position, smooth);
+          camera.quaternion.slerpQuaternions(preparation.fromQuaternion, preparation.quaternion, smooth);
+          camera.updateMatrixWorld();
+          if (t === 1) {
+            const heading = preparation.heading;
+            preparation = null; app.dataset.castPreparing = 'false';
+            // Lay out AIM before measuring its occlusions; a stale READY panel or
+            // rejection note must not become the constraint for the new gesture.
+            fishing.prepare(boat, heading, null);
+            hud.update(boat);
+            fishingHUD.update(fishing, true, clockState);
+            fishing.setCastVisibility(castVisibility);
+            controls.finishPreparation();
+          }
+        }
       }
+      autosave.markProgress();
+      lake.update(elapsed, boat, clockState);
+      updateFishingDisplay(clockState);
+      collectionMenu.update();
+      if (!skippingFrame) qteHUD?.update(qteFrame, performance.now());
+      renderer.render(scene, camera);
+      qteRenderedFrame = qteFrame;
+      hud.ready();
+      if (skipLocked !== timeSkip.active) syncTimeSkip();
+    } catch (error) {
+      stopRendering('描画が中断されました。ページを再読み込みしてください。');
+      console.error(error);
     }
-    lake.update(elapsed, boat, clockState);
-    updateFishingDisplay(clockState);
-    collectionMenu.update();
-    qteHUD?.update(qteFrame, performance.now());
-    renderer.render(scene, camera);
-    qteRenderedFrame = qteFrame;
-    hud.ready();
   });
-  canvas.addEventListener('webglcontextlost', event => {
-    event.preventDefault();
+  function stopRendering(message) {
+    renderHealthy = false;
+    disposeSkyCheck();
     controls.setEnabled(false);
     renderer.setAnimationLoop(null);
     discoveryCoordinator.dispose();
@@ -421,7 +497,11 @@ try {
     rodReelView.dispose();
     fishingView.dispose();
     autosave.dispose();
-    showError('描画が中断されました。ページを再読み込みしてください。');
+    showError(message);
+  }
+  canvas.addEventListener('webglcontextlost', event => {
+    event.preventDefault();
+    stopRendering('描画が中断されました。ページを再読み込みしてください。');
   });
   // resize() has already rendered successfully and all initialization above
   // completed. Only now allow input and attach autosave's timers/subscriptions.
@@ -429,6 +509,7 @@ try {
   controls.setEnabled(true);
   return { state, storage, autosave, qteDelivery, qteHUD, renderer };
 } catch (error) {
+  disposeSkyCheck?.();
   discoveryCoordinator?.dispose();
   environmentAudio?.dispose(); audioSession?.dispose();
   autosave?.dispose(); qteHUD?.dispose(); qteDelivery?.retire();

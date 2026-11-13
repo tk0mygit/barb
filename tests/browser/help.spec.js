@@ -176,7 +176,7 @@ test('keyboard help jumps and short native touch scrolling preserve the same pan
   const page = await context.newPage();
   await page.goto('./'); await expect(page.locator('#status')).toBeHidden();
   await page.locator('#menu-button').click();
-  for (const view of ['encyclopedia', 'storage', 'equipment', 'achievements', 'sound', 'help']) {
+  for (const view of ['encyclopedia', 'storage', 'equipment', 'achievements', 'settings', 'help']) {
     await page.keyboard.press('Tab');
     await expect(page.locator(`[data-view="${view}"]`)).toBeFocused();
   }
@@ -227,7 +227,7 @@ test('UI fixture: help keeps a long real save-status warning, wallet and undisco
   });
   await page.locator('#menu-button').tap();
   // The existing fixture deliberately has no ambientAudio. Help remains the
-  // last entry while only the conditional sound entry is absent.
+  // last entry while only the conditional settings entry is absent.
   expect(await page.locator('.menu-entry').evaluateAll(nodes => nodes.map(node => node.dataset.view)))
     .toEqual(['encyclopedia', 'storage', 'equipment', 'achievements', 'help']);
   const warning = '他のタブから保存が変更されました。上書きを防ぐため自動保存を停止しています。このタブの進行は未保存です。タブを閉じて再読み込みしてください。';

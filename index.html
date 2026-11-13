@@ -44,7 +44,12 @@
             <p id="tension-warning"></p>
           </div>
         </section>
-        <div class="telemetry"><span class="eyebrow" id="mode-label">EXPLORING</span><div><strong id="speed">0.0</strong><span class="unit">km/h</span></div><span id="motion-label">停船中</span></div>
+        <div class="telemetry"><span class="eyebrow" id="mode-label">EXPLORING</span><div><strong id="speed">0.0</strong><span class="unit">km/h</span></div><span id="motion-label">停船中</span>
+          <button id="day-night-skip" type="button" aria-label="夜まで進める" hidden disabled>
+            <svg data-skip-icon="moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z" /></svg>
+            <svg data-skip-icon="sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false" hidden><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></svg>
+          </button>
+        </div>
         <section class="action-panel" aria-label="船の操作">
           <p id="hint" hidden></p>
           <button id="fish-button" type="button" disabled><span>釣りをする</span><span aria-hidden="true">↗</span></button>

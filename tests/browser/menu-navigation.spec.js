@@ -7,7 +7,7 @@ const entries = [
   ['storage', '生けす', '保管した魚の確認・売却'],
   ['equipment', 'ギア／アップグレード', 'ロッドとリールの強化'],
   ['achievements', '実績', '達成条件と進捗'],
-  ['sound', 'サウンド設定', 'BGM・自然音の設定'],
+  ['settings', '設定', 'サウンド・プレイの設定'],
   ['help', 'ヘルプ', 'プレイと操作の基本'],
 ];
 const profiles = [
@@ -78,7 +78,7 @@ for (const profile of profiles) {
     await expect(page.locator('.menu-entry-description')).toHaveText(entries.map(([, , description]) => description));
     await expect(page.locator('[data-view="help"]')).toHaveCount(1);
     await expect(page.locator('.menu-entry--aux')).toHaveCount(2);
-    await expect(page.locator('.menu-entry--aux').nth(0)).toHaveAttribute('data-view', 'sound');
+    await expect(page.locator('.menu-entry--aux').nth(0)).toHaveAttribute('data-view', 'settings');
     await expect(page.locator('.menu-entry--aux').nth(1)).toHaveAttribute('data-view', 'help');
     await expect(page.locator('.menu-entry-title').first()).toHaveCSS('font-size', `${profile.rootSize}px`);
     await expect(page.locator('.menu-entry-description').first()).toHaveCSS('font-size', `${profile.rootSize * 13 / 16}px`);
@@ -187,7 +187,7 @@ test('keyboard and pointer states retain card positions, labels and parent focus
   await expect(page.locator('#collection-title')).toHaveText('生けす');
   await page.locator('#collection-back').click();
   await expect(page.locator('[data-view="storage"]')).toBeFocused();
-  for (const [view, label] of [['sound', 'サウンド設定'], ['help', 'ヘルプ']]) {
+  for (const [view, label] of [['settings', '設定'], ['help', 'ヘルプ']]) {
     const card = page.locator(`[data-view="${view}"]`);
     const before = await card.boundingBox();
     await card.hover();
@@ -224,7 +224,7 @@ test('touch: representative portrait, landscape and text enlargement keep the la
     { width: 844, height: 390 }, { width: 568, height: 320 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     await applyTextAndInsets(page);
-    for (const [view, label] of [['sound', 'サウンド設定'], ['help', 'ヘルプ']]) {
+    for (const [view, label] of [['settings', '設定'], ['help', 'ヘルプ']]) {
       const card = page.locator(`[data-view="${view}"]`);
       await reachable(card);
       await card.tap();
@@ -268,7 +268,7 @@ test('day, clear night and fog: restored production environments keep menu label
       const card = page.locator(`[data-view="${view}"]`);
       hits.push(await reachable(card));
       await expect(card).toHaveCSS('color', 'rgb(244, 242, 230)');
-      await expect(card).toHaveCSS('background-color', ['sound', 'help'].includes(view) ? 'rgb(48, 71, 77)' : 'rgb(33, 74, 64)');
+      await expect(card).toHaveCSS('background-color', ['settings', 'help'].includes(view) ? 'rgb(48, 71, 77)' : 'rgb(33, 74, 64)');
     }
     await noHorizontalOverflow(page);
     await page.locator('.menu-entry').first().scrollIntoViewIfNeeded();

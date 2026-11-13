@@ -27,6 +27,7 @@ test('mobile safe insets, short landscape, font enlargement, menu/fight/result r
   await tick(page);
   expect(await page.evaluate(() => window.lightingProbe.last.mistTime)).toBe(progress);
   for (const view of ['encyclopedia', 'storage', 'equipment', 'sound']) {
+    if (view === 'sound') await page.locator('[data-view="settings"]').tap();
     await page.locator(`[data-view="${view}"]`).tap();
     const content = page.locator('#collection-content');
     await content.evaluate(el => { el.scrollTop = el.scrollHeight; });
@@ -36,6 +37,7 @@ test('mobile safe insets, short landscape, font enlargement, menu/fight/result r
       if (await page.locator('#ambient-retry').isVisible()) await page.locator('#ambient-retry').tap();
     }
     await page.locator('#collection-back').tap();
+    if (view === 'sound') await page.locator('#collection-back').tap();
   }
   await page.locator('#collection-close').tap(); await tick(page);
   assertLayout(await layout(page), { fight: false, inset: { top: 0, bottom: 21, left: 44, right: 44 } });

@@ -227,5 +227,6 @@ export async function attachAudioDiagnostics(page, info) {
 export async function soundScreen(page, touch = false) {
   const activate = locator => touch ? locator.tap() : locator.click();
   await activate(page.locator('#menu-button'));
+  await activate(page.locator('[data-view="settings"]'));
   await activate(page.locator('[data-view="sound"]'));
 }

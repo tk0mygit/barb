@@ -4,6 +4,7 @@ import { formatMoney } from './sales-hud.js';
 import { EQUIPMENT_NAMES, UPGRADE_GUIDANCE, renderEquipment, renderUpgradeConfirmation } from './equipment-view.js';
 import { renderAchievements } from './achievements-view.js';
 import { renderSoundSettings } from './sound-settings.js';
+import { renderPlaySettings } from './play-settings.js';
 import { createVisibleFishImages } from './fish-image-loader.js';
 import { renderHelp } from './help-view.js';
 
@@ -14,7 +15,7 @@ const menuEntries = [
   ['storage', '生けす', '保管した魚の確認・売却'],
   ['equipment', 'ギア／アップグレード', 'ロッドとリールの強化'],
   ['achievements', '実績', '達成条件と進捗'],
-  ['sound', 'サウンド設定', 'BGM・自然音の設定', 'aux'],
+  ['settings', '設定', 'サウンド・プレイの設定', 'aux'],
   ['help', 'ヘルプ', 'プレイと操作の基本', 'aux'],
 ];
 function element(tag, text, className) {
@@ -35,7 +36,7 @@ function fishImage(src, name, visibleImages) {
 
 // One native modal owns menu, grid, detail and storage. No nested dialogs;
 // undiscovered species never contribute their name, asset or details to DOM.
-export function createCollectionMenu({ collection, achievements, canOpen, canPurchase, onOpenChange, onSale, onUpgrade, ambientAudio }) {
+export function createCollectionMenu({ collection, achievements, canOpen, canPurchase, onOpenChange, onSale, onUpgrade, ambientAudio, playPreferences }) {
   const trigger = document.querySelector('#menu-button');
   const dialog = document.querySelector('#collection-dialog');
   const title = document.querySelector('#collection-title');
@@ -48,7 +49,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
   let purchaseAllowedAtOpen = false;
   let purchaseAllowedOnPress = null;
   const purchaseAllowed = () => purchaseAllowedAtOpen && canPurchase();
-  let disposeSoundSettings;
+  let disposeSettings;
   let visibleImages;
   // Only UI positions and stable control keys survive a child view. Fish DOM,
   // decoded images, subscriptions and pending quotes keep their existing owners.
@@ -92,7 +93,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
   }
   function render(next = 'menu', speciesId, scrollTop = 0) {
     visibleImages?.dispose(); visibleImages = createVisibleFishImages(scrollContent);
-    disposeSoundSettings?.(); disposeSoundSettings = null;
+    disposeSettings?.(); disposeSettings = null;
     if (next !== 'confirm-sale') pendingSale = null;
     if (next !== 'confirm-upgrade') pendingUpgrade = null;
     screen = next;
@@ -103,7 +104,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
       title.textContent = '湖の記録';
       const home = element('div', undefined, 'menu-home');
       for (const [view, label, description, role] of menuEntries) {
-        if (view === 'sound' && !ambientAudio) continue;
+        if (view === 'settings' && !ambientAudio && !playPreferences) continue;
         const button = element('button', undefined, `menu-entry${role === 'aux' ? ' menu-entry--aux' : ''}`);
         button.type = 'button'; button.dataset.view = view;
         const name = element('span', label, 'menu-entry-title'); name.id = `collection-${view}-label`;
@@ -179,9 +180,21 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
     } else if (next === 'help') {
       title.textContent = 'ヘルプ';
       renderHelp(content, menuEntries);
+    } else if (next === 'settings') {
+      title.textContent = '設定';
+      const home = element('div', undefined, 'menu-home');
+      for (const [view, label, available] of [['sound', 'サウンド設定', ambientAudio], ['play', 'プレイ設定', playPreferences]]) {
+        if (!available) continue;
+        const button = element('button', label, 'menu-entry'); button.type = 'button'; button.dataset.view = view;
+        button.addEventListener('click', () => openChild(view, button)); home.append(button);
+      }
+      content.append(home);
+    } else if (next === 'play') {
+      title.textContent = 'プレイ設定';
+      disposeSettings = renderPlaySettings(content, playPreferences);
     } else if (next === 'sound') {
       title.textContent = 'サウンド設定';
-      disposeSoundSettings = renderSoundSettings(content, ambientAudio);
+      disposeSettings = renderSoundSettings(content, ambientAudio);
     } else if (next === 'achievements') {
       title.textContent = '実績';
       renderAchievements(content, achievements);
@@ -246,7 +259,7 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
   function finishClose() {
     if (!active) return;
     visibleImages?.dispose();
-    disposeSoundSettings?.(); disposeSoundSettings = null;
+    disposeSettings?.(); disposeSettings = null;
     active = false; pendingSale = null; pendingUpgrade = null; purchaseAllowedAtOpen = false;
     parentPositions.clear();
     trigger.setAttribute('aria-expanded', 'false'); onOpenChange(false);
@@ -268,7 +281,8 @@ export function createCollectionMenu({ collection, achievements, canOpen, canPur
     // A hidden native dialog can retain its previous scroll offset until open.
     scrollContent.scrollTop = 0; close.focus({ preventScroll: true });
   });
-  back.addEventListener('click', () => returnTo(screen === 'detail' ? 'encyclopedia' : screen === 'confirm-sale' ? 'storage' : screen === 'confirm-upgrade' ? 'equipment' : 'menu'));
+  back.addEventListener('click', () => returnTo(screen === 'detail' ? 'encyclopedia' : screen === 'confirm-sale' ? 'storage'
+    : screen === 'confirm-upgrade' ? 'equipment' : ['sound', 'play'].includes(screen) ? 'settings' : 'menu'));
   close.addEventListener('click', dismiss);
   dialog.addEventListener('cancel', event => { event.preventDefault(); dismiss(); });
   dialog.addEventListener('close', () => { if (!dialog.open) finishClose(); });

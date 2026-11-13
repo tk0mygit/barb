@@ -154,6 +154,7 @@ test('rejection and mobile interruption are silent, visible, retryable and do no
   expect((await audioSnapshot(page)).resumes).toBe(resumes);
   // Programmatic menu navigation has no user activation; the retry itself does.
   await page.locator('#menu-button').evaluate(button => button.click());
+  await page.locator('[data-view="settings"]').evaluate(button => button.click());
   await page.locator('[data-view="sound"]').evaluate(button => button.click());
   await expect(page.locator('#ambient-status')).toContainText('中断');
   await page.locator('#ambient-retry').click(); await close(page); await tick(page); await assertMix(page);
@@ -194,6 +195,7 @@ test('touch: repeated page returns with suspended/interrupted audio require a fr
       // Inspect without a trusted input so that the retry button, rather than
       // an earlier menu tap, owns the next resume request.
       await page.locator('#menu-button').evaluate(button => button.click());
+      await page.locator('[data-view="settings"]').evaluate(button => button.click());
       await page.locator('[data-view="sound"]').evaluate(button => button.click());
       await expect(page.locator('#ambient-status')).toContainText('中断');
       await expect(page.locator('#ambient-retry')).toBeVisible();
@@ -450,6 +452,7 @@ for (const touch of [false, true]) {
       });
       expect(button.enabled).toBe(true); expect(button.visible).toBe(true); expect(button.hit).toBe('menu-button');
       if (touch) await page.touchscreen.tap(button.x, button.y); else await page.mouse.click(button.x, button.y);
+      if (touch) await page.locator('[data-view="settings"]').tap(); else await page.locator('[data-view="settings"]').click();
       if (touch) await page.locator('[data-view="sound"]').tap(); else await page.locator('[data-view="sound"]').click();
       if (touch) await page.locator('#ambient-toggle').tap(); else await page.locator('#ambient-toggle').click();
       await expect(page.locator('#ambient-status')).toContainText('一時停止中');
