@@ -82,7 +82,7 @@ export function createWater(fog = new THREE.FogExp2('#b9ccc3', 0.0018)) {
         // texture, extra noise, light, target or pass. The old path is exact at 0.
         if (auroraStrength > 0.0) {
           float alignment = max(dot(reflect(-eye, n).xz, auroraDirection), 0.0);
-          float band = smoothstep(0.45, 0.98, alignment) * (0.35 + 0.65 * fresnel) * (0.35 + 0.65 * broad);
+          float band = smoothstep(0.86, 0.995, alignment) * (0.35 + 0.65 * fresnel) * (0.35 + 0.65 * broad);
           color += auroraColor * auroraStrength * band * 0.35;
         }
         float d = length(p - boatPosition);
