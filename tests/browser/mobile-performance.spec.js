@@ -15,6 +15,7 @@ import { verifyStarCapture } from '../../scripts/lib/sky2-source.js';
 import { meteorSnapshot } from '../helpers/meteor-snapshot.js';
 import { verifyMeteorCapture } from '../../scripts/lib/sky3-source.js';
 import { auroraSnapshot, observeAuroraGPU } from '../helpers/aurora-snapshot.js';
+import { verifyWorldLightCapture } from '../../scripts/lib/sky4r2-source.js';
 import { verifyAuroraCapture } from '../../scripts/lib/sky4-source.js';
 import { findAuroraNight } from '../helpers/aurora-event.js';
 
@@ -275,12 +276,15 @@ async function saveCapture(target, id, page, metrics, info, withLayout = false) 
   const image = resolve(destination, `${target}-${id}.png`);
   await page.screenshot({ path: image });
   await info.attach(`${target}-${id}`, { path: image, contentType: 'image/png' });
-  const entry = { target, id, comparison, metrics: { ...metrics, fishingRandomValue: .01, cameraExpected, cameraFrames }, image,
+  const worldLight = await page.evaluate(() => window.lightingProbe.readWorldLight());
+  worldLight.clockSeconds = metrics.auroraDisplay.clockSeconds;
+  const entry = { target, id, comparison, metrics: { ...metrics, worldLight, fishingRandomValue: .01, cameraExpected, cameraFrames }, image,
     ...(withLayout ? { layout: await layout(page) } : {}) };
   await verifyMobileSourceCapture(implementations[target], entry);
   if (implementations[target].starsBlob) await verifyStarCapture(implementations[target], entry);
   if (implementations[target].meteorBlob) await verifyMeteorCapture(implementations[target], entry);
   if (implementations[target].auroraBlob) await verifyAuroraCapture(implementations[target], entry);
+  if (comparison.baseSha === '50bc6ebcca09e50b90c3a30c5dc8613255d85c6a') await verifyWorldLightCapture(implementations[target], entry);
   if (implementations[target].sha === WATER_EFFECTS_BASE || implementations[target].fishingEffectsBlob) {
     await verifyWaterEffectsCapture(implementations[target], entry);
   }
@@ -330,7 +334,7 @@ for (const target of targets) {
       const metrics = { ...before, savedClockSeconds: scene.seconds,
         initial: { setupToReadyMs, rendererTaskMs: (metric(ready, 'TaskDuration') - metric(initial, 'TaskDuration')) * 1000 },
         continuing: { frames: 6, simulatedMs: 96, wallMs, rendererTaskMs: (metric(cpuEnd, 'TaskDuration') - metric(cpuStart, 'TaskDuration')) * 1000 }, errors };
-      if (profile.id === 'pc-hidpi' && scene.id === 'clear-night') {
+      if (['pc-hidpi', 'portrait', 'landscape'].includes(profile.id) && scene.id === 'clear-night') {
         // Complete queued GPU work at each boundary and count actual renders.
         // Unfenced command submission produced near-zero/backlogged windows.
         // CDP + paired renders remain included: this is a software diagnostic.
@@ -351,7 +355,9 @@ for (const target of targets) {
         }
         const p95 = key => samples.map(row => row[key]).sort((a, b) => a - b)[Math.ceil(samples.length * .95) - 1];
         metrics.starFrameSamples = { synchronization: 'gl.finish before/after each window; one observed animation render',
-          samples, p95WallMs: p95('wallMs'), p95RendererTaskMs: p95('rendererTaskMs') };
+          samples, p50WallMs: samples.map(row => row.wallMs).sort((a, b) => a - b)[9],
+          p50RendererTaskMs: samples.map(row => row.rendererTaskMs).sort((a, b) => a - b)[9],
+          p95WallMs: p95('wallMs'), p95RendererTaskMs: p95('rendererTaskMs') };
         metrics.pageResources = [...network.values()];
         const stable = await page.evaluate(() => window.mobileProbe);
         expect(stable.resources).toEqual(before.resources); expect(stable.actualResources).toEqual(before.actualResources);

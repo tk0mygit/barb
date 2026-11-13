@@ -13,7 +13,7 @@ import { readMobileWaterEffectsTransition, verifyWaterEffectsCapture, expectedWa
 import { readSky2Transition, verifyStarCapture, expectedStarResources } from './lib/sky2-source.js';
 import { readSky3Transition, verifyMeteorCapture, expectedMeteorResources } from './lib/sky3-source.js';
 import { verifyAuroraCapture, expectedAuroraResources } from './lib/sky4-source.js';
-import { readAuroraTransition } from './lib/sky4-motion-source.js';
+import { readAuroraEvolution, SKY4R2_KIND, verifyWorldLightCapture } from './lib/sky4r2-source.js';
 
 export const MOBILE_COMPARISON_MODES = ['regression', 'historical-improvement'];
 // One reviewed product-source transition, not a per-PR resource allowance.
@@ -174,7 +174,7 @@ async function readComparisonSources(metadata) {
   ]);
   const sky2Transition = await readSky2Transition(implementations.main, implementations.pr);
   const sky3Transition = await readSky3Transition(implementations.main, implementations.pr);
-  const sky4Transition = await readAuroraTransition(implementations.main, implementations.pr, metadata.headSha);
+  const sky4Transition = await readAuroraEvolution(implementations.main, implementations.pr, metadata.headSha);
   return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition, waterEffectsTransition, sky2Transition, sky3Transition, sky4Transition };
 }
 
@@ -187,6 +187,7 @@ async function verifyEntries(sources, target, entries) {
     if (sources.sky2Transition || sources.sky3Transition || sources.sky4Transition) verified.stars = await verifyStarCapture(sources.implementations[target], entry);
     if (sources.sky3Transition || sources.sky4Transition) verified.meteor = await verifyMeteorCapture(sources.implementations[target], entry);
     if (sources.sky4Transition) verified.aurora = await verifyAuroraCapture(sources.implementations[target], entry);
+    if (sources.sky4Transition?.kind === SKY4R2_KIND) verified.worldLight = await verifyWorldLightCapture(sources.implementations[target], entry);
     sources.verified.set(entry, verified);
   }
 }
@@ -328,12 +329,20 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       for (const sky of ['stars', 'meteor']) assert.deepEqual(sources.verified.get(a)[sky].draws,
         sources.verified.get(b)[sky].draws, `Sky-4: existing ${sky} submissions changed`);
       expected = { resources: expectedAuroraResources(b.metrics.resources, a.metrics.resources, beforeReplay, afterReplay, 'fixed'),
-        transition: sources.sky4Transition.kind === 'clear-night-aurora-motion-Sky4'
+        transition: sources.sky4Transition.kind === SKY4R2_KIND
+          ? 'Sky-4R2: independently replayed palette, existing Hemi and water uniforms; all GPU resources/submissions exact'
+          : sources.sky4Transition.kind === 'clear-night-aurora-motion-Sky4'
           ? 'Sky-4 motion: independently replayed curtains/culling; existing shared geometry/program/buffers; textures exact'
           : 'Sky-4: exact-source two curtain submissions; warmed geometry +1 / shared program +1 / textures exact' };
       expectedAuroraResources(b.metrics.actualResources, a.metrics.actualResources, beforeReplay, afterReplay, 'actual');
       auroraComparison = { proof: sources.sky4Transition, beforeState: beforeReplay.state, afterState: afterReplay.state,
         beforeDraws: beforeReplay.draws, afterDraws: afterReplay.draws };
+      if (sources.sky4Transition.kind === SKY4R2_KIND) {
+        assert.deepEqual(afterReplay.draws, beforeReplay.draws, 'Sky-4R2: curtain submissions changed');
+        assert.deepEqual(a.metrics.resources, b.metrics.resources, 'Sky-4R2: fixed GPU resource regression');
+        assert.deepEqual(a.metrics.actualResources, b.metrics.actualResources, 'Sky-4R2: actual GPU resource regression');
+        auroraComparison.worldLight = { before: sources.verified.get(b).worldLight.state, after: sources.verified.get(a).worldLight.state };
+      }
     }
     if (sources?.sky3Transition) {
       assert.equal(metadata.mode, 'regression', 'Sky-3: regression mode required');

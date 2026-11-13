@@ -65,6 +65,8 @@ export async function readMobileImplementation(sha) {
     fishingViewBlob: await mobileGit('rev-parse', `${sha}:src/rendering/fishing.js`),
     fishingEffectsBlob: (await mobileGit('ls-tree', sha, '--', 'src/rendering/fishing-effects.js')).split(/\s+/)[2] ?? null,
     lakeBlob: await mobileGit('rev-parse', `${sha}:src/world/lake.js`),
+    waterBlob: await mobileGit('rev-parse', `${sha}:src/world/water.js`),
+    dayNightBlob: await mobileGit('rev-parse', `${sha}:src/world/day-night.js`),
     starsBlob: (await mobileGit('ls-tree', sha, '--', 'src/world/stars.js')).split(/\s+/)[2] ?? null,
     meteorBlob: (await mobileGit('ls-tree', sha, '--', 'src/world/meteor.js')).split(/\s+/)[2] ?? null,
     auroraBlob: (await mobileGit('ls-tree', sha, '--', 'src/world/aurora.js')).split(/\s+/)[2] ?? null,
@@ -99,6 +101,10 @@ export async function assertMobileWorkingSource(implementation) {
     if (await mobileGit('ls-tree', implementation.sha, '--', 'scripts/lib/sky4-motion-pins.js')) {
       const { SKY4_MOTION_BLOBS } = await import('./sky4-motion-pins.js');
       files.push(...Object.keys(SKY4_MOTION_BLOBS), 'scripts/lib/sky4-motion-pins.js');
+    }
+    if (await mobileGit('ls-tree', implementation.sha, '--', 'scripts/lib/sky4r2-pins.js')) {
+      const { SKY4R2_BLOBS } = await import('./sky4r2-pins.js');
+      files.push(...Object.keys(SKY4R2_BLOBS), 'scripts/lib/sky4r2-pins.js');
     }
     assert.equal(await mobileGit('status', '--porcelain=v1', '--untracked-files=all', '--', 'scripts/lib', ...files), '',
       'Sky-4: uncommitted observer/replay/manifest source');

@@ -5,6 +5,7 @@ import { prepareSceneryReference } from './lake-scenery-reference.js';
 import { findAuroraNight } from '../helpers/aurora-event.js';
 import { measureAuroraWorldLight } from '../helpers/aurora-world-light-pixels.js';
 import { readMobileImplementation, mobileGit, assertMobileWorkingSource, mobileSourceMetadata } from '../../scripts/lib/mobile-comparison-source.js';
+import { readSky4R2Transition } from '../../scripts/lib/sky4r2-source.js';
 import { sampleDayNight } from '../../src/world/day-night.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 
@@ -12,7 +13,7 @@ const baseSha = '50bc6ebcca09e50b90c3a30c5dc8613255d85c6a', night = findAuroraNi
 let sources, reference;
 test.beforeAll(async ({}, info) => {
   sources = { main: await readMobileImplementation(baseSha), pr: await readMobileImplementation(await mobileGit('rev-parse', 'HEAD')) };
-  await assertMobileWorkingSource(sources.pr); reference = await prepareSceneryReference(info, baseSha);
+  await assertMobileWorkingSource(sources.pr); await readSky4R2Transition(sources.main, sources.pr); reference = await prepareSceneryReference(info, baseSha);
 });
 test.afterAll(async ({}, info) => { await reference?.dispose(info); if (sources) await assertMobileWorkingSource(sources.pr); });
 
@@ -76,3 +77,68 @@ for (const viewport of [{ width: 1000, height: 700 }, { width: 390, height: 844,
     expect(pixels.waterReflection.meanLuminanceDelta).toBeGreaterThan(0);
   });
 }
+
+for (const [name, at] of [['day', 90], ['nonwinner', findAuroraNight({ selected: false }) * 360 + 270],
+  ['FOG', findAuroraNight({ fogType: 'FOG' }) * 360 + 270], ['DENSE_FOG', findAuroraNight({ fogType: 'DENSE_FOG' }) * 360 + 270]]) {
+  test(`Sky-4R2 inactive whole-frame exact A/B ${name}`, async ({ createContext }, info) => {
+    const results = [];
+    for (const target of ['main', 'pr']) {
+      const context = await createContext({ ...(target === 'main' ? { baseURL: reference.baseURL } : {}),
+        viewport: { width: 640, height: 400 }, deviceScaleFactor: 1 });
+      const page = await context.newPage(); await setup(page, at);
+      const result = await page.evaluate(() => ({ image: window.lightingProbe.captureAuroraPair().withAurora,
+        light: window.lightingProbe.readWorldLight(), counts: window.lightingProbe.performance,
+        catalog: window.lightingProbe.resourceCatalog, gpu: window.lightingProbe.auroraGPU }));
+      await writeFile(info.outputPath(`${target}.png`), Buffer.from(result.image.split(',')[1], 'base64'));
+      results.push(result);
+    }
+    expect(results[1].image).toBe(results[0].image); expect(results[1].counts).toEqual(results[0].counts);
+    expect(results[1].light.ambient.color).toEqual(results[0].light.ambient.color);
+    expect(results[1].light.ambient.ground).toEqual(results[0].light.ambient.ground);
+    expect(results[1].light.ambient.intensity).toBe(results[0].light.ambient.intensity);
+    expect(results[1].light.water.light).toEqual({ color: [0, 0, 0], strength: 0, direction: [0, 0] });
+    expect(results[1].gpu.programInstances).toBe(0); expect(Object.values(results[1].gpu.buffers)).toEqual([null, null, null]);
+    await writeFile(info.outputPath('inactive.json'), JSON.stringify({ at, headSha: sources.pr.sha, results: results.map(({ image, ...rest }) => rest) }, null, 2));
+  });
+}
+
+test('Sky-4R2 real SkyCheck 18x couples both fades and restores the original environment at day boundary', async ({ page }, info) => {
+  const start = night * 360 + 180;
+  await page.setViewportSize({ width: 640, height: 400 });
+  await page.addInitScript(() => localStorage.setItem('barb.play.preferences.v1', JSON.stringify({ version: 1, dayNightSkip: true })));
+  await setup(page, start); await page.locator('#day-night-skip').click();
+  const frames = [];
+  for (let i = 0; i <= 40; i++) {
+    if (i) await tick(page);
+    const state = await page.evaluate(() => ({ lighting: window.lightingProbe.last, world: window.lightingProbe.readWorldLight(),
+      snapshot: window.lightingProbe.auroraEvidence, gpu: window.lightingProbe.auroraGPU,
+      skipping: document.querySelector('#app').dataset.timeSkipping }));
+    const absolute = start + ((state.lighting.mistTime - start % 3600 + 3600) % 3600);
+    assertEnvironment(state.lighting, absolute); frames.push({ i, absolute, ...state });
+    expect(state.world.water.gpuLight.strength).toBe(Math.fround(state.world.water.light.strength));
+    expect(state.world.water.gpu.buffers).toEqual(frames[0].world.water.gpu.buffers);
+    if ([0, 2, 20, 38, 40].includes(i)) await page.screenshot({ path: info.outputPath(`skip-${i}.png`) });
+  }
+  expect(frames.some(f => f.world.water.light.strength > 0 && f.world.water.light.strength < .14)).toBe(true);
+  expect(frames.some(f => f.world.water.light.strength === .14)).toBe(true);
+  const last = frames.at(-1); expect(last.skipping).toBe('false'); expect(last.world.water.light.strength).toBe(0);
+  expect(last.snapshot.layers.every(layer => !layer.visible)).toBe(true);
+  await writeFile(info.outputPath('skip-light.json'), JSON.stringify({ headSha: sources.pr.sha, frames }, null, 2));
+});
+
+test('Sky-4R2 31 nights keep water/light/GPU identities and reset after a selected night', async ({ page }, info) => {
+  await page.setViewportSize({ width: 640, height: 400 }); await setup(page, seconds);
+  const history = [];
+  const first = await page.evaluate(() => ({ lighting: window.lightingProbe.last, world: window.lightingProbe.readWorldLight() }));
+  const absolute = seconds + ((first.lighting.mistTime - seconds % 3600 + 3600) % 3600);
+  for (let n = 0; n <= 30; n++) {
+    if (n) await page.clock.fastForward(360000);
+    const current = await page.evaluate(() => ({ lighting: window.lightingProbe.last, world: window.lightingProbe.readWorldLight() }));
+    assertEnvironment(current.lighting, absolute + n * 360);
+    expect(current.world.lights.map(light => light.id)).toEqual(first.world.lights.map(light => light.id));
+    for (const key of ['geometryId', 'materialId', 'attributes', 'index', 'gpu']) expect(current.world.water[key]).toEqual(first.world.water[key]);
+    history.push(current);
+  }
+  expect(history.some(s => s.world.water.light.strength === 0)).toBe(true);
+  await writeFile(info.outputPath('world-31-night.json'), JSON.stringify({ headSha: sources.pr.sha, history }, null, 2));
+});

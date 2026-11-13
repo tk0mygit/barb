@@ -19,7 +19,7 @@ export async function measureAuroraWorldLight(before, after, moonScreen) {
   const linearY = (data, i) => linear(data[i] / 255) * .2126 + linear(data[i + 1] / 255) * .7152 + linear(data[i + 2] / 255) * .0722;
   const delta = (x, z, i) => Math.max(...[0, 1, 2].map(c => Math.abs(x[i + c] - z[i + c])));
   const marked = (image, i) => Math.max(image.pixels[i], image.pixels[i + 1], image.pixels[i + 2]) > 32;
-  const hues = image => {
+  const hues = (image, scene) => {
     const counts = { emerald: 0, cyan: 0, violet: 0 }, points = {}, histogram = new Array(36).fill(0);
     let selected = 0;
     for (let p = 0; p < width * height; p++) {
@@ -34,7 +34,7 @@ export async function measureAuroraWorldLight(before, after, moonScreen) {
         counts[name]++;
         if (!points[name] || y(image.pixels, i) > points[name].luminance) points[name] = {
           x: p % width, y: Math.floor(p / width), rgb, hue, luminance: y(image.pixels, i),
-          sceneRGB: Array.from(b.lightOff.pixels.slice(i, i + 3)) };
+          sceneRGB: Array.from(scene.pixels.slice(i, i + 3)) };
       }
     }
     return { selected, counts, fractions: Object.fromEntries(Object.entries(counts).map(([key, count]) => [key, count / Math.max(selected, 1)])), points, histogram };
@@ -73,7 +73,7 @@ export async function measureAuroraWorldLight(before, after, moonScreen) {
   }
   const quantile = (histogram, q) => { let count = 0; for (let i = 0; i < histogram.length; i++) { count += histogram[i]; if (count >= area * q) return i; } return 0; };
   return { width, height, off: { maximum: offMaximum, changed: offChanged },
-    colorBefore: hues(a.masks.aurora), colorAfter: hues(b.masks.aurora),
+    colorBefore: hues(a.masks.aurora, a.lightOff), colorAfter: hues(b.masks.aurora, b.lightOff),
     brightness: { area, beforeMean: beforeY / Math.max(area, 1), afterMean: afterY / Math.max(area, 1),
       beforeContribution: beforeContribution / Math.max(area, 1), afterContribution: afterContribution / Math.max(area, 1),
       beforeLinearMean: beforeLinear / Math.max(area, 1), afterLinearMean: afterLinear / Math.max(area, 1),

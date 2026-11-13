@@ -8,7 +8,7 @@ import { expectedMobileResources } from './compare-mobile-performance.mjs';
 import { readSky2Transition, verifyStarCapture, expectedStarResources } from './lib/sky2-source.js';
 import { readSky3Transition, verifyMeteorCapture, expectedMeteorResources } from './lib/sky3-source.js';
 import { verifyAuroraCapture, expectedAuroraResources } from './lib/sky4-source.js';
-import { readAuroraTransition } from './lib/sky4-motion-source.js';
+import { readAuroraEvolution, SKY4R2_KIND, verifyWorldLightCapture } from './lib/sky4r2-source.js';
 
 // The scenery capture uses the real camera, including its ordinary settling.
 // Verify that pose against its exact source before comparing the two views.
@@ -95,7 +95,7 @@ export async function writeComparison(main, pr, destination, mainLabel = 'main d
       implementations: { main: mobileSourceMetadata(main), pr: mobileSourceMetadata(candidate) } });
     const sky2 = await readSky2Transition(main, candidate);
     const sky3 = await readSky3Transition(main, candidate);
-    const sky4 = await readAuroraTransition(main, candidate);
+    const sky4 = await readAuroraEvolution(main, candidate);
     if (sky4) {
       assert(['day-tps', 'day-fps', 'twilight', 'clear-night', 'fog-night', 'dense-night', 'portrait', 'landscape'].includes(id), 'Sky-4: unknown scenery view');
       const preserved = [];
@@ -108,6 +108,13 @@ export async function writeComparison(main, pr, destination, mainLabel = 'main d
       const beforeAurora = await verifyAuroraCapture(main, { id, metrics: before.metrics }, { warmed: false });
       const afterAurora = await verifyAuroraCapture(candidate, { id, metrics: after.metrics }, { warmed: false });
       expectedAuroraResources(a, b, beforeAurora, afterAurora, 'actual');
+      if (sky4.kind === SKY4R2_KIND) {
+        assert.deepEqual(afterAurora.draws, beforeAurora.draws, 'Sky-4R2: curtain submissions changed');
+        assert.deepEqual(b, a, 'Sky-4R2: actual GPU resource regression');
+        const beforeLight = await verifyWorldLightCapture(main, { id, metrics: before.metrics }, { warmed: false });
+        const afterLight = await verifyWorldLightCapture(candidate, { id, metrics: after.metrics }, { warmed: false });
+        sky4.worldLight = { before: beforeLight.state, after: afterLight.state };
+      }
     } else if (sky3) {
       assert(['day-tps', 'day-fps', 'twilight', 'clear-night', 'fog-night', 'dense-night', 'portrait', 'landscape'].includes(id), 'Sky-3: unknown scenery view');
       for (const [source, metrics] of [[main, before.metrics], [candidate, after.metrics]]) {
