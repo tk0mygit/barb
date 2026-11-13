@@ -340,7 +340,13 @@ for (const target of targets) {
         // CDP + paired renders remain included: this is a software diagnostic.
         const samples = [];
         const finishFrame = () => page.evaluate(() => {
-          document.querySelector('#scene').getContext('webgl2').finish();
+          const gl = document.querySelector('#scene').getContext('webgl2');
+          const pixel = window.mobileFencePixel ??= new Uint8Array(4);
+          gl.finish();
+          // SwiftShader can acknowledge finish before a queued frame is read:
+          // a synchronous readback requires the actual framebuffer result.
+          gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+          window.mobileFence = { pixel: Array.from(pixel), error: gl.getError() };
           return window.lightingProbe.renders;
         });
         let previousRender = await finishFrame();
@@ -350,11 +356,13 @@ for (const target of targets) {
           const renders = await finishFrame();
           const wallMs = performance.now() - begin, end = await cdp.send('Performance.getMetrics');
           expect(renders - previousRender).toBe(1);
-          samples.push({ frames: renders - previousRender, wallMs, rendererTaskMs: (metric(end, 'TaskDuration') - metric(start, 'TaskDuration')) * 1000 });
+          const fence = await page.evaluate(() => window.mobileFence);
+          expect(fence.error).toBe(0); expect(fence.pixel[3]).toBe(255);
+          samples.push({ fence, frames: renders - previousRender, wallMs, rendererTaskMs: (metric(end, 'TaskDuration') - metric(start, 'TaskDuration')) * 1000 });
           previousRender = renders;
         }
         const p95 = key => samples.map(row => row[key]).sort((a, b) => a - b)[Math.ceil(samples.length * .95) - 1];
-        metrics.starFrameSamples = { synchronization: 'gl.finish before/after each window; one observed animation render',
+        metrics.starFrameSamples = { synchronization: 'gl.finish plus synchronous 1px RGBA readPixels before/after each window; one observed animation render',
           samples, p50WallMs: samples.map(row => row.wallMs).sort((a, b) => a - b)[9],
           p50RendererTaskMs: samples.map(row => row.rendererTaskMs).sort((a, b) => a - b)[9],
           p95WallMs: p95('wallMs'), p95RendererTaskMs: p95('rendererTaskMs') };
