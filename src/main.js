@@ -416,7 +416,9 @@ try {
       const dt = Math.min(frameSeconds, 0.25);
       previous = now;
       if (timeSkip.active && !safeToSkip()) cancelTimeSkip();
-      if (document.hidden || !focused || !pageActive || collectionMenu.isOpen || document.querySelector('#collection-dialog').open) return;
+      // SkyCheck's pagehide latch must not pause the existing OFF path.
+      if (document.hidden || !focused || (!pageActive && playPreferences.state.dayNightSkip)
+        || collectionMenu.isOpen || document.querySelector('#collection-dialog').open) return;
       // Clock tracks all active time, even on slow frames. Movement retains its
       // existing safety cap; hidden/unfocused time is not caught up on resume.
       const skippingFrame = timeSkip.step(frameSeconds);

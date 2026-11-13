@@ -59,3 +59,48 @@ push・PR URLの報告で終了し、CI待機・監視・rerunを行わない。
 
 初回ログは`/tmp/barb-skycheck-*.log`、ブラウザ診断は
 `test-results/local-skycheck-initial/`、`local-skycheck-qte-fix/`に保持する（コミット対象外）。
+
+## PR #84 Regular Aの局所是正（2026-11-13）
+
+同じPR・チャット・ブランチを継続。開始時HEADは
+`3cf92ce404308b7cbc36edaa35c1a8a56fa807d9`、再fetchしたmainは上記基準と一致しclean。
+失敗検証merge `ea444072e12c8e4d82f93921d16dafe085a9fc0e`の親は
+main `bbdf5a4d1827b6917b68cfe41cf5503e8e9876c1`と対象HEADに一致した。
+
+Run `43395332940`のattempt 1/job `131785628557`、attempt 2/job `131801333052`の
+ログはともに`final-stability.spec.js:248`（リロード・チェックポイント・メニュー閉鎖後）の
+native tapで`ready / inactive`不一致を記録していた。最初の釣り開始ではない。
+artifact `14026493715`は接続ツールから配信参照を取得したが、ローカル取得は配信先403。
+CIのバイナリは未確認とし、ローカルのJSON/PNG/traceで補完した。
+
+変更前の元specをそのまま390×844 / DPR0.5 / hasTouch / isMobileで実行し、同じ248行目の
+15秒タイムアウトを再現。3周の捕獲・経済・保存・資源検査まで進んだことも保存した。
+次に両SHAを一時archiveへ展開し、元specの全操作・期待を保持した観測だけを追加した。
+製品checkoutにはdebug APIを追加せず、一時観測コードは`/tmp`へ退避した。
+
+| 実観測 | 変更前PR HEAD | 基準main |
+| --- | --- | --- |
+| ボタン・native配送 | visible/enabled、hit=fish-button、inert=false、dialogなし。pointer/touch/clickがcapture/target/bubbleへ到達、defaultPrevented=false | 同じnative経路で成功 |
+| 入力ガード・モード | OFF、skipActive/skipLocked=false、guard reject=false。changeMode呼出し、enterFishing=true、boat.mode=fishing、内部phase=ready | enterFishing=true |
+| focus/WebGL | focused/renderHealthy=true、hidden=false | focused=true、hidden=false |
+| tap後12フレーム | pageActive=false、HUD更新0回、時計停止、DOM inactive/hiddenのまま | HUD更新12回、時計1倍、DOM ready/表示 |
+| 元spec全経路 | FAILを再現 | PASS |
+
+原因は新しい`pageActive`ラッチ。既存の可視チェックポイント通知`pagehide`でfalseになり、
+`pageshow`なしで続行するOFFの通常プレイまでmain loopが早期returnしていた。
+入力拒否・停船判定・focus喪失・HUDの表示計算が原因ではない。
+是正はこの追加停止条件を設定ON時に限定し、OFF時は元のhidden/focus/menuの契約へ戻す。
+ONのpagehide中断・非アクティブ時間の非補填は維持し、元のfinal-stabilityと共通fixtureは変更しない。
+
+| 依存領域 | 直接変更 | 間接影響・保護 |
+| --- | --- | --- |
+| main loop・時計・物理 | pagehideラッチの適用条件だけ | OFFの通常1倍更新を復旧。18倍・境界・船/釣り/QTEアルゴリズムは変更なし |
+| 入力・カメラ・HUD | 変更なし | 受理済みnative tap後の通常更新が再開。保持キー破棄・操作遮断は既存のまま |
+| 保存・経済・音・環境・GPU | 変更なし | schema/頻度/RNG/抽選/素材/資源契約を維持 |
+| E2E | SkyCheckへOFFのnative checkpoint回帰ケースを追加 | 旧spec、12 tick、ready要求、3周/保存/履歴/資源検査を維持 |
+| 比較器・ci-required・CLI・CI | 変更なし、L2継続 | 全Regular A/B/C、Mobile 58、34組/68画像を要求。局所PASSとCI成功を区別 |
+
+根拠は`test-results/pr84-before-native/`、`pr84-observed-head/`、`pr84-observed-main/`と
+`/tmp/barb-pr84-main-head-comparison.json`に保持。実行環境はChromium 154/SwiftShader、
+CIログのChromium 156とは異なるが、同じnative症状と停止状態を再現した。
+最終の実施/未実施・最新HEADはPR本文へ追記し、CI監視・rerunは行わない。

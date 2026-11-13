@@ -1,6 +1,6 @@
 import { test, expect } from './diagnostics-fixture.js';
 import { setup, tick, read, assertEnvironment } from './day-night-fixture.js';
-import { observeRenderer, separated, fishingInput } from './mobile-capture.js';
+import { observeRenderer, separated, fishingInput, enterFishing } from './mobile-capture.js';
 import { installAudioProbe, audioSnapshot } from './audio-fixture.js';
 import { createGameClock } from '../../src/game/game-clock.js';
 import { sampleAudioMix } from '../../src/audio/audio-mix.js';
@@ -179,6 +179,28 @@ for (const profile of profiles) {
 }
 
 test.use({ deviceScaleFactor: .5 });
+
+test('OFF: a visible pagehide checkpoint preserves native fishing entry and ordinary 1x frames', async ({ createContext }) => {
+  const context = await createContext({ viewport: { width: 390, height: 844 }, hasTouch: true,
+    isMobile: true, deviceScaleFactor: .5 });
+  const page = await context.newPage();
+  await boot(page, 90, { enabled: false });
+  await expect(button(page)).toBeHidden();
+  await page.locator('#menu-button').tap();
+  await page.locator('[data-view="storage"]').tap();
+  const before = (await read(page)).mistTime;
+  // Same checkpoint notification as final-stability, without a document hide.
+  // The OFF path must retain main's existing visible/focused/menu pause rules.
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  await page.locator('#collection-close').tap(); await tick(page);
+  await expect(page.locator('#fish-button')).toBeEnabled();
+  await enterFishing(page, true);
+  expect((await read(page)).mistTime - before).toBeCloseTo(3.25, 7);
+  await expect(page.locator('#cast-button')).toBeEnabled();
+  await expect(button(page)).toBeHidden();
+  await page.locator('#return-button').tap(); await tick(page);
+  await expect(page.locator('#fish-button')).toBeEnabled();
+});
 
 for (const reason of ['blur', 'hidden', 'pagehide']) {
   test(`${reason}: cancel immediately, do not bank inactive time, require another explicit skip`, async ({ page }) => {
