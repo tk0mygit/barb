@@ -9,7 +9,7 @@ export const SKY4R2_BLOBS = Object.freeze({
   "scripts/compare-mobile-performance.mjs": "274bef9dd0eaf173db1b2bac2b4875aeeb45cd43",
   "scripts/compare-lake-scenery.mjs": "71d7f230fba4aad968c567f7315fefc47a89dfd8",
   "tests/browser/day-night-fixture.js": "2ee7b4f8ad793ac24fd6eb393a4f1cf7ebaad968",
-  "tests/browser/mobile-performance.spec.js": "7375bfb2f5a0d192c8132c83b81dd3c9ba35cb21",
+  "tests/browser/mobile-performance.spec.js": "7b936e62189ddeb238313c6b026f56290d73c570",
   "tests/browser/lake-scenery.spec.js": "b66ef79dd51259463c50e58f4e7a8ccd77a1e852",
   "tests/browser/aurora-motion.spec.js": "5dde63092ad817478b20769e05344085bd47bf19",
   "tests/browser/aurora-world-light.spec.js": "f84326af45b5f482bc71835f0d9ff4a5f96f6781",

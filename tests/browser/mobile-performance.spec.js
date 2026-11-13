@@ -194,6 +194,14 @@ async function startCapture(page, seconds = 90) {
               resourceCamera: { position: diagnosticCamera.position.toArray(), quaternion: diagnosticCamera.quaternion.toArray(),
                 aspect: diagnosticCamera.aspect, fov: diagnosticCamera.fov },
               camera: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(), aspect: camera.aspect } };
+            if (window.mobileFenceEnabled) {
+              // Read the completed native framebuffer before presentation can
+              // discard it (production preserveDrawingBuffer remains false).
+              const gl = renderer.getContext(), pixel = window.mobileFencePixel;
+              gl.finish(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+              window.mobileFence = { pixel: Array.from(pixel), error: gl.getError(),
+                serial: (window.mobileFence?.serial ?? 0) + 1, preserveDrawingBuffer: gl.getContextAttributes().preserveDrawingBuffer };
+            }
             return actual.result;
           };
         });
@@ -339,30 +347,26 @@ for (const target of targets) {
         // Unfenced command submission produced near-zero/backlogged windows.
         // CDP + paired renders remain included: this is a software diagnostic.
         const samples = [];
-        const finishFrame = () => page.evaluate(() => {
-          const gl = document.querySelector('#scene').getContext('webgl2');
-          const pixel = window.mobileFencePixel ??= new Uint8Array(4);
-          gl.finish();
-          // SwiftShader can acknowledge finish before a queued frame is read:
-          // a synchronous readback requires the actual framebuffer result.
-          gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-          window.mobileFence = { pixel: Array.from(pixel), error: gl.getError() };
-          return window.lightingProbe.renders;
-        });
-        let previousRender = await finishFrame();
+        const finishFrame = () => page.evaluate(() => ({ renders: window.lightingProbe.renders, fence: window.mobileFence }));
+        await page.evaluate(() => { window.mobileFencePixel = new Uint8Array(4); window.mobileFenceEnabled = true; });
+        // One ordinary warm frame drains earlier work outside the sample set.
+        await page.clock.runFor(16);
+        let previous = await finishFrame();
+        expect(previous.fence.error).toBe(0); expect(previous.fence.pixel[3]).toBe(255);
         for (let sample = 0; sample < 20; sample++) {
           const start = await cdp.send('Performance.getMetrics'), begin = performance.now();
           await page.clock.runFor(16);
-          const renders = await finishFrame();
+          const current = await finishFrame();
           const wallMs = performance.now() - begin, end = await cdp.send('Performance.getMetrics');
-          expect(renders - previousRender).toBe(1);
-          const fence = await page.evaluate(() => window.mobileFence);
+          expect(current.renders - previous.renders).toBe(1);
+          const fence = current.fence; expect(fence.serial - previous.fence.serial).toBe(1);
           expect(fence.error).toBe(0); expect(fence.pixel[3]).toBe(255);
-          samples.push({ fence, frames: renders - previousRender, wallMs, rendererTaskMs: (metric(end, 'TaskDuration') - metric(start, 'TaskDuration')) * 1000 });
-          previousRender = renders;
+          samples.push({ fence, frames: current.renders - previous.renders, wallMs, rendererTaskMs: (metric(end, 'TaskDuration') - metric(start, 'TaskDuration')) * 1000 });
+          previous = current;
         }
+        await page.evaluate(() => { window.mobileFenceEnabled = false; });
         const p95 = key => samples.map(row => row[key]).sort((a, b) => a - b)[Math.ceil(samples.length * .95) - 1];
-        metrics.starFrameSamples = { synchronization: 'gl.finish plus synchronous 1px RGBA readPixels before/after each window; one observed animation render',
+        metrics.starFrameSamples = { synchronization: 'one warm native frame; gl.finish + synchronous 1px RGBA readPixels inside each native render before presentation; one observed animation render per window',
           samples, p50WallMs: samples.map(row => row.wallMs).sort((a, b) => a - b)[9],
           p50RendererTaskMs: samples.map(row => row.rendererTaskMs).sort((a, b) => a - b)[9],
           p95WallMs: p95('wallMs'), p95RendererTaskMs: p95('rendererTaskMs') };
