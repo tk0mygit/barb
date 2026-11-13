@@ -7,7 +7,7 @@ import { sampleNightFog, getNightFogDensity, NIGHT_FOG_CONFIG } from './night-fo
 import { createSurfaceFog } from './surface-fog.js';
 import { createStars } from './stars.js';
 import { createMeteor } from './meteor.js';
-import { createAurora } from './aurora.js';
+import { createAurora, sampleAuroraEnvironment } from './aurora.js';
 
 const hazeDensity = NIGHT_FOG_CONFIG.baseDensity;
 
@@ -70,6 +70,7 @@ export function createLake(scene) {
   const aurora = createAurora();
   scene.add(...aurora.meshes);
   const environment = createEnvironmentParameters();
+  const auroraEnvironment = { ambientSky: [0, 0, 0], ambientGround: [0, 0, 0], ambientIntensity: 0 };
   const nightFog = {};
   const sunDirection = new THREE.Vector3(), moonDirection = new THREE.Vector3();
   return {
@@ -78,10 +79,11 @@ export function createLake(scene) {
       sampleNightFog(clock, nightFog);
       stars.update(clock, boat, nightFog.fogType);
       meteor.update(clock, boat, nightFog.fogType);
-      aurora.update(clock, boat, nightFog.fogType);
-      ambient.color.fromArray(environment.ambientSky);
-      ambient.groundColor.fromArray(environment.ambientGround);
-      ambient.intensity = environment.ambientIntensity;
+      const auroraLight = aurora.update(clock, boat, nightFog.fogType);
+      sampleAuroraEnvironment(environment, auroraLight, auroraEnvironment);
+      ambient.color.fromArray(auroraEnvironment.ambientSky);
+      ambient.groundColor.fromArray(auroraEnvironment.ambientGround);
+      ambient.intensity = auroraEnvironment.ambientIntensity;
       sunlight.color.fromArray(environment.sunColor);
       sunlight.intensity = environment.sunIntensity;
       moonlight.intensity = environment.moonIntensity;
@@ -107,7 +109,7 @@ export function createLake(scene) {
       moon.position.x += boat.x; moon.position.z += boat.z;
       moon.material.opacity = environment.moonOpacity * (1 - nightFog.effectiveFogAmount) ** 2;
       moon.visible = moon.material.opacity > 0;
-      water.update(time, boat, environment);
+      water.update(time, boat, environment, auroraLight);
       surfaceFog.update(clock, boat, nightFog.effectiveFogAmount, scene.fog.color);
     },
   };

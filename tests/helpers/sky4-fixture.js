@@ -20,7 +20,8 @@ export function sky4FixtureCommit(changes = {}) {
   let tree = git(['rev-parse', `${SKY4_BASE}^{tree}`]);
   for (const [path, blob] of Object.entries({ ...SKY4_SOURCE_BLOBS,
     'scripts/lib/sky4-source-pins.js': git(['hash-object', '-w', 'scripts/lib/sky4-source-pins.js']),
-    'src/world/lake.js': git(['hash-object', '-w', 'src/world/lake.js']) })) tree = replace(tree, path.split('/'), blob);
+    // Original Sky-4 wiring, independent of later world-light integrations.
+    'src/world/lake.js': '74e948aabe6d55fad7fe64afaf5d9943a01eb2eb' })) tree = replace(tree, path.split('/'), blob);
   for (const [path, source] of Object.entries(changes)) tree = replace(tree, path.split('/'), git(['hash-object', '-w', '--stdin'], source));
   return git(['-c', 'user.name=Sky-4 unit fixture', '-c', 'user.email=unit@example.invalid', 'commit-tree', tree, '-p', SKY4_BASE], 'Synthetic Sky-4 source contract fixture\n');
 }

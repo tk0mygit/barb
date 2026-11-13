@@ -11,6 +11,8 @@ export function createWater(fog = new THREE.FogExp2('#b9ccc3', 0.0018)) {
       sunDirection: { value: new THREE.Vector3() }, moonDirection: { value: new THREE.Vector3() },
       sunColor: { value: new THREE.Color() }, moonColor: { value: new THREE.Color('#b8cdee') },
       sunHighlight: { value: 0 }, moonHighlight: { value: 0 }, waterDetail: { value: 1 },
+      auroraColor: { value: new THREE.Color(0, 0, 0) }, auroraStrength: { value: 0 },
+      auroraDirection: { value: new THREE.Vector2() },
       fogColor: { value: fog.color.clone() }, fogDensity: { value: fog.density },
     },
     vertexShader: `
@@ -39,6 +41,9 @@ export function createWater(fog = new THREE.FogExp2('#b9ccc3', 0.0018)) {
       uniform float sunHighlight;
       uniform float moonHighlight;
       uniform float waterDetail;
+      uniform vec3 auroraColor;
+      uniform float auroraStrength;
+      uniform vec2 auroraDirection;
       #include <fog_pars_fragment>
       varying vec3 world;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -73,6 +78,13 @@ export function createWater(fog = new THREE.FogExp2('#b9ccc3', 0.0018)) {
         float sunSpec = pow(max(dot(reflect(-sunDirection, n), eye), 0.0), 90.0);
         float moonSpec = pow(max(dot(reflect(-moonDirection, n), eye), 0.0), 90.0);
         color += sunColor * sunSpec * sunHighlight + moonColor * moonSpec * moonHighlight;
+        // A broad sky-facing reflection with the existing ripple field; no
+        // texture, extra noise, light, target or pass. The old path is exact at 0.
+        if (auroraStrength > 0.0) {
+          float alignment = max(dot(reflect(-eye, n).xz, auroraDirection), 0.0);
+          float band = smoothstep(0.86, 0.995, alignment) * (0.35 + 0.65 * fresnel) * (0.35 + 0.65 * broad);
+          color += auroraColor * auroraStrength * band * 0.35;
+        }
         float d = length(p - boatPosition);
         float wake = sin(d * 8.0 - time * 5.0) * exp(-d * 0.5) * min(boatSpeed / 4.0, 1.0);
         color += wake * 0.10 * waterDetail;
@@ -86,7 +98,7 @@ export function createWater(fog = new THREE.FogExp2('#b9ccc3', 0.0018)) {
   mesh.name = 'lake-water';
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.y = 0;
-  return { mesh, update(time, boat, environment = initial) {
+  return { mesh, update(time, boat, environment = initial, aurora) {
     const u = material.uniforms;
     u.time.value = time;
     u.boatPosition.value.set(boat.x, boat.z);
@@ -99,6 +111,14 @@ export function createWater(fog = new THREE.FogExp2('#b9ccc3', 0.0018)) {
     u.sunHighlight.value = environment.sunHighlight;
     u.moonHighlight.value = environment.moonHighlight;
     u.waterDetail.value = environment.waterDetail;
+    const strength = aurora?.lightStrength ?? 0;
+    u.auroraStrength.value = Number.isFinite(strength) && strength > 0 ? strength : 0;
+    if (u.auroraStrength.value) {
+      u.auroraColor.value.fromArray(aurora.lightColor);
+      u.auroraDirection.value.fromArray(aurora.lightDirection);
+    } else {
+      u.auroraColor.value.setRGB(0, 0, 0); u.auroraDirection.value.set(0, 0);
+    }
     // Keep these correct before the first render too. Three.js then uploads
     // fogColor in its output color space, just as for the terrain materials.
     u.fogColor.value.copy(fog.color);

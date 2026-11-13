@@ -3,6 +3,44 @@ import * as THREE from 'three';
 export const AURORA_CONFIG = Object.freeze({ probability: .20, daySeconds: 180, nightSeconds: 180,
   fadeSeconds: 15, timeWrapSeconds: 720, radius: 1350, columns: 80, rows: 10, layers: 2 });
 
+// Shared linear palette for the curtain and its low-frequency ambient light.
+export const AURORA_PALETTE = Object.freeze({
+  emerald: Object.freeze([0.05, 0.95, 0.25]), cyan: Object.freeze([0.035, 0.80, 1.0]),
+  violet: Object.freeze([0.68, 0.15, 1.0]),
+});
+
+// Reuse target/arrays in the render loop. This consumes the very same sample
+// that controls the two meshes, including CLEAR selection and the 15s envelope.
+export function sampleAuroraLight(sample, target = {}) {
+  const color = target.lightColor ??= [0, 0, 0], direction = target.lightDirection ??= [0, 0];
+  target.lightStrength = 0; color.fill(0); direction.fill(0);
+  if (!sample?.valid || !sample.visible || !Number.isFinite(sample.opacity) || sample.opacity <= 0 || sample.opacity > 1
+    || !Number.isFinite(sample.phase) || !Number.isFinite(sample.time) || !Number.isFinite(sample.hue) || !Number.isFinite(sample.azimuth)) return target;
+  const phase = sample.phase + sample.time * (Math.PI / 90);
+  const cyan = .35 + sample.hue * .2 + .2 * Math.sin(phase), violet = .10 + .04 * Math.cos(phase + .8);
+  for (let i = 0; i < 3; i++) {
+    const greenBlue = AURORA_PALETTE.emerald[i] + (AURORA_PALETTE.cyan[i] - AURORA_PALETTE.emerald[i]) * cyan;
+    color[i] = greenBlue + (AURORA_PALETTE.violet[i] - greenBlue) * violet;
+  }
+  target.lightStrength = sample.opacity * .14;
+  // Midpoint of the two world-fixed curtain directions, never camera-relative.
+  direction[0] = -Math.sin(sample.azimuth + .11); direction[1] = -Math.cos(sample.azimuth + .11);
+  return target;
+}
+
+// Keep the normal environment immutable; repeated calls cannot accumulate tint.
+export function sampleAuroraEnvironment(base, light, target = {}) {
+  if (target === base) throw new Error('STOP: aurora lighting target aliases the normal environment');
+  const sky = target.ambientSky ??= [0, 0, 0], ground = target.ambientGround ??= [0, 0, 0];
+  const strength = Number.isFinite(light?.lightStrength) && light.lightStrength > 0 ? light.lightStrength : 0;
+  for (let i = 0; i < 3; i++) {
+    sky[i] = strength ? base.ambientSky[i] + (light.lightColor[i] - base.ambientSky[i]) * strength : base.ambientSky[i];
+    ground[i] = strength ? base.ambientGround[i] + (light.lightColor[i] - base.ambientGround[i]) * strength * .3 : base.ambientGround[i];
+  }
+  target.ambientIntensity = strength ? base.ambientIntensity + strength * .3 : base.ambientIntensity;
+  return target;
+}
+
 // Decimal input preserves the high digits of ordinary saved night indices.
 // Appearance salts are independent of both this draw and the weather draw.
 export function auroraRoll(nightIndex, salt = 'aurora-roll-sky4-v1') {
@@ -170,11 +208,12 @@ export function createAurora() {
         float rays = 0.40 + 0.38 * pow(0.5 + 0.5 * sin(fold * 173.0 + p), 2.0)
           + 0.22 * sin(fold * 57.0 - t * 4.0) * sin(fold * 57.0 - t * 4.0);
         float broad = 0.63 + 0.37 * sin(fold * 19.0 + p) * sin(fold * 19.0 + p);
-        float purple = smoothstep(0.22, 0.66, height) * (0.35 + 0.25 * sin(u * 9.0 + p));
-        vec3 green = mix(vec3(0.035, 0.53, 0.22), vec3(0.035, 0.39, 0.47),
-          0.25 + auroraHue * 0.35 + 0.15 * sin(fold * 11.0 + p));
-        vec3 color = mix(green, vec3(0.29, 0.12, 0.40), purple);
-        float alpha = edge * veil * rays * broad * auroraOpacity * (0.34 - auroraLayer * 0.08);
+        float tintWave = 0.5 + 0.5 * sin(fold * 17.0 + p + auroraHue * 0.4);
+        float cyan = smoothstep(0.18, 0.58, tintWave);
+        float purple = smoothstep(0.72, 0.92, tintWave) * (0.65 + 0.35 * smoothstep(0.03, 0.30, height));
+        vec3 greenBlue = mix(vec3(${AURORA_PALETTE.emerald.join(', ')}), vec3(${AURORA_PALETTE.cyan.join(', ')}), cyan);
+        vec3 color = mix(greenBlue, vec3(${AURORA_PALETTE.violet.join(', ')}), purple);
+        float alpha = edge * veil * rays * broad * auroraOpacity * (0.44 - auroraLayer * 0.08);
         gl_FragColor = vec4(color, alpha);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -184,13 +223,14 @@ export function createAurora() {
     // moon and transparent foreground follow. No depth writes or extra pass.
     mesh.renderOrder = -2;
   }
-  const sample = {};
+  const sample = { lightColor: [0, 0, 0], lightDirection: [0, 0] };
   let disposed = false;
   return {
     meshes,
     update(clock, boat, fogType) {
       if (disposed) return;
       sampleAurora(clock, fogType, sample);
+      sampleAuroraLight(sample, sample);
       for (let layer = 0; layer < meshes.length; layer++) {
         const mesh = meshes[layer], uniforms = materials[layer].uniforms;
         mesh.visible = sample.visible;
@@ -200,6 +240,7 @@ export function createAurora() {
         uniforms.auroraTime.value = sample.time; uniforms.auroraOpacity.value = sample.opacity;
         uniforms.auroraPhase.value = sample.phase; uniforms.auroraHue.value = sample.hue;
       }
+      return sample;
     },
     dispose() {
       if (disposed) return; disposed = true;

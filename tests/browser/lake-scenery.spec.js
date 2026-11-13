@@ -120,6 +120,8 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
     const before = await page.evaluate(() => ({ resources: window.lightingProbe.performance, lighting: window.lightingProbe.last, camera: window.sceneryCamera,
       cameraFrames: window.sceneryCameraFrames, renders: window.lightingProbe.renders,
       stars: window.lightingProbe.starEvidence, starCalls: window.lightingProbe.starCalls }));
+    const worldLight = await page.evaluate(() => window.lightingProbe.readWorldLight());
+    worldLight.clockSeconds = view.seconds + ((before.lighting.mistTime - view.seconds % 3600 + 3600) % 3600);
     const meteorDisplay = await page.evaluate(() => ({ snapshot: window.lightingProbe.meteorEvidence,
       draws: { fixed: { calls: window.lightingProbe.meteorCalls, triangles: window.lightingProbe.meteorTriangles },
         actual: { calls: window.lightingProbe.meteorCalls, triangles: window.lightingProbe.meteorTriangles } },
@@ -150,7 +152,7 @@ for (const target of compare ? ['pr', 'main'] : ['pr']) for (const view of views
     const taskDurationMs = (metric(sampleCpuEnd, 'TaskDuration') - metric(sampleCpuStart, 'TaskDuration')) * 1000;
     const metrics = { viewport, deviceScaleFactor: 1, savedClockSeconds: view.seconds, boat: before.lighting.boat, heading: 0,
       camera: before.camera, cameraEvidence: evidence(before.cameraFrames), waterTime: before.lighting.waterTime, fogStrength: before.lighting.fogStrength,
-      resources: before.resources, afterResources: after.resources,
+      resources: before.resources, afterResources: after.resources, worldLight,
       starDisplay: { snapshot: before.stars, draws: { fixed: before.starCalls, actual: before.starCalls },
         clockSeconds: view.seconds + ((before.lighting.mistTime - view.seconds % 3600 + 3600) % 3600) },
       meteorDisplay: { ...meteorDisplay, clockSeconds: view.seconds + ((before.lighting.mistTime - view.seconds % 3600 + 3600) % 3600) },

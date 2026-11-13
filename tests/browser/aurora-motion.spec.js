@@ -4,6 +4,7 @@ import { setup, tick } from './day-night-fixture.js';
 import { prepareSceneryReference } from './lake-scenery-reference.js';
 import { findAuroraNight } from '../helpers/aurora-event.js';
 import { assertResourceCatalog } from './lighting-resource-contract.js';
+import { SKY4R2_BASE, readSky4R2Transition } from '../../scripts/lib/sky4r2-source.js';
 import { SKY4_MOTION_BASE, verifyAuroraMotionEdit } from '../../scripts/lib/sky4-motion-source.js';
 import { readMobileImplementation, mobileGit, mobileSourceMetadata, assertMobileWorkingSource } from '../../scripts/lib/mobile-comparison-source.js';
 import { readAuroraSource, auroraValues } from '../../scripts/lib/sky4-source.js';
@@ -17,7 +18,15 @@ test.beforeAll(async ({}, info) => {
   // This lasting visual regression binds the Aurora pair itself. The mobile
   // and scenery comparators separately require the full production transition;
   // unrelated future UI/game changes do not redefine this historical pair.
-  verifyAuroraMotionEdit(await mobileGit('show', `${sources.main.sha}:src/world/aurora.js`),
+  const r2 = await mobileGit('ls-tree', sources.pr.sha, '--', 'scripts/lib/sky4r2-pins.js');
+  if (r2) {
+    const main = await readMobileImplementation(SKY4R2_BASE);
+    await readSky4R2Transition(main, sources.pr);
+    // The original motion edit still applies to its historical source pair;
+    // R2 separately permits only palette/light hunks after that accepted state.
+    verifyAuroraMotionEdit(await mobileGit('show', `${sources.main.sha}:src/world/aurora.js`),
+      await mobileGit('show', `${main.sha}:src/world/aurora.js`));
+  } else verifyAuroraMotionEdit(await mobileGit('show', `${sources.main.sha}:src/world/aurora.js`),
     await mobileGit('show', `${sources.pr.sha}:src/world/aurora.js`));
   proof = { kind: 'aurora-motion-visual-source-pair', baseSha: sources.main.sha, validationSha: sources.pr.sha,
     beforeAuroraBlob: sources.main.auroraBlob, afterAuroraBlob: sources.pr.auroraBlob };
