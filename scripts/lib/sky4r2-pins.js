@@ -3,7 +3,7 @@ export const SKY4R2_BLOBS = Object.freeze({
   "src/world/aurora.js": "0fac6ac192f96371ac6373d6f16361a5371247c6",
   "src/world/lake.js": "2bc43f3272b22e46c5a11fdb1322fb4c9b8751b9",
   "src/world/water.js": "4b1dba5c484750cad0c6f4362e46ddc4df010f66",
-  "scripts/lib/sky4r2-source.js": "9cfcf8079cf0d8cb1f0a2003e10fdc9d649e28af",
+  "scripts/lib/sky4r2-source.js": "bc80a3210b98907ad7882381868cefe4d918be89",
   "scripts/lib/sky4r2-edits.js": "70a1bbd32d615dcc25a33d7de75a5ffd24a8f06a",
   "scripts/lib/mobile-comparison-source.js": "a7b655e9a8eef99738b6000309d916fd499bc281",
   "scripts/compare-mobile-performance.mjs": "274bef9dd0eaf173db1b2bac2b4875aeeb45cd43",
@@ -17,6 +17,6 @@ export const SKY4R2_BLOBS = Object.freeze({
   "tests/helpers/aurora-world-light-pixels.js": "77c91d8b9810e1625452f136cfc34022653f4d10",
   "tests/helpers/sky4-fixture.js": "409ccaf09faa6101cd5fff2c637d5bb3ae2cf4bc",
   "tests/helpers/sky4r2-fixture.js": "ba9c4a67c37ca38be3e4967e00c20c756ba17765",
-  "tests/sky4r2-comparison.test.js": "e407280ea7b6c98efc23158e0860483d040e604a",
+  "tests/sky4r2-comparison.test.js": "9fd244aea6a40421385948f56784bcbdd5a01e60",
   "tests/aurora-world-light.test.js": "7a7d490f67ae4d92f220ecfb387315e36596fc96"
 });

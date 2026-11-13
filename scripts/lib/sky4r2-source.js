@@ -52,6 +52,8 @@ export async function readSky4R2Transition(main, pr, headSha) {
   assert.deepEqual((await mobileGit('diff', '--name-only', main.sha, pr.sha, '--', 'src')).split('\n').sort(), Object.keys(BASE_BLOBS).sort(), 'Sky-4R2: unrelated runtime change');
   assert.equal(await mobileGit('diff', '--name-only', main.sha, pr.sha, '--', 'public', 'package.json', 'package-lock.json', 'index.html',
     'vite.config.js', 'playwright.config.js', '.github', 'scripts/ci-risk.js', 'scripts/ci-e2e.js', 'scripts/ci-summary.js', 'AGENTS.md'), '', 'Sky-4R2: build/assets/CI changed');
+  assert.deepEqual((await mobileGit('diff', '--name-only', main.sha, pr.sha, '--', '.', ':(exclude)docs/**')).split('\n').sort(),
+    Object.keys(SKY4R2_BLOBS).concat(MANIFEST).sort(), 'Sky-4R2: unapproved source/test/CI change');
   const allowed = Object.keys(SKY4R2_BLOBS).filter(path => path.startsWith('scripts/lib/')).concat(MANIFEST).sort();
   assert.deepEqual((await mobileGit('diff', '--name-only', main.sha, pr.sha, '--', 'scripts/lib')).split('\n').sort(), allowed, 'Sky-4R2: historical replay changed');
   for (const path of ['scripts/lib/sky4-source.js', 'scripts/lib/sky4-source-pins.js', 'scripts/lib/sky4-motion-source.js', 'scripts/lib/sky4-motion-pins.js',
