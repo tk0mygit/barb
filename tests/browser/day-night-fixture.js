@@ -9,6 +9,8 @@ import { sampleStars } from '../../src/world/stars.js';
 import { starSnapshot } from '../helpers/star-snapshot.js';
 import { meteorSnapshot } from '../helpers/meteor-snapshot.js';
 import { auroraSnapshot, observeAuroraGPU } from '../helpers/aurora-snapshot.js';
+import { observeAuroraWorldLight } from '../helpers/aurora-world-light-observer.js';
+import { sampleAurora, sampleAuroraLight, sampleAuroraEnvironment } from '../../src/world/aurora.js';
 
 const now = new Date('2026-10-23T00:00:00Z');
 export const tick = page => page.clock.fastForward(250);
@@ -53,11 +55,12 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
   const data = createLightingSave(elapsedSeconds);
   // Observe the actual production renderer via Three.js's existing devtools
   // event. No production debug API, source rewrite or forced game state.
-  await page.addInitScript(({ data, randomValue, starSnapshotSource, meteorSnapshotSource, auroraSnapshotSource, auroraGPUSource }) => {
+  await page.addInitScript(({ data, randomValue, starSnapshotSource, meteorSnapshotSource, auroraSnapshotSource, auroraGPUSource, worldLightSource }) => {
     const snapshotStars = (0, eval)(`(${starSnapshotSource})`);
     const snapshotMeteor = (0, eval)(`(${meteorSnapshotSource})`);
     const snapshotAurora = (0, eval)(`(${auroraSnapshotSource})`);
     const observeGPU = (0, eval)(`(${auroraGPUSource})`);
+    const observeWorldLight = (0, eval)(`(${worldLightSource})`);
     if (!sessionStorage.getItem('lighting-seeded')) {
       localStorage.setItem('barb.save.v1.slotA', JSON.stringify({ storageVersion: 1, generation: 1, data }));
       sessionStorage.setItem('lighting-seeded', 'yes');
@@ -70,6 +73,7 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
       const render = renderer.render;
       const direct = renderer.renderBufferDirect;
       const auroraGPU = observeGPU(renderer);
+      const worldLight = observeWorldLight(renderer, observeGPU);
       let auroraDraws = [];
       let starCalls = 0, meteorCalls = 0, meteorTriangles = 0, recordingStars = false;
       renderer.renderBufferDirect = function(...args) {
@@ -142,6 +146,7 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
         // Observe uploaded fog after Three.js converts the uniform. A resize
         // while paused renders again without lake.update() resetting its color.
         snapshot.waterFog = water.fogColor.value.toArray();
+        snapshot.worldLight = worldLight.read(scene);
         const probe = window.lightingProbe;
         // Keep changing autosave status out of the visual snapshots.
         if (probe.first === null) {
@@ -190,6 +195,9 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
         probe.auroraEvidence = snapshotAurora(auroras);
         probe.auroraDraws = auroraDraws;
         probe.auroraGPU = auroraGPU(auroras);
+        probe.worldLight = snapshot.worldLight;
+        probe.readWorldLight = () => worldLight.read(scene, { gpu: true });
+        probe.captureWorldLightParts = base => worldLight.capture(scene, camera, () => render.call(renderer, scene, camera), base);
         probe.firstAuroraEvidence ??= snapshotAurora(auroras);
         probe.captureAuroraPair = () => {
           const visibility = auroras.map(mesh => mesh.visible);
@@ -271,7 +279,7 @@ export async function setup(page, elapsedSeconds, { freeze = true, randomValue =
       };
     });
   }, { data, randomValue, starSnapshotSource: starSnapshot.toString(), meteorSnapshotSource: meteorSnapshot.toString(),
-    auroraSnapshotSource: auroraSnapshot.toString(), auroraGPUSource: observeAuroraGPU.toString() });
+    auroraSnapshotSource: auroraSnapshot.toString(), auroraGPUSource: observeAuroraGPU.toString(), worldLightSource: observeAuroraWorldLight.toString() });
   if (freeze) {
     await installPausedClock(page, now);
   }
@@ -294,6 +302,16 @@ export function assertEnvironment(actual, elapsedSeconds) {
   const clock = createGameClock(undefined, { elapsedSeconds }).state;
   const expected = sampleDayNight(clock);
   const night = sampleNightFog(clock);
+  if (actual.worldLight?.model === 'aurora-world-light-v1') {
+    const light = sampleAuroraLight(sampleAurora(clock, night.fogType));
+    const lit = sampleAuroraEnvironment(expected, light);
+    expected.ambientIntensity = lit.ambientIntensity;
+    actual.worldLight.ambient.color.forEach((value, i) => expect(value).toBeCloseTo(lit.ambientSky[i], 10));
+    actual.worldLight.ambient.ground.forEach((value, i) => expect(value).toBeCloseTo(lit.ambientGround[i], 10));
+    expect(actual.worldLight.water.light.strength).toBeCloseTo(light.lightStrength, 10);
+    expect(actual.worldLight.water.light.color).toEqual(light.lightColor);
+    expect(actual.worldLight.water.light.direction).toEqual(light.lightDirection);
+  }
   expected.fogColor = new Color().fromArray(expected.horizon).lerp(new Color('#53646f'), night.effectiveFogAmount * 0.65).toArray();
   expected.moonOpacity *= (1 - night.effectiveFogAmount) ** 2;
   for (const [field, parameter] of Object.entries({ ambient: 'ambientIntensity', sun: 'sunIntensity', moon: 'moonIntensity',
