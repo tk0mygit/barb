@@ -17,6 +17,6 @@ export const SKY4R2_BLOBS = Object.freeze({
   "tests/helpers/aurora-world-light-pixels.js": "77c91d8b9810e1625452f136cfc34022653f4d10",
   "tests/helpers/sky4-fixture.js": "409ccaf09faa6101cd5fff2c637d5bb3ae2cf4bc",
   "tests/helpers/sky4r2-fixture.js": "ba9c4a67c37ca38be3e4967e00c20c756ba17765",
-  "tests/sky4r2-comparison.test.js": "9fd244aea6a40421385948f56784bcbdd5a01e60",
+  "tests/sky4r2-comparison.test.js": "dda181abf5eaef6f5c549ecdf5844e6cb5b5d263",
   "tests/aurora-world-light.test.js": "7a7d490f67ae4d92f220ecfb387315e36596fc96"
 });

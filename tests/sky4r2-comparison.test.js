@@ -31,7 +31,7 @@ test('R2 transition binds the accepted base, exact three product edits, final ob
     'scripts/lib/sky4-source-pins.js', 'scripts/lib/sky4-motion-source.js', 'scripts/lib/sky4-motion-pins.js', 'scripts/lib/sky4r2-source.js',
     'scripts/lib/sky4r2-edits.js', 'scripts/lib/sky4r2-pins.js', 'tests/helpers/aurora-world-light-observer.js',
     'tests/browser/day-night-fixture.js', 'tests/browser/lighting-resource-contract.js', 'tests/browser/aurora.spec.js',
-    'scripts/ci-result.js', 'scripts/compare-mobile-performance.mjs', 'scripts/compare-lake-scenery.mjs']) {
+    'scripts/lib/ci-artifacts.js', 'scripts/compare-mobile-performance.mjs', 'scripts/compare-lake-scenery.mjs']) {
     const text = await mobileGit('show', `${pr.sha}:${path}`);
     await assert.rejects(readAuroraEvolution(main, await readMobileImplementation(worldFixtureCommit({ [path]: text + '\n// unrelated' }))), /Sky-4R2/);
   }
