@@ -2,6 +2,7 @@ import { test, expect } from './diagnostics-fixture.js';
 import { installPausedClock } from './clock-fixture.js';
 import { activateButton, expirePublicQte } from './input-fixture.js';
 import { armEncounter, verifyEncounterBite, readFishingEvidence } from './encounter-fixture.js';
+import { NORMAL_ACHIEVEMENTS } from '../../src/game/achievements.js';
 
 for (const touch of [false, true]) {
   test(`${touch ? 'touch' : 'mouse'}: real sales fund READY/sailing purchases; active fishing remains read-only`, async ({ createContext }, info) => {
@@ -188,7 +189,7 @@ for (const touch of [false, true]) {
     await expect(page.locator('[data-equipment="rod"] h3')).toHaveText('ロッド · Lv.2');
     await expect(page.locator('#achievement-notice')).toContainText('更新');
     await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
-    await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 17');
+    await expect(page.locator('.achievement-summary')).toHaveText(`解除済み 2 / ${NORMAL_ACHIEVEMENTS.length}`);
     await expect(page.locator('[data-achievement-id="normal-first-catch"].achievement-card')).toHaveAttribute('data-unlocked', 'true');
     const pausedProgress = await page.locator('#fishing-conditions').getAttribute('data-cycle-progress');
     await page.clock.fastForward(60000);
@@ -218,7 +219,7 @@ for (const touch of [false, true]) {
     await expect(page.locator('[data-equipment="reel"] h3')).toHaveText('リール · Lv.2');
     await expect(page.locator('#wallet-balance')).toHaveText(money);
     await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
-    await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 17');
+    await expect(page.locator('.achievement-summary')).toHaveText(`解除済み 2 / ${NORMAL_ACHIEVEMENTS.length}`);
     expect(errors).toEqual([]);
   });
 }

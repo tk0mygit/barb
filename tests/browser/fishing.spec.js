@@ -8,6 +8,7 @@ import { validateFishImage } from '../../scripts/lib/fish-image-validation.js';
 import { calculateSalePrice } from '../../src/game/fish-sales.js';
 import { armEncounter, verifyEncounterBite, readFishingEvidence } from './encounter-fixture.js';
 import { createStorageCheckpointTest } from './storage-checkpoint-fixture.js';
+import { ACHIEVEMENT_CONTRACT_VERSION } from '../../src/game/achievements.js';
 
 // Keep software WebGL responsive while retaining CSS viewport/touch behavior.
 test.use({ deviceScaleFactor: 0.5 });
@@ -502,7 +503,7 @@ test('Phase 6-C Rare: initial equipment arapaima through native three-QTE catch,
   await page.locator('#close-catch').click(); await tick();
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   const saved = (await readSpeciesSave(page)).data;
-  expect([saved.saveVersion, saved.rosterRevision, saved.achievements.contractVersion]).toEqual([3, 3, 5]);
+  expect([saved.saveVersion, saved.rosterRevision, saved.achievements.contractVersion]).toEqual([3, 3, ACHIEVEMENT_CONTRACT_VERSION]);
   expect(saved.collection.equipment).toEqual({ rodLevel: 1, reelLevel: 1 });
   expect(saved.collection.catches).toHaveLength(1);
   const record = saved.collection.catches[0];
@@ -529,7 +530,7 @@ async function readSpeciesSave(page) {
 }
 function assertSpeciesSave(data, count, qteCounts) {
   expect(data).not.toBeNull();
-  expect([data.saveVersion, data.rosterRevision, data.achievements.contractVersion]).toEqual([3, 3, 5]);
+  expect([data.saveVersion, data.rosterRevision, data.achievements.contractVersion]).toEqual([3, 3, ACHIEVEMENT_CONTRACT_VERSION]);
   const records = data.collection.catches;
   expect(records.map(record => record.speciesId)).toEqual(FISH_SPECIES.slice(0, count).map(fish => fish.id));
   expect(new Set(records.map(record => record.id)).size).toBe(count);
