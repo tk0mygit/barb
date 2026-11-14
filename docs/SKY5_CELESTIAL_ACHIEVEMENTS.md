@@ -131,7 +131,7 @@ lakeの変更は既存3Meshへの凍結された参照の公開だけで、updat
 
 ## 最終ローカル結果（2026-11-14）
 
-本番src treeは全局所検証で `4134216b8067fbbfce7ff44ea25587975d8e7c35`。
+最終成功系の本番src treeは `4134216b8067fbbfce7ff44ea25587975d8e7c35`。
 全Unitは1325件成功。全呼出元への接続とmerge照合の最終変更後も専用5件が成功し、
 実Git改変source拒否、34組／68画像の正常・欠損・改竄、Mobile CLI nonzero、
 最終ゲート再検証、景観8条件のゼロ資源許容を確認した。
@@ -143,7 +143,7 @@ lakeの変更は既存3Meshへの凍結された参照の公開だけで、updat
 | 最終source証明Unit | 5成功 | `/tmp/barb-sky5-comparison-final.log` |
 | Build / diff --check | 成功 | `/tmp/barb-sky5-build-final.log` |
 | PR相当の収集のみ | 52spec／521 ID、収集エラー0 | `/tmp/barb-sky5-collection-final.json` |
-| PC／touch smoke | 2成功 | `test-results/sky5-smoke` |
+| PC／touch smoke | 最終ビルドで2成功 | `test-results/sky5-smoke-final` |
 | 実績・通知・保存UI（既存3spec全件） | 23成功 | `test-results/sky5-achievements-ui` |
 | 新規観測 | 修正ケースを含む22成功 | `sky5-observation-pc`（Aurora）、`sky5-observation-meteor-corrected`、`sky5-observation-rest`（19件）、`sky5-dialog-corrected` |
 | 既存SkyCheck/Meteor/R2/Autosave | 18成功 | `sky5-existing-regressions`（7件）、`sky5-regressions-corrected`（11件） |
