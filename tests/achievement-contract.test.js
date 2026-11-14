@@ -59,7 +59,7 @@ test('fixed pre-change canonical A/B bytes retain their hashes and exact old con
     assert.deepEqual(notices, []);
     const added = restored.achievements.snapshot.unlocked.filter(record => !legacyIds.includes(record.id));
     assert.deepEqual(added, i === 0 ? [] : ['normal-rod-level-5', 'normal-reel-level-5'].map(id => ({ id, unlockedAt: savedAt })));
-    assert.equal(save(restored).achievements.contractVersion, 5);
+    assert.equal(save(restored).achievements.contractVersion, 6);
   }
 });
 
@@ -69,7 +69,7 @@ test('legacy load never rewrites either raw slot; a failed migration save retain
   assert.equal(status.phase, 'restored'); assert.equal(status.generation, 2);
   assert.equal(manager.load().state, state);
   assert.deepEqual([...storage.map.values()], rawSlots); assert.deepEqual(storage.writes, []);
-  const data = save(state); assert.equal(data.achievements.contractVersion, 5);
+  const data = save(state); assert.equal(data.achievements.contractVersion, 6);
   storage.fail = true;
   assert.equal(manager.save(data).ok, false); assert.equal(manager.status.code, 'quota-exceeded');
   assert.equal(manager.status.generation, 2);
@@ -79,7 +79,7 @@ test('legacy load never rewrites either raw slot; a failed migration save retain
   assert.equal(storage.map.get(SAVE_STORAGE_KEYS[1]), rawSlots[1]);
   const envelope = JSON.parse(storage.writes[0].value);
   assert.equal(envelope.storageVersion, 1); assert.equal(envelope.data.saveVersion, 3);
-  assert.equal(envelope.data.achievements.contractVersion, 5);
+  assert.equal(envelope.data.achievements.contractVersion, 6);
   const reloaded = createSaveStorage({ getStorage: () => storage }).load();
   assert.equal(reloaded.status.generation, 3);
   assert.deepEqual(save(reloaded.state), data);
@@ -130,7 +130,7 @@ test('achievement version type errors and unknown versions retain distinct codes
     const data = clone(legacy[0]); data.achievements.contractVersion = version;
     assert.throws(() => validateSaveData(data), error => error.code === 'invalid-data' && error.path === 'achievements.contractVersion');
   }
-  for (const version of [0, 1, 6, 999]) {
+  for (const version of [0, 1, 7, 999]) {
     const data = clone(legacy[0]); data.achievements.contractVersion = version;
     rejects(data, 'achievements.contractVersion', 'unsupported-version');
   }
@@ -141,7 +141,7 @@ test('achievement version type errors and unknown versions retain distinct codes
 });
 
 test('future achievement contracts protect both slots even when an old generation is still restorable', () => {
-  const future = JSON.parse(rawSlots[1]); future.data.achievements.contractVersion = 6;
+  const future = JSON.parse(rawSlots[1]); future.data.achievements.contractVersion = 7;
   const raw = [rawSlots[0], JSON.stringify(future)], storage = memory(raw);
   const manager = createSaveStorage({ getStorage: () => storage }), loaded = manager.load();
   assert.equal(loaded.status.code, 'unsupported-version'); assert.equal(loaded.status.canSave, false);
@@ -180,7 +180,7 @@ test('old Lv.5 → each newly purchased Lv.6–10 saves and reloads the complete
     for (const kind of ['rod', 'reel']) {
       const receipt = state.collection.purchaseUpgrade(kind, level - 1); assert.ok(receipt); spent += receipt.cost;
       const data = save(state), parsed = parseSaveData(serializeSaveData(data, { now: () => now }));
-      assert.equal(data.saveVersion, 3); assert.equal(data.achievements.contractVersion, 5);
+      assert.equal(data.saveVersion, 3); assert.equal(data.achievements.contractVersion, 6);
       const next = restoreSaveData(parsed, { now: () => { throw new Error('No newly earned awards on reload'); } });
       assert.deepEqual(save(next), data);
       assert.deepEqual(oldAwards(next.achievements.snapshot), legacy[1].achievements.unlocked);
@@ -203,7 +203,7 @@ test('old Lv.5 → each newly purchased Lv.6–10 saves and reloads the complete
   }
   const duplicate = clone(complete); duplicate.achievements.unlocked.push(duplicate.achievements.unlocked[14]);
   rejects(duplicate, 'achievements.unlocked[15].id');
-  duplicate.achievements.unlocked.push(duplicate.achievements.unlocked[14], duplicate.achievements.unlocked[14]);
+  while (duplicate.achievements.unlocked.length <= NORMAL_ACHIEVEMENTS.length) duplicate.achievements.unlocked.push(duplicate.achievements.unlocked[14]);
   rejects(duplicate, 'achievements.unlocked', 'input-too-large');
   for (const kind of ['rod', 'reel']) {
     const data = clone(save(state)); delete data.achievements.contractVersion;

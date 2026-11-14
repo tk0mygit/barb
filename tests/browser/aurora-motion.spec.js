@@ -9,6 +9,7 @@ import { SKY4_MOTION_BASE, verifyAuroraMotionEdit } from '../../scripts/lib/sky4
 import { readMobileImplementation, mobileGit, mobileSourceMetadata, assertMobileWorkingSource } from '../../scripts/lib/mobile-comparison-source.js';
 import { readAuroraSource, auroraValues } from '../../scripts/lib/sky4-source.js';
 import { auroraSnapshot } from '../helpers/aurora-snapshot.js';
+import { SKY5_SOURCE_TREE, readSky5WorldLightReference } from '../../scripts/lib/sky5-source.js';
 
 let reference, sources, proof;
 const seconds = findAuroraNight({ forward: true }) * 360 + 270;
@@ -21,7 +22,8 @@ test.beforeAll(async ({}, info) => {
   const r2 = await mobileGit('ls-tree', sources.pr.sha, '--', 'scripts/lib/sky4r2-pins.js');
   if (r2) {
     const main = await readMobileImplementation(SKY4R2_BASE);
-    await readSky4R2Transition(main, sources.pr);
+    if (sources.pr.sourceTree === SKY5_SOURCE_TREE) await readSky5WorldLightReference(sources.pr);
+    else await readSky4R2Transition(main, sources.pr);
     // The original motion edit still applies to its historical source pair;
     // R2 separately permits only palette/light hunks after that accepted state.
     verifyAuroraMotionEdit(await mobileGit('show', `${sources.main.sha}:src/world/aurora.js`),

@@ -14,6 +14,7 @@ import { readSky2Transition, verifyStarCapture, expectedStarResources } from './
 import { readSky3Transition, verifyMeteorCapture, expectedMeteorResources } from './lib/sky3-source.js';
 import { verifyAuroraCapture, expectedAuroraResources } from './lib/sky4-source.js';
 import { readAuroraEvolution, SKY4R2_KIND, verifyWorldLightCapture } from './lib/sky4r2-source.js';
+import { readSky5Preservation } from './lib/sky5-source.js';
 
 export const MOBILE_COMPARISON_MODES = ['regression', 'historical-improvement'];
 // One reviewed product-source transition, not a per-PR resource allowance.
@@ -175,7 +176,8 @@ async function readComparisonSources(metadata) {
   const sky2Transition = await readSky2Transition(implementations.main, implementations.pr);
   const sky3Transition = await readSky3Transition(implementations.main, implementations.pr);
   const sky4Transition = await readAuroraEvolution(implementations.main, implementations.pr, metadata.headSha);
-  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition, waterEffectsTransition, sky2Transition, sky3Transition, sky4Transition };
+  const sky5Preservation = await readSky5Preservation(implementations.main, implementations.pr, metadata.headSha);
+  return { implementations, verified: new Map(), rodReelTransition, castDisplayTransition, fishingHintRemoval, fishingPhaseTransition, waterEffectsTransition, sky2Transition, sky3Transition, sky4Transition, sky5Preservation };
 }
 
 async function verifyEntries(sources, target, entries) {
@@ -184,10 +186,10 @@ async function verifyEntries(sources, target, entries) {
     const verified = await verifyMobileSourceCapture(sources.implementations[target], entry);
     if (sources.fishingPhaseTransition) verified.fishingPhase = await verifyFishingPhaseCapture(sources.implementations[target], entry);
     if (sources.waterEffectsTransition) verified.waterEffects = await verifyWaterEffectsCapture(sources.implementations[target], entry);
-    if (sources.sky2Transition || sources.sky3Transition || sources.sky4Transition) verified.stars = await verifyStarCapture(sources.implementations[target], entry);
-    if (sources.sky3Transition || sources.sky4Transition) verified.meteor = await verifyMeteorCapture(sources.implementations[target], entry);
-    if (sources.sky4Transition) verified.aurora = await verifyAuroraCapture(sources.implementations[target], entry);
-    if (sources.sky4Transition?.kind === SKY4R2_KIND) verified.worldLight = await verifyWorldLightCapture(sources.implementations[target], entry);
+    if (sources.sky2Transition || sources.sky3Transition || sources.sky4Transition || sources.sky5Preservation) verified.stars = await verifyStarCapture(sources.implementations[target], entry);
+    if (sources.sky3Transition || sources.sky4Transition || sources.sky5Preservation) verified.meteor = await verifyMeteorCapture(sources.implementations[target], entry);
+    if (sources.sky4Transition || sources.sky5Preservation) verified.aurora = await verifyAuroraCapture(sources.implementations[target], entry);
+    if (sources.sky4Transition?.kind === SKY4R2_KIND || sources.sky5Preservation) verified.worldLight = await verifyWorldLightCapture(sources.implementations[target], entry);
     sources.verified.set(entry, verified);
   }
 }
@@ -321,6 +323,14 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
     let starComparison;
     let meteorComparison;
     let auroraComparison;
+    if (sources?.sky5Preservation) {
+      assert.equal(metadata.mode, 'regression', 'Sky-5: regression mode required');
+      assert.deepEqual(a.metrics.resources, b.metrics.resources, 'Sky-5: fixed resource regression');
+      assert.deepEqual(a.metrics.actualResources, b.metrics.actualResources, 'Sky-5: actual resource regression');
+      for (const sky of ['stars', 'meteor', 'aurora']) assert.deepEqual(sources.verified.get(a)[sky].draws,
+        sources.verified.get(b)[sky].draws, `Sky-5: ${sky} submissions changed`);
+      assert.deepEqual(sources.verified.get(a).worldLight.state, sources.verified.get(b).worldLight.state, 'Sky-5: world light changed');
+    }
     if (sources?.sky4Transition) {
       assert.equal(metadata.mode, 'regression', 'Sky-4: regression mode required');
       assert(!sources.sky2Transition && !sources.sky3Transition && !gearTransition && !castDisplay && !phaseDisplay && !waterEffects && !hintRemoval, 'Sky-4: cannot combine historical allowances');
@@ -442,6 +452,7 @@ export function compareMobileCapturePair(b, a, metadata, sources) {
       }
     }
     return { id: b.id, before: b.metrics, after: a.metrics,
+      ...(sources?.sky5Preservation ? { sky5Preservation: sources.sky5Preservation } : {}),
       ...(cameraComparison ? { cameraComparison } : {}),
       ...(expected.transition ? { resourceTransition: expected.transition } : {}),
       ...(gearTransition ? { rodReelComparison: gearTransition } : {}),

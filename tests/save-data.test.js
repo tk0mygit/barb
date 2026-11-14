@@ -46,7 +46,7 @@ test('initial versioned envelope, JSON and domain round trips preserve the exist
   const state = session(), data = save(state);
   assert.deepEqual(data, { saveVersion: 3, rosterRevision: 3, savedAt,
     collection: { catches: [], wallet: { balance: 0, lifetimeSales: 0 }, equipment: { rodLevel: 1, reelLevel: 1 } },
-    achievements: { contractVersion: 5, unlocked: [] }, boat: { x: 0, z: 30, heading: 0 }, clock: { elapsedSeconds: 0 }, settings: {} });
+    achievements: { contractVersion: 6, unlocked: [] }, boat: { x: 0, z: 30, heading: 0 }, clock: { elapsedSeconds: 0 }, settings: {} });
   const parsed = parseSaveData(serializeSaveData(data));
   assert.deepEqual(parsed, data); assert.notEqual(parsed, data);
   const restored = restoreSaveData(parsed);

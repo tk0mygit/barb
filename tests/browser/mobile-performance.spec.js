@@ -292,7 +292,8 @@ async function saveCapture(target, id, page, metrics, info, withLayout = false) 
   if (implementations[target].starsBlob) await verifyStarCapture(implementations[target], entry);
   if (implementations[target].meteorBlob) await verifyMeteorCapture(implementations[target], entry);
   if (implementations[target].auroraBlob) await verifyAuroraCapture(implementations[target], entry);
-  if (comparison.baseSha === '50bc6ebcca09e50b90c3a30c5dc8613255d85c6a') await verifyWorldLightCapture(implementations[target], entry);
+  if (['50bc6ebcca09e50b90c3a30c5dc8613255d85c6a', '65021907bf06f5a0f765af9ea18dc5f91d43289b'].includes(comparison.baseSha))
+    await verifyWorldLightCapture(implementations[target], entry);
   if (implementations[target].sha === WATER_EFFECTS_BASE || implementations[target].fishingEffectsBlob) {
     await verifyWaterEffectsCapture(implementations[target], entry);
   }

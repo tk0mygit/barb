@@ -20,12 +20,15 @@ export const NORMAL_ACHIEVEMENTS = Object.freeze([
   { id: 'normal-equipment-level-10', name: '日が暮れる', description: 'ロッドとリールの両方をLv.10にする。', metric: 'equipment-max', target: 10 },
   { id: 'normal-species-24', name: '広がる記録', description: '異なる通常魚を24種以上捕獲する。', metric: 'species', target: 24 },
   { id: 'normal-species-36', name: '湖の記録', description: '異なる通常魚36種すべてを捕獲する。', metric: 'species', target: 36 },
+  { id: 'normal-aurora-observed', name: 'レクイエム', description: '稀な天体イベントを観測する。', metric: 'observation', target: 1 },
+  { id: 'normal-meteor-observed', name: '星に願いを', description: '非常に稀な天体イベントを観測する。', metric: 'observation', target: 1 },
 ].map(Object.freeze));
 
 const LEGACY_ACHIEVEMENTS = Object.freeze(NORMAL_ACHIEVEMENTS.slice(0, 10));
 const PHASE6A_ACHIEVEMENTS = Object.freeze(NORMAL_ACHIEVEMENTS.slice(0, 15));
 const PHASE6B_ACHIEVEMENTS = Object.freeze(NORMAL_ACHIEVEMENTS.slice(0, 16));
-export const ACHIEVEMENT_CONTRACT_VERSION = 5;
+const PHASE6C_ACHIEVEMENTS = Object.freeze(NORMAL_ACHIEVEMENTS.slice(0, 17));
+export const ACHIEVEMENT_CONTRACT_VERSION = 6;
 
 function achievementValues(collection) {
   const { rodLevel, reelLevel } = collection.equipment;
@@ -51,12 +54,12 @@ export function validateAchievementContract(value, contracts) {
   if (version) {
     requireValid('value' in version && Number.isSafeInteger(version.value) && version.value >= 0, 'achievements.contractVersion');
     requireValid(contracts.includes(version.value), 'achievements.contractVersion',
-      [2, 3, 4, ACHIEVEMENT_CONTRACT_VERSION].includes(version.value) ? 'invalid-data' : 'unsupported-version');
+      [2, 3, 4, 5, ACHIEVEMENT_CONTRACT_VERSION].includes(version.value) ? 'invalid-data' : 'unsupported-version');
   } else requireValid(contracts.includes(undefined), 'achievements.contractVersion');
   return version?.value;
 }
 
-export function validateAchievementData(value, collection, { contracts = [undefined, 2, 3, 4, ACHIEVEMENT_CONTRACT_VERSION] } = {}) {
+export function validateAchievementData(value, collection, { contracts = [undefined, 2, 3, 4, 5, ACHIEVEMENT_CONTRACT_VERSION] } = {}) {
   validateAchievementContract(value, contracts);
   objectFields(value, ['unlocked'], ['contractVersion'], 'achievements');
   const currentContract = Object.hasOwn(value, 'contractVersion');
@@ -64,14 +67,15 @@ export function validateAchievementData(value, collection, { contracts = [undefi
     // Only the original Lv.1–5 domains could produce the unversioned contract.
     for (const kind of ['rod', 'reel']) requireValid(collection.equipment[`${kind}Level`] <= 5, `collection.equipment.${kind}Level`);
   }
-  if (value.contractVersion !== ACHIEVEMENT_CONTRACT_VERSION) {
+  if (![5, ACHIEVEMENT_CONTRACT_VERSION].includes(value.contractVersion)) {
     const sourceIds = value.contractVersion === 4 ? PHASE6B_FISH_SPECIES_IDS
       : value.contractVersion === 3 ? PHASE6A_FISH_SPECIES_IDS : ORIGINAL_FISH_SPECIES_IDS;
     requireValid(collection.catches.every(record => sourceIds.includes(record.speciesId)), 'achievements.contractVersion');
   }
   const definitions = !currentContract ? LEGACY_ACHIEVEMENTS
     : value.contractVersion === ACHIEVEMENT_CONTRACT_VERSION ? NORMAL_ACHIEVEMENTS
-      : value.contractVersion === 4 ? PHASE6B_ACHIEVEMENTS : PHASE6A_ACHIEVEMENTS;
+      : value.contractVersion === 5 ? PHASE6C_ACHIEVEMENTS
+        : value.contractVersion === 4 ? PHASE6B_ACHIEVEMENTS : PHASE6A_ACHIEVEMENTS;
   arrayData(value.unlocked, definitions.length, 'achievements.unlocked');
   const ids = new Set();
   const unlocked = value.unlocked.map((record, i) => {
@@ -81,10 +85,10 @@ export function validateAchievementData(value, collection, { contracts = [undefi
     timestamp(record.unlockedAt, `${path}.unlockedAt`); ids.add(record.id);
     return Object.freeze({ id: record.id, unlockedAt: record.unlockedAt });
   });
-  // All conditions are monotonic. Missing earned awards or impossible unlocked
-  // awards indicate corruption; never manufacture historical timestamps.
+  // Collection conditions remain an exact set. Observations have no collection
+  // metric: their stable ID/date above is the only durable history.
   const values = achievementValues(collection);
-  for (const definition of definitions) requireValid(ids.has(definition.id)
+  for (const definition of definitions) if (definition.metric !== 'observation') requireValid(ids.has(definition.id)
     === (values[definition.metric] >= definition.target), `achievements.${definition.id}`);
   return Object.freeze({ ...(currentContract ? { contractVersion: value.contractVersion } : {}), unlocked: Object.freeze(unlocked) });
 }
@@ -97,7 +101,8 @@ export function migrateAchievementData(value, collection, { now = Date.now } = {
   if (validated.contractVersion === ACHIEVEMENT_CONTRACT_VERSION) return validated;
   const ids = new Set(validated.unlocked.map(record => record.id));
   const values = achievementValues(collection);
-  const pending = NORMAL_ACHIEVEMENTS.filter(definition => !ids.has(definition.id) && values[definition.metric] >= definition.target);
+  const pending = NORMAL_ACHIEVEMENTS.filter(definition => definition.metric !== 'observation'
+    && !ids.has(definition.id) && values[definition.metric] >= definition.target);
   const unlockedAt = pending.length ? new Date(now()).toISOString() : null;
   return validateAchievementData({ contractVersion: ACHIEVEMENT_CONTRACT_VERSION,
     unlocked: [...validated.unlocked, ...pending.map(({ id }) => ({ id, unlockedAt }))] }, collection);
@@ -107,20 +112,25 @@ export function migrateAchievementData(value, collection, { now = Date.now } = {
 export function createAchievements({ collection, now = Date.now, initialData }) {
   const restored = initialData === undefined ? [] : validateAchievementData(initialData, collection).unlocked;
   const unlocked = new Map(restored.map(record => [record.id, record.unlockedAt])), listeners = new Set();
+  let disposed = false;
   function entries() {
     const { rodLevel, reelLevel } = collection.equipment;
     const values = achievementValues(collection);
     return Object.freeze(NORMAL_ACHIEVEMENTS.map(definition => Object.freeze({
       ...definition,
-      progress: Object.freeze({ value: values[definition.metric], target: definition.target,
+      progress: Object.freeze({ value: definition.metric === 'observation' ? Number(unlocked.has(definition.id)) : values[definition.metric], target: definition.target,
         ...(['first-upgrade', 'equipment-max', 'rod-level', 'reel-level'].includes(definition.metric) ? { rodLevel, reelLevel } : {}) }),
       unlocked: unlocked.has(definition.id), unlockedAt: unlocked.get(definition.id) ?? null,
     })));
   }
   function evaluate() {
-    const pending = entries().filter(entry => !entry.unlocked && (entry.metric === 'equipment-max'
+    if (disposed) return Object.freeze([]);
+    const pending = entries().filter(entry => entry.metric !== 'observation' && !entry.unlocked && (entry.metric === 'equipment-max'
       ? entry.progress.rodLevel >= entry.target && entry.progress.reelLevel >= entry.target
       : entry.progress.value >= entry.target));
+    return award(pending);
+  }
+  function award(pending) {
     if (!pending.length) return Object.freeze([]);
     const unlockedAt = new Date(now()).toISOString();
     // Commit the entire batch before calling any presentation subscribers.
@@ -136,6 +146,11 @@ export function createAchievements({ collection, now = Date.now, initialData }) 
   const unsubscribe = collection.subscribe(evaluate);
   return Object.freeze({
     evaluate,
+    recordObservation(kind) {
+      if (disposed || (kind !== 'aurora' && kind !== 'meteor')) return Object.freeze([]);
+      return award(entries().filter(entry => entry.id === `normal-${kind}-observed` && !entry.unlocked)
+        .map(entry => ({ ...entry, progress: Object.freeze({ value: 1, target: 1 }) })));
+    },
     get entries() { return entries(); },
     get unlockedCount() { return unlocked.size; },
     get snapshot() {
@@ -143,6 +158,6 @@ export function createAchievements({ collection, now = Date.now, initialData }) 
         unlocked: Object.freeze([...unlocked].map(([id, unlockedAt]) => Object.freeze({ id, unlockedAt }))) });
     },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
-    dispose() { unsubscribe(); listeners.clear(); },
+    dispose() { disposed = true; unsubscribe(); listeners.clear(); },
   });
 }

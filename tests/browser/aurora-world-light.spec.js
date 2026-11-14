@@ -8,12 +8,16 @@ import { readMobileImplementation, mobileGit, assertMobileWorkingSource, mobileS
 import { readSky4R2Transition, readWorldLightSource } from '../../scripts/lib/sky4r2-source.js';
 import { sampleDayNight } from '../../src/world/day-night.js';
 import { createGameClock } from '../../src/game/game-clock.js';
+import { SKY5_SOURCE_TREE, readSky5WorldLightReference } from '../../scripts/lib/sky5-source.js';
 
 const baseSha = '50bc6ebcca09e50b90c3a30c5dc8613255d85c6a', night = findAuroraNight({ forward: true }), seconds = night * 360 + 270;
 let sources, reference;
 test.beforeAll(async ({}, info) => {
   sources = { main: await readMobileImplementation(baseSha), pr: await readMobileImplementation(await mobileGit('rev-parse', 'HEAD')) };
-  await assertMobileWorkingSource(sources.pr); await readSky4R2Transition(sources.main, sources.pr); reference = await prepareSceneryReference(info, baseSha);
+  await assertMobileWorkingSource(sources.pr);
+  if (sources.pr.sourceTree === SKY5_SOURCE_TREE) await readSky5WorldLightReference(sources.pr);
+  else await readSky4R2Transition(sources.main, sources.pr);
+  reference = await prepareSceneryReference(info, baseSha);
 });
 test.afterAll(async ({}, info) => { await reference?.dispose(info); if (sources) await assertMobileWorkingSource(sources.pr); });
 

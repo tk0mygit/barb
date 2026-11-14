@@ -8,6 +8,7 @@ import { createPlayPreferences } from './game/play-preferences.js';
 import { createBoatModel } from './rendering/boat-model.js';
 import { createCameraRig } from './rendering/camera.js';
 import { createCastVisibility } from './rendering/cast-visibility.js';
+import { createCelestialObservation } from './rendering/celestial-observation.js';
 import { nearRingExpansion } from './rendering/fishing-visuals.js';
 import { createControls } from './input/controls.js';
 import { createTimeSkipInputLock } from './input/time-skip-lock.js';
@@ -54,7 +55,7 @@ function showError(message) {
   document.querySelector('#day-night-skip').hidden = true;
 }
 let autosave, environmentAudio, audioSession, qteDelivery, qteHUD, rodReelView, fishingView, discoveryCoordinator;
-let disposeSkyCheck;
+let disposeSkyCheck, celestialObservation;
 try {
   // Choose one complete domain before anything subscribes or renders. Storage
   // remains read-only until the scene, controls and every HUD are ready.
@@ -131,6 +132,7 @@ try {
     // touch may repair a missing mobile focus notification; PC waits for focus.
     const startupInput = focusRecovery === 'startup' && ['pointerdown', 'keydown'].includes(event.type);
     if (!focused && (startupInput || freshTouch)) {
+      celestialObservation?.reset();
       focused = true; focusRecovery = null;
       discoveryCoordinator.recoverFocus();
       fishingInput.setSuspended('blur', false, performance.now());
@@ -231,6 +233,7 @@ try {
       available: !timeSkip.active && safeToSkip(), timeOfDay: gameClock.state.timeOfDay }),
     onTimeSkip: () => {
       if (!timeSkip.start(safeToSkip())) return;
+      celestialObservation.reset();
       boat.speed = 0;
       previous = performance.now();
       syncTimeSkip();
@@ -269,6 +272,7 @@ try {
     canPurchase: () => boat.mode === 'sailing' || (boat.mode === 'fishing' && fishing.state.phase === PHASE.READY),
     canOpen: () => !timeSkip.active && renderHealthy && fishing.state.phase !== PHASE.RESULT && !document.querySelector('#catch-dialog').open,
     onOpenChange: open => {
+      celestialObservation?.reset();
       if (open) cancelTimeSkip();
       fishingInput.setSuspended('menu', open, performance.now());
       if (open) cancelPreparation();
@@ -287,6 +291,7 @@ try {
   function syncTimeSkip() {
     const locked = timeSkip.active;
     if (locked !== skipLocked) {
+      celestialObservation?.reset();
       skipLocked = locked;
       if (locked) skipInputLock.discardHeldKeys();
       controls.setEnabled(!locked && !collectionMenu.isOpen && renderHealthy);
@@ -307,15 +312,30 @@ try {
     if (!playPreferences.state.dayNightSkip) cancelTimeSkip();
     syncTimeSkip();
   });
-  window.addEventListener('error', cancelTimeSkip);
-  window.addEventListener('unhandledrejection', cancelTimeSkip);
+  const interruptObservationAndSkip = () => { celestialObservation?.reset(); cancelTimeSkip(); };
+  window.addEventListener('error', interruptObservationAndSkip);
+  window.addEventListener('unhandledrejection', interruptObservationAndSkip);
   disposeSkyCheck = () => {
     cancelTimeSkip(); unsubscribePlay(); skipInputLock.dispose(); playPreferences.dispose();
-    window.removeEventListener('error', cancelTimeSkip); window.removeEventListener('unhandledrejection', cancelTimeSkip);
+    window.removeEventListener('error', interruptObservationAndSkip); window.removeEventListener('unhandledrejection', interruptObservationAndSkip);
   };
   if (qteDelivery) qteHUD = createQteHUD({ fishing, delivery: qteDelivery,
     provider: { getDescriptor: index => state.qteProvider.getDescriptor(index) },
     manageGeometry: false, autoPresent: false });
+  const observationObstacles = [...document.querySelectorAll('.wordmark, .location, .wallet, #menu-button, .action-panel, .telemetry, .edition, .compass, #fishing-panel, #joystick, #achievement-notice, #species-discovery-notice, #sale-notice')];
+  celestialObservation = createCelestialObservation({ renderer, scene, camera, targets: lake.celestial,
+    recorded: ['aurora', 'meteor'].filter(kind => achievements.snapshot.unlocked.some(row => row.id === `normal-${kind}-observed`)),
+    onObservation: kind => achievements.recordObservation(kind),
+    getViewport: () => ({ width: window.innerWidth, height: window.innerHeight,
+      occlusions: observationObstacles.filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden')
+        .map(element => element.getBoundingClientRect()) }),
+  });
+  // Dialogs can open and close between rAFs. Neither interval can contribute
+  // to continuity, even if the next normal frame sees an already closed menu.
+  for (const dialog of document.querySelectorAll('dialog')) {
+    dialog.addEventListener('beforetoggle', () => celestialObservation.reset());
+    dialog.addEventListener('toggle', () => celestialObservation.reset());
+  }
   // Populate the first rendered frame from the chosen state, including the
   // saved transform. Never show a model at the new-game origin first.
   spotsView.update(getFishingSpotStatus(boat).active?.id);
@@ -336,6 +356,7 @@ try {
   let drawingSize, qteFrame = 0, qteRenderedFrame = -1;
   let previous = performance.now(), elapsed = 0;
   function resize() {
+    celestialObservation.reset();
     fishingInput.geometryChanged(false, performance.now());
     if (boat.mode === 'fishing' && fishing.state.phase === PHASE.FIGHT) controls.reset();
     const next = calculateRenderResolution({ width: window.innerWidth, height: window.innerHeight,
@@ -364,14 +385,16 @@ try {
     qteRenderedFrame = qteFrame;
   }
   window.addEventListener('resize', resize);
-  window.addEventListener('orientationchange', () => fishingInput.geometryChanged(true, performance.now()));
-  window.screen.orientation?.addEventListener('change', () => fishingInput.geometryChanged(true, performance.now()));
+  const orientationChanged = () => { celestialObservation.reset(); fishingInput.geometryChanged(true, performance.now()); };
+  window.addEventListener('orientationchange', orientationChanged);
+  window.screen.orientation?.addEventListener('change', orientationChanged);
   resize();
   ambientAudio.setPaused('blur', !focused);
   ambientAudio.setPaused('hidden', document.hidden);
   fishingInput.setSuspended('blur', !focused, performance.now());
   fishingInput.setSuspended('hidden', document.hidden, performance.now());
   window.addEventListener('blur', () => {
+    celestialObservation.reset();
     fishingInput.setSuspended('blur', true, performance.now());
     cancelPreparation();
     focused = false; focusRecovery = 'blurred'; cancelTouch(); ambientAudio.setPaused('blur', true);
@@ -379,12 +402,14 @@ try {
     cancelTimeSkip(); syncTimeSkip();
   });
   window.addEventListener('focus', () => {
+    celestialObservation.reset();
     fishingInput.setSuspended('blur', false, performance.now());
     focused = true; focusRecovery = null; cancelTouch();
     previous = performance.now(); ambientAudio.setPaused('blur', false);
     syncTimeSkip();
   });
   document.addEventListener('visibilitychange', () => {
+    celestialObservation.reset();
     fishingInput.setSuspended('hidden', document.hidden, performance.now());
     ambientAudio.setPaused('hidden', document.hidden);
     previous = performance.now();
@@ -395,12 +420,14 @@ try {
     if (document.hidden && fishing.state.phase === PHASE.READY) rodReelView.resetMotion();
   });
   window.addEventListener('pagehide', () => {
+    celestialObservation.reset();
     pageActive = false; cancelTimeSkip(); syncTimeSkip();
     fishingInput.setSuspended('page', true, performance.now());
     cancelTouch(); ambientAudio.setPaused('page', true); autosave.flush();
     if (fishing.state.phase === PHASE.READY) rodReelView.resetMotion();
   });
   window.addEventListener('pageshow', () => {
+    celestialObservation.reset();
     pageActive = true; syncTimeSkip();
     fishingInput.setSuspended('page', false, performance.now());
     previous = performance.now();
@@ -411,14 +438,14 @@ try {
   });
   renderer.setAnimationLoop(now => {
     try {
-      if (!Number.isFinite(now)) { cancelTimeSkip(); previous = performance.now(); return; }
+      if (!Number.isFinite(now)) { celestialObservation.reset(); cancelTimeSkip(); previous = performance.now(); return; }
       const frameSeconds = Math.max(0, (now - previous) / 1000);
       const dt = Math.min(frameSeconds, 0.25);
       previous = now;
       if (timeSkip.active && !safeToSkip()) cancelTimeSkip();
       // SkyCheck's pagehide latch must not pause the existing OFF path.
       if (document.hidden || !focused || (!pageActive && playPreferences.state.dayNightSkip)
-        || collectionMenu.isOpen || document.querySelector('#collection-dialog').open) return;
+        || collectionMenu.isOpen || document.querySelector('#collection-dialog').open) { celestialObservation.reset(); return; }
       // Clock tracks all active time, even on slow frames. Movement retains its
       // existing safety cap; hidden/unfocused time is not caught up on resume.
       const skippingFrame = timeSkip.step(frameSeconds);
@@ -477,7 +504,9 @@ try {
       updateFishingDisplay(clockState);
       collectionMenu.update();
       if (!skippingFrame) qteHUD?.update(qteFrame, performance.now());
-      renderer.render(scene, camera);
+      celestialObservation.renderFrame(now, clockState, () => !skippingFrame && !timeSkip.active
+        && focused && !document.hidden && pageActive && renderHealthy && !collectionMenu.isOpen
+        && !document.querySelector('dialog[open]') && ![PHASE.FIGHT, PHASE.LANDING, PHASE.RESULT].includes(fishing.state.phase));
       qteRenderedFrame = qteFrame;
       hud.ready();
       if (skipLocked !== timeSkip.active) syncTimeSkip();
@@ -488,6 +517,7 @@ try {
   });
   function stopRendering(message) {
     renderHealthy = false;
+    celestialObservation.dispose();
     disposeSkyCheck();
     controls.setEnabled(false);
     renderer.setAnimationLoop(null);
@@ -509,6 +539,7 @@ try {
   controls.setEnabled(true);
   return { state, storage, autosave, qteDelivery, qteHUD, renderer };
 } catch (error) {
+  celestialObservation?.dispose();
   disposeSkyCheck?.();
   discoveryCoordinator?.dispose();
   environmentAudio?.dispose(); audioSession?.dispose();

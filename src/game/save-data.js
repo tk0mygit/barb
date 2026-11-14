@@ -25,7 +25,7 @@ export function validateSaveData(value) {
   }
   const revision1 = v3 && value.rosterRevision === 1;
   const revision2 = v3 && value.rosterRevision === 2;
-  const contracts = v3 ? [revision1 ? 3 : revision2 ? 4 : ACHIEVEMENT_CONTRACT_VERSION] : [undefined, 2];
+  const contracts = v3 ? (revision1 ? [3] : revision2 ? [4] : [5, ACHIEVEMENT_CONTRACT_VERSION]) : [undefined, 2];
   // Future contracts protect storage even if their outer envelope introduces
   // new fields. Inspect a data descriptor, without executing an input getter.
   const achievement = Object.getOwnPropertyDescriptor(value, 'achievements');
@@ -53,7 +53,8 @@ export function validateSaveData(value) {
 // Source wire shapes remain distinct: never accept new fields or species
 // under an old discriminator on a later API call.
 function migrateValidatedSaveData(data, options) {
-  if (data.saveVersion === SAVE_VERSION && data.rosterRevision === SAVE_ROSTER_REVISION) return data;
+  if (data.saveVersion === SAVE_VERSION && data.rosterRevision === SAVE_ROSTER_REVISION
+    && data.achievements.contractVersion === ACHIEVEMENT_CONTRACT_VERSION) return data;
   const collection = data.saveVersion === 1 ? Object.freeze({ ...data.collection,
     catches: Object.freeze(data.collection.catches.map(record => Object.freeze({ ...record, qteSuccessCount: 0 }))) }) : data.collection;
   return validateSaveData({ ...data, saveVersion: SAVE_VERSION, rosterRevision: SAVE_ROSTER_REVISION,

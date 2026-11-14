@@ -38,7 +38,7 @@ test('lighting fixture comes from the pinned old main and both actual save runti
   }
   const night = createLightingSave(270), restored = restoreSaveData(night);
   const current = createSaveData(restored, { savedAt: night.savedAt });
-  assert.equal(current.achievements.contractVersion, 5);
+  assert.equal(current.achievements.contractVersion, 6);
   assert.throws(() => oldSave.restoreSaveData(current), error => error.code === 'unsupported-version' && error.path === 'saveVersion');
   assert.equal(sampleDayNight(restored.clock.state).ambientIntensity, 0.65);
   assert.equal(sampleDayNight(oldClock.createGameClock().state).ambientIntensity, 1.525);

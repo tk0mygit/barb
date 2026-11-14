@@ -31,7 +31,7 @@ test('gameplay definitions retain main 51ab225 values with the approved Phase 5E
     '000d079bde84a88d7002541db875987adebf956b43bdaa3533d581b7095ee0a3');
   assert.equal(createHash('sha256').update(JSON.stringify(data)).digest('hex'),
     'a81a36ce9a8ef295eaab608f5aca6d08076902920085ceacc10a2e94c908660d');
-  assert.equal(NORMAL_ACHIEVEMENTS.length, 17);
+  assert.equal(NORMAL_ACHIEVEMENTS.length, 19);
   assert.deepEqual(NORMAL_ACHIEVEMENTS.filter(item => ['species', 'original-species'].includes(item.metric)).map(item => item.target), [5, 12, 24, 36]);
 });
 

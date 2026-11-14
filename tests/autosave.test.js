@@ -81,6 +81,20 @@ function income(collection, id = 'income') {
   collection.sellUnassigned(id);
 }
 
+test('observation unlock immediately marks dirty and uses the existing event-save deadline without collection mutations', () => {
+  const { state, storage, time, autosave } = setup({ phase: 'restored' }); autosave.start();
+  assert.equal(autosave.status.dirty, false);
+  state.achievements.recordObservation('aurora'); assert.equal(autosave.status.dirty, true);
+  time.advance(249); assert.equal(storage.writes.length, 0);
+  time.advance(1); assert.equal(storage.writes.length, 1);
+  assert.equal(storage.writes[0].achievements.contractVersion, 6);
+  assert.deepEqual(storage.writes[0].achievements.unlocked.map(row => row.id), ['normal-aurora-observed']);
+  assert.deepEqual(storage.writes[0].settings, {}); assert.deepEqual(storage.writes[0].collection.catches, []);
+  state.achievements.recordObservation('aurora'); time.advance(1000);
+  assert.equal(storage.writes.length, 1); assert.equal(autosave.status.dirty, false);
+  autosave.dispose();
+});
+
 test('no save, subscriptions or scheduled work before initialization explicitly starts autosave', () => {
   const { state, storage, time, autosave } = setup();
   income(state.collection); state.clock.step(50); autosave.markProgress();
