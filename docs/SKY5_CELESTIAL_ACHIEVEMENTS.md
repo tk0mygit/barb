@@ -128,3 +128,38 @@ lakeの変更は既存3Meshへの凍結された参照の公開だけで、updat
 失敗ログは `/tmp/barb-sky5-*.log`、診断・PNG・JSON・traceは
 `test-results/sky5-*` に分離して保持。生成物はコミットしない。
 新specはCIの既存L2収集・診断artifactへ入り、画像／JSONを自動添付する。
+
+## 最終ローカル結果（2026-11-14）
+
+本番src treeは全局所検証で `4134216b8067fbbfce7ff44ea25587975d8e7c35`。
+全Unitは1325件成功。全呼出元への接続とmerge照合の最終変更後も専用5件が成功し、
+実Git改変source拒否、34組／68画像の正常・欠損・改竄、Mobile CLI nonzero、
+最終ゲート再検証、景観8条件のゼロ資源許容を確認した。
+
+| 検証 | 実施結果 | 主な証跡 |
+| --- | --- | --- |
+| npm ci | 成功（/tmp cache、依存変更なし） | `/tmp/barb-sky5-npm-ci.log` |
+| npm test | 1325成功、失敗・skip・retry 0 | `/tmp/barb-sky5-unit-all3.log` |
+| 最終source証明Unit | 5成功 | `/tmp/barb-sky5-comparison-final.log` |
+| Build / diff --check | 成功 | `/tmp/barb-sky5-build-final.log` |
+| PR相当の収集のみ | 52spec／521 ID、収集エラー0 | `/tmp/barb-sky5-collection-final.json` |
+| PC／touch smoke | 2成功 | `test-results/sky5-smoke` |
+| 実績・通知・保存UI（既存3spec全件） | 23成功 | `test-results/sky5-achievements-ui` |
+| 新規観測 | 修正ケースを含む22成功 | `sky5-observation-pc`（Aurora）、`sky5-observation-meteor-corrected`、`sky5-observation-rest`（19件）、`sky5-dialog-corrected` |
+| 既存SkyCheck/Meteor/R2/Autosave | 18成功 | `sky5-existing-regressions`（7件）、`sky5-regressions-corrected`（11件） |
+| final-stability | 単独実行で成功、実時間87,808ms | `test-results/sky5-final-stability-isolated` |
+| Aurora motion原典比較 | PC TPS 1件成功 | `test-results/sky5-aurora-motion` |
+
+局所E2Eは重複を除く**67件成功**。途中失敗・未実行の原本は上記の初回診断として残す。
+final-stabilityは並行負荷下の2実行で120秒を超えた。全Unit／他の描画の完了後には、
+既存120秒・DPR・入力・assertionを変えず、3周の釣り／保存／復帰・資源安定を完走した。
+L2 Runnerでの同じ所要時間は未確認であり、ローカル単独成功を実CI成功としない。
+
+成立例・画面外・skip・中断のPNG/JSONを `test-results/sky5-review/index.html` にまとめた。
+R2の実画像A/Bもlight-off差分最大0と既存資源完全一致を維持し、元の色光条件が成功。
+本番には計測用global、スクリーンキャプチャ、GPU readback、追加passを導入していない。
+
+**未実施／未確認**：ローカル全件E2E、Mobile実34組撮影、選択外の既存spec、
+GitHubのL2全件・`ci-required`・検証merge SHA、物理Chrome/Brave／実機の操作感・聴感。
+保存されない未達観測時間、保守的境界による見逃し、索引の起動時コストは残留リスク。
+実機受入、GitHub CI審査、マージ・デプロイはユーザーPM側の工程である。
