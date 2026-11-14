@@ -161,7 +161,7 @@ test('36 distinct captures unlock once at capture time; duplicate/storage/sale n
   const incomplete=createGameplay();for(const fish of FISH_SPECIES.slice(0,35))incomplete.collection.register(capture(fish));
   const bad=structuredClone(createSaveData(incomplete,{savedAt:at}));bad.achievements.unlocked.push({id:'normal-species-36',unlockedAt:at});
   assert.throws(()=>validateSaveData(bad),e=>e.path==='achievements.normal-species-36');
-  assert.equal(game.achievements.entries.length,17);assert.equal(game.achievements.entries.find(row=>row.id==='normal-species-36').unlocked,true);
+  assert.equal(game.achievements.entries.length,19);assert.equal(game.achievements.entries.find(row=>row.id==='normal-species-36').unlocked,true);
 });
 
 test('all eight new maximum-size fish land with every available QTE success count',()=>{

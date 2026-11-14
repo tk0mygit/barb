@@ -53,7 +53,7 @@ test('actual revision2 source validates/parses as revision2, then explicitly mig
   assert.equal(oldSave.SAVE_ROSTER_REVISION,2);assert.equal(sourceRevision2.achievements.contractVersion,4);
   assert.deepEqual(validateSaveData(sourceRevision2),sourceRevision2);assert.deepEqual(parseSaveData(JSON.stringify(sourceRevision2)),sourceRevision2);
   const sourceJSON=JSON.stringify(sourceRevision2),expected={...sourceRevision2,rosterRevision:3,
-    achievements:{...sourceRevision2.achievements,contractVersion:5}};
+    achievements:{...sourceRevision2.achievements,contractVersion:6}};
   const state=restoreSaveData(sourceRevision2,{now:()=>{throw Error('No invented timestamps');}});
   assert.deepEqual(save(state),expected);assert.equal(state.achievements.entries.find(row=>row.id==='normal-species-36').progress.value,28);
   assert.equal(state.achievements.entries.find(row=>row.id==='normal-species-36').unlocked,false);
@@ -94,9 +94,9 @@ test('V1/V2 reject all later fish; revision2 rejects all eight revision3 IDs bef
 
 test('every known revision/contract pairing is exact; malformed discriminators, future formats and unknown fields stay distinct',()=>{
   const empty=save(createGameplay());
-  for(const revision of [1,2,3])for(const contract of [3,4,5]){
+  for(const revision of [1,2,3])for(const contract of [2,3,4,5,6]){
     const data=structuredClone(empty);data.rosterRevision=revision;data.achievements.contractVersion=contract;
-    if(contract===revision+2)assert.deepEqual(validateSaveData(data),data);
+    if(contract===revision+2 || revision===3 && contract===6)assert.deepEqual(validateSaveData(data),data);
     else assert.throws(()=>restoreSaveData(data,{gameplayFactory:()=>{throw Error('Validation must precede construction');}}),
       error=>error.code==='invalid-data'&&error.path==='achievements.contractVersion');
   }
@@ -124,7 +124,7 @@ test('revision2 load writes zero; next revision3 commit changes only the inactiv
     storage.setItem=write;assert.equal(manager.save(save(loaded.state)).ok,true);assert.deepEqual(storage.writes,[KEYS[1-active]]);
     assert.equal(storage.getItem(KEYS[active]),raw[active]);
     const committed=JSON.parse(storage.getItem(KEYS[1-active]));assert.equal(committed.storageVersion,1);assert.equal(committed.generation,10);
-    assert.deepEqual([committed.data.saveVersion,committed.data.rosterRevision,committed.data.achievements.contractVersion],[3,3,5]);
+    assert.deepEqual([committed.data.saveVersion,committed.data.rosterRevision,committed.data.achievements.contractVersion],[3,3,6]);
     const stale=createSaveStorage({getStorage:()=>storage});stale.load();storage.map.set(KEYS[active],raw[active]+' ');const before=[...storage.map];
     assert.equal(stale.checkForExternalChanges(),true);assert.equal(stale.save(save(loaded.state)).ok,false);assert.deepEqual([...storage.map],before);
   }
@@ -144,10 +144,10 @@ test('all supported source pairings choose by generation; duplicate generations 
   }
 });
 
-test('future revision4+, contract6+ and saveVersion4 protect all writers with valid, missing or corrupt companions',()=>{
+test('future revision4+, contract7+ and saveVersion4 protect all writers with valid, missing or corrupt companions',()=>{
   const current=currentSave();
   for(const mutate of [d=>{d.rosterRevision=4;d.future={};},d=>{d.rosterRevision=99;d.future=[];},
-    d=>{d.achievements.contractVersion=6;d.achievements.future=[];d.collection.future={};},
+    d=>{d.achievements.contractVersion=7;d.achievements.future=[];d.collection.future={};},
     d=>{d.achievements.contractVersion=99;d.future={};},d=>{d.saveVersion=4;d.future={};}])
     for(const active of [0,1])for(const other of [envelope(1,sourceRevision2),envelope(1,current),null,'{broken']){
       const future=structuredClone(current);mutate(future);const raw=[other,other];raw[active]=envelope(99,future);

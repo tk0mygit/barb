@@ -43,7 +43,7 @@ test('real V2 validates before migrating; unsold price follows the new floor, so
   assert.deepEqual(state.achievements.snapshot.unlocked,sourceV2.achievements.unlocked);
   assert.equal(calculateSalePrice(state.collection.stored[0]),60); // max(50, round(.11*140))*1.20
   assert.equal(state.collection.catches[0].salePrice,6);
-  const data=save(state);assert.equal(data.saveVersion,3);assert.equal(data.rosterRevision,3);assert.equal(data.achievements.contractVersion,5);
+  const data=save(state);assert.equal(data.saveVersion,3);assert.equal(data.rosterRevision,3);assert.equal(data.achievements.contractVersion,6);
   assert.equal(serializeSaveData(parseSaveData(serializeSaveData(data))),serializeSaveData(data));
   assert.deepEqual(save(restoreSaveData(data)),data);assert.equal(JSON.stringify(sourceV2),original);
 });
@@ -91,7 +91,7 @@ test('actual pre-V3 build protects V3 in either slot, even with an older readabl
 test('future V3 roster revisions, achievement contracts and envelope versions protect backups before unknown fields are traversed',()=>{
   const v3=save(restoreSaveData(sourceV2));
   for(const mutate of [d=>{d.rosterRevision=4;d.future=[];},d=>{d.rosterRevision=4;d.collection.catches[0].speciesId='future-fish';},
-    d=>{d.achievements.contractVersion=6;d.achievements.future={};d.collection.future={};},d=>{d.saveVersion=4;d.future={};}])for(const active of [0,1]){
+    d=>{d.achievements.contractVersion=7;d.achievements.future={};d.collection.future={};},d=>{d.saveVersion=4;d.future={};}])for(const active of [0,1]){
     const future=structuredClone(v3);mutate(future);const raw=[envelope(99,future),envelope(99,future)];raw[active]=envelope(1,sourceV2);
     const storage=memory(raw),manager=createSaveStorage({getStorage:()=>storage}),loaded=manager.load();
     assert.equal(loaded.status.code,'unsupported-version');assert.equal(loaded.status.canSave,false);assert.ok(loaded.state);

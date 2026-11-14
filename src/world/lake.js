@@ -74,6 +74,9 @@ export function createLake(scene) {
   const nightFog = {};
   const sunDirection = new THREE.Vector3(), moonDirection = new THREE.Vector3();
   return {
+    // Read-only binding to the existing batches; observation never owns or
+    // changes their sampling, material, transform or GPU resources.
+    celestial: Object.freeze({ aurora: Object.freeze([...aurora.meshes]), meteor: meteor.mesh }),
     update(time, boat, clock = INITIAL_DAY_CLOCK) {
       sampleDayNight(clock, environment);
       sampleNightFog(clock, nightFog);

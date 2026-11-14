@@ -65,7 +65,7 @@ for(const touch of [false,true])test(`${touch?'touch':'desktop'}: Phase 6-C buil
   await expect(page.locator('#wallet-balance')).toHaveText(money(total));
   await page.evaluate(()=>window.dispatchEvent(new Event('pagehide')));
   const saved=await page.evaluate(keys=>keys.map(key=>localStorage.getItem(key)).filter(Boolean).map(JSON.parse).sort((a,b)=>b.generation-a.generation)[0].data,keys);
-  expect([saved.saveVersion,saved.rosterRevision,saved.achievements.contractVersion]).toEqual([3,3,5]);
+  expect([saved.saveVersion,saved.rosterRevision,saved.achievements.contractVersion]).toEqual([3,3,6]);
   expect(saved.collection.wallet).toEqual({balance:total,lifetimeSales:total});expect(saved.collection.catches.every(row=>row.disposition==='sold')).toBe(true);
   await page.reload();await expect(page.locator('#status')).toBeHidden();await expect(page.locator('#wallet-balance')).toHaveText(money(total));
   await click(page.locator('#menu-button'));await click(page.locator('[data-view="encyclopedia"]'));await expect(page.locator('.collection-summary')).toHaveText('発見 8 / 36 種');

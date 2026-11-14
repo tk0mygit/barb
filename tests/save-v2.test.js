@@ -80,7 +80,7 @@ test('V1 wire APIs remain strictly V1; only complete validation permits canonica
     record.disposition === 'unassigned' ? { ...record, disposition: 'stored' } : record));
   assert.deepEqual(restored.collection.wallet, v1.collection.wallet);
   assert.deepEqual(restored.achievements.snapshot.unlocked, v1.achievements.unlocked);
-  assert.equal(restored.achievements.snapshot.contractVersion, 5);
+  assert.equal(restored.achievements.snapshot.contractVersion, 6);
   const data = save(restored);
   assert.equal(data.saveVersion, 3); assert.equal(restored.collection.snapshot.schemaVersion, 1);
   assert.ok(data.collection.catches.every(record => record.schemaVersion === 1));

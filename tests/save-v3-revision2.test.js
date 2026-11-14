@@ -53,7 +53,7 @@ test('actual revision1 source validates/parses as revision1, then explicitly mig
   assert.equal(oldSave.SAVE_ROSTER_REVISION,1);assert.equal(sourceRevision1.achievements.contractVersion,3);
   assert.deepEqual(validateSaveData(sourceRevision1),sourceRevision1);assert.deepEqual(parseSaveData(JSON.stringify(sourceRevision1)),sourceRevision1);
   const sourceJSON=JSON.stringify(sourceRevision1),expected={...sourceRevision1,rosterRevision:3,
-    achievements:{...sourceRevision1.achievements,contractVersion:5}};
+    achievements:{...sourceRevision1.achievements,contractVersion:6}};
   const state=restoreSaveData(sourceRevision1,{now:()=>{throw Error('No invented timestamps');}});
   assert.deepEqual(save(state),expected);assert.equal(state.achievements.entries.find(row=>row.id==='normal-species-24').progress.value,20);
   assert.equal(state.achievements.entries.find(row=>row.id==='normal-species-24').unlocked,false);
@@ -103,7 +103,7 @@ test('revision1 load writes zero; next revision3 commit changes only the inactiv
     storage.setItem=write;assert.equal(manager.save(save(loaded.state)).ok,true);assert.deepEqual(storage.writes,[KEYS[1-active]]);
     assert.equal(storage.getItem(KEYS[active]),raw[active]);
     const committed=JSON.parse(storage.getItem(KEYS[1-active]));assert.equal(committed.storageVersion,1);assert.equal(committed.generation,10);
-    assert.deepEqual([committed.data.saveVersion,committed.data.rosterRevision,committed.data.achievements.contractVersion],[3,3,5]);
+    assert.deepEqual([committed.data.saveVersion,committed.data.rosterRevision,committed.data.achievements.contractVersion],[3,3,6]);
     const stale=createSaveStorage({getStorage:()=>storage});stale.load();storage.map.set(KEYS[active],raw[active]+' ');const before=[...storage.map];
     assert.equal(stale.checkForExternalChanges(),true);assert.equal(stale.save(save(loaded.state)).ok,false);assert.deepEqual([...storage.map],before);
   }
@@ -123,10 +123,10 @@ test('all supported source pairings choose by generation; duplicate generations 
   }
 });
 
-test('future revision4+, contract6+ and saveVersion4 protect all writers with valid, missing or corrupt companions',()=>{
+test('future revision4+, contract7+ and saveVersion4 protect all writers with valid, missing or corrupt companions',()=>{
   const current=currentSave();
   for(const mutate of [d=>{d.rosterRevision=4;d.future={};},d=>{d.rosterRevision=99;d.future=[];},
-    d=>{d.achievements.contractVersion=6;d.achievements.future=[];d.collection.future={};},
+    d=>{d.achievements.contractVersion=7;d.achievements.future=[];d.collection.future={};},
     d=>{d.achievements.contractVersion=99;d.future={};},d=>{d.saveVersion=4;d.future={};}])
     for(const active of [0,1])for(const other of [envelope(1,sourceRevision1),envelope(1,current),null,'{broken']){
       const future=structuredClone(current);mutate(future);const raw=[other,other];raw[active]=envelope(99,future);

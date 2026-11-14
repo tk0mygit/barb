@@ -10,7 +10,7 @@ async function openAchievements(page, click = locator => locator.click()) {
   await click(page.locator('[data-view="achievements"]'));
 }
 
-for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: seventeen achievements, live progress, sales and upgrades in the shared menu`, async ({ createContext }) => {
+for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: nineteen achievements, live progress, sales and upgrades in the shared menu`, async ({ createContext }) => {
   const context = await createContext({ viewport: touch ? { width: 320, height: 568 } : { width: 1000, height: 700 }, hasTouch: touch, isMobile: touch });
   const page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -19,16 +19,16 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: seventeen
   await click(page.locator('#menu-button'));
   await expect(page.locator('.menu-entry-title')).toHaveText(['図鑑', '生けす', 'ギア／アップグレード', '実績', 'ヘルプ']);
   await click(page.locator('[data-view="achievements"]'));
-  await expect(page.locator('.achievement-card')).toHaveCount(17);
-  await expect(page.locator('.achievement-card h3')).toHaveText(Array(17).fill('？？？'));
+  await expect(page.locator('.achievement-card')).toHaveCount(19);
+  await expect(page.locator('.achievement-card h3')).toHaveText(Array(19).fill('？？？'));
   await expect(page.locator('.achievement-card > p:first-of-type')).toHaveText(NORMAL_ACHIEVEMENTS.map(entry => entry.description));
   for (const entry of NORMAL_ACHIEVEMENTS) {
     const locked = page.locator(`.achievement-card[data-achievement-id="${entry.id}"]`);
     expect(await locked.evaluate(node => node.outerHTML)).not.toContain(entry.name);
     expect(await locked.ariaSnapshot()).not.toContain(entry.name);
   }
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 0 / 17');
-  await expect(page.locator('.achievement-card[data-unlocked="false"]')).toHaveCount(17);
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 0 / 19');
+  await expect(page.locator('.achievement-card[data-unlocked="false"]')).toHaveCount(19);
   await expect(card(page, 'catch-10').locator('.achievement-progress')).toHaveText('累計捕獲：0 / 10匹');
   await expect(card(page, 'length-100').locator('.achievement-progress')).toHaveText('最大体長：0.0 / 100cm');
   // Real domain mutations, only in this routed fixture; progress refreshes even
@@ -38,7 +38,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: seventeen
       lengthCm: 82.5, weightKg: 62, caughtAt: '2026-01-01T00:00:00Z' });
     fixture.collection.store('first');
   });
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 1 / 17');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 1 / 19');
   await expect(card(page, 'first-catch')).toHaveAttribute('data-unlocked', 'true');
   await expect(card(page, 'first-catch').locator('h3')).toHaveText('始まり');
   await expect(card(page, 'first-catch').locator('.achievement-state')).toHaveText('✓ 解除済み');
@@ -75,7 +75,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: seventeen
   await click(page.locator('[data-upgrade="rod"]')); await click(page.locator('#confirm-upgrade'));
   await page.clock.fastForward(5000); await expect(notice(page)).toContainText('更新');
   await click(page.locator('#collection-back')); await click(page.locator('[data-view="achievements"]'));
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 3 / 17');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 3 / 19');
   await expect(card(page, 'sales-10000')).toHaveAttribute('data-unlocked', 'true');
   await expect(card(page, 'sales-10000').locator('.achievement-progress')).toHaveText('累計売却額：10,000 / 10,000 Value');
   await expect(card(page, 'first-upgrade').locator('.achievement-progress')).toHaveText('ロッドLv.2・リールLv.1 / いずれかLv.2');
@@ -93,10 +93,10 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: seventeen
     }
     fixture.salesHUD.update();
   });
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 12 / 17');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 12 / 19');
   await expect(card(page, 'equipment-max').locator('.achievement-progress')).toHaveText('ロッドLv.5・リールLv.5 / 両方Lv.5');
   await expect(page.locator('.achievement-card[data-unlocked="true"]')).toHaveCount(12);
-  await expect(page.locator('.achievement-card[data-unlocked="false"] h3')).toHaveText(Array(5).fill('？？？'));
+  await expect(page.locator('.achievement-card[data-unlocked="false"] h3')).toHaveText(Array(7).fill('？？？'));
   for (const definition of NORMAL_ACHIEVEMENTS.slice(0, 10)) {
     await expect(page.locator(`.achievement-card[data-achievement-id="${definition.id}"]`)).toHaveAttribute('data-unlocked', 'true');
   }
@@ -107,7 +107,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: seventeen
     fixture.fund(68200);
     for (const kind of ['rod', 'reel']) for (let level = 5; level < 10; level++) fixture.collection.purchaseUpgrade(kind, level);
   });
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 15 / 17');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 15 / 19');
   await expect(page.locator('.achievement-card[data-unlocked="true"]')).toHaveCount(15);
   await expect(card(page, 'species-24')).toHaveAttribute('data-unlocked', 'false');
   await page.evaluate(async () => {
@@ -117,7 +117,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: seventeen
       weightKg: calculateFishWeightKg(fish.id, fish.minLengthCm), caughtAt: '2026-11-07T00:00:00Z',
     });
   });
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 16 / 17');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 16 / 19');
   await expect(page.locator('.achievement-card[data-unlocked="true"]')).toHaveCount(16);
   await expect(card(page, 'species-24')).toHaveAttribute('data-unlocked', 'true');
   await page.evaluate(async () => {
@@ -136,9 +136,15 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: seventeen
       lengthCm: fish.minLengthCm, weightKg: calculateFishWeightKg(fish.id, fish.minLengthCm), caughtAt: '2026-11-08T00:00:00Z' });
   });
   await expect(card(page, 'species-36')).toHaveAttribute('data-unlocked', 'true');
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 17 / 17');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 17 / 19');
   await expect(page.locator('.achievement-card[data-unlocked="true"]')).toHaveCount(17);
+  await expect(page.locator('.achievement-card h3')).toHaveText([...NORMAL_ACHIEVEMENTS.slice(0, 17).map(entry => entry.name), '？？？', '？？？']);
+  await expect(card(page, 'aurora-observed').locator('.achievement-progress')).toHaveText('天体観測：0 / 1（未観測）');
+  await page.evaluate(() => { fixture.achievements.recordObservation('aurora'); fixture.achievements.recordObservation('meteor'); });
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 19 / 19');
+  await expect(page.locator('.achievement-card[data-unlocked="true"]')).toHaveCount(19);
   await expect(page.locator('.achievement-card h3')).toHaveText(NORMAL_ACHIEVEMENTS.map(entry => entry.name));
+  await expect(card(page, 'meteor-observed').locator('.achievement-progress')).toHaveText('天体観測：1 / 1（観測済み）');
   await expect(card(page, 'rod-level-10').locator('.achievement-progress')).toHaveText('ロッドLv.10 / Lv.10');
   await expect(card(page, 'reel-level-10').locator('.achievement-progress')).toHaveText('リールLv.10 / Lv.10');
   await expect(card(page, 'equipment-level-10').locator('.achievement-progress')).toHaveText('ロッドLv.10・リールLv.10 / 両方Lv.10');
@@ -162,7 +168,7 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: seventeen
   await click(page.locator('#collection-back')); await click(page.locator('#collection-close'));
   await expect(page.locator('#collection-dialog')).toBeHidden();
   await page.clock.resume(); await page.reload(); await page.waitForFunction(() => Boolean(window.fixture));
-  await openAchievements(page, click); await expect(page.locator('.achievement-summary')).toHaveText('解除済み 0 / 17');
+  await openAchievements(page, click); await expect(page.locator('.achievement-summary')).toHaveText('解除済み 0 / 19');
   await expect(notice(page)).toBeHidden();
   expect(errors).toEqual([]);
 });
@@ -177,7 +183,7 @@ test('simultaneous awards queue exactly once and expire without frames, includin
   await expect(notice(page)).toHaveAttribute('aria-live', 'polite');
   await expect(notice(page)).toHaveAttribute('aria-atomic', 'true');
   await page.clock.fastForward(1000); await openAchievements(page);
-  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 17');
+  await expect(page.locator('.achievement-summary')).toHaveText('解除済み 2 / 19');
   await page.clock.fastForward(3999); await expect(notice(page)).toContainText('始まり');
   await page.clock.fastForward(1); await expect(notice(page)).toContainText('特異個体');
   await page.locator('#collection-close').click();

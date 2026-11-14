@@ -2,6 +2,7 @@ import { formatMoney } from './sales-hud.js';
 
 const dates = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeStyle: 'medium' });
 export function formatAchievementProgress({ metric, progress: p }) {
+  if (metric === 'observation') return `天体観測：${p.value} / ${p.target}（${p.value ? '観測済み' : '未観測'}）`;
   if (metric === 'catches') return `累計捕獲：${p.value} / ${p.target}匹`;
   if (metric === 'species' || metric === 'original-species') return `魚種発見：${p.value} / ${p.target}種`;
   if (metric === 'length') return `最大体長：${p.value.toFixed(1)} / ${p.target}cm`;
