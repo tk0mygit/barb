@@ -38,6 +38,11 @@ Sky-5の追加領域をこの歴史的証明へ混ぜることはしない。既
 | raw Mobile→比較CLI | 同じSky-5証明と星・Meteor・Aurora・世界光のsource replay | 34組／68画像、両カメラ、資源完全一致。追加の画像・CPU状態・GPU許容差なし |
 | 最終ゲート | 既存の共通比較関数から同じ非同期証明を再計算 | ci-summary自体・workflow・選択規則は変更しない。改竄／欠損／CLI nonzeroをUnitで確認 |
 
+全参照検索によりAurora motionの歴史比較、MobileのsaveCapture内世界光検証、
+景観8条件の比較CLIも追従。Sky-5は景観側でも汎用+3 draw／15%枠を使わず、
+全資源・光・天体提出を完全一致させる。ソース証明は実Git treeと、検証mergeの
+base/HEAD両親を照合し、HEAD／validationで異なるruntimeを受理しない。
+
 ## 局所設計（実装前）
 
 描画層は通常の `renderer.render(scene, camera)` を囲み、開始時にsubmitラッチを空にする。

@@ -9,6 +9,7 @@ import { readSky2Transition, verifyStarCapture, expectedStarResources } from './
 import { readSky3Transition, verifyMeteorCapture, expectedMeteorResources } from './lib/sky3-source.js';
 import { verifyAuroraCapture, expectedAuroraResources } from './lib/sky4-source.js';
 import { readAuroraEvolution, SKY4R2_KIND, verifyWorldLightCapture } from './lib/sky4r2-source.js';
+import { readSky5Preservation } from './lib/sky5-source.js';
 
 // The scenery capture uses the real camera, including its ordinary settling.
 // Verify that pose against its exact source before comparing the two views.
@@ -96,7 +97,19 @@ export async function writeComparison(main, pr, destination, mainLabel = 'main d
     const sky2 = await readSky2Transition(main, candidate);
     const sky3 = await readSky3Transition(main, candidate);
     const sky4 = await readAuroraEvolution(main, candidate);
-    if (sky4) {
+    const sky5 = await readSky5Preservation(main, candidate);
+    if (sky5) {
+      assert.deepEqual(b, a, 'Sky-5: scenery resource regression');
+      const states = [];
+      for (const [source, metrics] of [[main, before.metrics], [candidate, after.metrics]]) {
+        const stars = await verifyStarCapture(source, { id, metrics }, { warmed: false });
+        const meteor = await verifyMeteorCapture(source, { id, metrics }, { warmed: false });
+        const aurora = await verifyAuroraCapture(source, { id, metrics }, { warmed: false });
+        const world = await verifyWorldLightCapture(source, { id, metrics }, { warmed: false });
+        states.push({ stars: stars.draws, meteor: meteor.draws, aurora: aurora.draws, light: world.state });
+      }
+      assert.deepEqual(states[1], states[0], 'Sky-5: scenery sky/world-light changed');
+    } else if (sky4) {
       assert(['day-tps', 'day-fps', 'twilight', 'clear-night', 'fog-night', 'dense-night', 'portrait', 'landscape'].includes(id), 'Sky-4: unknown scenery view');
       const preserved = [];
       for (const [source, metrics] of [[main, before.metrics], [candidate, after.metrics]]) {
@@ -138,6 +151,7 @@ export async function writeComparison(main, pr, destination, mainLabel = 'main d
       ...(sky2 ? { starComparison: sky2 } : {}),
       ...(sky3 ? { meteorComparison: sky3 } : {}),
       ...(sky4 ? { auroraComparison: sky4 } : {}),
+      ...(sky5 ? { sky5Preservation: sky5 } : {}),
       triangleIncreasePercent: (b.triangles / a.triangles - 1) * 100 };
     comparisons.push(result);
     figures.push(`<section><h2>${id}</h2><p>Draw calls ${a.calls} → ${b.calls}; triangles ${a.triangles.toLocaleString('en-US')} → ${b.triangles.toLocaleString('en-US')} (${result.triangleIncreasePercent.toFixed(2)}%); geometries ${a.geometries} → ${b.geometries}; textures ${a.textures} → ${b.textures}; programs ${a.programs} → ${b.programs}.</p><div class="pair"><figure><figcaption>${mainLabel}</figcaption><img src="data:image/png;base64,${before.image}"></figure><figure><figcaption>Phase 4C-1A</figcaption><img src="data:image/png;base64,${after.image}"></figure></div><details><summary>Measurement JSON</summary><pre>${JSON.stringify(result, null, 2)}</pre></details></section>`);

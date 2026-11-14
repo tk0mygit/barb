@@ -12,7 +12,8 @@ const BRIDGE = `    // Read-only binding to the existing batches; observation ne
 const invariantPaths = ['src/world/aurora.js', 'src/world/meteor.js', 'src/world/stars.js', 'src/world/water.js',
   'src/world/terrain.js', 'src/world/day-night.js', 'src/world/night-fog.js', 'src/game/game-clock.js',
   'src/game/time-skip.js', 'src/rendering/camera.js', 'src/input', 'public', 'package.json', 'package-lock.json',
-  'index.html', 'vite.config.js', 'playwright.config.js', '.github', 'AGENTS.md'];
+  'index.html', 'vite.config.js', 'playwright.config.js', '.github', 'AGENTS.md',
+  'scripts/ci-risk.js', 'scripts/ci-e2e.js', 'scripts/ci-summary.js'];
 
 export function verifySky5LakeBridge(before, after) {
   assert.equal(after.split(BRIDGE).length, 2, 'Sky-5: missing/duplicate read-only lake bridge');
@@ -21,13 +22,15 @@ export function verifySky5LakeBridge(before, after) {
 
 // Both the capture path and the CLI/final gate call this against real Git
 // sources. It grants zero resource, camera, clock, shader or image tolerance.
-export async function readSky5Preservation(main, pr, headSha = pr.sha) {
-  if (main.sha !== SKY5_BASE || main.sourceTree === pr.sourceTree) return null;
+export async function readSky5Preservation(main, pr, headSha) {
+  if (main.sha !== SKY5_BASE) return null;
+  assert.equal(await mobileGit('rev-parse', `${pr.sha}:src`), pr.sourceTree, 'Sky-5: forged runtime tree');
+  if (main.sourceTree === pr.sourceTree) return null;
   assert.equal(pr.sourceTree, SKY5_SOURCE_TREE, 'Sky-5: unreviewed runtime tree');
-  assert.equal(await mobileGit('rev-parse', `${pr.sha}:src`), SKY5_SOURCE_TREE, 'Sky-5: forged runtime tree');
   assert.equal(await mobileGit('merge-base', main.sha, pr.sha), main.sha, 'Sky-5: base is not ancestor');
-  if (headSha !== pr.sha) assert.deepEqual((await mobileGit('show', '-s', '--format=%P', pr.sha)).split(' '),
-    [main.sha, headSha], 'Sky-5: validation merge parents differ');
+  const parents = (await mobileGit('show', '-s', '--format=%P', pr.sha)).split(' ');
+  headSha ??= parents.length === 2 ? parents[1] : pr.sha;
+  if (headSha !== pr.sha) assert.deepEqual(parents, [main.sha, headSha], 'Sky-5: validation merge parents differ');
   assert.equal(await mobileGit('rev-parse', `${headSha}:src`), SKY5_SOURCE_TREE, 'Sky-5: HEAD/validation runtime differs');
   assert.equal(await mobileGit('diff', '--name-only', main.sha, pr.sha, '--', ...invariantPaths), '', 'Sky-5: protected optical/input/build source changed');
   verifySky5LakeBridge(await mobileGit('show', `${main.sha}:src/world/lake.js`), await mobileGit('show', `${pr.sha}:src/world/lake.js`));
