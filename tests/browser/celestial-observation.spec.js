@@ -4,8 +4,10 @@ import { createLightingSave } from '../helpers/lighting-save.js';
 import { findAuroraNight } from '../helpers/aurora-event.js';
 import { findMeteorEvent } from '../helpers/meteor-event.js';
 import { writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 
 const night = findAuroraNight({ forward: true }), auroraTime = night * 360 + 270, meteor = findMeteorEvent();
+const sourceSha = execFileSync('git', ['rev-parse', 'HEAD']).toString().trim();
 const notice = page => page.locator('#achievement-notice');
 const names = { aurora: 'レクイエム', meteor: '星に願いを' };
 const latest = page => page.evaluate(() => ['barb.save.v1.slotA', 'barb.save.v1.slotB'].map(key => JSON.parse(localStorage.getItem(key)))
@@ -57,7 +59,7 @@ async function boot(page, seconds, { heading = 0, skip = false } = {}) {
 
 async function evidence(page, info, label) {
   const json = info.outputPath(`${label}.json`), png = info.outputPath(`${label}.png`);
-  await writeFile(json, JSON.stringify({ saved: await latest(page), ...await page.evaluate(() => window.sky5Evidence) }, null, 2));
+  await writeFile(json, JSON.stringify({ sourceSha, saved: await latest(page), ...await page.evaluate(() => window.sky5Evidence) }, null, 2));
   await page.screenshot({ path: png });
   await info.attach(`${label}-draws`, { path: json, contentType: 'application/json' });
   await info.attach(label, { path: png, contentType: 'image/png' });
@@ -112,7 +114,7 @@ for (const reason of ['menu', 'dialog', 'blur', 'hidden', 'pagehide', 'resize', 
   await page.setViewportSize({ width: 1000, height: 700 }); await boot(page, auroraTime);
   await page.clock.runFor(400); await expect(notice(page)).toBeHidden();
   if (reason === 'menu') await page.locator('#menu-button').click();
-  if (reason === 'dialog') await page.locator('#catch-dialog').evaluate(dialog => dialog.showModal());
+  if (reason === 'dialog') await page.locator('#collection-dialog').evaluate(dialog => dialog.showModal());
   if (reason === 'blur' || reason === 'pagehide') await page.evaluate(reason => window.dispatchEvent(new Event(reason)), reason);
   if (reason === 'hidden') await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
   if (reason === 'resize') await page.setViewportSize({ width: 1100, height: 750 });
@@ -120,7 +122,7 @@ for (const reason of ['menu', 'dialog', 'blur', 'hidden', 'pagehide', 'resize', 
   await page.clock.runFor(reason === 'resize' ? 400 : 1000); await expect(notice(page)).toBeHidden();
   await evidence(page, info, 'interrupted');
   if (reason === 'menu') await page.locator('#collection-close').click();
-  if (reason === 'dialog') await page.locator('#catch-dialog').evaluate(dialog => dialog.close());
+  if (reason === 'dialog') await page.locator('#collection-dialog').evaluate(dialog => dialog.close());
   if (reason === 'blur' || reason === 'pagehide') await page.evaluate(reason => window.dispatchEvent(new Event(reason === 'blur' ? 'focus' : 'pageshow')), reason);
   if (reason === 'hidden') await page.evaluate(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
   if (reason === 'no-submit') await page.evaluate(() => { window.sky5DropRender = false; });

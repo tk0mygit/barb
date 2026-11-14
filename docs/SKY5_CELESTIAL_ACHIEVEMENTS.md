@@ -23,6 +23,21 @@
 | Sky-2/3/4/R2 replay・画像比較 | 既存比較器・pin・原典・閾値は変更しない予定 | Aurora/Meteor/水/カメラのsourceは維持。34組／68画像、資源・HUD・RNGの既存検証は維持。Unitの比較器拒否ケースを含める |
 | CI集約→CLI／workflow | 変更なし | 新規specもL2の全inventory収集へ入る。既存ci-requiredの拒否、partition、source→capture→比較CLI→最終ゲートをUnitで検証。GitHub実結果は未確認と記載 |
 
+### 局所検証で判明した比較依存への設計追記（比較実装前）
+
+R2のE2EはbeforeAllで、R2導入時の3ファイルだけのdiffを現在HEADへ要求していた。
+Sky-5の追加領域をこの歴史的証明へ混ぜることはしない。既存のR2証明・manifestを維持し、
+基準main `6502190…` のR2証明を独立して再検証する。その上でSky-5の本番source tree
+`4134216b8067fbbfce7ff44ea25587975d8e7c35` だけを対象に、lakeの凍結参照追加を
+原文へ逆変換し、他の光学・カメラ・時計・抽選・build入力の完全一致を要求する。
+未知tree、変更したshader/資源/描画/時計は拒否する。
+
+| 経路 | 必要な追加 | 維持する条件 |
+| --- | --- | --- |
+| 生source→R2 E2E撮影 | Sky-5専用の光学保存証明を既存R2証明の外側へ追加 | R2原典50bc…と6502190…の完全な既存証明、同じ画質・GPU・native入力assertion |
+| raw Mobile→比較CLI | 同じSky-5証明と星・Meteor・Aurora・世界光のsource replay | 34組／68画像、両カメラ、資源完全一致。追加の画像・CPU状態・GPU許容差なし |
+| 最終ゲート | 既存の共通比較関数から同じ非同期証明を再計算 | ci-summary自体・workflow・選択規則は変更しない。改竄／欠損／CLI nonzeroをUnitで確認 |
+
 ## 局所設計（実装前）
 
 描画層は通常の `renderer.render(scene, camera)` を囲み、開始時にsubmitラッチを空にする。
@@ -40,6 +55,8 @@ NDCの内側にあり、alphaと画面面積が最低基準を満たす必要が
 包むため、輪郭や樹冠の隙間・月の半透明部分では**見えていても未観測になる**
 保守性を許容する。完全なpixel可視性・全見え方の検出を保証しない。
 シェーダー・地形・オブジェクト構成の将来変更時にはこの索引とUV評価の再点検が必要。
+FIGHT／LANDING／RESULT中も観測を受理しない保守的な条件とし、QTE・釣果表示に
+跨がる計測を避ける。観測の受理条件だけであり、釣りの時計・描画・操作は停止しない。
 
 連続時間はイベントごとに直前の有効時刻を保持するだけで、最初のフレームは0秒。
 不成立・別イベント・重複／逆行時刻・250ms超のgapで切断し、次の有効フレームを
@@ -67,3 +84,42 @@ Build、diff --check、PC/touch smoke、実績UI/notice、保存、SkyCheck、fi
 Meteor、Aurora world lightの関係ケースと新規描画観測specを局所実行する。
 失敗診断は出力先を分けて保持し、実施件数・是正・未実施・CPU負荷・画像の結果を追記する。
 ローカル全件E2E、GitHub ci-required、実機・聴感確認は未実施であり、成功扱いしない。
+
+## 局所計測（実機の性能保証ではない）
+
+同じ実地形・通常保存時計・native TPSカメラをNodeで240回ずつ計測した。
+静的境界索引の初期構築は176.44ms（起動時1回）。投影＋遮蔽の中央値／p95は
+Aurora画面内0.012／0.148ms、Meteor画面内0.005／0.122ms。
+強制的に投影全走査した画面外Auroraは0.133／1.521ms、最大33.40msだった。
+通常の完全背面カメラは実submitがないため本番ではこの全走査へ入らない。
+同時にUnit／SwiftShader検証を実行していた値で、端末での上限保証ではない。
+生計測は `/tmp/barb-sky5-cpu.json`、起動時コストと樹冠境界の過剰遮蔽は残留リスクとして記録する。
+
+資源を作るのは既存factoryだけ。新観測器が生成するのはVector/Matrix/Box/Rayと
+JS索引で、Geometry/Material/Texture/Light/WebGL target/passは追加しない。
+Aurora/Meteor/Water/カメラ/時計/抽選の本番ソースは基準mainと同一。
+lakeの変更は既存3Meshへの凍結された参照の公開だけで、updateやshaderの変更はない。
+
+## 初回失敗と是正の記録
+
+- 通常のnpm cache先への書込みが環境制限で失敗。`npm ci --cache /tmp/barb-npm-cache` で成功。lockfileは無変更。
+- sandboxでNodeの子プロセスがEPERM。権限付きの局所実行で同じテストを実行し、検証条件は変更していない。
+- PlaywrightのChromium CDN取得が403（許可ドメイン制限）。既存の `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` で `/usr/bin/chromium`（154.0.8037.57）を使用。CIのbrowser／設定は無変更。
+- 全Unit初回は1317件中1313成功・4失敗。件数／writer版の期待値2箇所を19／6へ追従。
+  scenery比較に必要な過去SHA `eb10aa13ec302a7a4c9b4a421a596f447c8f6e7c` を取得。
+  本番ソースの未コミットを拒否する既存検査は、実装コミット後に再検証する。比較器は変更していない。
+- 新規局所Unitで逆行時刻の再基準化と短横の流星パッチ面積不足を検出し、単調時刻切断と十分な発光パッチへ修正。関連28件が成功。
+- PC Meteor新規E2E初回は、発光部が画面へ入る前のage 0.15秒から測っていたfixtureが失敗。
+  同じ通常当選イベントの保存時刻をage 0.2秒へ変更（初回通常フレームはage 0.45秒）。実画面・実drawの下限／達成／再読込が成功。
+- ネイティブdialogの新規E2E初回は、RESULTでない釣果dialogが通常HUDにより閉じられたため、
+  開き続ける `collection-dialog.showModal()` へfixtureを訂正。開いていないdialogでの正常観測を誤解除として扱わない。
+- UI fixtureの観測記録はメニュー閉鎖後の本番経路を模して、記録後に実績画面を開き直す。既存collection通知・スクロール／フォーカス処理は無変更。
+- 関係E2E初回を別ジョブのpreviewへ接続して実行したため、その所有ジョブ終了でserverが閉じ、後続8件が接続拒否。
+  final-stabilityは同時SwiftShader負荷下で既存120秒を超過。独立previewと描画E2Eの直列実行へ修正し、テストのtimeout／retry／workers／DPRは変更していない。
+- R2 E2Eの旧beforeAllがSky-5をR2導入差分へ混入したとして拒否（1失敗・2未実行）。
+  R2導入証明は無変更のまま、上記のSky-5限定source tree証明を撮影・比較CLI・最終ゲートへ接続。
+  専用Unit4件（34組／68画像・実改変source・raw破損・CLI nonzero・最終ゲート拒否）が成功。
+
+失敗ログは `/tmp/barb-sky5-*.log`、診断・PNG・JSON・traceは
+`test-results/sky5-*` に分離して保持。生成物はコミットしない。
+新specはCIの既存L2収集・診断artifactへ入り、画像／JSONを自動添付する。

@@ -3,7 +3,7 @@
 `src/game/save-data.js` は保存データの作成、JSON変換、検証、ドメイン再構築を提供します。
 DOM・Three.js・ブラウザストレージへの依存や副作用はありません。
 Phase 3C-3Bで `src/game/save-storage.js` と `src/game/autosave.js` を追加し、
-実際の起動・ゲーム進行・保存状態表示へ接続しています。Phase 6-Cのwriterは `saveVersion: 3`・`rosterRevision: 3`（36種）・実績契約5を出力します。旧V1/V2、V3 revision1（20種・契約3）とrevision2（28種・契約4）は各ソース形式を完全検証してから明示移行します。方式・段階公開契約は [Phase 6-C](PHASE6C.md) も参照してください。
+実際の起動・ゲーム進行・保存状態表示へ接続しています。Phase Sky-5のwriterは `saveVersion: 3`・`rosterRevision: 3`（36種）・実績契約6を出力します。旧V1/V2、V3 revision1（20種・契約3）、revision2（28種・契約4）、revision3（36種・契約5）は各ソース形式を完全検証してから明示移行します。魚種の段階公開契約は [Phase 6-C](PHASE6C.md)、観測実績の契約は [Sky-5](SKY5_CELESTIAL_ACHIEVEMENTS.md) を参照してください。
 
 ## モジュールの役割
 
@@ -137,14 +137,14 @@ load／restore自体は書込みを行いません。最初の適法なrevision3
     "wallet": { "balance": 0, "lifetimeSales": 0 },
     "equipment": { "rodLevel": 1, "reelLevel": 1 }
   },
-  "achievements": { "contractVersion": 5, "unlocked": [] },
+  "achievements": { "contractVersion": 6, "unlocked": [] },
   "boat": { "x": 0, "z": 30, "heading": 0 },
   "clock": { "elapsedSeconds": 0 },
   "settings": {}
 }
 ```
 
-V3 revision1は明示的なNo.1–20と契約3・15実績、revision2はNo.1–28と契約4・16実績、revision3はNo.1–36と契約5・17実績を要求します。V1/V2は元12種と未版／契約2だけを受理します。各源版に後の魚・実績IDを混入した保存を拒否し、`saveVersion:3`だけで移行を省略しません。既知revisionと既知契約の矛盾、不正型の識別子、未知追加フィールドは`invalid-data`です。未知の将来revision4+／契約6+／saveVersion4+は追加フィールドや未知魚種の検査より先に`unsupported-version`と判定し、片方が正常でも両スロットのwriterを保護します。
+V3 revision1は明示的なNo.1–20と契約3・15実績、revision2はNo.1–28と契約4・16実績、revision3はNo.1–36と契約5・旧17実績または契約6・19実績を要求します。V1/V2は元12種と未版／契約2だけを受理します。各源版に後の魚・実績IDを混入した保存を拒否し、`saveVersion:3`だけで移行を省略しません。既知revisionと既知契約の矛盾、不正型の識別子、未知追加フィールドは`invalid-data`です。未知の将来revision4+／契約7+／saveVersion4+は追加フィールドや未知魚種の検査より先に`unsupported-version`と判定し、片方が正常でも両スロットのwriterを保護します。
 
 元12種実績は元12 IDすべて、24種実績は任意の異なる通常魚24種、36種実績は通常36種すべてを捕獲した時点で解除し、その現在時刻を記録します。保管・売却で進捗を減らさず、既存解除日時は移行でも維持します。
 
@@ -193,8 +193,10 @@ OS時計の修正やテストの時刻注入を許すため、捕獲・売却・
 
 `achievements.unlocked` は `{ id, unlockedAt }` の配列です。
 IDは下記の契約に対応した安定IDのみで、重複不可、日時は上記のUTC ISO形式です。
-解除済み集合と、捕獲履歴・累計売却額・装備から再計算した達成条件の集合が完全一致することを要求します。
-現在の条件はすべて単調増加なので、達成済みの履歴欠落・未達成なのに解除済みの両方を破損として拒否します。
+旧17件の解除済み集合と、捕獲履歴・累計売却額・装備から再計算した達成条件の集合が完全一致することを要求します。
+その条件はすべて単調増加なので、達成済みの履歴欠落・未達成なのに解除済みの両方を破損として拒否します。
+契約6の観測2件はcollectionから推測せず、安定ID・正規UTC解除日時・非重複だけを履歴として検証します。
+どちらも未解除の契約6も正常です。連続観測秒数や別カウンタは保存せず、再読込時は未達分を0から測ります。
 日時を復元時刻で作り直す補修はしません。
 
 ### Phase 5B-1Aの実績契約移行
@@ -209,15 +211,16 @@ A/B保存キーは維持し、実績の識別子だけを追加します。旧�
 | `contractVersion: 3` | V3 revision1用の15件。12種実績の対象を元12IDの集合として固定 |
 | `contractVersion: 4` | V3 revision2用の16件。既存15件を維持し、`normal-species-24`を追加 |
 | `contractVersion: 5` | V3 revision3用の17件。既存16件を維持し、`normal-species-36`を追加 |
+| `contractVersion: 6` | V3 revision3用の19件。旧17件の集合検証を維持し、`normal-aurora-observed`／`normal-meteor-observed`の履歴を独立に検証 |
 
-いずれも達成状態との完全一致を要求し、重複・日時不正・未達成取得・達成済み未記録を拒否します。
+捕獲・装備等の17件はいずれも達成状態との完全一致を要求し、重複・日時不正・未達成取得・達成済み未記録を拒否します。
 有効な非負整数の未知契約versionは `unsupported-version`、不正型・負数・非整数は `invalid-data`、
 原因pathは `achievements.contractVersion` です。未知契約を含むスロットがあれば既存の書込保護が働きます。
 
 旧契約を検証してからドメインを復元し、旧解除日時をそのままシードします。
 過去の到達レベルで新たに満たす個別Lv.5実績だけを現在の評価時刻で取得します。
 初期評価はUI購読前に完了するため、新旧どちらも復元通知を再送しません。
-当時のwriterは `contractVersion: 2` を出力しました。Phase 6-Cの次回保存は契約5へ明示移行します。保存失敗・競合・未知version時の保護を維持し、
+当時のwriterは `contractVersion: 2` を出力しました。Sky-5の次回保存は契約6へ明示移行し、旧契約5の17件も日時・順序をそのまま保持、観測2件は未解除で開始します。保存失敗・競合・未知version時の保護を維持し、
 保存成功まで最新正常世代を残します。履歴の売価・財布・船・時計も補正しません。
 
 変更前mainで釣り・売却・購入・保存APIを通した旧A/B生文字列を

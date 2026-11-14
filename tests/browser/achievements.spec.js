@@ -141,6 +141,9 @@ for (const touch of [false, true]) test(`${touch ? 'touch' : 'mouse'}: nineteen 
   await expect(page.locator('.achievement-card h3')).toHaveText([...NORMAL_ACHIEVEMENTS.slice(0, 17).map(entry => entry.name), '？？？', '？？？']);
   await expect(card(page, 'aurora-observed').locator('.achievement-progress')).toHaveText('天体観測：0 / 1（未観測）');
   await page.evaluate(() => { fixture.achievements.recordObservation('aurora'); fixture.achievements.recordObservation('meteor'); });
+  // Production observations occur with the menu closed. Reopen the real view
+  // after this domain-only fixture event, as a player does after observing.
+  await click(page.locator('#collection-close')); await openAchievements(page, click);
   await expect(page.locator('.achievement-summary')).toHaveText('解除済み 19 / 19');
   await expect(page.locator('.achievement-card[data-unlocked="true"]')).toHaveCount(19);
   await expect(page.locator('.achievement-card h3')).toHaveText(NORMAL_ACHIEVEMENTS.map(entry => entry.name));
